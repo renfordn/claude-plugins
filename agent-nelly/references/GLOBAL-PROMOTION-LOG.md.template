@@ -1,0 +1,25 @@
+# Global Promotion Log
+
+Append-only history of every promotion into, and removal from, `GLOBAL-MEMORY.md`. Never edit
+or remove prior entries — a removal is logged as a new entry, not by deleting the promotion
+entry it undoes.
+
+## Log
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Action: <promoted | removed>
+- Entry: <name of the GLOBAL-MEMORY.md entry>
+- Source Project(s): <project-slug, or "backfill" plus each contributing project-slug>
+- Reason: <why this looked generalizable and not already represented — or, for a removal, why
+  it was removed>
+- Trigger: <brief-assembly | user request>
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Action: <promoted | removed>
+- Entry: <name of the GLOBAL-MEMORY.md entry>
+- Source Project(s): <project-slug, or "backfill" plus each contributing project-slug>
+- Reason: <why this looked generalizable and not already represented — or, for a removal, why
+  it was removed>
+- Trigger: <brief-assembly | user request>

@@ -1,0 +1,10 @@
+{
+  "name": "agent-nelly-private",
+  "description": "Renford Nelson's private marketplace for the agent-nelly plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "agent-nelly", "source": "./" }
+  ]
+}

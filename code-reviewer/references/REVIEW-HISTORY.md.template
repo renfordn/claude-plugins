@@ -1,0 +1,29 @@
+## `REVIEW-HISTORY.md`
+
+```md
+# Review History: <scope title>
+
+## Scope
+
+- Identifier: <caller-defined identifier, e.g. a feature slug or project name>
+
+## Log
+
+Append-only. Add one entry per review pass; never edit or remove prior entries.
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Mode: <direct-review | review-improve | pre-commit>
+- Files Touched:
+  - <relative/path/to/file>
+- Decision Summary: <short summary of decisions/findings from this pass>
+- REVIEW-STATE.md Snapshot Reference: <path or diff-fingerprint-set describing the REVIEW-STATE.md rows as of this entry>
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Mode: <direct-review | review-improve | pre-commit>
+- Files Touched:
+  - <relative/path/to/file>
+- Decision Summary: <short summary of decisions/findings from this pass>
+- REVIEW-STATE.md Snapshot Reference: <path or diff-fingerprint-set describing the REVIEW-STATE.md rows as of this entry>
+```

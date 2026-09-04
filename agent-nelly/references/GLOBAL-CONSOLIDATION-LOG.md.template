@@ -1,0 +1,26 @@
+# Global Consolidation Log
+
+Append-only history of every near-duplicate-entry merge performed via `/nelly-memory
+consolidate`. Never edit or remove prior entries. The originals a consolidation supersedes are
+moved to `<project-slug>/archive/`, not deleted — this log records why they were merged and
+into what.
+
+## Log
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Action: consolidated
+- Merged Entries: <name1>, <name2>, ...
+- Result Entry: <name of the new merged entry>
+- Reason: <why these entries were judged near-duplicates and how the merged entry reconciles
+  them>
+- Trigger: user request via /nelly-memory consolidate
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Action: consolidated
+- Merged Entries: <name1>, <name2>, ...
+- Result Entry: <name of the new merged entry>
+- Reason: <why these entries were judged near-duplicates and how the merged entry reconciles
+  them>
+- Trigger: user request via /nelly-memory consolidate

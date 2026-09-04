@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Spec Driven Development">
+  <rect width="256" height="256" rx="44" fill="#1F6FEB"/>
+  <rect x="40" y="40" width="112" height="152" rx="18" fill="#DCEBFF"/>
+  <path d="M68 78h56M68 102h80M68 126h62M68 150h44" stroke="#1F6FEB" stroke-linecap="round" stroke-width="12"/>
+  <circle cx="60" cy="216" r="9" fill="#DCEBFF"/>
+  <circle cx="104" cy="216" r="9" fill="#8FB8FF"/>
+  <circle cx="148" cy="216" r="9" fill="#0E3A8A"/>
+  <path d="M76 216h12M120 216h12" stroke="#8FB8FF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="186" cy="160" r="40" fill="#0E3A8A"/>
+  <path d="m168 160 14 14 26-36" fill="none" stroke="#DCEBFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="12"/>
+</svg>

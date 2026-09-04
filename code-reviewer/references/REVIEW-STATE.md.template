@@ -1,0 +1,27 @@
+## `REVIEW-STATE.md`
+
+```md
+# Review State: <scope title>
+
+## Status
+
+- Scope: <caller-defined identifier, e.g. a feature slug or project name>
+- Last Updated: <YYYY-MM-DDTHH:MM:SSZ>
+
+## Reviewed Files
+
+| File Path | Status | Diff Fingerprint | Evidence Tier | Last Reviewed |
+| --- | --- | --- | --- | --- |
+| <relative/path/to/file> | <passed \| needs_detailed_review \| stale> | <sha256-or-none> | <tier-1 \| tier-2 \| tier-3 \| tier-4 \| tier-5> | <YYYY-MM-DDTHH:MM:SSZ> |
+
+## Interpretation Notes
+
+- `Status` values:
+  - `passed`: reviewed and the stored `Diff Fingerprint` matches the file's current content.
+  - `needs_detailed_review`: fingerprint mismatch detected, or the reviewer explicitly deferred a finding for deeper review; never silently trust this row as passed.
+  - `stale`: file has changed since last review and no re-review has occurred yet.
+- `Diff Fingerprint` is the hash `code-reviewer` itself uses to detect staleness (see the skill's "Review State" section) — a mismatch against the file's current content always downgrades `Status` to `needs_detailed_review`.
+- `Evidence Tier` reflects the evidence-tier model defined in `skills/code-reviewer/SKILL.md`.
+- One row per reviewed file; update the row in place on re-review rather than appending duplicate rows (append-only history belongs in `REVIEW-HISTORY.md`).
+- When `code-reviewer` opens a review dashboard Artifact (see its "Visual Review" section), that Artifact is a live rendering of these exact rows plus the diff hunks — this table stays the durable source of truth either way.
+```

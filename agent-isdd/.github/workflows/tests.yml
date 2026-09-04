@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # No version was pinned anywhere in this repo before this workflow existed
+          # (see tests/hook_test_utils.py's docstring) -- 3.11 is the assumed baseline.
+          python-version: "3.11"
+
+      - name: Configure a git identity for the runner
+        # diff_fingerprint.py / commit_audit_gate.py tests git init/add/commit inside their
+        # own temp repos; a clean runner has no git identity configured by default.
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Runner"
+
+      - name: Run the test suite
+        run: python3 -m unittest discover -s tests -p "test_*.py" -v

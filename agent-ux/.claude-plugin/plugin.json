@@ -1,0 +1,17 @@
+{
+  "name": "agent-ux",
+  "version": "0.1.1",
+  "description": "A standalone rendering-mechanics agent for Claude Code plugins — breadcrumb, spec-canvas Artifacts, review dashboards, chapter markers, and out-of-scope task chips, independent of any other plugin. Extracted from agent-isdd's ux-agent so sibling plugins can share one place to fix rendering bugs or extend UX conventions instead of duplicating it.",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "homepage": "https://github.com/renfordn/agent-ux",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "ux",
+    "rendering",
+    "artifact",
+    "agent",
+    "claude-code"
+  ]
+}

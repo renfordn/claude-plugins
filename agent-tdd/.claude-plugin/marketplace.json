@@ -1,0 +1,10 @@
+{
+  "name": "agent-tdd-private",
+  "description": "Renford Nelson's private marketplace for the agent-tdd plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "agent-tdd", "source": "./" }
+  ]
+}

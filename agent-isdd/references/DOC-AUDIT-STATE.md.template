@@ -1,0 +1,30 @@
+# Doc Audit State
+
+Project-level (not per-feature) — lives at `~/.claude/sdd-memory/<project-slug>/DOC-AUDIT-STATE.md`,
+in the project's central SDD memory directory. Unlike `REVIEW-STATE.md` (one row per reviewed *file*, scoped
+under a single feature's `spec/<feature-slug>/`), this file tracks one row for the whole
+plugin's `skills/`+`agents/`+`commands/`+`hooks/` tree, because `hooks/commit_audit_gate.py`
+must work whether or not any SDD feature is currently active. Owned by the
+`doc-consistency-auditor` skill; consumed (read-only) by `hooks/commit_audit_gate.py`.
+
+## Status
+
+- Status: `<passed | needs_detailed_review | stale>`
+- Diff Fingerprint: `<sha256-or-none, per hooks/diff_fingerprint.py>`
+- Last Audited: `<YYYY-MM-DDTHH:MM:SSZ>`
+
+## Interpretation Notes
+
+- `Status` values, identical semantics to `REVIEW-STATE.md`'s (`workflow-manager`'s Review State
+  Repair rules apply unchanged, just at project scope instead of per-file):
+  - `passed`: the auditor ran against exactly this `Diff Fingerprint` and found no unresolved
+    high-confidence (blocking) finding.
+  - `needs_detailed_review`: the auditor ran and found at least one unresolved high-confidence
+    finding it couldn't safely auto-fix — `commit_audit_gate.py` denies while this is the status.
+  - `stale`: the recorded `Diff Fingerprint` no longer matches the currently staged diff
+    (something changed under `skills/`/`agents/`/`commands/`/`hooks/` since the last audit) —
+    never silently upgraded to `passed`; requires a fresh pass.
+- `Diff Fingerprint` of `none` means the auditor's last pass found nothing staged under the
+  tracked paths at the time — `hooks/commit_audit_gate.py` treats a fresh `None` (nothing
+  currently staged) as "nothing to audit, allow," separately from a stale/mismatched fingerprint.
+- One row total, not one per file — see the file header above for why.

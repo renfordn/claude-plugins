@@ -1,0 +1,23 @@
+# Doc Audit History
+
+Project-level, append-only — lives at `~/.claude/sdd-memory/<project-slug>/DOC-AUDIT-HISTORY.md`,
+alongside `DOC-AUDIT-STATE.md`. Mirrors `REVIEW-HISTORY.md.template`'s shape. Never edit or
+remove prior entries.
+
+## Log
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Trigger: `<commit-gate | manual>`
+- Diff Fingerprint: `<sha256-or-none>`
+- Findings Summary: `<count and brief description of findings this pass, or "none">`
+- Auto-Fixes Applied: `<list of files auto-fixed for high-confidence findings, or "none">`
+- Resulting Status: `<passed | needs_detailed_review>`
+
+### <YYYY-MM-DDTHH:MM:SSZ>
+
+- Trigger: `<commit-gate | manual>`
+- Diff Fingerprint: `<sha256-or-none>`
+- Findings Summary: `<count and brief description of findings this pass, or "none">`
+- Auto-Fixes Applied: `<list of files auto-fixed for high-confidence findings, or "none">`
+- Resulting Status: `<passed | needs_detailed_review>`

@@ -1,0 +1,22 @@
+{
+  "name": "agent-isdd",
+  "version": "0.1.19",
+  "description": "An intent spec-driven development workflow for Claude: EARS requirements, research-backed design, and TDD-sized task planning, with breadcrumb progress and live task checklists — scoped to Requirements, Design, and Tasks only, with clean handoffs to separate implementation (agent-tdd), code-review (code-reviewer), and memory (agent-nelly) plugins.",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "homepage": "https://github.com/renfordn/agent-isdd",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "spec-driven",
+    "EARS",
+    "requirements",
+    "design",
+    "planning",
+    "workflow",
+    "handoff"
+  ],
+  "optionalDependencies": {
+    "agent-cache-plugin": "Caches workflow phase state for token-optimized breadcrumb rendering. Graceful degradation if unavailable."
+  }
+}

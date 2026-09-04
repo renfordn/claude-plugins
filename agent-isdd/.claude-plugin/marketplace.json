@@ -1,0 +1,10 @@
+{
+  "name": "agent-isdd-private",
+  "description": "Renford Nelson's private marketplace for the agent-isdd plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "agent-isdd", "source": "./" }
+  ]
+}

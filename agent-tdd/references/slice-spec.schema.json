@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/renfordn/agent-tdd/blob/main/references/slice-spec.schema.json",
+  "title": "Slice Spec",
+  "description": "The contract a caller assembles and passes inline in agent-TDD's (and, for high-risk slices, test-author's) spawn prompt. See INTEROP.md for the full narrative contract this schema mirrors.",
+  "type": "object",
+  "required": ["taskDescription", "acceptanceCriteria"],
+  "additionalProperties": false,
+  "properties": {
+    "taskDescription": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The behavior to implement, in plain language."
+    },
+    "acceptanceCriteria": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Acceptance criteria / Test Intent: the observable behavior a test must pin down. Required — if this can't be stated yet, do not spawn agent-TDD."
+    },
+    "riskTier": {
+      "type": "string",
+      "enum": ["standard", "high-risk"],
+      "default": "standard",
+      "description": "Governs whether the conditional test-author split applies. Defaults to standard when omitted."
+    },
+    "dataContractsAndInterfaces": {
+      "type": "string",
+      "description": "Optional: relevant type signatures, module boundaries, or API shapes the caller already knows. Absence is not an error — agent-TDD explores the codebase itself when it's missing."
+    },
+    "preSliceBrief": {
+      "type": "string",
+      "description": "Optional: prior project context the caller already gathered (e.g. from a memory subagent), used to narrow scope before broad exploration."
+    },
+    "reviewHandoffMode": {
+      "type": "string",
+      "enum": ["pause", "skip"],
+      "default": "pause",
+      "description": "Optional: defaults to 'pause' (mandatory caller-driven review between Green and Refactor). Set to 'skip' only as a deliberate caller choice, e.g. no reviewer is available this session."
+    }
+  }
+}

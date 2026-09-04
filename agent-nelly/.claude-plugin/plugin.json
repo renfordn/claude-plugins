@@ -1,0 +1,17 @@
+{
+  "name": "agent-nelly",
+  "version": "0.3.0",
+  "description": "A general-purpose, project-aware memory orchestration plugin for Claude Code — goal-aware briefs, cross-project promotion, staleness detection, and consolidation, independent of any other plugin.",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "homepage": "https://github.com/renfordn/agent-nelly",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "memory",
+    "agent",
+    "orchestration",
+    "context",
+    "claude-code"
+  ]
+}

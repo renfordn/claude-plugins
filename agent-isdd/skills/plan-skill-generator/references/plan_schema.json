@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill Generator Plan Schema",
+  "description": "Discovered project metadata for skill generation. Output by plan-skill-generator, consumed by run-skill-generator-execute.",
+  "type": "object",
+  "required": [
+    "unit_path",
+    "unit_type",
+    "build_system",
+    "launch_method",
+    "device_type",
+    "key_findings",
+    "confidence_level"
+  ],
+  "properties": {
+    "unit_path": {
+      "type": "string",
+      "description": "Relative path to the unit root (usually '.' for a single-project repo). Absolute paths discouraged for portability."
+    },
+    "unit_type": {
+      "type": "string",
+      "enum": ["web-app", "cli", "library", "desktop", "server", "monorepo"],
+      "description": "High-level project type determines driver pattern and launch approach."
+    },
+    "detected_technologies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Technologies/frameworks found: 'react', 'vite', 'node', 'electron', 'python', etc. Helps choose driver templates."
+    },
+    "build_system": {
+      "type": "string",
+      "enum": ["npm", "cargo", "go", "python", "make", "gradle", "maven", "mixed", "none"],
+      "description": "Primary build/package manager. 'none' if the project doesn't require building."
+    },
+    "test_framework": {
+      "type": "string",
+      "description": "Test runner if detected: 'vitest', 'jest', 'pytest', 'cargo test', 'bats', etc. Null if not found."
+    },
+    "launch_method": {
+      "type": "string",
+      "enum": ["dev-server", "binary", "script", "python", "import", "makefile", "dockerfile", "unknown"],
+      "description": "How the project is typically launched. Determines driver entry point."
+    },
+    "device_type": {
+      "type": "string",
+      "enum": ["headless", "gui", "tty"],
+      "description": "Does this run in a terminal (tty/headless), a GUI window (gui), or either (headless for web servers)?"
+    },
+    "key_findings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Human-readable observations about the project. Bullet points, not prose."
+    },
+    "potential_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Gotchas discovered during discovery: missing dependencies, platform limits, etc."
+    },
+    "recommended_driver_pattern": {
+      "type": "string",
+      "enum": ["playwright", "cli", "tmux", "library", "curl", "custom"],
+      "description": "Suggested driver approach. Informs which template to use."
+    },
+    "confidence_level": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "0.0–1.0 confidence in the analysis. High uncertainty when multiple build systems or ambiguous patterns detected."
+    },
+    "discovery_metadata": {
+      "type": "object",
+      "properties": {
+        "files_scanned": {
+          "type": "integer",
+          "description": "Number of files examined during discovery."
+        },
+        "patterns_matched": {
+          "type": "integer",
+          "description": "Number of recognized patterns (e.g., 'package.json exists', 'Dockerfile found')."
+        },
+        "discovery_time_ms": {
+          "type": "integer",
+          "description": "Milliseconds spent on discovery. Helps measure performance."
+        }
+      },
+      "required": ["files_scanned", "patterns_matched", "discovery_time_ms"]
+    },
+    "monorepo_hint": {
+      "type": "string",
+      "description": "If unit_type is 'monorepo', this is a path hint for which app to target (e.g., 'apps/web' or 'packages/sdk'). Null if not a monorepo."
+    },
+    "custom_notes": {
+      "type": "string",
+      "description": "Any additional observations (e.g., 'Legacy codebase with custom build scripts', 'Requires Docker'). Optional."
+    }
+  },
+  "examples": [
+    {
+      "unit_path": ".",
+      "unit_type": "web-app",
+      "detected_technologies": ["react", "vite", "typescript"],
+      "build_system": "npm",
+      "test_framework": "vitest",
+      "launch_method": "dev-server",
+      "device_type": "headless",
+      "key_findings": [
+        "Vite app with React 18",
+        "Dev server on port 5173",
+        "TypeScript enabled"
+      ],
+      "potential_issues": [
+        "Requires npm install before launch"
+      ],
+      "recommended_driver_pattern": "playwright",
+      "confidence_level": 0.95,
+      "discovery_metadata": {
+        "files_scanned": 18,
+        "patterns_matched": 12,
+        "discovery_time_ms": 2340
+      }
+    },
+    {
+      "unit_path": ".",
+      "unit_type": "cli",
+      "detected_technologies": ["rust", "clap"],
+      "build_system": "cargo",
+      "test_framework": "cargo test",
+      "launch_method": "binary",
+      "device_type": "tty",
+      "key_findings": [
+        "Rust CLI using clap for args",
+        "Single binary target",
+        "Built with `cargo build --release`"
+      ],
+      "potential_issues": [
+        "No GPU support in container (not needed)"
+      ],
+      "recommended_driver_pattern": "cli",
+      "confidence_level": 0.98,
+      "discovery_metadata": {
+        "files_scanned": 8,
+        "patterns_matched": 7,
+        "discovery_time_ms": 1420
+      }
+    }
+  ]
+}

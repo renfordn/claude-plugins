@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/agent-isdd && node skills/skill-generator-cli.mjs auto . 2>/dev/null || true",
+            "timeout": 120,
+            "statusMessage": "Auto-generating run skill..."
+          }
+        ]
+      }
+    ]
+  }
+}

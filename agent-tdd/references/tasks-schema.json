@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/renfordn/agent-tdd/blob/main/references/tasks-schema.json",
+  "title": "tasks.md Schema",
+  "description": "JSON Schema for TDD task slices produced by agent-tdd in Design Spec mode. The actual file is Markdown (tasks.md), but this schema describes the semantic structure each slice must conform to.",
+  "type": "object",
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "description": "Array of TDD-sized slices to implement",
+      "items": {
+        "type": "object",
+        "required": [
+          "number",
+          "title",
+          "risk_tier",
+          "files",
+          "test_intent",
+          "validation_target",
+          "ordered_steps"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "description": "Slice number (1, 2, 3, ...)"
+          },
+          "title": {
+            "type": "string",
+            "description": "One-sentence behavior description (e.g., 'Add login form validation')"
+          },
+          "risk_tier": {
+            "type": "string",
+            "enum": ["standard", "high-risk"],
+            "description": "Risk tier for this slice. high-risk triggers conditional test-author split."
+          },
+          "depends_on": {
+            "type": ["array", "null"],
+            "description": "List of slice numbers this slice depends on (e.g., [1, 2]). Null or omitted means no dependencies.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "files": {
+            "type": "array",
+            "description": "Source files touched by this slice (should be ≤ 3 for safe TDD isolation)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "test_intent": {
+            "type": "string",
+            "description": "One-line description of the observable behavior a test must pin down"
+          },
+          "validation_target": {
+            "type": "string",
+            "description": "Command or manual action to validate this slice (e.g., 'npm test -- slice-1' or 'manual: navigate to /login')"
+          },
+          "ordered_steps": {
+            "type": "array",
+            "description": "Numbered, concrete implementation steps grounded in research",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes about known risks, weak test surfaces, or constraints (optional field)"
+          }
+        }
+      }
+    }
+  },
+  "required": ["tasks"]
+}

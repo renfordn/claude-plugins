@@ -1,0 +1,10 @@
+{
+  "name": "code-reviewer-private",
+  "description": "Renford Nelson's private marketplace for the code-reviewer plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "code-reviewer", "source": "./" }
+  ]
+}
