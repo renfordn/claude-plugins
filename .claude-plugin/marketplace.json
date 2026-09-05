@@ -1,0 +1,14 @@
+{
+  "name": "claude-plugins",
+  "description": "Renford Nelson's marketplace aggregating all plugins in this repository, for use as a dependency by plugin-orchestrator.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "agent-isdd", "source": "./agent-isdd" },
+    { "name": "agent-nelly", "source": "./agent-nelly" },
+    { "name": "agent-tdd", "source": "./agent-tdd" },
+    { "name": "agent-ux", "source": "./agent-ux" },
+    { "name": "code-reviewer", "source": "./code-reviewer" }
+  ]
+}
