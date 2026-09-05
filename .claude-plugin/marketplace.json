@@ -1,5 +1,5 @@
 {
-  "name": "claude-plugins",
+  "name": "renfordn-plugins",
   "description": "Renford Nelson's marketplace aggregating all plugins in this repository, for use as a dependency by plugin-orchestrator.",
   "owner": {
     "name": "Renford Nelson"
