@@ -1,14 +1,19 @@
-name: Tests
+name: agent-isdd Tests
 
 on:
   push:
     branches: [main]
+    paths: ["agent-isdd/**"]
   pull_request:
     branches: [main]
+    paths: ["agent-isdd/**"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-isdd
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
