@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Reconciled `proposals/2026-08-12-agent-isdd-token-efficiency-pass` with the current
+  architecture.** Phases 1, 3, and 5 of that pass were already satisfied by pre-existing content;
+  Phase 2 and Phase 4 each had one remaining step targeting `tdd-planner`, which no longer exists
+  (removed in 0.1.14 — task slicing is now performed directly by `spec-driven-development`).
+  - `skills/spec-driven-development/SKILL.md`: Writing Style section now states the `Depends On`
+    contract (populate with real task ids, `[]` when none, narrative deps stay in
+    `Prerequisites`) that would have gone into the removed `tdd-planner/SKILL.md`.
+  - `references/subagent-conventions.md`: updated the "confirmed non-applicable" note to name
+    `spec-driven-development` (current task-slicing owner) instead of the removed `tdd-planner`.
+
 ## 0.1.14 (Phase 2+3: Core Consolidation + Agent-Nelly Integration)
 
 ### Breaking Changes

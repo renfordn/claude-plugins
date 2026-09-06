@@ -26,5 +26,6 @@ follow the same shape rather than inventing a new report structure.
 
 **Confirmed non-applicable today** (re-check this premise before retrofitting, don't assume it
 still holds without looking): `spec-reviewer` reviews one caller-given document, not a candidate
-set, so it has nothing to triage. `tdd-planner` defers codebase research to `planning-agent`
-rather than surveying files itself, so it also does no candidate-file triage of its own.
+set, so it has nothing to triage. Task slicing (formerly `tdd-planner`, now performed directly by
+`spec-driven-development` from `research-consolidator`'s `task_findings`) doesn't survey files
+itself either, so it also does no candidate-file triage of its own.

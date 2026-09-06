@@ -381,4 +381,7 @@ the user explicitly asks to change it.
 
 Structured sections with checklists, concise prose plus bullet lists, for `requirements.md`,
 `design.md`, and `recap.md`. For `tasks.md`, optimize for agent handoff: minimal narration,
-explicit ordered execution steps, concrete validation steps.
+explicit ordered execution steps, concrete validation steps. When slicing tasks, populate each
+task's `Depends On` field with the real bare `task-id`s of other tasks in the same `tasks.md` it
+requires first (`[]` when none) — never leave it as unexamined boilerplate, and never fold a
+genuinely narrative dependency into it (that stays in `Prerequisites`).
