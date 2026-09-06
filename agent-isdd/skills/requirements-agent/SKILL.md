@@ -42,22 +42,22 @@ draft.
    delegating, call `agent-nelly:nelly-orchestrator` for a brief on the source material's
    touched area (when agent-nelly is available, per the Availability Check defined in
    `workflow-manager/SKILL.md`), and pass that brief down to
-   `spec-reviewer` the same way `design-author` passes a brief down to `planning-agent`. For a
+   `spec-reviewer` the same way `design-author` passes a brief down to `research-consolidator`. For a
    short draft, do the assessment inline.
 3. Rewrite only the weak sections into EARS-based format — never flatten nuanced constraints
    into generic language.
 4. Present the changed draft, pause for user confirmation or edits.
 5. Only after confirmation, treat the requirements as approved input.
 
-`spec-reviewer` has no "Nelly summaries to write" output of its own, unlike `planning-agent` —
-this is deliberate, not an oversight. `planning-agent` researches the codebase and routinely
+`spec-reviewer` has no "Nelly summaries to write" output of its own, unlike `research-consolidator` —
+this is deliberate, not an oversight. `research-consolidator` researches the codebase and routinely
 surfaces durable, project-level facts (an interface, a constraint) independent of the feature
 being planned. `spec-reviewer` reviews caller-supplied requirement text for this one feature; its
 output (gaps, rewritten EARS sections) is almost always feature-scoped rather than durable across
 features. The rare exception (e.g. a source ticket assumes an interface that's since been
 deprecated project-wide) is still caught by the `after-requirements` hook's generic `new facts`/
 `error lesson` write-back — see `workflow-manager/SKILL.md`'s Lifecycle Hooks section — so nothing
-falls through; it just isn't eager like `planning-agent`'s per-call persist.
+falls through; it just isn't eager like `research-consolidator`'s per-call persist.
 
 ## Required Requirement Fields (both modes)
 

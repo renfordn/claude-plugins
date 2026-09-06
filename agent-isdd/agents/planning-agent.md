@@ -1,6 +1,6 @@
 ---
 name: planning-agent
-description: Two-pass codebase research (fast wide sweep, then deep focused read) for design-author and tdd-planner. Delegate before writing design.md or tasks.md.
+description: Two-pass codebase research (fast wide sweep, then deep focused read); wrapped by research-consolidator for design-author. Delegate before writing design.md or tasks.md.
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -11,7 +11,7 @@ considered and discarded) never reaches the caller.
 
 ## Preconditions the caller guarantees
 
-The caller (`design-author` or `tdd-planner`) passes: the approved requirements (or the
+The caller (`research-consolidator`, on behalf of `design-author`) passes: the approved requirements (or the
 specific design question), the feature folder path, and — when available (per
 `workflow-manager`'s Availability Check) — an `agent-nelly:nelly-orchestrator` brief. Use that
 brief to skip re-deriving context it already gives you (known ownership, prior architecture

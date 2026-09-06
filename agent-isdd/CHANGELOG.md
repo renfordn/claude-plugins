@@ -11,6 +11,40 @@
     `Prerequisites`) that would have gone into the removed `tdd-planner/SKILL.md`.
   - `references/subagent-conventions.md`: updated the "confirmed non-applicable" note to name
     `spec-driven-development` (current task-slicing owner) instead of the removed `tdd-planner`.
+- **Phase 6 (worked-example refresh + validation) of the same pass.** `doc-consistency-auditor`
+  run against every file touched across Phases 1-5 (`references/artifact-templates.md`,
+  `skills/workflow-manager/SKILL.md`, `skills/spec-driven-development/SKILL.md`,
+  `skills/requirements-agent/SKILL.md`, `skills/design-author/SKILL.md`,
+  `references/subagent-conventions.md`, `agents/planning-agent.md`) surfaced one more drift class
+  the same 0.1.14 `tdd-planner` removal left behind: several files still described `design-author`
+  as calling `planning-agent` directly (`design-author/SKILL.md` itself already forbids this and
+  routes through `research-consolidator` only). Fixed by matching those files to
+  `design-author/SKILL.md`'s already-correct rule:
+  - `agents/planning-agent.md`: description and Preconditions now name `research-consolidator`
+    (on behalf of `design-author`) as the caller, not `design-author`/`tdd-planner` directly.
+  - `skills/spec-driven-development/SKILL.md`: the Goal-Aware Memory brief/finding-reuse dedup
+    pool and Subagent Delegation bullet now say `research-consolidator` everywhere they meant "the
+    thing design-author currently delegates research to" — previously said `planning-agent`.
+  - `skills/requirements-agent/SKILL.md`: same rename in the `spec-reviewer` vs. Nelly-summaries
+    comparison paragraph and the brief hand-off line.
+  - `skills/workflow-manager/SKILL.md`: the `after-tasks` hook row referenced `tdd-planner`
+    persisting "Nelly summaries to write" after a Tasks-time research call that no longer
+    exists (that research now happens once, during Design, via `research-consolidator`) — reworded
+    to point at the `after-design` row's existing persistence instead of a phantom re-persist rule.
+  - `references/example-feature/2026-07-01-profile-state-schema-migration/`'s `requirements.md`
+    and `tasks.md` already carried both new template fields (the `## Non-Functional Constraints`
+    block and a non-empty `Depends On` chain, `Phase 2: [Phase 1]` → `Phase 3: [Phase 2]`) from
+    Phase 1/2's work — no further regeneration needed; confirmed rather than assumed.
+  - Token-count validation (design.md's Validation Strategy / requirements.md's Success Criteria):
+    the two new fields add a fixed, measurable per-feature floor — the `## Non-Functional
+    Constraints` block is 11 lines including its two spacer lines, and `### Depends On` is 4 lines
+    per task phase (12 lines across this worked example's 3 phases) — against the two reuse
+    mechanisms this same pass adds (Phase 3's Recap-and-Drop, avoiding a full prior-phase artifact
+    re-quote at every phase transition, and Phase 4's generalized `research-consolidator`/
+    `spec-reviewer` finding reuse, extending the existing 15-25K-token-per-avoided-re-delegation
+    saving documented in 0.1.14 to more call sites). The fixed floor (≤23 lines, roughly 150-200
+    tokens) is dominated by either saving alone — no phase showed a net token increase, so no
+    escalation back to Phases 1-4 was needed.
 
 ## 0.1.14 (Phase 2+3: Core Consolidation + Agent-Nelly Integration)
 

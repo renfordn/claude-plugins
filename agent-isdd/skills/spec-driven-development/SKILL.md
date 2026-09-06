@@ -93,23 +93,23 @@ brief exists in `workflow-state.json`'s `nelly_brief_cache` field:
 
 When the next phase is **Design**, include `surface relevant memory: true` in the nelly call so
 the brief's `Relevant entries` section is populated. `design-author` passes those entries to
-`planning-agent` in place of the former separate pre-sweep nelly call — no second nelly spawn
-needed. For other phases, `surface relevant memory` is not required unless you have a specific
+`research-consolidator` in place of the former separate pre-sweep nelly call — no second nelly
+spawn needed. For other phases, `surface relevant memory` is not required unless you have a specific
 reason to request it.
 
 This skill is the single fetch/delegation point, per continuous stretch of phase work, for the
-nelly brief **and** for `planning-agent`/`spec-reviewer` findings still valid from earlier in
-that same stretch (e.g. a `planning-agent` finding produced during Design). When a brief or
-finding has already been fetched this session and is still visible in context, reuse it rather
-than re-calling `agent-nelly:nelly-orchestrator`/`planning-agent`/`spec-reviewer` again for the
-same content. Re-fetch only when one of these triggers applies — identical rule, same three
-triggers, now scoped to a wider set of cached content, not a new or looser rule:
+nelly brief **and** for `research-consolidator`/`spec-reviewer` findings still valid from earlier
+in that same stretch (e.g. a `research-consolidator` finding produced during Design). When a
+brief or finding has already been fetched this session and is still visible in context, reuse it
+rather than re-calling `agent-nelly:nelly-orchestrator`/`research-consolidator`/`spec-reviewer`
+again for the same content. Re-fetch only when one of these triggers applies — identical rule,
+same three triggers, now scoped to a wider set of cached content, not a new or looser rule:
 
 1. No prior brief or finding is visible in context (a new session, or context was compacted
    since the last fetch) **and** no persistent cache exists in `workflow-state.json`. If persistent
    cache exists and is valid, reuse it instead of fetching. Applies identically to a
-   `planning-agent`/`spec-reviewer` finding: if it isn't visible in context and no persistent
-   cache is valid, it isn't reusable.
+   `research-consolidator`/`spec-reviewer` finding: if it isn't visible in context and no
+   persistent cache is valid, it isn't reusable.
 2. A rewind (Rewind Contract) or a Mid-Phase Change Classification happened since the cached
    brief/finding was fetched — both live in `workflow-manager`'s `SKILL.md`. A rewind or
    mid-phase change can invalidate a cached codebase finding exactly as it can invalidate a
@@ -117,13 +117,13 @@ triggers, now scoped to a wider set of cached content, not a new or looser rule:
    invalidates persistent cache; clear `nelly_brief_cache` from `workflow-state.json`.
 3. `workflow-manager`'s `before-continue` Intent-alignment check flagged a divergence since the
    cached brief/finding was fetched. When this fires, treat every cached item (brief and any
-   `planning-agent`/`spec-reviewer` finding alike) as invalidated, not only the brief — an
+   `research-consolidator`/`spec-reviewer` finding alike) as invalidated, not only the brief — an
    Intent-level divergence is a signal about the whole stretch of work, not brief-specific.
    **[Phase 1.2]** Clear persistent cache on Intent drift.
 
 None of the three triggers assumed brief-specific semantics that fail to hold for a
-`planning-agent`/`spec-reviewer` finding — re-verified as part of extending this rule's scope,
-per design.md's mitigation for the correctness risk this generalization raises.
+`research-consolidator`/`spec-reviewer` finding — re-verified as part of extending this rule's
+scope, per design.md's mitigation for the correctness risk this generalization raises.
 
 When delegating into `workflow-manager` or `design-author`, pass along the
 already-fetched brief and any still-valid finding explicitly rather than letting any of them
@@ -229,8 +229,8 @@ Delegation rules:
   `workflow-state.md` and `recap.md` yourself — per `workflow-manager`'s field-update contract
   (see its Lifecycle Hooks section), not a separate set of rules.
 - `requirements-agent` and `design-author` stay inline for interviewing the user, but delegate
-  their bounded sub-tasks (`spec-reviewer` for draft assessment; `planning-agent` for research)
-  to subagents rather than doing that work in the main thread.
+  their bounded sub-tasks (`spec-reviewer` for draft assessment; `research-consolidator` for
+  research) to subagents rather than doing that work in the main thread.
 
 ## Implementation Handoff (Phase 2+3 revised)
 

@@ -9,7 +9,9 @@
   first implementation session; Phase 2 and Phase 4's `tdd-planner` callsites were stale
   (`tdd-planner` was removed from agent-isdd in 0.1.14 — task slicing is now performed directly
   by `spec-driven-development`) and were closed out by pointing the remaining step at that
-  skill instead. See CHANGELOG.md's next entry for the concrete diff.
+  skill instead. Phase 6 closed out the pass: worked example confirmed already up to date, a
+  related `planning-agent`/`research-consolidator` drift found during its audit pass was fixed,
+  and the token comparison was recorded. See CHANGELOG.md's next entry for the concrete diff.
 
 ## Execution Rules
 
@@ -367,6 +369,20 @@ this kind of triage.
 - [ ] None.
 
 ## Phase 6: Worked-example refresh and token-count validation
+
+**Status: Done.** Step 1: `references/example-feature/2026-07-01-profile-state-schema-migration/`
+already carried both new fields (NFR block in `requirements.md`, non-empty `Depends On` chain in
+`tasks.md`) from Phases 1-2 — confirmed, no further regeneration needed. Step 2: manual
+`doc-consistency-auditor`-style scan of the 7 files touched across Phases 1-5 (the two
+`tdd-planner` files no longer exist, per Phase 2/4's reconciliation) found and fixed one more
+0.1.14-era drift class: several files still described `design-author` calling `planning-agent`
+directly, contradicting `design-author/SKILL.md`'s own already-correct `research-consolidator`-only
+rule. Fixed in `agents/planning-agent.md`, `skills/spec-driven-development/SKILL.md`,
+`skills/requirements-agent/SKILL.md`, and `skills/workflow-manager/SKILL.md` (its `after-tasks`
+row referenced a Tasks-time research event that no longer exists). Step 3/4: token comparison
+recorded in CHANGELOG.md's next entry — the new fields' fixed per-feature floor (≤23 lines) is
+dominated by Phase 3/4's reuse savings; no phase showed a net increase, so no escalation was
+needed.
 
 ### Objective
 
