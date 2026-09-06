@@ -2,9 +2,14 @@
 
 ## Phase Status
 
-- Current Phase: Tasks
-- State: Ready For Implementation
-- Last Updated: 2026-08-12
+- Current Phase: Implementation
+- State: Complete
+- Last Updated: 2026-09-06
+- Note: Phases 1, 3, and 5 were already satisfied by pre-existing content as of this pass's
+  first implementation session; Phase 2 and Phase 4's `tdd-planner` callsites were stale
+  (`tdd-planner` was removed from agent-isdd in 0.1.14 — task slicing is now performed directly
+  by `spec-driven-development`) and were closed out by pointing the remaining step at that
+  skill instead. See CHANGELOG.md's next entry for the concrete diff.
 
 ## Execution Rules
 
@@ -22,6 +27,11 @@
   bare ids, no embedded prose; a genuinely narrative dependency stays in `Prerequisites` instead.
 
 ## Phase 1: Non-Functional Constraints block
+
+**Status: Done (pre-existing).** All four ordered steps and the Test Intent's worked example
+were already present in `references/artifact-templates.md`, `requirements-agent/SKILL.md`, and
+`references/example-feature/2026-07-01-profile-state-schema-migration/requirements/requirements.md`
+before this pass began — no change needed.
 
 ### Objective
 
@@ -86,6 +96,13 @@ there) as part of this task rather than leaving it open.
 
 ## Phase 2: `Depends On` task field
 
+**Status: Done.** Steps 1-2 (template field) were already present in
+`references/artifact-templates.md`. Step 4 (INTEROP.md) was already covered by agent-tdd's own
+"Depends On graph" handling. Step 3 targeted `tdd-planner/SKILL.md`, which no longer exists —
+`tdd-planner` was removed from agent-isdd in 0.1.14 and task slicing is now performed directly by
+`spec-driven-development`. Closed out by adding the equivalent rule to
+`spec-driven-development/SKILL.md`'s Writing Style section instead.
+
 ### Objective
 
 Add a structured `### Depends On` (bare `task-id` list) field per task phase in the `tasks.md`
@@ -147,6 +164,10 @@ template, distinct from and alongside the existing narrative `### Prerequisites`
 
 ## Phase 3: Recap-and-Drop rule
 
+**Status: Done (pre-existing).** `workflow-manager/SKILL.md` already has the "Recap-and-Drop"
+subsection, and `spec-driven-development/SKILL.md` already references `recap.md` at phase
+transitions rather than re-quoting full prior-phase artifacts — no change needed.
+
 ### Objective
 
 Add the Recap-and-Drop procedural rule to `skills/workflow-manager/SKILL.md`: once a phase's
@@ -207,6 +228,13 @@ reference `recap.md` rather than re-quoting the full prior-phase artifact body b
 - [ ] None.
 
 ## Phase 4: Generalize the brief-reuse convention
+
+**Status: Done.** `spec-driven-development/SKILL.md` already documents the identical
+three-trigger rule extended to `planning-agent`/`spec-reviewer` findings, and `design-author`
+already checks for a still-valid cached `research-consolidator` finding before re-delegating.
+Step 3's `tdd-planner` caller-side check is moot — `tdd-planner` was removed in 0.1.14 and
+`spec-driven-development` (the current tasks.md author) consumes `design-author`'s already-cached
+research rather than re-invoking it, so there is no separate re-delegation path left to guard.
 
 ### Objective
 
@@ -274,6 +302,11 @@ since) from covering only the agent-nelly brief to also covering `planning-agent
 - [ ] None, but flagged `high-risk` — do not skip step 4's explicit re-verification.
 
 ## Phase 5: Document the "Excluded — and why" house convention
+
+**Status: Done.** `references/subagent-conventions.md` already existed with the pointer from
+`agents/planning-agent.md`. Its "confirmed non-applicable" note referenced `tdd-planner`, which no
+longer exists (removed in 0.1.14); updated it to describe the current task-slicing owner
+(`spec-driven-development`, via `research-consolidator`'s `task_findings`) instead.
 
 ### Objective
 
