@@ -286,18 +286,20 @@ class CapabilityMap:
             ))
 
         elif plugin_name == "code-reviewer":
-            capabilities.append(Capability(
-                plugin=plugin_name,
-                id="code_review",
-                description="Perform code review on implementation"
-            ))
+            if "review" in content.lower() or "Code Reviewer" in content:
+                capabilities.append(Capability(
+                    plugin=plugin_name,
+                    id="code_review",
+                    description="Perform code review on implementation"
+                ))
 
         elif plugin_name == "agent-cache-plugin":
-            capabilities.append(Capability(
-                plugin=plugin_name,
-                id="state_cache",
-                description="Cache and retrieve workflow phase state"
-            ))
+            if "cache" in content.lower() or "Cache" in content:
+                capabilities.append(Capability(
+                    plugin=plugin_name,
+                    id="state_cache",
+                    description="Cache and retrieve workflow phase state"
+                ))
 
         return capabilities
 
