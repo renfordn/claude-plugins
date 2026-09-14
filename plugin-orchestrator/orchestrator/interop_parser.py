@@ -304,6 +304,22 @@ class CapabilityMap:
                 description="Render progress UI events"
             ))
 
+        elif plugin_name == "code-reviewer":
+            if "Code Reviewer" in content or "code-reviewer" in content:
+                capabilities.append(Capability(
+                    plugin=plugin_name,
+                    id="code_review",
+                    description="Review implementation output and return approval/feedback",
+                    consumes={
+                        "sliced_specs": "array",
+                        "implementation": "object"
+                    },
+                    produces={
+                        "review_feedback": "array",
+                        "approval": "boolean"
+                    }
+                ))
+
         return capabilities
 
     def get_plugin(self, plugin_name: str) -> Optional[PluginInfo]:

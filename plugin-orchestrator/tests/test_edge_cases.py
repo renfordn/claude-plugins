@@ -255,15 +255,20 @@ class TestGracefulDegradation(unittest.TestCase):
 
     def test_capability_map_handles_missing_interop_files(self):
         """Test that CapabilityMap gracefully handles missing INTEROP.md files."""
-        # code-reviewer doesn't have an INTEROP file in fixtures
-        plugin = self.capability_map.get_plugin("code-reviewer")
+        # Use an isolated, empty plugin dir so every plugin's file is genuinely
+        # missing (the shared fixtures/ dir now has an INTEROP.md for every
+        # known plugin, code-reviewer included).
+        import tempfile
+        with tempfile.TemporaryDirectory() as empty_dir:
+            capability_map = CapabilityMap(empty_dir)
+            plugin = capability_map.get_plugin("code-reviewer")
 
-        # Should still return a PluginInfo object (not None)
-        self.assertIsNotNone(plugin)
+            # Should still return a PluginInfo object (not None)
+            self.assertIsNotNone(plugin)
 
-        # But with empty capabilities
-        self.assertEqual(len(plugin.capabilities), 0)
-        self.assertEqual(len(plugin.handoff_targets), 0)
+            # But with empty capabilities
+            self.assertEqual(len(plugin.capabilities), 0)
+            self.assertEqual(len(plugin.handoff_targets), 0)
 
     def test_soft_dependency_missing_doesnt_block_workflow(self):
         """Test that missing soft dependency doesn't block workflow continuation."""

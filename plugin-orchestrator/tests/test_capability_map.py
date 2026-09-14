@@ -349,14 +349,16 @@ class TestCapabilityMapRefactoring(unittest.TestCase):
 
     def test_plugin_without_interop_file_has_no_capabilities(self):
         """Test that plugin without INTEROP.md gets empty capabilities list."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        # Use an isolated, empty plugin dir so every plugin's file is genuinely
+        # missing (self.plugin_dir now has an INTEROP.md for every known
+        # plugin, code-reviewer included).
+        with tempfile.TemporaryDirectory() as empty_dir:
+            cap_map = CapabilityMap(empty_dir)
+            plugin = cap_map.get_plugin("code-reviewer")
 
-        # code-reviewer doesn't have INTEROP.md
-        plugin = cap_map.get_plugin("code-reviewer")
-
-        self.assertIsNotNone(plugin)
-        self.assertEqual(len(plugin.capabilities), 0)
-        self.assertEqual(len(plugin.handoff_targets), 0)
+            self.assertIsNotNone(plugin)
+            self.assertEqual(len(plugin.capabilities), 0)
+            self.assertEqual(len(plugin.handoff_targets), 0)
 
     def test_soft_dependency_detection(self):
         """Test soft dependency flags are correctly set."""
