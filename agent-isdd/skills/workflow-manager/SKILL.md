@@ -207,7 +207,7 @@ forward in full; summarizing never means silently dropping an open item.
 | `start` | No matching feature folder exists, the user explicitly asks to start a new workflow, or an existing one shouldn't be reused safely. | Derive the slug, scaffold the structure (including `intent/` directory), capture the Goal via `agent-nelly:nelly-orchestrator` (if available, per the Availability Check) or by asking the user, create `intent/intent.md` with Goal + Success Signals + Intent Hash, initialize `workflow-state.md` (with Intent Hash + Intent Alignment Status) and `recap.md`, route into `requirements-agent`. |
 | `continue` | A matching feature folder exists, status is `In Progress`, active phase not complete. | Read `workflow-state.md`, validate against phase artifacts, repair if stale, evaluate completion checklists, continue from the earliest incomplete or blocked phase. |
 | `pause` | A blocker exists, user confirmation is required, active feature resolution is ambiguous, a phase gate fails, any completion checklist fails, or (when available) `agent-nelly:nelly-orchestrator` raises an unresolved Intent-alignment flag. | Keep `Current Phase` unchanged; set `Workflow Status` precisely, `Pause Reason`, and a concrete `Next Action`. |
-| `handoff` | `Tasks` are ready, implementation was requested, no unresolved blockers or confirmation checkpoints remain, and the `Tasks` checklist passes. | Set `Current Phase: Implementation`, `Current Owner: User`, `Workflow Status: In Progress`; let `spec-driven-development`'s "Implementation Handoff" step build the Slice Spec and spawn `agent-tdd:agent-TDD` — a single, one-directional handoff (see `INTEROP.md`). Once that spawn returns its report, set `Workflow Status: Complete`; track no further implementation-stage state here. |
+| `handoff` | `Tasks` are ready, implementation was requested, no unresolved blockers or confirmation checkpoints remain, and the `Tasks` checklist passes. | Set `Current Phase: Implementation`, `Current Owner: User`, `Workflow Status: In Progress`; let `spec-driven-development`'s "Implementation Handoff" step build the Slice Spec and spawn `agent-tdd:agent-TDD` — a single, one-directional handoff (see `INTEROP.md`). Once that spawn returns its report, set `Workflow Status: Complete` **and, in the same write, resync every field that still reflects the pre-handoff state**: `### Tasks`'s `Status` (to `Complete`), `Current Owner` (to `Completed` or the completing agent), `Final Handoff` (today's date), `Next Action` (to `None`, or a concrete post-completion action like a pending release — never left at its pre-handoff value), and the `Notes` section (replace stale pre-implementation notes — e.g. "N slices to be defined" — with the actual outcome: slice count, test results, from the spawn's report/`recap.md`). Do not leave any field describing an in-progress or not-yet-started state once the spawn has returned success; track no further implementation-stage state beyond this sync. |
 | `complete` | Planning finished without an implementation request, or implementation is complete with no further phase work. | Set `Workflow Status: Complete`, `Pause Reason: None`, `Next Action: None`. |
 
 ## Native Plan Mode Gate
@@ -332,7 +332,12 @@ backstop — on that reminder, sync the checklist directly rather than delegatin
 - Do not restart a workflow when continuation is safer.
 - Do not continue into a later phase when an earlier phase is invalidated.
 - Do not hand off to implementation unless tasks are explicitly ready.
-- Do not leave `workflow-state.md` stale after a routing decision.
+- Do not leave `workflow-state.md` stale after a routing decision — this includes every
+  sub-section, not just the top-level `Workflow Status`. A recurring failure mode: `handoff`
+  completes and `Workflow Status` gets set to `Complete`, but the `### Tasks` phase-state block,
+  `Notes`, and `Next Action` are left at their pre-handoff wording (e.g. `Status: Ready For
+  Implementation` and "N slices to be defined" surviving after all N slices actually shipped).
+  Treat the whole file as needing resync on every completion, not just its headline field.
 - Do not skip the Goal-field capture on `start` (requires nelly when available).
 - Do not skip the inline Intent-alignment check on `before-continue` — it runs regardless of
   nelly availability (no nelly spawn needed; see Goal Field Contract).
