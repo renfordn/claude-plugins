@@ -29,8 +29,15 @@ import logging
 import time
 from pathlib import Path
 from typing import Optional, Tuple, Dict
+from orchestrator.nelly_pending import PendingNellyRequestQueue
 
 logger = logging.getLogger(__name__)
+
+
+class NellyRequestPending(Exception):
+    """Raised by _call_agent_nelly when a brief fetch was enqueued but isn't
+    resolved yet. Caught by fetch_brief's existing except-path, which falls
+    back to stale cache exactly as it does for any other fetch failure."""
 
 # TTL for cached brief in seconds (1 hour = 3600 seconds)
 NELLY_BRIEF_CACHE_TTL = 3600
@@ -88,7 +95,9 @@ class NellyBriefManager:
 
         # Try to fetch new brief
         try:
-            brief_text, metadata = self._call_agent_nelly(cwd, task_description)
+            brief_text, metadata = self._call_agent_nelly(
+                cwd, task_description, intent_hash, design_hash, workflow_state
+            )
 
             # Cache the new brief
             self.cache_brief(
@@ -284,28 +293,54 @@ class NellyBriefManager:
     def _call_agent_nelly(
         self,
         cwd: str,
-        task_description: str
+        task_description: str,
+        intent_hash: str,
+        design_hash: str,
+        workflow_state: dict
     ) -> Tuple[str, dict]:
         """
         Call agent-nelly:nelly-orchestrator to fetch brief.
 
-        In production, this calls the actual agent-nelly plugin.
-        In tests, this is mocked.
+        NellyBriefManager runs inside a hook subprocess (PreToolUse), which
+        has no Agent-tool access and so cannot call agent-nelly:nelly-orchestrator
+        directly (see agent-nelly's INTEROP.md). This checks
+        PendingNellyRequestQueue for a result the main session already
+        resolved out of band (via hooks/resolve_nelly_request.py); if none
+        exists yet, it enqueues one and raises NellyRequestPending, which
+        fetch_brief's existing except-path catches and treats exactly like
+        any other fetch failure (falls back to stale cache, or (None, {})).
+
+        In tests, this is mocked directly, so the pending-request path below
+        never runs under test.
 
         Args:
             cwd: Current working directory
             task_description: Description of the task
+            intent_hash: Current intent.md hash (part of the dedupe query)
+            design_hash: Current design.md hash (part of the dedupe query)
+            workflow_state: Current workflow state, used to read/write the
+                pending-request queue
 
         Returns:
             Tuple of (brief_text, metadata)
 
         Raises:
-            Exception: If agent-nelly call fails
+            NellyRequestPending: If no resolved brief exists yet (a request
+                was just enqueued, or one is already pending)
         """
-        # This would call the actual agent-nelly in production.
-        # For now, this is a placeholder that will be mocked in tests.
-        raise NotImplementedError(
-            "agent-nelly call must be mocked in tests"
+        query = {
+            "task_description": task_description,
+            "intent_hash": intent_hash,
+            "design_hash": design_hash,
+        }
+        queue = PendingNellyRequestQueue()
+        result = queue.find_resolved(workflow_state, "brief_fetch", query)
+        if result is not None:
+            return result.get("brief_text"), result.get("metadata", {})
+
+        queue.enqueue(workflow_state, "brief_fetch", query)
+        raise NellyRequestPending(
+            f"Brief fetch for {cwd!r} enqueued; not yet resolved by the main session."
         )
 
     def _compute_hashes(self, cwd: str) -> Tuple[str, str]:

@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- `references/nelly-entry.template.md` / `INTEROP.md` — new optional, all-or-nothing
+  `metadata.error_type` / `source_plugin` / `target_plugin` fields on `error-prevention` entries,
+  plus a `Workaround action:` body line, for a consumer that needs a structured (exact-match, not
+  topical) workaround lookup from a hook that can't call `nelly-orchestrator` itself (no
+  `Agent`-tool access inside a hook). Documents the enqueue/resolve/pick-up pattern such a
+  consumer uses — see `plugin-orchestrator`'s `orchestrator/nelly_pending.py` and
+  `hooks/resolve_nelly_request.py` for the first (and reference) implementation. No change to
+  Agent Nelly's own hooks or `nelly-orchestrator` behavior — this is a schema/doc addition only.
 - `hooks/nelly_auto_extract.py` / `hooks/nelly_commit_extract.py` — auto-confirmation of recurring
   inferred entries. Every entry these hooks write now carries `metadata.seen_count` (starting at
   1); a later dedup hit on the same slug increments it in place instead of a silent no-op, and once

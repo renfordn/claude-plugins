@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 from orchestrator.interop_parser import CapabilityMap
 from orchestrator.checkpoint import CheckpointManager
+from orchestrator.nelly_pending import PendingNellyRequestQueue
 
 
 class ErrorHandler:
@@ -127,7 +128,7 @@ class ErrorHandler:
         # Try known issue workarounds from nelly memory
         if error_type == "known_issue":
             workaround = self.nelly_workaround_lookup(
-                error_type, source_plugin, target_plugin
+                error_type, source_plugin, target_plugin, error_details, workflow_state
             )
             if workaround:
                 return self._handle_workaround(workflow_state, workaround)
@@ -139,23 +140,51 @@ class ErrorHandler:
         self,
         error_type: str,
         source_plugin: str,
-        target_plugin: str
+        target_plugin: str,
+        error_details: Optional[dict] = None,
+        workflow_state: Optional[dict] = None
     ) -> Optional[dict]:
         """Query agent-nelly memory for known workarounds.
 
-        Stub implementation: returns None (no workaround found).
-        In production, would query nelly memory cache in workflow_state or
-        external nelly service.
+        ErrorHandler runs inside a hook subprocess (SubagentStop), which has no
+        Agent-tool access and so cannot call agent-nelly:nelly-orchestrator
+        directly (see agent-nelly's INTEROP.md). Instead, this checks
+        PendingNellyRequestQueue for a result the main session already resolved
+        out of band (via hooks/resolve_nelly_request.py, after noticing a
+        pending request surfaced through a hook's systemMessage); if none
+        exists yet, it enqueues one for the main session to pick up and
+        returns None for this call -- the caller falls through to pause.
 
         Args:
             error_type: Error type to look up
             source_plugin: Source plugin context
             target_plugin: Target plugin context
+            error_details: Error context dict (included in the query so the
+                resolving session has enough detail to search nelly memory)
+            workflow_state: Current workflow state, used to read/write the
+                pending-request queue. When None (e.g. a caller that doesn't
+                care about persistence, or an existing test), always returns
+                None without enqueueing anything.
 
         Returns:
-            Workaround dict if found, None otherwise
+            Workaround dict if a resolved match exists, None otherwise
+            (including "still pending" and "workflow_state not provided").
         """
-        # Stub: no workaround found. In production, query nelly memory.
+        if workflow_state is None:
+            return None
+
+        query = {
+            "error_type": error_type,
+            "source_plugin": source_plugin,
+            "target_plugin": target_plugin,
+            "error_details": error_details or {},
+        }
+        queue = PendingNellyRequestQueue()
+        result = queue.find_resolved(workflow_state, "workaround_lookup", query)
+        if result is not None:
+            return result.get("workaround")
+
+        queue.enqueue(workflow_state, "workaround_lookup", query)
         return None
 
     def log_error(

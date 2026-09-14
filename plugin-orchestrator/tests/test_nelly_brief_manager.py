@@ -542,5 +542,68 @@ class TestNellyBriefManagerIntegration(unittest.TestCase):
         # (this is tested in should_invalidate_cache tests)
 
 
+class TestCallAgentNellyRealImplementation(unittest.TestCase):
+    """Test _call_agent_nelly's real (unmocked) pending-request behavior.
+
+    NellyBriefManager runs inside a hook with no Agent-tool access, so it
+    can't call nelly-orchestrator directly -- see orchestrator/nelly_pending.py.
+    These exercise that enqueue/find_resolved wiring directly, as opposed to
+    the rest of this file's tests, which mock _call_agent_nelly entirely.
+    """
+
+    def setUp(self):
+        self.manager = NellyBriefManager()
+
+    def test_first_call_enqueues_and_raises_pending(self):
+        from orchestrator.nelly import NellyRequestPending
+
+        workflow_state = {}
+        with self.assertRaises(NellyRequestPending):
+            self.manager._call_agent_nelly(
+                "/test", "implement X", "intent-hash-1", "design-hash-1", workflow_state
+            )
+
+        pending = workflow_state["orchestration"]["pending_nelly_requests"]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["kind"], "brief_fetch")
+        self.assertEqual(pending[0]["status"], "pending")
+        self.assertEqual(
+            pending[0]["query"],
+            {
+                "task_description": "implement X",
+                "intent_hash": "intent-hash-1",
+                "design_hash": "design-hash-1",
+            }
+        )
+
+    def test_fetch_brief_falls_back_to_none_when_pending_and_no_stale_cache(self):
+        workflow_state = {"orchestration": {"nelly_brief_cache": {}}}
+        brief_text, metadata = self.manager.fetch_brief("/test", "implement X", workflow_state)
+
+        self.assertIsNone(brief_text)
+        self.assertEqual(metadata, {})
+        pending = workflow_state["orchestration"]["pending_nelly_requests"]
+        self.assertEqual(len(pending), 1)
+
+    def test_returns_resolved_brief_once_request_is_resolved(self):
+        workflow_state = {}
+        from orchestrator.nelly import NellyRequestPending
+
+        with self.assertRaises(NellyRequestPending):
+            self.manager._call_agent_nelly(
+                "/test", "implement X", "intent-hash-1", "design-hash-1", workflow_state
+            )
+
+        entry = workflow_state["orchestration"]["pending_nelly_requests"][0]
+        entry["status"] = "resolved"
+        entry["result"] = {"brief_text": "## Intent\nDone", "metadata": {"task_id": "t1"}}
+
+        brief_text, metadata = self.manager._call_agent_nelly(
+            "/test", "implement X", "intent-hash-1", "design-hash-1", workflow_state
+        )
+        self.assertEqual(brief_text, "## Intent\nDone")
+        self.assertEqual(metadata, {"task_id": "t1"})
+
+
 if __name__ == "__main__":
     unittest.main()

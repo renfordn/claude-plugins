@@ -299,6 +299,9 @@ The former per-plugin repos (`renfordn/agent-isdd`, `agent-tdd`, `code-reviewer`
 
 ### Before Committing
 ```bash
+# Install dev/test-only dependencies first (redis, needed by test_state_store.py)
+pip install -r requirements-dev.txt
+
 # Run all tests
 python3 -m unittest discover tests/ -v
 

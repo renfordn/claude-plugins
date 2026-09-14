@@ -33,6 +33,23 @@ matching `type`; entries of other types MUST NOT include them):
   - `metadata.supersedes` (type: error-prevention only, optional): the
     `name` of an older, now-archived `error-prevention` entry this one
     replaces.
+  - `metadata.error_type` / `metadata.source_plugin` / `metadata.target_plugin`
+    (type: error-prevention only, all optional, all-or-nothing): structured
+    match keys for an *orchestration-error workaround* entry — one written
+    specifically to resolve a `plugin-orchestrator` `known_issue` recovery
+    lookup (see that plugin's `orchestrator/error_handler.py` and
+    `hooks/resolve_nelly_request.py`). `error_type` uses
+    `OrchestrationError.VALID_ERROR_TYPES`' vocabulary (`handoff_validation`,
+    `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`) —
+    NOT `ErrorHandler`'s internal classification vocabulary
+    (`contract_mismatch`, `known_issue`, etc.), since those are the terms a
+    workaround-lookup query is actually phrased in. A consumer resolving a
+    pending `workaround_lookup` request matches on these three fields
+    exactly (never fuzzy/substring, unlike the topical relevance matching
+    every other entry type uses) against `error-prevention` entries with
+    `confidence: explicit`. Omit all three on an ordinary error-prevention
+    lesson that isn't meant to auto-resolve an orchestrator lookup — a
+    workaround match happens only when all three are present and equal.
 -->
 
 ---
@@ -46,6 +63,12 @@ metadata:
   # --- only present when type: error-prevention ---
   confidence: <explicit | inferred>        # REQUIRED for this type; no default
   supersedes: <name-of-older-entry|absent> # optional
+  # --- only present when type: error-prevention AND this entry is an
+  #     orchestration-error workaround (see comment block above); all three
+  #     or none ---
+  error_type: <handoff_validation | plugin_unavailable | routing_failed | nelly_fetch_failed>
+  source_plugin: <plugin name, e.g. agent-tdd>
+  target_plugin: <plugin name, e.g. orchestrator>
 ---
 
 <The fact or detail this entry captures.
@@ -66,6 +89,12 @@ Failed approach: <what was tried>
 Context: <when/where this applies>
 Why it failed: <root cause>
 How to avoid: <concrete guidance for next time>
+
+For an orchestration-error workaround entry (carries `metadata.error_type` /
+`source_plugin` / `target_plugin`), add one more line the resolver applies
+verbatim as `ErrorHandler._handle_workaround`'s workaround dict:
+
+Workaround action: <short action string, e.g. "retry_with_research_cache_populated">
 
 Link related entries by their `name` field using `[[name]]` — e.g.
 "see [[some-other-entry]]" — rather than restating shared context inline.>

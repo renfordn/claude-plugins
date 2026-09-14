@@ -188,6 +188,38 @@ Agent Nelly requires no other plugin to function, and no other plugin requires A
 doesn't use it — its `SessionStart` hook has no effect beyond an informational context string,
 and its `PreToolUse` guardrails only ever apply to writes underneath its own memory root.
 
+## Structured lookups for a consumer that can't call nelly-orchestrator at all
+
+Everything above assumes your consumer can invoke the `nelly-orchestrator` subagent (via the
+`Agent` tool) whenever it wants a brief. Some consumers can't: a Claude Code hook (`PreToolUse`,
+`SubagentStop`, etc.) is a blocking subprocess with no `Agent`-tool access, so code running
+inside one can never call `nelly-orchestrator` directly, no matter how it's invoked.
+
+`plugin-orchestrator` hits exactly this — its `ErrorHandler.nelly_workaround_lookup` (inside the
+`SubagentStop` hook) needs a known-issue workaround from Agent Nelly's memory, but can't ask for
+one itself. Its resolution pattern, for any other hook-bound consumer in the same situation:
+
+1. The hook enqueues a request (its own pending-queue, not part of this plugin) and surfaces it
+   to the user/main session via whatever the hook contract allows (a `systemMessage` for
+   `SubagentStop`, injected prompt context for `PreToolUse`).
+2. The **main session** — which does have `Agent`-tool access — notices the surfaced request,
+   calls `nelly-orchestrator` for a real answer (exactly as described above), and writes the
+   result back into the consumer's own state via whatever mechanism the consumer provides (for
+   `plugin-orchestrator`, `hooks/resolve_nelly_request.py`).
+3. The consumer's *next* hook invocation reads the now-resolved result from its own state.
+
+Agent Nelly's part of this is unchanged — it still only ever answers `nelly-orchestrator` calls
+and writes/reads its own memory files; it has no awareness of any consumer's pending-request
+queue or resolution mechanism. The one piece specific to this pattern that Agent Nelly does own
+is matching semantics for a **workaround-shaped `error-prevention` entry**: one written to
+resolve exactly this kind of structured lookup, as opposed to an ordinary topical
+`error-prevention` lesson. See `references/nelly-entry.template.md`'s `error_type` /
+`source_plugin` / `target_plugin` metadata fields (error-prevention only, all-or-nothing,
+optional) — when a caller's lookup query supplies these three values, match `explicit`-confidence
+`error-prevention` entries **exactly** on all three (never the fuzzy/substring topical matching
+used for `Relevant entries`/`File relevance:`/error-pattern surfacing elsewhere), and read the
+matched entry's `Workaround action:` body line as the answer to hand back to the caller.
+
 ## Worked example
 
 For a concrete, illustrative (not wired-up) walkthrough of a structurally different consumer —

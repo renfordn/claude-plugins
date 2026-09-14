@@ -923,5 +923,106 @@ class TestErrorHandlerLogging(unittest.TestCase):
         self.assertEqual(history_entry["reason"], reason_text)
 
 
+class TestNellyWorkaroundLookupRealImplementation(unittest.TestCase):
+    """Test nelly_workaround_lookup's real (unmocked) pending-request behavior.
+
+    ErrorHandler runs inside a hook with no Agent-tool access, so it can't call
+    nelly-orchestrator directly -- see orchestrator/nelly_pending.py. These
+    tests exercise the enqueue/find_resolved wiring itself, as opposed to the
+    rest of this file's tests, which mock nelly_workaround_lookup entirely to
+    test determine_recovery's branching independent of this implementation.
+    """
+
+    def setUp(self):
+        self.mock_capability_map = Mock()
+        self.mock_checkpoint_manager = Mock()
+        self.error_handler = ErrorHandler(self.mock_capability_map, self.mock_checkpoint_manager)
+
+    def test_returns_none_and_does_not_enqueue_without_workflow_state(self):
+        result = self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator"
+        )
+        self.assertIsNone(result)
+
+    def test_first_call_enqueues_pending_request_and_returns_none(self):
+        workflow_state = {}
+        result = self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator",
+            error_details={"issue_id": "ISSUE-1"}, workflow_state=workflow_state
+        )
+
+        self.assertIsNone(result)
+        pending = workflow_state["orchestration"]["pending_nelly_requests"]
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["kind"], "workaround_lookup")
+        self.assertEqual(pending[0]["status"], "pending")
+        self.assertEqual(
+            pending[0]["query"],
+            {
+                "error_type": "known_issue",
+                "source_plugin": "agent-tdd",
+                "target_plugin": "orchestrator",
+                "error_details": {"issue_id": "ISSUE-1"},
+            }
+        )
+
+    def test_repeated_call_with_same_query_does_not_duplicate_pending_entry(self):
+        workflow_state = {}
+        self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator",
+            error_details={"issue_id": "ISSUE-1"}, workflow_state=workflow_state
+        )
+        self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator",
+            error_details={"issue_id": "ISSUE-1"}, workflow_state=workflow_state
+        )
+
+        self.assertEqual(len(workflow_state["orchestration"]["pending_nelly_requests"]), 1)
+
+    def test_returns_workaround_once_request_is_resolved(self):
+        workflow_state = {}
+        self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator",
+            error_details={"issue_id": "ISSUE-1"}, workflow_state=workflow_state
+        )
+        entry = workflow_state["orchestration"]["pending_nelly_requests"][0]
+        entry["status"] = "resolved"
+        entry["result"] = {"workaround": {"action": "retry_with_flag"}}
+
+        result = self.error_handler.nelly_workaround_lookup(
+            "known_issue", "agent-tdd", "orchestrator",
+            error_details={"issue_id": "ISSUE-1"}, workflow_state=workflow_state
+        )
+
+        self.assertEqual(result, {"action": "retry_with_flag"})
+
+    def test_determine_recovery_applies_resolved_workaround_end_to_end(self):
+        workflow_state = {}
+        # First pass: enqueues, falls through to pause.
+        action, _ = self.error_handler.determine_recovery(
+            error_type="known_issue",
+            source_plugin="agent-tdd",
+            target_plugin="orchestrator",
+            error_details={"issue_id": "ISSUE-1"},
+            workflow_state=workflow_state
+        )
+        self.assertEqual(action, "pause")
+
+        # Main session resolves it out of band.
+        entry = workflow_state["orchestration"]["pending_nelly_requests"][0]
+        entry["status"] = "resolved"
+        entry["result"] = {"workaround": {"action": "retry_with_flag"}}
+
+        # Second pass: same error recurs, now finds the resolved workaround.
+        action, _ = self.error_handler.determine_recovery(
+            error_type="known_issue",
+            source_plugin="agent-tdd",
+            target_plugin="orchestrator",
+            error_details={"issue_id": "ISSUE-1"},
+            workflow_state=workflow_state
+        )
+        self.assertEqual(action, "nelly_workaround")
+
+
 if __name__ == '__main__':
     unittest.main()

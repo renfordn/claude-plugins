@@ -105,15 +105,15 @@ def main():
 
     save_workflow_state(state_path, workflow_state)
 
-    system_message = _build_system_message(agent_type, summary)
+    system_message = _build_system_message(agent_type, summary, workflow_state, state_path)
     if system_message:
         print(json.dumps({"systemMessage": system_message}))
 
     sys.exit(0)
 
 
-def _build_system_message(agent_type, summary):
-    """Surface a contract violation or escalation to the user's transcript.
+def _build_system_message(agent_type, summary, workflow_state, state_path):
+    """Surface a contract violation, escalation, or pending nelly request.
 
     SubagentStop cannot inject context back into the conversation, but it can
     show the user a systemMessage (see module docstring). Without this, a
@@ -121,20 +121,33 @@ def _build_system_message(agent_type, summary):
     only ever written to workflow-state.json's handoff_history, invisible
     unless someone went looking at the file.
     """
-    if not summary:
-        return None
-
     parts = []
-    if summary.get("escalation_marker"):
-        parts.append(f"{agent_type} raised an escalation marker: {summary['escalation_marker']}")
-    if summary.get("validation_result") == "contract_invalid":
-        missing = summary.get("error_details", {}).get("missing_fields")
-        detail = f" (missing: {', '.join(missing)})" if missing else ""
-        action = summary.get("recovery_action") or "no recovery available"
+
+    if summary:
+        if summary.get("escalation_marker"):
+            parts.append(f"{agent_type} raised an escalation marker: {summary['escalation_marker']}")
+        if summary.get("validation_result") == "contract_invalid":
+            missing = summary.get("error_details", {}).get("missing_fields")
+            detail = f" (missing: {', '.join(missing)})" if missing else ""
+            action = summary.get("recovery_action") or "no recovery available"
+            parts.append(
+                f"{agent_type}'s output failed contract validation{detail} — "
+                f"orchestrator recovery action: {action}"
+            )
+
+    pending = [
+        e for e in workflow_state.get("orchestration", {}).get("pending_nelly_requests", [])
+        if e["status"] == "pending"
+    ]
+    if pending:
+        ids = ", ".join(e["id"] for e in pending)
         parts.append(
-            f"{agent_type}'s output failed contract validation{detail} — "
-            f"orchestrator recovery action: {action}"
+            f"{len(pending)} nelly request(s) awaiting resolution ({ids}) — "
+            f"call agent-nelly:nelly-orchestrator, then run "
+            f"`python3 resolve_nelly_request.py --state {state_path} --id <id> --result '<json>'` "
+            f"(or --list to see the full query for each)"
         )
+
     return " | ".join(parts) if parts else None
 
 
