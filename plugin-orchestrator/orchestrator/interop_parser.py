@@ -285,6 +285,20 @@ class CapabilityMap:
                 description="Render progress UI events"
             ))
 
+        elif plugin_name == "code-reviewer":
+            capabilities.append(Capability(
+                plugin=plugin_name,
+                id="code_review",
+                description="Perform code review on implementation"
+            ))
+
+        elif plugin_name == "agent-cache-plugin":
+            capabilities.append(Capability(
+                plugin=plugin_name,
+                id="state_cache",
+                description="Cache and retrieve workflow phase state"
+            ))
+
         return capabilities
 
     def get_plugin(self, plugin_name: str) -> Optional[PluginInfo]:
