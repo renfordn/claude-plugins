@@ -1,0 +1,10 @@
+{
+  "name": "agent-cache-plugin-marketplace",
+  "description": "Jay Nelson's marketplace for the agent-cache-plugin. Token caching and management plugin for Claude Code.",
+  "owner": {
+    "name": "Jay Nelson"
+  },
+  "plugins": [
+    { "name": "agent-cache-plugin", "source": "./" }
+  ]
+}
