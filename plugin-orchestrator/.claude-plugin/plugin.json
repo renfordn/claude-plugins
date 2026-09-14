@@ -1,0 +1,20 @@
+{
+  "name": "plugin-orchestrator",
+  "version": "1.0.7",
+  "displayName": "Plugin Orchestrator",
+  "description": "Caching-first multi-plugin workflow router that coordinates plugin capabilities via INTEROP.md contracts, distributes nelly brief once, and maximizes prompt cache efficiency via three-tier context layout.",
+  "homepage": "https://github.com/renfordn/plugin-orchestrator",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "license": "MIT",
+  "keywords": ["orchestration", "workflow", "plugin-coordination", "caching", "context-optimization"],
+  "optionalDependencies": {
+    "agent-isdd": "Coordinated via INTEROP.md handoff contracts.",
+    "agent-tdd": "Coordinated via INTEROP.md handoff contracts.",
+    "code-reviewer": "Coordinated via INTEROP.md handoff contracts.",
+    "agent-nelly": "Coordinated via INTEROP.md handoff contracts.",
+    "agent-ux": "*",
+    "agent-cache-plugin": "*"
+  }
+}
