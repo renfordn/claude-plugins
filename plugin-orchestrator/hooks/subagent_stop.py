@@ -23,7 +23,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hook_state import workflow_state_path, load_workflow_state, save_workflow_state  # noqa: E402
+from hook_state import (  # noqa: E402
+    workflow_state_path, load_workflow_state, save_workflow_state,
+    BASE, project_slug as _project_slug,
+)
 
 
 def _extract_last_assistant_text(transcript_path, tail_bytes=16384):
@@ -93,7 +96,10 @@ def main():
 
     try:
         from orchestrator.hooks.subagent_stop import handle_agent_completion
-        summary = handle_agent_completion(agent_type, report, workflow_state)
+        summary = handle_agent_completion(
+            agent_type, report, workflow_state,
+            error_registry_base_path=BASE, project_slug=_project_slug(cwd)
+        )
     except Exception:
         sys.exit(0)  # graceful degradation — never block subagent completion
 

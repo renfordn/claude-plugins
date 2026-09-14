@@ -30,6 +30,16 @@ def memory_dir(cwd):
     return os.path.join(BASE, project_slug(cwd))
 
 
+def error_registry_path(cwd):
+    """Path to the project-wide error-registry.json (persistent, cross-session).
+
+    Shared by the write side (subagent_stop.py, via ErrorLogger.persist_error)
+    and the read side (before_continue.py's error-pattern context injection) so
+    both hooks agree on the same file without either hardcoding the other's path.
+    """
+    return os.path.join(memory_dir(cwd), "error-registry.json")
+
+
 def active_state_dir(cwd):
     """Directory of the most recently modified workflow-state.md under memory_dir(cwd), or None."""
     pattern = os.path.join(memory_dir(cwd), "spec", "*", "workflow-state.md")

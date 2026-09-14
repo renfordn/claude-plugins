@@ -19,7 +19,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from hook_state import workflow_state_path, load_workflow_state, save_workflow_state  # noqa: E402
+from hook_state import (  # noqa: E402
+    workflow_state_path, load_workflow_state, save_workflow_state, error_registry_path,
+)
 
 
 def main():
@@ -40,6 +42,7 @@ def main():
         sys.exit(0)  # no active SDD workflow — nothing to inject
 
     workflow_state = load_workflow_state(state_path)
+    workflow_state["error_registry_path"] = error_registry_path(cwd)
 
     try:
         from orchestrator.hooks.before_continue import handle_agent_spawn

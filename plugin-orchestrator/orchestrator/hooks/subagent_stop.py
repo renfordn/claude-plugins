@@ -21,6 +21,8 @@ from typing import Optional, Dict, Tuple
 from orchestrator.error_handler import ErrorHandler
 from orchestrator.checkpoint import CheckpointManager
 from orchestrator.interop_parser import CapabilityMap
+from orchestrator.error import OrchestrationError
+from orchestrator.error_logger import ErrorLogger
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,9 @@ logger = logging.getLogger(__name__)
 def handle_agent_completion(
     agent_type: str,
     report: str,
-    workflow_state: dict
+    workflow_state: dict,
+    error_registry_base_path: Optional[str] = None,
+    project_slug: Optional[str] = None
 ) -> Dict:
     """
     Capture agent completion, validate output, and log handoff.
@@ -40,6 +44,14 @@ def handle_agent_completion(
         agent_type: Name of completed agent (e.g., "agent-tdd")
         report: Agent output report
         workflow_state: Current workflow state dict (modified in-place)
+        error_registry_base_path: Optional base directory for the persistent,
+            cross-session error-registry.json (e.g. ~/.claude/sdd-memory). When
+            given together with project_slug, a contract violation is persisted
+            there (via ErrorLogger.persist_error) in addition to being logged to
+            workflow_state's handoff_history. Omit to keep session-only logging
+            (e.g. existing callers/tests that don't care about persistence).
+        project_slug: Optional project identifier under error_registry_base_path.
+            Required alongside error_registry_base_path for persistence to occur.
 
     Returns:
         Summary dict the calling hook entrypoint can use to surface a
@@ -88,7 +100,9 @@ def handle_agent_completion(
         recovery_action = _trigger_error_handler(
             workflow_state,
             agent_type,
-            error_details
+            error_details,
+            error_registry_base_path=error_registry_base_path,
+            project_slug=project_slug
         )
 
     return {
@@ -366,7 +380,9 @@ def _log_handoff(
 def _trigger_error_handler(
     workflow_state: dict,
     agent_type: str,
-    error_details: Dict
+    error_details: Dict,
+    error_registry_base_path: Optional[str] = None,
+    project_slug: Optional[str] = None
 ) -> Optional[str]:
     """Trigger error handler on contract violation.
 
@@ -380,6 +396,9 @@ def _trigger_error_handler(
         workflow_state: Workflow state dict (may be modified by error handler)
         agent_type: Agent that violated contract
         error_details: Dict with validation failure details (reason, missing_fields, etc.)
+        error_registry_base_path: Optional base directory for the persistent
+            error-registry.json. See handle_agent_completion's docstring.
+        project_slug: Optional project identifier paired with error_registry_base_path.
 
     Returns:
         The recovery action taken (e.g. "rollback", "pause"), or None if the
@@ -406,6 +425,11 @@ def _trigger_error_handler(
             f"error_type={error_type}, recovery_action={recovery_action}"
         )
 
+        _persist_orchestration_error(
+            agent_type, error_type, error_details, recovery_action,
+            error_registry_base_path, project_slug
+        )
+
         return recovery_action
 
     except (IOError, OSError) as e:
@@ -422,6 +446,68 @@ def _trigger_error_handler(
             "Proceeding without error recovery."
         )
         return None
+
+
+# Recovery actions that exhausted automated recovery and warrant surfacing this
+# error in future agent-spawn context (via before_continue's error-pattern read
+# side), vs. ones handled gracefully enough that persisting them would just add
+# noise to the registry.
+_NOTEWORTHY_RECOVERY_ACTIONS = {"rollback", "pause", None}
+
+
+def _persist_orchestration_error(
+    agent_type: str,
+    error_type: str,
+    error_details: Dict,
+    recovery_action: Optional[str],
+    error_registry_base_path: Optional[str],
+    project_slug: Optional[str]
+) -> None:
+    """Persist a contract-violation error to the project-wide error-registry.json.
+
+    No-op when error_registry_base_path or project_slug is missing (callers that
+    don't care about cross-session persistence, e.g. existing tests), or when the
+    recovery action doesn't warrant persisting (see _NOTEWORTHY_RECOVERY_ACTIONS).
+    Never raises -- persistence is best-effort and must never affect recovery.
+
+    Args:
+        agent_type: Agent whose output failed contract validation (source_plugin)
+        error_type: Raw error type from error_details (e.g. "contract_mismatch")
+        error_details: Dict with validation failure details
+        recovery_action: Recovery action ErrorHandler took, or None if it failed
+        error_registry_base_path: Base directory for error-registry.json
+        project_slug: Project identifier under error_registry_base_path
+    """
+    if not error_registry_base_path or not project_slug:
+        return
+    if recovery_action not in _NOTEWORTHY_RECOVERY_ACTIONS:
+        return
+
+    try:
+        missing = error_details.get("missing_fields")
+        root_cause = error_details.get("reason", error_type) or "contract_mismatch"
+        if missing:
+            root_cause = f"{root_cause}: missing fields {missing}"
+
+        error = OrchestrationError(
+            timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            error_type="handoff_validation",
+            source_plugin=agent_type,
+            target_plugin="orchestrator",
+            root_cause=root_cause,
+            severity="high" if recovery_action in ("rollback", "pause", None) else "medium",
+            suggested_fix=(
+                f"Review {agent_type}'s output against its INTEROP.md produces contract "
+                f"(recovery action taken: {recovery_action or 'none'})"
+            ),
+            context=dict(error_details)
+        )
+        ErrorLogger().persist_error(error, error_registry_base_path, project_slug)
+    except Exception as e:
+        logger.error(
+            f"Failed to persist orchestration error: {e.__class__.__name__}: {e}. "
+            "Continuing without persistence."
+        )
 
 
 def _get_iso_timestamp() -> str:
