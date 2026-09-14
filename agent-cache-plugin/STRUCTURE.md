@@ -405,4 +405,32 @@ npm test  # Run all 80+ tests
 node scripts/cache-command.js cache-config --set maxSize 1073741824
 ```
 
+## Capabilities
+
+Consumed by plugin-orchestrator's `CapabilityMap` (see
+`plugin-orchestrator/orchestrator/interop_parser.py`) to register this plugin's
+contract. Soft dependency — every integration below degrades gracefully to
+"no cache" if this plugin is unavailable.
+
+### phase_state_cache
+
+Cache workflow phase state and render token-optimized breadcrumbs for
+agent-isdd (see `agent-isdd/INTEROP.md` → "agent-cache-plugin (phase state
+caching — optional)" for the consumer-side contract this mirrors).
+
+**Phase Transition Caching**:
+- Write: `{prompt, output, metadata}` — `output` carries
+  `{current_phase, phase_state, workflow_status, last_updated}`
+- Invalidate: `{scope}` on rollback/rewind
+- Cache scope: `agent-isdd:<feature-slug>`; TTL: 3600s
+
+Consumes:
+- `prompt`: string
+- `output`: object
+- `metadata`: object
+
+Produces:
+- `cache_hit`: boolean
+- `cached_state`: object
+
 See SHIPPING_CHECKLIST.md for complete pre-deployment verification.

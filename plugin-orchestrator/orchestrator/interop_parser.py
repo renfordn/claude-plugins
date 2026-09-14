@@ -72,6 +72,11 @@ class CapabilityMap:
         "agent-cache-plugin": "agent-cache-plugin/STRUCTURE.md",
     }
 
+    # Kept in sync with PluginRouter.SOFT_DEPENDENCIES / ErrorHandler.SOFT_DEPENDENCIES
+    # (core.py, error_handler.py) — those already route/error-handle correctly off
+    # their own copy of this set; this one only feeds PluginInfo.is_soft_dependency.
+    SOFT_DEPENDENCIES = {"agent-nelly", "agent-ux", "agent-cache-plugin"}
+
     def __init__(self, plugin_dir_base: Optional[str] = None):
         """
         Parse INTEROP.md files and build capability registry.
@@ -229,10 +234,7 @@ class CapabilityMap:
         Returns:
             True if plugin is optional
         """
-        # agent-nelly is documented as soft dependency
-        if plugin_name == "agent-nelly":
-            return "soft dependency" in content.lower()
-        return False
+        return plugin_name in self.SOFT_DEPENDENCIES
 
     def _extract_capabilities(self, plugin_name: str, content: str) -> List[Capability]:
         """
@@ -277,6 +279,23 @@ class CapabilityMap:
                 id="memory_brief",
                 description="Retrieve project memory and error lessons"
             ))
+
+        elif plugin_name == "agent-cache-plugin":
+            if "Phase Transition Caching" in content or "phase_state_cache" in content:
+                capabilities.append(Capability(
+                    plugin=plugin_name,
+                    id="phase_state_cache",
+                    description="Cache workflow phase state and render token-optimized breadcrumbs",
+                    consumes={
+                        "prompt": "string",
+                        "output": "object",
+                        "metadata": "object"
+                    },
+                    produces={
+                        "cache_hit": "boolean",
+                        "cached_state": "object"
+                    }
+                ))
 
         elif plugin_name == "agent-ux":
             capabilities.append(Capability(
