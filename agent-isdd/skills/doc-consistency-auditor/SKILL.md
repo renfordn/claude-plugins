@@ -23,8 +23,9 @@ enforced, not occasional.
 Unlike `code-reviewer`, this skill is **not** scoped to a caller-named diff or file set — it
 always scans the same four directories in full, because a contradiction can exist between an
 untouched file and a touched one. This is a deliberate, new capability shape, not an extension
-of `code-reviewer`'s per-diff scoping (confirmed during Design: `code-reviewer` never sweeps a
-whole directory tree today).
+of `code-reviewer`'s per-diff scoping (as of this skill's Design phase, `code-reviewer`'s own
+SKILL.md scoped it to a caller-named diff/file set, not a directory sweep — re-check that file if
+this claim needs to be current rather than historical).
 
 ## Scope
 

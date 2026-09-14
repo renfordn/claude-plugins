@@ -60,8 +60,10 @@ with `workflow_action: block_commit` prevents the commit until resolved or expli
   canonical definition of the 5-finding/1-file threshold** — `agent-ux`
   (`references/ux-conventions.md`'s "Review dashboard (Artifact)" section, and
   `agents/ux-agent.md`'s `review_threshold` dispatch) and `agent-isdd`
-  (`doc-consistency-auditor/SKILL.md`'s documented override) both mirror this exact value rather
-  than choosing their own; if it changes here, update those to match.
+  (`doc-consistency-auditor/SKILL.md`'s documented override) both reference this exact value —
+  `agent-ux` mirrors it, while `doc-consistency-auditor` cites it only to explicitly opt out
+  (always `ReportFindings`-only) — rather than choosing their own; if it changes here, update
+  those to match.
   - **Delegate to `agent-ux:ux-agent` when both hold**: the caller supplied a `phase_state`
     (see `INTEROP.md`'s "How to invoke it" — only present when this pass runs inside a larger
     workflow that has one; a standalone or pre-commit pass never supplies it), and

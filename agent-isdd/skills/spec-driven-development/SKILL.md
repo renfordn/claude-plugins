@@ -278,8 +278,10 @@ Risk Tier (`standard` or `high-risk`). At the Green→Refactor pause for each sl
 **Automatic Flow (High-Risk Slices)**:
 
 1. **Detection**: After green tests pass, agent-tdd emits `<!--AGENT-TDD-PHASE:green_pause-->`.
-2. **Invocation**: The `high_risk_reviewer` hook (SubagentStop) automatically runs `/code-reviewer`
-   scoped to files touched by the high-risk slice and file-path-scoped standard slices.
+2. **Invocation**: The `high_risk_reviewer` hook (SubagentStop) signals this orchestrating skill,
+   which invokes `code-reviewer` via the Skill tool (never as a subprocess or subagent — see
+   code-reviewer/SKILL.md) scoped to files touched by the high-risk slice and file-path-scoped
+   standard slices.
 3. **Severity Classification**: Code-reviewer findings are mapped to three categories:
    - **MAJOR** (critical): Any FAIL/WARN on intent, regressions, or security dimensions
    - **NON-MAJOR** (follow-up): Any FAIL/WARN on best_practices, naming, or scalability (no majors)
