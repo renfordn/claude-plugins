@@ -6,8 +6,11 @@ on stdout) to orchestrator.hooks.before_continue.handle_agent_spawn, the pure
 context-injection function this plugin already implements and tests.
 
 Contract (see https://code.claude.com/docs/en/hooks.md):
-  stdin:  {"cwd": ..., "tool_name": "Agent", "tool_input": {"prompt": ..., "subagent_type": ...}, ...}
-  stdout: {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {"prompt": "..."}}}
+  stdin:  {"cwd": ..., "tool_name": "Agent", "tool_input": {"prompt": ..., "subagent_type": ..., "description": ..., ...}, ...}
+  stdout: {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {"prompt": "...", "subagent_type": ..., "description": ..., ...}}}
+
+Preserves all original tool_input fields and only modifies the prompt parameter.
+This ensures required parameters like 'description' are not lost during context injection.
 
 Any failure degrades to a no-op (exit 0, no output) so a broken hook never blocks
 a real agent spawn.
@@ -52,10 +55,14 @@ def main():
 
     save_workflow_state(state_path, workflow_state)
 
+    # Merge modified prompt with original tool_input, preserving all other parameters
+    updated_input = dict(tool_input)
+    updated_input["prompt"] = modified_prompt
+
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
-            "updatedInput": {"prompt": modified_prompt}
+            "updatedInput": updated_input
         }
     }))
     sys.exit(0)
