@@ -53,8 +53,18 @@ ask `agent-nelly` for a brief when you want one.
 ## The one thing you actively do: ask `agent-nelly` for a brief
 
 Everything else in this plugin (hooks, the `/nelly-memory` command) delegates to the
-`agent-nelly` subagent — it is the sole owner of every file under the memory root, and
-it's the one interface your plugin should call.
+`agent-nelly` subagent — it's the one interface your plugin should call. Every request/response
+shape documented in this file is `agent-nelly`'s; nothing here changes based on the internal
+note below.
+
+**Internal note, not part of this contract:** as of this writing, `agent-nelly` has a sibling
+agent, `nelly-maintenance`, that owns three explicit, infrequent, user-invoked admin operations
+(`/nelly-memory import`/`prune`/`consolidate`) that no consumer plugin has ever called and none
+of the request fields below ever trigger. `agent-nelly` remains the sole thing any consumer
+plugin talks to; `nelly-maintenance` exists purely so those three admin operations don't load
+into every ordinary brief/fact-recording call's context. If this changes, this file's
+consumer-facing contract is the thing to check — not which internal agent happens to implement
+it.
 
 **Request** (what you pass it):
 

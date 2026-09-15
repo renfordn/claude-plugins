@@ -8,11 +8,13 @@ Manage this project's memory store, which lives under
 `~/.claude/agent-nelly-memory/<project-slug>/` (and the cross-project
 `~/.claude/agent-nelly-memory/global/` tier). This store is entirely
 independent of the SDD plugin's `~/.claude/sdd-memory/` — no SDD plugin
-needs to be installed for this command to work. `agent-nelly` is the
-**sole owner** of every file under that root. This command file never reads,
+needs to be installed for this command to work. `agent-nelly` and its
+sibling `nelly-maintenance` are the **only** owners of every file under that
+root (`nelly-maintenance` for `import`/`prune`/`consolidate`; `agent-nelly`
+for everything else below). This command file never reads,
 writes, moves, or overwrites a memory file itself, for any subcommand,
 including `view` — every outcome described below is produced by asking
-agent-nelly to do it, not by this command doing it directly.
+one of those two agents to do it, not by this command doing it directly.
 
 Requested action (default `view`): $ARGUMENTS
 
@@ -67,18 +69,20 @@ for this project." with no error, traceback, or partial brief output.
 
 Usage: `import <source-dir> [--force]`.
 
-Ask agent-nelly to import every plain file in `<source-dir>` as one
-new entry per source file, in `references/nelly-entry.template.md`'s exact
-shape, under this project's `entries/`:
+Ask `nelly-maintenance` (not `agent-nelly` — this and `prune`/`consolidate`
+below are the three operations that route to the sibling maintenance agent
+instead, per `INTEROP.md`) to import every plain file in `<source-dir>` as
+one new entry per source file, in `references/nelly-entry.template.md`'s
+exact shape, under this project's `entries/`:
 
-- For each source file, agent-nelly derives `name` from the source
+- For each source file, `nelly-maintenance` derives `name` from the source
   filename's slug (strip the extension, keep the rest as-is — e.g.
   `docker-compose-local-dev-setup.md` becomes `docker-compose-local-dev-setup`).
-- `description` is a real one-line summary that agent-nelly writes by
+- `description` is a real one-line summary that `nelly-maintenance` writes by
   actually reading the source file's content and naming its specific
   subject matter — never a generic placeholder like "Imported from
   `<filename>`".
-- `metadata.type` is agent-nelly's best-fit pick from the project's
+- `metadata.type` is `nelly-maintenance`'s best-fit pick from the project's
   `types.yaml` taxonomy if one exists, otherwise the default
   `user | feedback | project | reference` — any one of the four is
   acceptable; there is no fixed source-file-to-type mapping.
@@ -90,29 +94,29 @@ shape, under this project's `entries/`:
 Collision handling, per source filename that would collide with an existing
 `entries/<name>.md`:
 
-- Without `--force`: ask agent-nelly to skip that file, leaving the
+- Without `--force`: ask `nelly-maintenance` to skip that file, leaving the
   existing entry byte-for-byte unchanged, and report a line such as
   "Skipped `<name>.md` (already exists; use `--force` to overwrite)."
-- With `--force`: ask agent-nelly to overwrite that entry with a
+- With `--force`: ask `nelly-maintenance` to overwrite that entry with a
   freshly synthesized `description`/`metadata` (fresh `last_referenced`) and
   report a line such as "Overwrote `<name>.md` (--force)."
 
 Report, per file, whether it was created, skipped, or overwritten. This
 command never writes the entry files itself — every create/skip/overwrite
-above is agent-nelly's action, asked for by this command.
+above is `nelly-maintenance`'s action, asked for by this command.
 
 ## prune
 
 Usage: `prune [--threshold-days N]` (default `N=90`).
 
-Ask agent-nelly to run its staleness-flagging write-back: for every
+Ask `nelly-maintenance` to run its staleness-flagging write-back: for every
 entry in this project's `entries/` whose `metadata.last_referenced` is at or
-beyond the threshold, agent-nelly moves it to `archive/` (never
+beyond the threshold, `nelly-maintenance` moves it to `archive/` (never
 deletes it) and updates the project's `MEMORY.md` index accordingly.
 
-This same invocation also runs agent-nelly's file-change-aware
+This same invocation also runs `nelly-maintenance`'s file-change-aware
 staleness check — an entry whose `metadata.files` no longer match the
-current state of the repo (per agent-nelly's own file-change
+current state of the repo (per its own file-change
 detection) is folded into the same pass, not a separate command or a second
 call. There is still exactly one `prune` command; the file-change-aware
 check is additive behavior inside it, not a new subcommand.
@@ -129,9 +133,9 @@ moving it back to `entries/`." If nothing crosses the threshold, report
 
 No required arguments.
 
-Ask agent-nelly to run its consolidation write-back: review this
+Ask `nelly-maintenance` to run its consolidation write-back: review this
 project's entries for pairs/groups describing the same underlying fact from
-different angles, and for each such group agent-nelly writes one new
+different angles, and for each such group `nelly-maintenance` writes one new
 merged entry under `entries/` with a new name, moves both (or all) original
 entries to `archive/` (never deletes them), updates `MEMORY.md`, and appends
 exactly one new block to `CONSOLIDATION-LOG.md`.
@@ -143,7 +147,7 @@ Report, per consolidation performed, a line such
 as: "Consolidated `<name1>` and `<name2>` into a new entry, `<merged-name>`.
 Both original entries were moved to `archive/`, not deleted — their full
 content remains intact and recoverable there. One log line was appended to
-`CONSOLIDATION-LOG.md`." If agent-nelly finds no near-duplicate
+`CONSOLIDATION-LOG.md`." If `nelly-maintenance` finds no near-duplicate
 group, report "Nothing to consolidate — no overlapping entries found."
 
 ## error-lesson
@@ -228,14 +232,17 @@ for by this command, exactly like every other subcommand in this file.
   memory content. Archiving (via `prune` or `consolidate`) always moves the
   affected file(s) to `archive/`, leaving them fully intact and recoverable
   by moving them back to `entries/`.
-- Every subcommand above delegates its work to agent-nelly; this
-  command file contains no direct file-mutation instructions of its own —
-  no instruction here tells this command to `Write`, `Edit`, move, archive,
-  or overwrite a memory file directly. Any sentence describing such a
-  mutation names agent-nelly as the actor performing it, in the same
-  or an immediately preceding sentence.
+- Every subcommand above delegates its work to `agent-nelly` or
+  `nelly-maintenance` (`import`/`prune`/`consolidate` only — see each
+  subcommand above for which); this command file contains no direct
+  file-mutation instructions of its own — no instruction here tells this
+  command to `Write`, `Edit`, move, archive, or overwrite a memory file
+  directly. Any sentence describing such a mutation names one of the two
+  agents as the actor performing it, in the same or an immediately
+  preceding sentence.
 - This command never reads a raw entry file's contents for any subcommand,
-  including `view` — only agent-nelly does, and it returns condensed
-  summaries, never full bodies.
+  including `view` — only `agent-nelly`/`nelly-maintenance` do, and
+  `agent-nelly`'s brief-assembly path returns condensed summaries, never
+  full bodies.
 - Never invent or infer this project's `Intent` line from this command —
-  that discipline belongs entirely to agent-nelly.
+  that discipline belongs entirely to `agent-nelly`.

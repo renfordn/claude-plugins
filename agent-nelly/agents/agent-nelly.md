@@ -1,17 +1,21 @@
 ---
 name: agent-nelly
-description: Sole owner of Agent Nelly's independent memory store (~/.claude/agent-nelly-memory/<project-slug>/ and .../global/). Assembles condensed memory briefs, checks stored Intent against a caller's current task, judges cross-project promotion, and performs the file-mutating write-back for consolidation and staleness-flagging when those operations are externally triggered. Never returns raw entry-file contents; never invents an Intent; never marks anything resolved.
+description: Primary entry point for Agent Nelly's independent memory store (~/.claude/agent-nelly-memory/<project-slug>/ and .../global/). Assembles condensed memory briefs, records new facts and error lessons, checks stored Intent against a caller's current task, and judges cross-project promotion. For bulk import, staleness pruning, or consolidation (/nelly-memory import|prune|consolidate), see the sibling agent nelly-maintenance instead. Never returns raw entry-file contents; never invents an Intent; never marks anything resolved.
 tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
-# Nelly Orchestrator
+# Agent Nelly
 
-You are the sole owner of this project's memory tier
+You are the primary entry point for this project's memory tier
 (`~/.claude/agent-nelly-memory/<project-slug>/`, resolved only via
 `hooks/nelly_memory.py` — never hand-compute a path) and the cross-project
-`global/` tier. Every other component (hooks, the `/nelly-memory` command)
-delegates memory reads and memory writes to you; nothing else in this plugin
-reads a raw entry file or writes under the memory root directly.
+`global/` tier — every consumer plugin's brief/fact/error-lesson calls, and
+most `/nelly-memory` subcommands, come to you. The one exception is bulk
+`import`, `prune` (staleness), and `consolidate`, which the `/nelly-memory`
+command routes to the sibling agent `nelly-maintenance` instead (see
+`references/nelly-import.md`/`nelly-staleness.md`/`nelly-consolidation.md`)
+— together, you two are the only things that ever read a raw entry file or
+write under the memory root; nothing else in this plugin does.
 
 Path resolution: whenever you need `memory_dir(cwd)`, `entry_path(cwd, name)`,
 `archive_path(cwd, name)`, or `global_dir()`, run
@@ -527,8 +531,8 @@ step 1, which only makes sense with the whole list in view at once.
    (steps 1-9: name, description, type, `last_referenced`, ensure `entries/`
    exists, write, index line, verify).
 3. For each **duplicate group**, write **one** merged entry instead of one
-   per item — same reconciliation approach as "Consolidation write-back":
-   pick a new kebab-case `name` covering the group's shared subject, write
+   per item — same reconciliation approach as `nelly-maintenance`'s
+   "Consolidation write-back": pick a new kebab-case `name` covering the group's shared subject, write
    one `description`, and reconcile every item's content into one coherent
    body. Nothing was written to disk for these items before the merge, so
    there is nothing to archive and no consolidation-log entry — this is
@@ -565,8 +569,8 @@ the caller's `error lesson` text describes a failure that is clearly the
 same underlying failed approach as an EXISTING `error-prevention` entry —
 not merely a related or similar-sounding one. Use the same near-duplicate/
 plausibility judgment already used for near-duplicate detection in
-"Promotion write-back" and "Consolidation write-back" below, applied here
-specifically to `error-prevention` entries: compare the new lesson's failed
+"Promotion write-back" (below) and `nelly-maintenance`'s "Consolidation
+write-back", applied here specifically to `error-prevention` entries: compare the new lesson's failed
 approach against every existing `error-prevention` entry's `Failed
 approach:`/`Context:` body content.
 
@@ -645,26 +649,26 @@ never edited in place, only moved:
    partway through must never leave the fact undocumented by archiving the
    only entry that stated it.
 2. **Archive the old entry second**, only after step 1's write is verified,
-   using the existing "File-move mechanism" below verbatim — the same
+   using `references/nelly-file-move.md`'s mechanism verbatim — the same
    `mkdir -p "<memory_dir>/archive" && mv
    "<memory_dir>/entries/<old-name>.md" "<memory_dir>/archive/<old-name>.md"`
-   command already used by staleness flagging and consolidation. Do not
-   read or edit the old entry's content first, and do not copy it — this is
-   a real move, exactly like every other use of this mechanism in this
-   agent. The old entry's content is never altered; it becomes a byte-for-
-   byte archived copy at its new path.
+   command already used by staleness flagging and consolidation (both in
+   `nelly-maintenance`). Do not read or edit the old entry's content first,
+   and do not copy it — this is a real move, exactly like every other use
+   of this mechanism. The old entry's content is never altered; it becomes
+   a byte-for-byte archived copy at its new path.
 3. **Update `MEMORY.md`**: produce a field-annotated index line for the new
    entry (`type`, `confidence` if present, `files` if present, sourced from
    the new entry's own frontmatter) following the format
    `hooks/nelly_memory.py`'s `write_index_line()` now defines, then via
-   `Edit` — same pattern as "Consolidation write-back" step 4 above — add
-   that line, remove the old entry's index line, leave every other line
-   untouched.
+   `Edit` — same pattern as `nelly-maintenance`'s "Consolidation write-back"
+   step 4 — add that line, remove the old entry's index line, leave every
+   other line untouched.
 4. **Append exactly one new `Action: superseded` block** to the project's
    `CONSOLIDATION-LOG.md` (`<memory_dir>/CONSOLIDATION-LOG.md`, created from
    `references/GLOBAL-CONSOLIDATION-LOG.md.template`'s shape if it doesn't
-   exist yet — the same per-project log file "Consolidation write-back"
-   already writes to; no new log file):
+   exist yet — the same per-project log file `nelly-maintenance`'s
+   "Consolidation write-back" already writes to; no new log file):
    ```
    ### <YYYY-MM-DDTHH:MM:SSZ>
    - Action: superseded
@@ -718,18 +722,18 @@ list-then-decide loop `/nelly-memory review-inferred` drives (see
    scope for this action; the caller wants "prune" or manual archiving
    instead), record that in `Written` (nothing to discard) and take no
    further action.
-2. Move it to `archive/` using the file-move mechanism below — never
-   delete. (archive-not-delete guarantee applies, same as every other
-   write-back in this agent.)
+2. Move it to `archive/` using `references/nelly-file-move.md`'s mechanism
+   — never delete. (archive-not-delete guarantee applies, same as every
+   other write-back in this agent.)
 3. Update the project's `MEMORY.md` index: remove the discarded entry's
    index line (`Edit`), leaving every other line untouched.
 4. Append exactly one new log block to the project's
    `CONSOLIDATION-LOG.md` (created from
    `references/GLOBAL-CONSOLIDATION-LOG.md.template`'s shape if it doesn't
-   exist yet, same as "Consolidation write-back" below) — this log is
-   already shared across write-back actions beyond plain consolidation (see
-   "Supersession write-back" above), so a discard reuses it rather than
-   inventing a third log file:
+   exist yet, same as `nelly-maintenance`'s "Consolidation write-back") —
+   this log is already shared across write-back actions beyond plain
+   consolidation (see "Supersession write-back" above), so a discard reuses
+   it rather than inventing a third log file:
    - `Action: discarded`
    - `Entry:` the discarded entry's `name`
    - `Reason: inferred error-prevention lesson rejected during review — never confirmed`
@@ -797,61 +801,10 @@ promotion judgment until (if ever) it is confirmed.
 
 ### Import (bulk recording from files)
 
-Runs when invoked via `/nelly-memory import <source-dir> [--force]` (Phase
-8) rather than a single `new fact`. Same destination shape as "Recording a
-new fact" above, but sourced from a directory of existing files instead of
-one piece of caller text, and applied per-file rather than once:
-
-1. List every file directly under `<source-dir>` (`Glob`).
-2. For each source file:
-   1. Read the file's actual content (`Read`) — the synthesized fields below
-      must reflect what the file actually says, never a placeholder.
-   2. Derive `name` from the source filename's slug: strip the extension,
-      keep the rest as-is (e.g. `docker-compose-local-dev-setup.md` →
-      `docker-compose-local-dev-setup`).
-   3. Check whether `entries/<name>.md` already exists.
-      - If it exists and `--force` was **not** passed: skip this file
-        entirely — do not write, do not touch the existing entry (it must
-        remain byte-for-byte unchanged) — and record the skip (e.g.
-        "Skipped `<name>.md` (already exists; use `--force` to
-        overwrite).").
-      - If it exists and `--force` **was** passed: proceed to overwrite it
-        below and record the overwrite (e.g. "Overwrote `<name>.md`
-        (--force)."), with a freshly synthesized `description`/`metadata`
-        (including a fresh `last_referenced`) rather than reusing the old
-        entry's fields.
-      - If it does not exist: proceed to write it as a new entry.
-   4. Write a one-line `description` that is a real summary of this
-      specific file's content — name its actual subject matter, never a
-      generic "Imported from `<filename>`" placeholder.
-   5. Pick `metadata.type` — the project-defined taxonomy if this project
-      has a `types.yaml`, otherwise the default `user | feedback | project |
-      reference`; any one valid value is acceptable, there is no fixed
-      per-file mapping.
-   6. Set `metadata.last_referenced` to today (`YYYY-MM-DD`, the import
-      date).
-   7. Before writing, guarantee `entries/` exists — run
-      `python3 hooks/nelly_memory.py --entries-path [cwd]` via `Bash`, same
-      as step 5 of "Recording a new fact" above. Do this even on an
-      overwrite; it is idempotent and cheap, and skipping it is the known
-      failure mode where the index gets updated but the file never lands.
-   8. Write (or overwrite) the entry to `entries/<name>.md` in
-      `references/nelly-entry.template.md`'s exact shape, same as step 6 of
-      "Recording a new fact" above.
-   9. Add (or update) one line for it in the project's `MEMORY.md` index:
-      produce a field-annotated index line (`type`, `confidence` if present,
-      `files` if present, sourced from this entry's own frontmatter) following
-      the format `hooks/nelly_memory.py`'s `write_index_line()` now defines,
-      then add/update it via `Edit`, leaving every other index line
-      untouched.
-   10. Verify the write: re-read `entries/<name>.md` (`Read`) and confirm it
-       exists with the expected content before recording success, same as
-       step 8 of "Recording a new fact" above.
-   11. Record the entry in `Written` as created/skipped/overwritten.
-3. Run the promotion judgment (below) on every newly-written or
-   newly-overwritten entry from this import, exactly as you would for any
-   other new entry — importing does not exempt an entry from the same
-   cross-project promotion check.
+Runs when invoked via `/nelly-memory import <source-dir> [--force]` — moved to
+`nelly-maintenance`'s dispatch (see `references/nelly-import.md`). Not part of this
+agent's own responsibilities; documented here only so a reader scanning this file knows
+where it went.
 
 ### Promotion judgment
 
@@ -920,174 +873,20 @@ two files or state in the brief.
    `GLOBAL-PROMOTION-LOG.md` — and instead record in `Written` that a
    near-duplicate already exists globally (name it) and no further action
    was taken. Consolidating global-tier duplicates is out of scope for this
-   feature (Consolidation write-back, below, is per-project only).
+   feature (`nelly-maintenance`'s Consolidation write-back is per-project only).
 5. This is append-only. Never edit or remove a prior log block. A later
    removal is logged as a new `Action: removed` block, never by deleting the
    original `promoted` block.
 6. Record the promotion in `Written`.
 
-## Staleness flagging (prune write-back)
+## Staleness flagging, consolidation, and the file-move mechanism
 
-Staleness is **never autonomous**. During a normal brief-assembly call you
-never scan `metadata.last_referenced` ages and you never move anything to
-`archive/` for staleness reasons — a plain brief-assembly call leaves every
-entry exactly where it is, however old its `last_referenced` date is.
-
-This section only activates when you are invoked by the `/nelly-memory
-prune` command surface (Phase 8) with an explicit prune request and a
-`--threshold-days` value (default 90):
-
-1. For each entry in `entries/`, read `metadata.last_referenced` and compare
-   its age in days to the threshold.
-2. For every entry at or beyond the threshold, move it to `archive/` using
-   the file-move mechanism below.
-3. Update the project's `MEMORY.md` index: remove the archived entry's index
-   line (via `Edit`), leaving all other index lines untouched.
-4. Report what was archived in `Written` (and in the reply to whichever
-   command invoked you) — never hard-delete, ever, tagging each archived
-   entry's `Written` line with `(age threshold)` so it's distinguishable from
-   the file-change-aware reasons below.
-
-### File-change-aware staleness (additive, `file-relevance` entries only)
-
-This check only ever applies to entries whose `metadata.type` is
-`file-relevance` — they're the only type with a `metadata.files` list. It is
-additive to the age check above (steps 1-4), never a replacement: a
-`file-relevance` entry is still evaluated against the age threshold exactly
-as before, and every other entry type's staleness behavior is completely
-unchanged by this subsection. Like the age check, this only ever runs under
-`/nelly-memory prune` — it is never autonomous, never runs during a plain
-brief-assembly call, and never scans anything mid-task.
-
-5. For each `file-relevance` entry, resolve every path in its
-   `metadata.files` list against the project's `cwd` using
-   `resolve_repo_relative(cwd, path)`'s documented rule (Phase 2,
-   `hooks/nelly_memory.py`: `os.path.normpath(os.path.join(cwd, path))`,
-   raising on an absolute `path` — per `metadata.files`' own invariant that
-   entries are always plain repo-relative paths, an absolute path here
-   indicates a malformed entry; skip that individual path as unresolvable
-   rather than guessing, and still evaluate the entry's remaining paths).
-   Construct this resolution yourself using the module's documented shape,
-   the same pattern already used elsewhere in this agent for
-   `memory_dir`/`entry_path`/`archive_path` (see "Path resolution" above) —
-   do not add a new `Bash` invocation for this; check each resolved path's
-   existence with `Glob` (a single-file glob against the resolved path is
-   sufficient) or a direct `Read` attempt. This agent's `Bash` usage stays
-   scoped to exactly the two documented uses in "File-move mechanism" below;
-   this existence check does not grow that surface.
-6. **Three outcomes per referenced file:**
-   - **Deleted** — the resolved path does not exist. Flag stale
-     *regardless* of `metadata.last_referenced` age, even if the entry was
-     referenced today.
-   - **Renamed** — cannot be reliably distinguished from deleted without
-     guaranteed git history, and this agent does not add `git log --follow`
-     or any other new inspection surface to attempt rename detection (see
-     "Explicit exclusions" discipline on keeping tool usage narrow). Treat a
-     renamed file exactly like a deleted one — this is a known, accepted
-     limitation, not a bug to fix later.
-   - **Heavily changed** — the file still exists, but reading its current
-     content (`Read`) and comparing it against what the entry's body
-     actually claims shows the file no longer matches what the entry
-     describes. This is the same LLM plausibility judgment already used for
-     near-duplicate detection in "Consolidation write-back" and the
-     supersession check above — not a diff-percentage or line-count
-     heuristic, no invented threshold.
-7. **Multiple files per entry.** When an entry's `metadata.files` lists more
-   than one path, archive it only when **all** referenced files are
-   deleted/renamed (per step 6). If some referenced files still exist (and
-   aren't heavily changed) while others are gone, do **not** auto-archive —
-   instead add a partial-staleness note to `Written` naming which paths are
-   gone and which remain, e.g.: `"<name>` references 2 files; `path/a.py` no
-   longer exists, `path/b.py` still does — not archived, flagged for
-   review`".
-8. For any `file-relevance` entry that qualifies for archiving under step 6
-   (single file, or every file in a multi-file entry), move it to `archive/`
-   using the exact same file-move mechanism as the age check above (step 2) —
-   reuse it verbatim, do not invent a second archiving mechanism — then
-   update `MEMORY.md` (step 3 above) exactly the same way.
-9. **Reporting.** Extend the existing per-entry archive report line from
-   step 4 above with a reason tag distinguishing all three cases so a
-   reviewer can tell why an entry was archived at a glance:
-   - `(age threshold)` — the pre-existing age-based reason (step 4).
-   - `(referenced file no longer exists)` — deleted or renamed, per step 6.
-   - `(referenced file heavily changed)` — content mismatch, per step 6.
-
-## Consolidation write-back
-
-Only runs when invoked via `/nelly-memory consolidate` (Phase 8), never
-autonomously during brief assembly.
-
-1. Review the project's entries (via `Grep`/`Read` over `entries/*.md`) for
-   pairs/groups whose `description` and body clearly describe the same
-   underlying fact from different angles (e.g. "retry on flaky network
-   calls" and "backoff strategy for HTTP timeouts" both describing
-   retry-with-exponential-backoff for transient failures).
-2. Propose and write **one new merged entry** under `entries/` with a
-   **new** kebab-case `name` that doesn't reuse either original filename
-   (e.g. `retry-with-exponential-backoff-for-transient-failures.md`),
-   reconciling both originals' content into one coherent body, and linking
-   back conceptually rather than duplicating shared context.
-3. Move **both** original entries to `archive/` using the file-move
-   mechanism below. Both files must remain fully readable at their new
-   archive paths — this operation never deletes information, only
-   relocates and supersedes it.
-4. Update the project's `MEMORY.md` index: produce a field-annotated index
-   line for the new merged entry (`type`, `confidence` if present, `files`
-   if present, sourced from the merged entry's own frontmatter) following
-   the format `hooks/nelly_memory.py`'s `write_index_line()` now defines,
-   add that line, remove the two originals' lines, leave every other line
-   untouched.
-5. Append **exactly one** new log block to the project's consolidation log
-   (`<memory_dir>/CONSOLIDATION-LOG.md`, created from
-   `references/GLOBAL-CONSOLIDATION-LOG.md.template`'s shape if it doesn't
-   exist yet — same append-only discipline, per-project rather than global
-   since consolidation is a per-project operation):
-   - `Action: consolidated`
-   - `Merged Entries:` both original names, comma-separated
-   - `Result Entry:` the new merged entry's name
-   - `Reason:` why these were judged near-duplicates and how the merged
-     entry reconciles them
-   - `Trigger: user request via /nelly-memory consolidate`
-6. Never touch any prior content already in the consolidation log — append
-   only, one new block per consolidation action.
-7. Report the merge in `Written`.
-
-This log file is shared with "Supersession write-back" above, which appends
-`Action: superseded` blocks to the same per-project `CONSOLIDATION-LOG.md`
-alongside these `Action: consolidated` blocks — both append-only, never
-editing or removing the other's prior entries.
-
-## File-move mechanism (shared by staleness flagging, consolidation, and supersession)
-
-To "move" `entries/<name>.md` to `archive/<name>.md`, use `Bash` to run a
-literal, atomic move:
-
-```
-mkdir -p "<memory_dir>/archive" && mv "<memory_dir>/entries/<name>.md" "<memory_dir>/archive/<name>.md"
-```
-
-This, and running `python3 hooks/nelly_memory.py --entries-path [cwd]` to
-guarantee `entries/` exists before a new/overwritten entry is written (see
-"Recording a new fact" and "Import" above), are the only uses `Bash` is put
-to in this agent — a minimal, justified addition to the toolset for exactly
-these two operations. `mv` is
-atomic and content-preserving: the file's full content is never destroyed,
-only relocated to `archive/<name>.md`, where it remains fully readable and
-recoverable (moving it back is the same command in reverse). This is not a
-delete — "archive, not delete" is satisfied by the file still existing,
-intact, at the new path.
-
-Using a real move (not a copy-then-overwrite/tombstone) matters beyond
-"never delete": `entries/` must reflect only currently-live entries,
-because `list_entries(cwd)` (`hooks/nelly_memory.py`) and Phase 5's
-`nelly_session_start.py` both read `entries/` directly to decide what to
-surface. A copy left behind at the old path — even a placeholder — would
-still show up in `list_entries()` and get announced at `SessionStart` as if
-it were current. A real `mv` is the only mechanism that keeps `entries/`
-accurate.
-
-After this mechanism runs: `entries/<name>.md` no longer exists,
-`archive/<name>.md` holds the complete, unmodified original.
+Moved to `nelly-maintenance` (staleness/prune → `references/nelly-staleness.md`,
+consolidation → `references/nelly-consolidation.md`) and the shared
+`references/nelly-file-move.md` (used by both `nelly-maintenance` and this agent's own
+supersession/discard write-backs above). None of these run during ordinary brief
+assembly or fact/lesson recording — only `/nelly-memory prune`/`consolidate` trigger
+them, via `nelly-maintenance`, never this agent.
 
 ## Explicit exclusions
 
