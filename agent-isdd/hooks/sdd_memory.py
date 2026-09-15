@@ -2,7 +2,7 @@
 """Per-feature spec-artifact scaffolding for the SDD plugin.
 
 Per-feature spec artifacts (workflow-state.md, workflow-state.json, requirements/, design/,
-tasks/, recap/) live under ~/.claude/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
+tasks/, recap/) live under ${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
 spec_dir() below. They are plugin-generated state, not source, so they never live in the repo
 itself; see references/artifact-templates.md and skills/workflow-manager/SKILL.md's
 "Scaffolding" section.
@@ -27,7 +27,15 @@ import os
 import re
 import sys
 
-BASE = os.path.join(os.path.expanduser("~"), ".claude", "sdd-memory")
+# Add shared directory to path for path_resolution import
+_shared_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
+if _shared_dir not in sys.path:
+    sys.path.insert(0, _shared_dir)
+from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+
+# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
+_plugin_data_dir = get_plugin_data_dir("agent-isdd")
+BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
 
 
 def project_slug(cwd):
