@@ -56,6 +56,19 @@ anything the caller has available: an agent, a lint/static-analysis pass, or a h
 
 _Installation instructions will be added once the plugin is published to a marketplace._
 
+## Storage
+
+Agent TDD stores workflow progress and session state in the Claude Code plugin data directory:
+
+```
+${CLAUDE_PLUGIN_DATA}/agent-tdd-state/
+└── <project-slug>/
+    ├── tdd-progress.json      # TDD slice tracking and progress
+    └── last-stop.json         # Session boundary marker
+```
+
+Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-tdd/` when running in Claude Code.
+
 ## Using Agent TDD from another plugin
 
 Agent TDD isn't specific to any one consumer — see [`INTEROP.md`](INTEROP.md) for the full

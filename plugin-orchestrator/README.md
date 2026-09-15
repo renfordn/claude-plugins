@@ -33,7 +33,7 @@ the same per-feature `workflow-state.json` that `agent-isdd` scaffolds and
 This is a deliberate shared-state convention across the plugin family, not an
 oversight local to this repo:
 
-- The file lives at `~/.claude/sdd-memory/<project-slug>/spec/<feature>/workflow-state.json`.
+- The file lives at `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature>/workflow-state.json`.
 - `agent-isdd` creates it when an SDD workflow starts.
 - `agent-tdd`, `agent-nelly`, and this plugin each keep a small,
   dependency-free copy of the locator logic
@@ -41,6 +41,8 @@ oversight local to this repo:
   [hooks/hook_state.py](hooks/hook_state.py)) rather than importing a shared
   library, because each plugin's `CLAUDE_PLUGIN_ROOT` is a separate directory
   tree at install time.
+- This plugin coordinates access to the shared sdd-memory via symlink or registry
+  (see Storage section below).
 
 **Consequence:** if no `agent-isdd` workflow is active for the current
 project, `hooks/before_continue.py` and `hooks/subagent_stop.py` both no-op
@@ -49,6 +51,25 @@ coordinate ad hoc agent chains outside that specific pipeline. If that's ever
 needed, it requires either a fallback state format of its own or a genuine
 shared-state library extracted out of the four plugins that duplicate this
 logic today — not a change local to this repo alone.
+
+## Storage
+
+Plugin-orchestrator shares workflow-state access with agent-isdd via symlink coordination:
+
+```
+${CLAUDE_PLUGIN_DATA}/sdd-memory/
+└── <project-slug>/
+    └── spec/
+        └── <feature-slug>/
+            └── workflow-state.json     # Shared state (symlinked to agent-isdd)
+```
+
+**Coordination mechanism:**
+- If agent-isdd's sdd-memory already exists: plugin-orchestrator creates a symlink to it
+- If symlink creation fails (e.g., Windows): plugin-orchestrator creates a registry file with metadata
+- Both plugins transparently access the same workflow state
+
+Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/plugin-orchestrator/` when running in Claude Code.
 
 ## What it actually does
 

@@ -28,7 +28,7 @@ everything the siblings now own. See `CHANGELOG.md` for the full port/trim/drop 
 Phase-gated, always in order: `Requirements` → `Design` → `Implementation` (task slicing +
 Red-Green-Refactor, owned by agent-tdd). Each phase has a hard completion checklist (EARS format,
 no unresolved ambiguity, explicit interfaces/touchpoints, research validated) before handoff.
-State lives in `~/.claude/sdd-memory/<project-slug>/spec/<feature-slug>/`.
+State lives in `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/` (see Storage section below).
 
 **Intent:** Explicit, durable artifact (markdown). Captured at start, hash-validated on resume.
 Drives Requirements, grounds Design, referenced by task slices.
@@ -45,6 +45,27 @@ invalid. Cross-feature file caching via agent-nelly for 70-80% cache hit rate on
 - `/isdd-rewind` — rewind to an earlier phase (Requirements | Design).
 - `/isdd-init` — first-run onboarding for a new project.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
+
+## Storage
+
+Agent-isdd stores per-feature spec artifacts (requirements, design, tasks) in the Claude Code plugin data directory:
+
+```
+${CLAUDE_PLUGIN_DATA}/sdd-memory/
+└── <project-slug>/
+    └── spec/
+        └── <feature-slug>/
+            ├── workflow-state.md       # Phase, status, blockers
+            ├── workflow-state.json     # Machine-readable state
+            ├── requirements/           # Approved requirements
+            ├── design/                 # Design + research basis
+            ├── tasks/                  # TDD-sized task slices
+            └── recap/                  # Summary, risks, handoff
+```
+
+**Note:** sdd-memory is shared between agent-isdd and plugin-orchestrator via symlink coordination for workflow state access.
+
+Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-isdd/` when running in Claude Code.
 
 ## Handoff contract
 
