@@ -1,6 +1,6 @@
 ---
 name: research-consolidator
-description: Unified codebase research for Design + Tasks — one pass produces both design-ready and task-ready findings. Eliminates redundant research between design-author and tdd-planner. Wraps planning-agent logic, consolidates outputs.
+description: Unified codebase research for Design + Tasks — one pass produces both design-ready findings (for design-author) and task-ready findings (cached for agent-tdd), eliminating a second, redundant deep-read of the same files.
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -24,8 +24,9 @@ Use the nelly brief to skip re-deriving context it already gives you.
 1. **Design perspective:** What interfaces, constraints, and risks shape the architecture?
 2. **Task perspective:** What are file boundaries, test surfaces, and slicing constraints?
 
-Rather than design-author calling planning-agent, then tdd-planner calling planning-agent again,
-consolidator runs once and produces both outputs. Eliminates 15-25K tokens of redundant research.
+Historically, design-author and task-slicing each ran their own separate deep-read of the same
+files (see "Why This Consolidates Research" below). This consolidator runs once and produces
+both outputs instead — eliminating 15-25K tokens of redundant research.
 
 ---
 
@@ -39,7 +40,9 @@ Sweep broadly for candidate touchpoints, optimized with nelly hints:
    - Grep ONLY for specific, high-signal terms (function names, config keys)
 
 2. If no brief available:
-   - Fall back to planning-agent's standard wide-pass (glob broadly, grep key terms)
+   - Fall back to a standard wide-pass: `Glob` broadly for likely file/module names, `Grep` for
+     the requirement's key terms (function names, error strings, config keys, feature flags).
+     Optimize for recall over precision — cast wide, do not read full file contents yet.
 
 3. Produce a short candidate list: ~20-30 files (instead of 100+), each with one-line reason
 

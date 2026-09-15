@@ -36,7 +36,7 @@ class SliceSpecGateTests(unittest.TestCase):
         )
 
     def test_unrelated_subagent_type_is_noop(self):
-        decision, rc = self._call("agent-isdd:planning-agent", COMPLETE_PROMPT)
+        decision, rc = self._call("agent-isdd:research-consolidator", COMPLETE_PROMPT)
         self.assertEqual(rc, 0)
         self.assertIsNone(decision)
 

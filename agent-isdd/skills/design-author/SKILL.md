@@ -109,10 +109,9 @@ When writing or updating `design.md`, use the canonical template from
 - Do not invent new product requirements in design.
 - Do not move unresolved requirement ambiguity into design as if it were settled.
 - Do not hide risky migrations or weak testability.
-- **[Phase 2+3]** Do not call `planning-agent` separately — use `research-consolidator` only.
-  It wraps planning-agent and produces both design_findings and task_findings in one pass.
-  Calling planning-agent separately re-introduces the redundant research this consolidation
-  eliminates.
+- Use `research-consolidator` for research — it produces both design_findings and task_findings
+  in one pass; a second, separate deep-read of the same files re-introduces the redundant
+  research this consolidation eliminates.
 - Do not name a touchpoint or interface that `research-consolidator`'s design_findings didn't
   actually surface or that wasn't otherwise verified — a design grounded in a guess is exactly
   the failure mode this research step exists to prevent.

@@ -19,13 +19,13 @@ caller unable to tell "not relevant" apart from "not looked at."
 not deep-read and the one-line reason. This keeps the caller's report proportional to what was
 actually load-bearing, while still making the triage decision auditable.
 
-**Worked example**: `agents/planning-agent.md`'s Pass 1 (wide, fast) / Pass 2 (deep, focused)
-structure is the canonical, already-compliant example — see its "Return this to the caller"
-section's `Excluded` bullet. A future subagent that performs the same kind of triage should
-follow the same shape rather than inventing a new report structure.
+**Worked example**: `agents/research-consolidator.md`'s Pass 1 (wide, fast) / Pass 2 (deep,
+focused) structure is the canonical, already-compliant example — see its "Return this to the
+caller" section's `Excluded Candidates` heading. A future subagent that performs the same kind
+of triage should follow the same shape rather than inventing a new report structure.
 
 **Confirmed non-applicable today** (re-check this premise before retrofitting, don't assume it
 still holds without looking): `spec-reviewer` reviews one caller-given document, not a candidate
-set, so it has nothing to triage. Task slicing (formerly `tdd-planner`, now performed directly by
-`spec-driven-development` from `research-consolidator`'s `task_findings`) doesn't survey files
-itself either, so it also does no candidate-file triage of its own.
+set, so it has nothing to triage. Task slicing (owned by the separate `agent-tdd` plugin, from
+`research-consolidator`'s cached `task_findings` — see `agent-tdd`'s own `INTEROP.md`) doesn't
+survey files itself either, so it also does no candidate-file triage of its own.

@@ -208,8 +208,8 @@ section).
 
 ## Research Basis
 
-- Wide-pass candidates: <files/modules `planning-agent` flagged as touched-area candidates>
-- Deep-pass findings: <load-bearing files `planning-agent` actually read, and what each one constrains>
+- Wide-pass candidates: <files/modules `research-consolidator` flagged as touched-area candidates>
+- Deep-pass findings: <load-bearing files `research-consolidator` actually read, and what each one constrains>
 - Memory brief used: <one-line reference to the `agent-nelly:nelly-orchestrator` brief this design was seeded with, if available>
 
 ## Scope Mapping To Requirements

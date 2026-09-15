@@ -39,7 +39,7 @@ class SubagentReportTests(unittest.TestCase):
     def test_no_active_state_is_silent(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             transcript = os.path.join(home, "transcript.jsonl")
-            _write_transcript(transcript, [_assistant_line("<!--SDD-REPORT:tdd-planner-->\nDone.")])
+            _write_transcript(transcript, [_assistant_line("<!--SDD-REPORT:spec-reviewer-->\nDone.")])
             msg, rc = h.run_hook_message(
                 "subagent_report.py",
                 {"cwd": repo, "transcript_path": transcript},
@@ -55,7 +55,7 @@ class SubagentReportTests(unittest.TestCase):
             transcript = os.path.join(home, "transcript.jsonl")
             _write_transcript(
                 transcript,
-                [_assistant_line("<!--SDD-REPORT:tdd-planner-->\nImplemented the thing.")],
+                [_assistant_line("<!--SDD-REPORT:spec-reviewer-->\nImplemented the thing.")],
             )
             msg, rc = h.run_hook_message(
                 "subagent_report.py",
@@ -111,7 +111,7 @@ class SubagentReportTests(unittest.TestCase):
             _write_transcript(
                 transcript,
                 [
-                    _assistant_line("<!--SDD-REPORT:tdd-planner-->\nPlan ready."),
+                    _assistant_line("<!--SDD-REPORT:spec-reviewer-->\nPlan ready."),
                     "not valid json {{{",
                     _user_line("thanks"),
                 ],

@@ -3,8 +3,8 @@
 active feature's recap log, so the delegation loop is never lost.
 
 Only logs when (a) an SDD workflow is active and (b) the subagent's final message
-looks like a phase-worker report (spec-reviewer / tdd-planner) -- keeps unrelated
-subagents, and the plugin's own mechanical helpers (planning-agent, the
+looks like a phase-worker report (spec-reviewer) -- keeps unrelated
+subagents, and the plugin's own mechanical helper (research-consolidator, the
 cross-plugin agent-ux:ux-agent), from adding recap noise. Implementation-phase
 reports (agent-TDD / test-author) are out of scope for this plugin -- they
 belong to the separate agent-tdd plugin.
@@ -18,16 +18,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import active_state_file, write_rollback_pending  # noqa: E402
 
-# Markers that identify a spec-reviewer / tdd-planner report.
+# Markers that identify a spec-reviewer report.
 SDD_MARKERS = re.compile(
     r"(?i)(verdict|acceptance criteria|\bEARS\b|tasks\.md|handoff|"
     r"rewritten|readiness|phase status|recommended phase status)"
 )
 
-# Explicit, plugin-controlled marker the two phase-worker subagents emit as
-# the first line of their final report. Preferred over SDD_MARKERS because it
+# Explicit, plugin-controlled marker the phase-worker subagent emits as
+# the first line of its final report. Preferred over SDD_MARKERS because it
 # can't be coincidentally triggered by unrelated natural-language text.
-EXPLICIT_MARKER = re.compile(r"<!--SDD-REPORT:(tdd-planner|spec-reviewer)-->")
+EXPLICIT_MARKER = re.compile(r"<!--SDD-REPORT:(spec-reviewer)-->")
 
 # Human-relay rollback marker per INTEROP.md's "<- agent-tdd / code-reviewer (rollback
 # request)" convention: a human (or whichever context is driving) pastes this directly into a
