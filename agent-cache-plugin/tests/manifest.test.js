@@ -64,8 +64,8 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
 
     test('should contain "author" field', () => {
       expect(manifestContent).toHaveProperty('author');
-      expect(typeof manifestContent.author).toBe('string');
-      expect(manifestContent.author.length).toBeGreaterThan(0);
+      expect(typeof manifestContent.author).toBe('object');
+      expect(manifestContent.author.name.length).toBeGreaterThan(0);
     });
 
     test('should contain "license" field', () => {
@@ -115,7 +115,7 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
     });
 
     test('should only contain valid fields from Claude Code plugin spec', () => {
-      const validFields = ['name', 'version', 'description', 'author', 'license'];
+      const validFields = ['name', 'version', 'description', 'author', 'license', 'homepage', 'keywords'];
       const manifestFields = Object.keys(manifestContent);
       const invalidFields = manifestFields.filter(field => !validFields.includes(field));
 
@@ -130,8 +130,10 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
         name: expect.any(String),
         version: expect.any(String),
         description: expect.any(String),
-        author: expect.any(String),
-        license: expect.any(String)
+        author: expect.any(Object),
+        license: expect.any(String),
+        homepage: expect.any(String),
+        keywords: expect.any(Array)
       });
     });
   });

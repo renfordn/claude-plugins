@@ -5,7 +5,7 @@
  * Verifies argument parsing, command routing, and output format.
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 const cacheCommand = path.join(__dirname, '../scripts/cache-command.js');
@@ -15,7 +15,7 @@ const cacheCommand = path.join(__dirname, '../scripts/cache-command.js');
  */
 function runCommand(args) {
   try {
-    const result = execSync(`node ${cacheCommand} ${args}`, {
+    const result = execFileSync('node', [cacheCommand, ...args.split(' ').filter(Boolean)], {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
