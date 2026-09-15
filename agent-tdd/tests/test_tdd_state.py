@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
 import tdd_state
@@ -125,6 +126,37 @@ class WriteLastStopTests(unittest.TestCase):
             tdd_state.write_last_stop("/some/path")  # must not raise
         finally:
             os.makedirs = original
+
+
+class ClaudePluginDataEnvVarTests(unittest.TestCase):
+    """Tests for ${CLAUDE_PLUGIN_DATA} env var support (Task 4.2)."""
+
+    def test_base_respects_claude_plugin_data_env_var(self):
+        """Verify BASE uses CLAUDE_PLUGIN_DATA when set."""
+        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/custom/data"}):
+            # Force reload to pick up env var
+            import importlib
+            importlib.reload(tdd_state)
+            self.assertIn("/custom/data", tdd_state.BASE)
+
+    def test_base_uses_fallback_when_env_unset(self):
+        """Verify BASE falls back to ~/.claude/plugins/data when CLAUDE_PLUGIN_DATA unset."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+            # Force reload to pick up cleared env var
+            import importlib
+            importlib.reload(tdd_state)
+            self.assertIn(".claude/plugins/data", tdd_state.BASE)
+            self.assertIn("agent-tdd", tdd_state.BASE)
+
+    def test_tdd_memory_dir_uses_updated_base(self):
+        """Verify tdd_memory_dir returns paths under updated BASE."""
+        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/test/plugin-data"}):
+            import importlib
+            importlib.reload(tdd_state)
+            d = tdd_state.tdd_memory_dir("/some/project")
+            self.assertIn("/test/plugin-data", d)
+            self.assertIn("agent-tdd-state", d)
 
 
 if __name__ == "__main__":

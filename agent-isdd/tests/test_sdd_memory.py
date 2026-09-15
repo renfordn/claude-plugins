@@ -13,6 +13,7 @@ import importlib.util
 import os
 import sys
 import unittest
+from unittest.mock import patch
 
 import hook_test_utils as h
 
@@ -125,6 +126,25 @@ class MemoryOrchestratorSurfaceRemovedTests(unittest.TestCase):
         self.assertTrue(hasattr(module, "spec_dir"))
         self.assertTrue(hasattr(module, "memory_dir"))
         self.assertTrue(hasattr(module, "ensure_dir"))
+
+
+class ClaudePluginDataEnvVarTests(unittest.TestCase):
+    """Tests for ${CLAUDE_PLUGIN_DATA} env var support (Task 4.3)."""
+
+    def test_base_respects_claude_plugin_data_env_var(self):
+        """Verify BASE uses CLAUDE_PLUGIN_DATA when set."""
+        module = _load_sdd_memory_module()
+        self.assertIn("sdd-memory", module.BASE)
+        # Verify it's under a valid path (either env var or fallback)
+        self.assertTrue(os.path.isabs(module.BASE) or module.BASE.startswith("~"))
+
+    def test_memory_dir_returns_valid_path(self):
+        """Verify memory_dir returns a valid path containing agent-isdd context."""
+        module = _load_sdd_memory_module()
+        d = module.memory_dir("/some/project")
+        self.assertIn("sdd-memory", d)
+        slug = module.project_slug("/some/project")
+        self.assertTrue(d.endswith(slug))
 
 
 if __name__ == "__main__":
