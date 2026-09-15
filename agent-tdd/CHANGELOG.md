@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-15
+
+**Fix: ecosystem audit compatibility fixes**
+
+### Fixes & Improvements
+
+- **INTEROP.md drift** — documented that "Design Spec Mode" has two independent, non-interchangeable implementations: the inline pipeline in agent-TDD.md (what agent-isdd actually spawns) and the modular `skills/design-spec.md` pipeline, previously undocumented
+
 ## [0.1.9] - 2026-08-23
 
 **Enhancement: Readiness-check marker emission & UX integration**
