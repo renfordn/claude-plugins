@@ -2,7 +2,7 @@
 """Shared state utilities for the agent-tdd plugin.
 
 Owns:
-  - TDD memory directory derivation (~/.claude/agent-tdd-state/<project-slug>/)
+  - TDD memory directory derivation (${CLAUDE_PLUGIN_DATA}/agent-tdd-state/<project-slug>/)
   - tdd-progress.json read/write (slice tracking)
   - last-stop.json write (session boundary marker)
 
@@ -14,8 +14,17 @@ import datetime
 import json
 import os
 import re
+import sys
 
-BASE = os.path.join(os.path.expanduser("~"), ".claude", "agent-tdd-state")
+# Add shared directory to path for path_resolution import
+_shared_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
+if _shared_dir not in sys.path:
+    sys.path.insert(0, _shared_dir)
+from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+
+# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
+_plugin_data_dir = get_plugin_data_dir("agent-tdd")
+BASE = get_legacy_subdir_path(_plugin_data_dir, "agent-tdd-state")
 
 
 def project_slug(cwd):
