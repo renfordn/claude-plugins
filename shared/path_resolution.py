@@ -17,14 +17,15 @@ def get_plugin_data_dir(plugin_name: str) -> str:
         Absolute path to plugin data directory. Never None.
 
     Behavior:
-        - If CLAUDE_PLUGIN_DATA env var is set, returns that path
-        - If unset, returns fallback: ~/.claude/plugins/data/{plugin_name}/
+        - If CLAUDE_PLUGIN_DATA env var is set (Claude Code runtime): returns that path
+        - If unset (local dev/testing): returns ~/.claude/plugins/data/{plugin_name}/
 
-    The returned path may not exist; caller is responsible for creation.
+    The returned path may not exist; caller is responsible for creation. The env var
+    is set by Claude Code to ensure data persists across updates and is cleaned on uninstall.
     """
     data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
     if not data_dir:
-        # Fallback for local development/testing when Claude Code doesn't set env var
+        # Fallback: local development or testing when Claude Code doesn't set env var
         data_dir = os.path.join(
             os.path.expanduser("~"),
             ".claude",
