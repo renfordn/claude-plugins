@@ -305,7 +305,7 @@ class CapabilityMap:
             ))
 
         elif plugin_name == "code-reviewer":
-            if "Code Reviewer" in content or "code-reviewer" in content:
+            if "Integrating Code Reviewer" in content or "code-reviewer INTEROP" in content:
                 capabilities.append(Capability(
                     plugin=plugin_name,
                     id="code_review",
