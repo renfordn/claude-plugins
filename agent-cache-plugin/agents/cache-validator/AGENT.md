@@ -1,4 +1,5 @@
 ---
+name: cache-validator
 description: Validates cache entries and scores their relevance to current tasks
 keywords: [validation, relevance-scoring, integrity-checking]
 version: 1.0.0

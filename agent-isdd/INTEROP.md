@@ -42,13 +42,26 @@ Slice Specs). Escalations back to agent-isdd (design contradicts research, resea
 pause with explicit reason; agent-isdd resumes via its `before-continue` hook when user
 re-enters after addressing the escalation.
 
-**Exception — Code-Review Gate**: When agent-tdd pauses mid-refactor (waiting for mandatory
-code-review on a high-risk slice), the user runs `/code-reviewer` in a separate context. When
-the user returns via `/isdd-continue`, the `before-continue` hook detects agent-tdd's paused
-state and sends a continuation message (via `SendMessage`) to the existing agent-tdd session,
-passing full context. agent-tdd resumes from its internal refactor state. This is the ONLY
-continuation path — no per-phase instructions, no reconstructed Slice Specs, no incremental
-phase-by-phase requests.
+**Exception — Code-Review Gate (manual, caller-driven)**: `agent-TDD`'s Review pause between
+Green and Refactor is mandatory for *every* slice (see `agent-tdd`'s own `INTEROP.md`, "The
+mandatory review pause"), not just high-risk ones — the automatic path described below in "Auto
+Code-Reviewer Invocation" only covers high-risk slices and standard slices that touch a
+high-risk file path, so most standard-risk slices still hit this manual path. Corrected
+2026-09-15: this used to (incorrectly) claim the `before-continue` hook detects agent-tdd's
+paused state and auto-resumes it via `SendMessage`; neither `hooks/before_continue.py` nor
+`spec-driven-development/SKILL.md` implement that — both explicitly disclaim owning
+resumption of a paused `agent-tdd` (see their own source comments/scope notes) — and a hook
+could not do this even in principle: hooks are blocking subprocesses with no `Agent`/`SendMessage`
+tool access, the same constraint documented for `agent-nelly`'s hook-bound-consumer pattern in
+its own `INTEROP.md`.
+
+What actually happens, matching `agent-tdd`'s own generic guidance ("What you do with that
+pause is up to you" / resume via `SendMessage`): the user (or whichever context is driving)
+runs `/code-reviewer` themselves, then manually resumes the still-live `agent-tdd` session —
+via `SendMessage` to its agent id, in the *same* session — passing along whether/what review
+found. This is a same-session, live-agent-id operation; it has no relationship to
+`/isdd-continue` or `workflow-state.json`, both of which resume the SDD *workflow* across
+sessions, not a specific paused subagent instance within one.
 
 ### Agent-tdd Implementation Requirements (Phase 2+3)
 

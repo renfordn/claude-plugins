@@ -1,4 +1,5 @@
 ---
+name: agent-cache-orchestrator
 description: Orchestrates cache decisions based on relevance scoring and task context
 keywords: [orchestration, decision-making, relevance, token-efficiency]
 version: 1.0.0

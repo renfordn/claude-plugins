@@ -2,6 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
@@ -12,6 +13,7 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
