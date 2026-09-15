@@ -1,6 +1,6 @@
 {
   "name": "@claude/agent-cache-plugin",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Token efficiency optimization plugin for Claude Cowork using agent-level caching",
   "keywords": [
     "cache",
