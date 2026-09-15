@@ -24,10 +24,18 @@ import os
 import re
 import sys
 
-# Import shared slug utility (consolidates duplicated logic across plugins)
+# Import shared utilities
 from shared_slug import get_project_slug
 
-BASE = os.path.join(os.path.expanduser("~"), ".claude", "agent-nelly-memory")
+# Add shared directory to path for path_resolution import
+_shared_dir = os.path.join(os.path.dirname(__file__), '..', 'shared')
+if _shared_dir not in sys.path:
+    sys.path.insert(0, _shared_dir)
+from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+
+# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
+_plugin_data_dir = get_plugin_data_dir("agent-nelly")
+BASE = get_legacy_subdir_path(_plugin_data_dir, "agent-nelly-memory")
 
 
 # Backward compatibility: alias to shared implementation

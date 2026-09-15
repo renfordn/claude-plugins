@@ -2,6 +2,8 @@
 
 Every test monkeypatches nelly_memory.BASE to an isolated tmp_path so the suite
 never touches the real ~/.claude/agent-nelly-memory/ tree on disk.
+
+Updated for ${CLAUDE_PLUGIN_DATA} env var support (Task 2.1).
 """
 import os
 
@@ -10,10 +12,28 @@ import pytest
 import nelly_memory
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def isolated_base(tmp_path, monkeypatch):
-    monkeypatch.setattr(nelly_memory, "BASE", str(tmp_path / "agent-nelly-memory"))
+    """Provide isolated BASE directory, respecting CLAUDE_PLUGIN_DATA env var."""
+    plugin_data = str(tmp_path / "plugin-data")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", plugin_data)
+    # Also monkeypatch BASE to ensure tests work even if env var path differs
+    expected_base = os.path.join(plugin_data, "agent-nelly-memory")
+    monkeypatch.setattr(nelly_memory, "BASE", expected_base)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def cleanup_env(monkeypatch):
+    """Ensure CLAUDE_PLUGIN_DATA is isolated per test."""
+    # Save original state
+    original = os.environ.get("CLAUDE_PLUGIN_DATA")
+    yield
+    # Restore or clear
+    if original is not None:
+        monkeypatch.setenv("CLAUDE_PLUGIN_DATA", original)
+    else:
+        monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -473,3 +493,36 @@ def test_parse_index_line_fields_paths_none_when_fragment_absent():
         "files": "yes",
         "paths": None,
     }
+
+
+# ---------------------------------------------------------------------------
+# CLAUDE_PLUGIN_DATA env var support (Task 2.1)
+# ---------------------------------------------------------------------------
+
+def test_memory_dir_respects_claude_plugin_data_env_var(monkeypatch, tmp_path):
+    """Verify that BASE is built from CLAUDE_PLUGIN_DATA when set."""
+    plugin_data = str(tmp_path / "plugins" / "data" / "agent-nelly")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path / "plugins" / "data" / "agent-nelly"))
+    expected_base = os.path.join(plugin_data, "agent-nelly-memory")
+    monkeypatch.setattr(nelly_memory, "BASE", expected_base)
+
+    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    d = nelly_memory.memory_dir(cwd)
+
+    # Verify BASE is in the path
+    assert nelly_memory.BASE in d
+    assert "plugins/data/agent-nelly" in d
+
+
+def test_global_dir_respects_claude_plugin_data_env_var(monkeypatch, tmp_path):
+    """Verify that global_dir uses the CLAUDE_PLUGIN_DATA-derived BASE."""
+    plugin_data = str(tmp_path / "plugins" / "data" / "agent-nelly")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path / "plugins" / "data" / "agent-nelly"))
+    expected_base = os.path.join(plugin_data, "agent-nelly-memory")
+    monkeypatch.setattr(nelly_memory, "BASE", expected_base)
+
+    d = nelly_memory.global_dir()
+
+    # Verify BASE is in the path
+    assert nelly_memory.BASE in d
+    assert os.path.basename(d) == "global"
