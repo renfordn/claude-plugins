@@ -368,3 +368,44 @@ def _build_tier2_context(workflow_state: dict) -> str:
         tier2_parts.append(str(workflow_state["research_cache"]))
 
     return "".join(tier2_parts)
+
+
+def _build_tier3_context(spawn_prompt: str) -> str:
+    """Build Tier 3 (per-call) context: Original agent spawn prompt.
+
+    Tier 3 is the per-call instruction from the caller. It's preserved as-is
+    (minimal processing) to respect the caller's specific directives for this spawn.
+
+    Args:
+        spawn_prompt: Original agent spawn prompt from caller
+
+    Returns:
+        The original spawn prompt (Tier 3 context is minimal and direct)
+    """
+    return spawn_prompt
+
+
+def _assemble_context_tiers(
+    tier1: Optional[str],
+    tier2: Optional[str],
+    tier3: Optional[str],
+    *extra_parts: str
+) -> str:
+    """Assemble context tiers and extra parts into final context string.
+
+    Combines Tier 1 (stable), Tier 2 (derived), Tier 3 (per-call), and any extra parts
+    (e.g., rollback context, error patterns) with blank line separators.
+
+    Skips empty/None tiers to avoid excessive blank lines.
+
+    Args:
+        tier1: Tier 1 context or None
+        tier2: Tier 2 context or None
+        tier3: Tier 3 context (spawn prompt)
+        *extra_parts: Additional context parts (rollback, error patterns, etc.)
+
+    Returns:
+        Assembled context string with tiers in order: Tier 1 → 2 → 3 → extra
+    """
+    parts = [p for p in (tier1, tier2, tier3, *extra_parts) if p]
+    return "\n\n".join(parts)
