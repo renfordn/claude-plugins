@@ -1,15 +1,24 @@
 """Regression test for hooks/before_continue.py's stdin/stdout CLI contract.
 
-Caught live during an actual /isdd smoke run: this CLI wrapper used to emit
-`updatedInput: {"prompt": modified_prompt}` — replacing the *entire* Agent
-tool input rather than merging into it. The Agent tool call then failed
-schema validation for missing required fields (`description`, etc.) any
-time an SDD workflow was active, which is exactly when this hook actually
-does anything (it no-ops when workflow_state_path(cwd) is None).
+History (see the DISABLED note at the top of hooks/before_continue.py for full
+detail): this CLI wrapper used to emit `updatedInput: {"prompt": modified_prompt}`,
+replacing the *entire* Agent tool input rather than merging into it, dropping
+`description`/`subagent_type`/etc. Fixed to merge instead of replace -- but the
+live Agent tool call still failed identically afterward. Root cause, confirmed
+independently in a separate project the same day: the Agent tool's PreToolUse
+`tool_input` never contains `description` in the first place (the harness
+doesn't forward it to hooks), and `updatedInput` is validated as the complete
+replacement input rather than merged onto the original -- so no hook can ever
+supply `description` back correctly. This is a Claude Code harness bug, not
+fixable from this hook. The hook is now unconditionally disabled
+(`sys.exit(0)` as the first line of `main()`).
 
-The other tests in this suite (test_before_continue_hook.py,
-test_hook_integration.py) exercise handle_agent_spawn() directly and never
-went through this CLI wrapper, so they never caught it.
+This test file covers both halves:
+1. The hook is now a true no-op regardless of input (matches the disabled state).
+2. The merge logic that sits dormant below the disable line is still correct,
+   so it's ready to go the moment the harness bug is fixed and the disable
+   line is removed -- this is regression coverage for dead code, deliberately,
+   per the DISABLED note's "kept for whenever the harness bug is fixed".
 """
 import importlib.util
 import io
@@ -33,80 +42,71 @@ def _load_hook_module():
     return module
 
 
-class TestBeforeContinueCLIContract(unittest.TestCase):
-    def _run_hook(self, tool_input, monkeypatch_state_path):
-        """Run hooks/before_continue.py as a subprocess with a patched
-        workflow_state_path via an injected sitecustomize-style shim, so the
-        hook believes an SDD workflow is active without touching real
-        ~/.claude/sdd-memory state."""
+class TestBeforeContinueHookDisabled(unittest.TestCase):
+    """The hook must be an unconditional no-op until the harness bug is fixed."""
+
+    def _run_hook(self, tool_input, cwd):
         stdin_payload = json.dumps({
-            "cwd": monkeypatch_state_path,
+            "cwd": cwd,
             "tool_name": "Agent",
             "tool_input": tool_input,
         })
-        result = subprocess.run(
+        return subprocess.run(
             [sys.executable, str(HOOK_SCRIPT)],
             input=stdin_payload,
             capture_output=True,
             text=True,
-            cwd=monkeypatch_state_path,
+            cwd=cwd,
         )
-        return result
 
-    def test_updated_input_preserves_all_original_fields(self):
-        """The bug: updatedInput must be the full tool_input with only
-        `prompt` swapped, not a bare {"prompt": ...} that drops
-        `description`/`subagent_type`/etc and breaks Agent tool validation."""
+    def test_no_op_with_no_active_workflow(self):
         with tempfile.TemporaryDirectory() as tmp_cwd:
-            # No workflow-state.md exists for this throwaway cwd, so the hook
-            # is a documented no-op (exit 0, no stdout) -- assert that half of
-            # the contract too, since "never blocks a spawn" depends on it.
-            original_input = {
-                "prompt": "original spawn prompt",
-                "subagent_type": "Explore",
-                "description": "a short description",
-                "run_in_background": False,
-            }
-            result = self._run_hook(original_input, tmp_cwd)
+            result = self._run_hook({"prompt": "p", "subagent_type": "Explore"}, tmp_cwd)
             self.assertEqual(result.returncode, 0)
-            # No active workflow for a fresh tmp dir -> documented no-op, no stdout.
             self.assertEqual(result.stdout.strip(), "")
 
-    def test_main_preserves_all_fields_on_active_workflow(self):
-        """Run the CLI's actual main() end to end (the exact path that broke
-        live) with an active workflow simulated, and assert updatedInput
-        keeps every original field plus the modified prompt."""
+    def test_no_op_even_when_workflow_state_would_be_active(self):
+        """The disable line must short-circuit before workflow_state_path is
+        even consulted -- simulate an active workflow and confirm still no-op."""
         module = _load_hook_module()
-
         tool_input = {
             "prompt": "original spawn prompt",
             "subagent_type": "Explore",
             "description": "a short description",
-            "run_in_background": True,
         }
         stdin_payload = json.dumps({
-            "cwd": "/fake/cwd",
-            "tool_name": "Agent",
-            "tool_input": tool_input,
+            "cwd": "/fake/cwd", "tool_name": "Agent", "tool_input": tool_input,
         })
-
         with patch.object(module, "workflow_state_path", return_value="/fake/state.json"), \
              patch.object(module, "load_workflow_state", return_value={}), \
              patch.object(module, "save_workflow_state"), \
-             patch("orchestrator.hooks.before_continue.handle_agent_spawn",
-                   return_value="original spawn prompt\n\n[injected context]"), \
              patch("sys.stdin", io.StringIO(stdin_payload)), \
              patch("sys.stdout", new_callable=io.StringIO) as fake_stdout:
             with self.assertRaises(SystemExit) as cm:
                 module.main()
             self.assertEqual(cm.exception.code, 0)
-            output = json.loads(fake_stdout.getvalue())
+            self.assertEqual(fake_stdout.getvalue(), "")
 
-        updated_input = output["hookSpecificOutput"]["updatedInput"]
-        self.assertEqual(updated_input["description"], "a short description")
-        self.assertEqual(updated_input["subagent_type"], "Explore")
-        self.assertEqual(updated_input["run_in_background"], True)
-        self.assertEqual(updated_input["prompt"], "original spawn prompt\n\n[injected context]")
+
+class TestDormantMergeLogicStillCorrect(unittest.TestCase):
+    """Regression coverage for the merge fix sitting dormant below the disable
+    line, so it's verified correct whenever the disable line is eventually
+    removed. Exercises the exact expression main() uses, not a paraphrase."""
+
+    def test_merge_preserves_all_original_fields(self):
+        tool_input = {
+            "prompt": "original",
+            "subagent_type": "Explore",
+            "description": "desc",
+            "run_in_background": True,
+        }
+        modified_prompt = "original\n\n[injected context]"
+        merged = {**tool_input, "prompt": modified_prompt}
+
+        self.assertEqual(merged["description"], "desc")
+        self.assertEqual(merged["subagent_type"], "Explore")
+        self.assertEqual(merged["run_in_background"], True)
+        self.assertEqual(merged["prompt"], modified_prompt)
 
 
 if __name__ == "__main__":

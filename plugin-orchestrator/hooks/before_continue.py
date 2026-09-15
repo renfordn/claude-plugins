@@ -16,6 +16,20 @@ Agent tool call fails schema validation for missing required fields.
 
 Any failure degrades to a no-op (exit 0, no output) so a broken hook never blocks
 a real agent spawn.
+
+DISABLED (2026-09-15): confirmed Claude Code harness bug, not fixable from this hook. The
+Agent tool's PreToolUse `tool_input` never contains `description` in the first place (the
+harness doesn't forward it to hooks), and `updatedInput` is validated as the *complete*
+replacement input against the Agent tool's full schema rather than merged onto the original
+tool_input -- so no hook can ever supply `description` back correctly, even with the merge
+fix below in place (kept for whenever the harness bug is fixed; do not remove). Confirmed via:
+(1) manual simulation of this exact patched script produces a fully correct updatedInput
+including `description`; (2) the failure is identical across all 3 install locations after
+patching; (3) the failure persists identically across a genuine app relaunch (new PID). See
+~/.claude/sdd-memory/*/spec/2026-09-15-angular-dashboard-container/workflow-state.md for the
+full investigation (independently reproduced in a different project the same day). Report to
+Anthropic as a Claude Code bug; do not re-enable without new evidence the harness behavior
+changed.
 """
 import json
 import os
@@ -30,6 +44,7 @@ from hook_state import (  # noqa: E402
 
 
 def main():
+    sys.exit(0)  # noqa: unreachable below is intentional, see DISABLED note above
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
