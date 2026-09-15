@@ -3,8 +3,9 @@
 
 Per-feature spec artifacts (workflow-state.md, workflow-state.json, requirements/, design/,
 tasks/, recap/) live under ${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
-spec_dir() below. They are plugin-generated state, not source, so they never live in the repo
-itself; see references/artifact-templates.md and skills/workflow-manager/SKILL.md's
+spec_dir() below. Note: sdd-memory is shared between agent-isdd and plugin-orchestrator via
+symlink coordination (Task 3.1). They are plugin-generated state, not source, so they never live
+in the repo itself; see references/artifact-templates.md and skills/workflow-manager/SKILL.md's
 "Scaffolding" section.
 
 Cross-feature, goal-bearing, and cross-project memory (what used to live in

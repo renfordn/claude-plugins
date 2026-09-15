@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Core path-resolution primitives for Agent Nelly's independent memory store.
 
-Memory lives under ~/.claude/agent-nelly-memory/<project-slug>/ — a NEW root,
-structurally independent from SDD's ~/.claude/sdd-memory/. Every other file in
+Memory lives under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/ — a NEW root,
+structurally independent from SDD's sdd-memory/. Every other file in
 this plugin resolves paths by calling into this module; nothing hand-computes a
 path under BASE (see hooks/nelly_slug_guard.py, Phase 4).
 
