@@ -141,7 +141,7 @@ def cache_invalidate_via_mcp(scope):
         return True
 
 
-def main():
+def main(payload=None):
     """
     Hook: Runs after SubagentStop (phase state finalized).
 
@@ -149,17 +149,25 @@ def main():
     1. Detect phase transitions (Requirements → Design → Tasks → Implementation)
     2. On phase change: cache_write the phase_state
     3. On rollback/rewind: cache_invalidate the scope
+
+    Depends on running after subagent_report.py: a rollback request detected there is written
+    to workflow-state.json's rollback_pending field before this reads it. Returns the
+    systemMessage text (or None) instead of printing it directly, so subagent_dispatch.py can
+    run this alongside the other SubagentStop hooks in one process, in that same order, and
+    merge their messages. Standalone invocation (tests, direct hooks.json entry) still reads
+    stdin and prints exactly as before via the __main__ block below.
     """
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        payload = {}
+    if payload is None:
+        try:
+            payload = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
     state_path = active_state_file(cwd)
 
     if not state_path:
-        sys.exit(0)
+        return None
 
     feature_dir = os.path.dirname(state_path)
     feature_slug = get_feature_slug(state_path)
@@ -172,7 +180,7 @@ def main():
     if workflow_state.get("rollback_pending"):
         cache_invalidate_via_mcp(cache_scope)
         sys.stderr.write(f"[cache-hook] Cleared cache for rollback: {cache_scope}\n")
-        sys.exit(0)
+        return None
 
     # On successful phase transition, cache the state
     current_phase = workflow_state.get("current_phase")
@@ -186,12 +194,13 @@ def main():
 
         cache_write_via_mcp("phase_state", phase_data, cache_scope, ttl_seconds=3600)
 
-        print(json.dumps({
-            "systemMessage": f"[Cache] Phase state: {current_phase}"
-        }))
+        return f"[Cache] Phase state: {current_phase}"
 
-    sys.exit(0)
+    return None
 
 
 if __name__ == "__main__":
-    main()
+    _msg = main()
+    if _msg:
+        print(json.dumps({"systemMessage": _msg}))
+    sys.exit(0)

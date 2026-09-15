@@ -138,20 +138,26 @@ def extract_last_assistant_text(transcript_path, tail_bytes=16384):
     return blocks[-1].strip() if blocks else ""
 
 
-def main():
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        payload = {}
+def main(payload=None):
+    """Returns the systemMessage text (or None) instead of printing it directly, so
+    subagent_dispatch.py can run this alongside the other SubagentStop hooks in one process
+    and merge their messages. Standalone invocation (tests, direct hooks.json entry) still
+    reads stdin and prints exactly as before via the __main__ block below.
+    """
+    if payload is None:
+        try:
+            payload = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
     state = active_state_file(cwd)
     if not state:
-        sys.exit(0)
+        return None
 
     report = extract_last_assistant_text(payload.get("transcript_path", ""))
     if not report:
-        sys.exit(0)
+        return None
 
     feature_dir = os.path.dirname(state)
 
@@ -163,15 +169,14 @@ def main():
         json_path = os.path.join(feature_dir, "workflow-state.json")
         write_rollback_pending(json_path, rollback["target"], rollback["reason"], "agent-tdd")
         _append_pending_rollback_line(state, rollback["target"], rollback["reason"])
-        print(json.dumps({"systemMessage": (
+        return (
             f"SDD: a rollback request was received (target={rollback['target']}) — "
             "recorded as rollback_pending in workflow-state.json and workflow-state.md. "
             "The next /isdd-continue will route it through the Rewind Contract."
-        )}))
-        sys.exit(0)
+        )
 
     if not is_sdd_report(report):
-        sys.exit(0)  # not an SDD phase-worker report — stay quiet
+        return None  # not an SDD phase-worker report — stay quiet
 
     log = os.path.join(feature_dir, "recap", "subagent-reports.md")
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -181,14 +186,16 @@ def main():
         with open(log, "a", encoding="utf-8") as fh:
             fh.write(entry)
     except OSError:
-        sys.exit(0)
+        return None
 
-    print(json.dumps({"systemMessage": (
+    return (
         f"SDD: captured a subagent report to {os.path.relpath(log, cwd)} — "
         f"integrate it into recap.md and update workflow-state."
-    )}))
-    sys.exit(0)
+    )
 
 
 if __name__ == "__main__":
-    main()
+    _msg = main()
+    if _msg:
+        print(json.dumps({"systemMessage": _msg}))
+    sys.exit(0)

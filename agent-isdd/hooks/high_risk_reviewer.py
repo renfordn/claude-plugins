@@ -822,7 +822,7 @@ def create_github_issues(repo_url: str, phase_name: str, findings: list,
     return issue_urls
 
 
-def main():
+def main(payload=None):
     """
     Hook entry point: fires on SubagentStop (when agent-tdd:agent-TDD completes).
 
@@ -830,18 +830,23 @@ def main():
     the user to run code-reviewer on any high-risk slices before proceeding.
 
     Integration: Wired to hooks.json SubagentStop event after subagent_report.py
-    so it runs immediately when agent-tdd finishes.
+    so it runs immediately when agent-tdd finishes. Returns the systemMessage text (or
+    None) instead of printing it directly, so subagent_dispatch.py can run this alongside
+    the other SubagentStop hooks in one process, in that same order, and merge their
+    messages. Standalone invocation (tests, direct hooks.json entry) still reads stdin and
+    prints exactly as before via the __main__ block below.
     """
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        payload = {}
+    if payload is None:
+        try:
+            payload = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
     state_path = active_state_file(cwd)
 
     if not state_path:
-        sys.exit(0)
+        return None
 
     feature_dir = os.path.dirname(state_path)
 
@@ -855,12 +860,13 @@ def main():
     # Get checkpoint message
     checkpoint = get_code_reviewer_checkpoint(feature_dir)
     if checkpoint:
-        print(json.dumps({
-            "systemMessage": checkpoint["message"]
-        }))
+        return checkpoint["message"]
 
-    sys.exit(0)
+    return None
 
 
 if __name__ == "__main__":
-    main()
+    _msg = main()
+    if _msg:
+        print(json.dumps({"systemMessage": _msg}))
+    sys.exit(0)

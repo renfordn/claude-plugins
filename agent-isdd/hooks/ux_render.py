@@ -192,7 +192,7 @@ def is_phase_change(old_phase, new_phase):
     return old_phase.strip() != new_phase.strip()
 
 
-def main():
+def main(payload=None):
     """
     Hook: Runs after SubagentStop (phase state finalized).
 
@@ -204,17 +204,23 @@ def main():
        b. Call agent-ux phase_transition (with chapter marking)
     4. If phase same:
        a. Call agent-ux breadcrumb_only with cached/current state (~100 tokens)
+
+    Returns the systemMessage text (or None) rather than printing it directly, so the
+    subagent_dispatch.py dispatcher can run this alongside the other SubagentStop hooks in one
+    process and merge their messages. Standalone invocation (tests, direct hooks.json entry)
+    still reads stdin and prints exactly as before via the __main__ block below.
     """
-    try:
-        payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
-        payload = {}
+    if payload is None:
+        try:
+            payload = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
     state_path = payload.get("state_path")
 
     if not state_path:
-        sys.exit(0)
+        return None
 
     feature_dir = os.path.dirname(state_path)
     feature_slug = get_feature_slug(state_path)
@@ -226,7 +232,7 @@ def main():
     phase_state = workflow_state.get("phase_state", "Unknown")
 
     if not current_phase:
-        sys.exit(0)
+        return None
 
     # Try to read cached phase state
     cached = cache_read_via_mcp("phase_state", cache_scope)
@@ -258,24 +264,20 @@ def main():
             summary=summary
         )
 
-        print(json.dumps({
-            "systemMessage": f"UX: {previous_phase or 'Start'} → {current_phase}"
-        }))
+        return f"UX: {previous_phase or 'Start'} → {current_phase}"
 
-    else:
-        # SAME PHASE: Just update breadcrumb (cheap, ~100 tokens)
-        display_phase = (cached.get("value", {}).get("current_phase")
-                        if cached.get("hit")
-                        else current_phase)
+    # SAME PHASE: Just update breadcrumb (cheap, ~100 tokens)
+    display_phase = (cached.get("value", {}).get("current_phase")
+                    if cached.get("hit")
+                    else current_phase)
 
-        render_breadcrumb_only(display_phase, feature_slug)
+    render_breadcrumb_only(display_phase, feature_slug)
 
-        print(json.dumps({
-            "systemMessage": f"UX: breadcrumb update ({display_phase})"
-        }))
-
-    sys.exit(0)
+    return f"UX: breadcrumb update ({display_phase})"
 
 
 if __name__ == "__main__":
-    main()
+    _msg = main()
+    if _msg:
+        print(json.dumps({"systemMessage": _msg}))
+    sys.exit(0)
