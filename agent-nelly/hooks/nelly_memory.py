@@ -15,7 +15,7 @@ ensure_entries_dir(cwd) exists because entry_path()/archive_path() are pure
 path-string builders with no directory-creation side effect, and ensure_dir()
 only creates the top-level project dir + MEMORY.md, never entries/. Any
 write-back that creates or overwrites entries/<name>.md MUST call
-ensure_entries_dir(cwd) first (see nelly-orchestrator.md's "Recording a new
+ensure_entries_dir(cwd) first (see agent-nelly.md's "Recording a new
 fact" and "Import" sections) — this was previously missing, which let the
 MEMORY.md index get a new line while the entry file itself silently never
 got created.
@@ -136,7 +136,7 @@ def archive_path(cwd, name):
 def resolve_repo_relative(cwd, path):
     """Resolve a stored repo-relative path back to an absolute path anchored
     at cwd. Pure path resolution — no entry-file I/O. Used by
-    nelly-orchestrator's prose logic (via Bash/Glob, not by any hook) during
+    agent-nelly's prose logic (via Bash/Glob, not by any hook) during
     `/nelly-memory prune`'s file-existence check for `file-relevance` entries
     whose `metadata.files` paths are stored relative to cwd (never absolute,
     since a project can be checked out at different absolute paths across

@@ -10,7 +10,7 @@ unconfirmed past a fixed threshold") is deterministic. Everything else this
 script notices (near-duplicate slugs/descriptions, an active entry that some
 other entry's `metadata.supersedes` names) is reported only: deciding whether
 two entries really describe the same fact needs the LLM judgment
-`nelly-orchestrator` applies via `/nelly-memory consolidate`, which this
+`agent-nelly` applies via `/nelly-memory consolidate`, which this
 script deliberately does not attempt to replicate.
 
 Writes a human-readable report to
@@ -18,7 +18,7 @@ Writes a human-readable report to
 plugin's actual memory root -- see hooks/nelly_memory.py's BASE) and, for
 every project where it archived something, appends one `Action: archived`
 block to that project's own CONSOLIDATION-LOG.md, matching the shape already
-used by `nelly-orchestrator.md`'s "Supersession write-back" and "Discarding
+used by `agent-nelly.md`'s "Supersession write-back" and "Discarding
 an inferred error lesson" sections. After any archiving it rebuilds
 nelly-index.json via build_index.build_all() so the index never drifts from
 entries/ (see build_index.py's own docstring on why entries/ is the source
@@ -136,7 +136,7 @@ def _similarity(a, b):
 def _find_near_duplicate_pairs(entries):
     """Report-only heuristic: flag entry pairs whose slug or description text
     is highly similar. This never merges anything -- deciding whether two
-    entries really describe the same fact is nelly-orchestrator's judgment
+    entries really describe the same fact is agent-nelly's judgment
     call via `/nelly-memory consolidate`, not this script's.
     """
     pairs = []
@@ -260,7 +260,7 @@ def _scan_global(errors):
     """Global tier has no per-entry files -- just report near-duplicate
     frontmatter blocks inside GLOBAL-MEMORY.md. Never archives anything here;
     "Consolidating global-tier duplicates is out of scope" per
-    nelly-orchestrator.md's Promotion write-back.
+    agent-nelly.md's Promotion write-back.
     """
     g = global_dir()
     source = os.path.join(g, "GLOBAL-MEMORY.md")

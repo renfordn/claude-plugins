@@ -6,7 +6,7 @@ allowed-tools: Bash(python3 *), Read
 
 This project's **central** memory (Goal, architecture decisions, conventions, known issues,
 active work) has moved to the `agent-nelly` plugin. `/isdd-memory` no longer owns or reads that
-store directly — it only redirects, addressed via `agent-nelly:nelly-orchestrator` the same way
+store directly — it only redirects, addressed via `agent-nelly:agent-nelly` the same way
 that subagent is called elsewhere in this plugin (see `commands/isdd.md`'s Availability Check
 reference).
 
@@ -15,7 +15,7 @@ Requested action (default `view`): $ARGUMENTS
 - **view** — Tell the user central memory now lives in agent-nelly and the equivalent command is
   `/nelly-memory view`; do not attempt to proxy or wrap it here. If a calling skill/orchestrator
   needs a memory brief programmatically rather than interactively, it should delegate to
-  `agent-nelly:nelly-orchestrator` directly (gated by the Availability Check), not through this
+  `agent-nelly:agent-nelly` directly (gated by the Availability Check), not through this
   command.
 
 - **migrate** — This project may still have pre-migration sdd-memory content on disk from before

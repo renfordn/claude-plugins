@@ -1,5 +1,5 @@
 """Tests for scripts/build_index.py -- the pre-index JSON builder that lets
-nelly-orchestrator match relevance from one nelly-index.json read instead of
+agent-nelly match relevance from one nelly-index.json read instead of
 opening every entries/*.md file.
 """
 import json

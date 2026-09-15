@@ -927,7 +927,7 @@ class TestNellyWorkaroundLookupRealImplementation(unittest.TestCase):
     """Test nelly_workaround_lookup's real (unmocked) pending-request behavior.
 
     ErrorHandler runs inside a hook with no Agent-tool access, so it can't call
-    nelly-orchestrator directly -- see orchestrator/nelly_pending.py. These
+    agent-nelly directly -- see orchestrator/nelly_pending.py. These
     tests exercise the enqueue/find_resolved wiring itself, as opposed to the
     rest of this file's tests, which mock nelly_workaround_lookup entirely to
     test determine_recovery's branching independent of this implementation.

@@ -143,7 +143,7 @@ def _build_system_message(agent_type, summary, workflow_state, state_path):
         ids = ", ".join(e["id"] for e in pending)
         parts.append(
             f"{len(pending)} nelly request(s) awaiting resolution ({ids}) — "
-            f"call agent-nelly:nelly-orchestrator, then run "
+            f"call agent-nelly:agent-nelly, then run "
             f"`python3 resolve_nelly_request.py --state {state_path} --id <id> --result '<json>'` "
             f"(or --list to see the full query for each)"
         )

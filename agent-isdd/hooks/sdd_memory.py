@@ -11,7 +11,7 @@ Cross-feature, goal-bearing, and cross-project memory (what used to live in
 PROJECT-MEMORY.md, TDD-MEMORY.md, scholar-memory.md, GLOBAL-MEMORY.md,
 GLOBAL-PROMOTION-LOG.md, all owned by the now-removed memory-orchestrator agent) is no
 longer this module's concern — that responsibility moved to the agent-nelly plugin's
-`nelly-orchestrator` subagent. This module only ever scaffolds per-feature state.
+`agent-nelly` subagent. This module only ever scaffolds per-feature state.
 
 Importable API: memory_dir, spec_dir, ensure_dir.
 CLI:

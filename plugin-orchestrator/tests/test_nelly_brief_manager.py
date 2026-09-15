@@ -546,7 +546,7 @@ class TestCallAgentNellyRealImplementation(unittest.TestCase):
     """Test _call_agent_nelly's real (unmocked) pending-request behavior.
 
     NellyBriefManager runs inside a hook with no Agent-tool access, so it
-    can't call nelly-orchestrator directly -- see orchestrator/nelly_pending.py.
+    can't call agent-nelly directly -- see orchestrator/nelly_pending.py.
     These exercise that enqueue/find_resolved wiring directly, as opposed to
     the rest of this file's tests, which mock _call_agent_nelly entirely.
     """

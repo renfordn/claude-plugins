@@ -231,7 +231,7 @@ checklist directly, unchanged from today's local-agent behavior.
 ## → agent-nelly (memory)
 
 Before starting or continuing meaningful phase work, `agent-isdd` delegates to
-`agent-nelly:nelly-orchestrator` for a goal-aware brief — nelly's four output sections are
+`agent-nelly:agent-nelly` for a goal-aware brief — nelly's four output sections are
 `Intent`, `Relevant entries`, `Intent alignment`, and `Written`; agent-isdd uses `Intent` to
 seed/check the feature's `Goal` field, and `Intent alignment` as the divergence signal — rather
 than reading `~/.claude/sdd-memory/` cross-feature index files directly. If `agent-nelly` is
@@ -244,7 +244,7 @@ agent-isdd still owns writing its own per-feature `spec/` artifacts
 (`hooks/sdd_memory.py`) is not part of what `agent-nelly` owns.
 
 Within a continuous stretch of phase work, agent-isdd does not re-call
-`agent-nelly:nelly-orchestrator` on every step once a brief has already been fetched and is
+`agent-nelly:agent-nelly` on every step once a brief has already been fetched and is
 still visible in context — it reuses the in-session brief instead. The full re-fetch-trigger
 convention lives in `skills/spec-driven-development/SKILL.md`'s Goal-Aware Memory section (this
 is a documentation pointer, not a duplicate definition). `workflow-state.json` is intentionally
@@ -252,7 +252,7 @@ unchanged by this dedup convention — it carries no brief-caching field.
 
 **Write-back during spec phases**: at each `after-*` hook (`after-requirements`,
 `after-design`, `after-tasks`), when `agent_nelly_available` is `true`, agent-isdd calls
-`agent-nelly:nelly-orchestrator` with a `new facts` batch containing any project-level
+`agent-nelly:agent-nelly` with a `new facts` batch containing any project-level
 discoveries worth persisting across future sessions — for example: interface assumptions
 confirmed or denied during requirements, coverage gaps or unexpected interfaces found during
 design research, risk flags raised. The criterion is "would a future conversation benefit from
@@ -291,7 +291,7 @@ agent-nelly returns cache hits with git_hash validation and cache misses.
 
 Agent-nelly's file cache is optional and transparent to agent-isdd: if unavailable, agent-isdd
 continues without pre-loaded file context (slower, but correct). The integration assumes
-agent-nelly:nelly-orchestrator supports:
+agent-nelly:agent-nelly supports:
 - `type: "file_summary"` in `new facts` batches (storage)
 - A query interface to retrieve file summaries by path (retrieval, with git_hash validity check)
 

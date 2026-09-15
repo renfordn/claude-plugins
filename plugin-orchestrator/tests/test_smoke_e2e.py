@@ -144,7 +144,7 @@ class TestSoftDependencyDegradation(unittest.TestCase):
     def test_present_soft_dependency_detected_available(self):
         system_reminder = (
             "Setup: agent-tdd:agent-TDD available. code-reviewer:code-reviewer available. "
-            "agent-nelly:nelly-orchestrator available. agent-ux:ux-agent available. "
+            "agent-nelly:agent-nelly available. agent-ux:ux-agent available. "
             "agent-cache-plugin:cache-validator available."
         )
         for name in ("agent-nelly", "agent-ux", "agent-cache-plugin"):

@@ -1,8 +1,8 @@
-"""PendingNellyRequestQueue: async hand-off for nelly-orchestrator calls hooks can't make.
+"""PendingNellyRequestQueue: async hand-off for agent-nelly calls hooks can't make.
 
 Both before_continue.py (PreToolUse) and subagent_stop.py (SubagentStop) run as
 blocking hook subprocesses with no Agent-tool access, so neither can invoke the
-agent-nelly:nelly-orchestrator subagent directly (see agent-nelly's INTEROP.md).
+agent-nelly:agent-nelly subagent directly (see agent-nelly's INTEROP.md).
 This module lets a hook enqueue a request and, on a later invocation, pick up a
 result that the main session (which *does* have Agent-tool access) resolved out
 of band -- via hooks/resolve_nelly_request.py, after noticing the pending entry

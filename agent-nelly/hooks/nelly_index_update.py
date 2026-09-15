@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """PostToolUse hook: keep nelly-index.json fresh after every Write/Edit/
-MultiEdit that touches Agent Nelly's memory store, so nelly-orchestrator can
+MultiEdit that touches Agent Nelly's memory store, so agent-nelly can
 read one JSON file instead of opening every entries/*.md file.
 
 Three path shapes matter here, matched purely from the written path (see
@@ -9,7 +9,7 @@ dispatcher over it):
 
   - <memory_dir>/entries/<name>.md  -> lightweight upsert of that one entry
     (scripts/build_index.py::upsert_project_entry). This is the common case
-    -- most write-back paths in nelly-orchestrator.md write or edit exactly
+    -- most write-back paths in agent-nelly.md write or edit exactly
     one entry file.
   - <memory_dir>/MEMORY.md          -> full rescan of that project's store
     (scripts/build_index.py::build_project_index). Every write-back path

@@ -20,10 +20,10 @@ decorative.
 
 ## How this agent receives memory
 
-This agent can never call `nelly-orchestrator` itself — subagents cannot call
+This agent can never call `agent-nelly` itself — subagents cannot call
 other subagents in this harness. Per the caller-orchestrated two-hop chain:
 
-1. The caller invokes `nelly-orchestrator` first, on its own, to obtain a
+1. The caller invokes `agent-nelly` first, on its own, to obtain a
    condensed memory brief for the current task.
 2. The caller pastes that returned brief text verbatim into this agent's
    prompt as a `Memory brief:` block, alongside the stated task.
@@ -40,7 +40,7 @@ requested this call` and there is no `File relevance:` sub-list, state that
 plainly — e.g. "The supplied memory brief has no relevant entries for this
 task; proceeding without memory-grounded output for this call." — rather than
 inventing output content from assumed context. This mirrors
-`nelly-orchestrator`'s own "never invent" invariant, applied here: an empty
+`agent-nelly`'s own "never invent" invariant, applied here: an empty
 brief produces an explicit insufficiency statement, never fabricated output
 detail.
 
@@ -48,6 +48,6 @@ detail.
 
 This agent's behavior is validated live, not by an automated test suite: see
 `MANUAL-VALIDATION.md` Fixture Set O (two-hop subagent chain) for the runbook
-— a live session invokes `nelly-orchestrator` for a brief, pastes it into this
+— a live session invokes `agent-nelly` for a brief, pastes it into this
 agent's prompt, and confirms grounded output when the brief has content and an
 explicit "insufficient memory" statement when it doesn't.

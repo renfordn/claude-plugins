@@ -3,7 +3,7 @@
 path against MEMORY.md's `paths:` index field and, on a qualifying match,
 emit a short `permissionDecisionReason` nudge.
 
-This hook NEVER invokes nelly-orchestrator and makes no Agent-tool call --
+This hook NEVER invokes agent-nelly and makes no Agent-tool call --
 it is a pure, self-contained Python script, same as nelly_slug_guard.py and
 nelly_memory_permission.py. It only ever *allows with a reason* or stays
 silent; it never denies, since a missing/stale memory entry must never block

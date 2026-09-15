@@ -19,9 +19,9 @@ skill's real behavior, it would call the `monzo` MCP server's `list_accounts()`,
 A single, stateless, one-turn skill invocation — nothing about it resembles SDD's
 requirements/design/tasks phases.
 
-## A concrete request to `nelly-orchestrator`
+## A concrete request to `agent-nelly`
 
-Before (or while) answering, `money-check` could ask `nelly-orchestrator` for a brief:
+Before (or while) answering, `money-check` could ask `agent-nelly` for a brief:
 
 ```
 cwd: ~/.claude/plugins/claude-pa   (illustrative — see "Assumption" below)
@@ -35,7 +35,7 @@ standing note about needing to re-authorize.
 
 ## A plausible brief response
 
-Following the real four-section contract from `agents/nelly-orchestrator.md`, exactly as
+Following the real four-section contract from `agents/agent-nelly.md`, exactly as
 `INTEROP.md` describes it:
 
 ```
@@ -67,7 +67,7 @@ new fact: "Monzo MCP requires periodic re-authorization; run `uv run python monz
 from `servers/monzo-mcp/` when a tool call returns {"error": "auth_required"}."
 ```
 
-`nelly-orchestrator` would write this as a new entry (e.g.
+`agent-nelly` would write this as a new entry (e.g.
 `entries/monzo-reauth-needed-periodically.md`), add it to `MEMORY.md`'s index, and run the
 promotion judgment on it — this is Bucket 2 (clearly project-specific: it names a specific
 script path and a specific MCP server), so it stays local to `claude-pa`'s own memory tier, no
@@ -86,6 +86,6 @@ integration would need to pin this down explicitly.
 
 This shows the brief contract, the `Intent`/`Relevant entries`/`Intent alignment`/`Written`
 shape, and the promotion judgment all working correctly for a caller shaped nothing like SDD.
-It does **not** mean `money-check` actually calls `nelly-orchestrator` today, and building that
+It does **not** mean `money-check` actually calls `agent-nelly` today, and building that
 real integration is explicitly out of scope for this document — see this feature's
 `requirements.md` Non-Goals.

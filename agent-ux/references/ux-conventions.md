@@ -113,7 +113,7 @@ one did.
 | Current / in progress | ▸ |
 | Not started | ○ |
 | Blocked / needs attention | ⚠ |
-| Goal-alignment flag | 🎯 (used only by `agent-nelly:nelly-orchestrator`'s alignment check, nowhere else — keep it a distinctive, rare signal) |
+| Goal-alignment flag | 🎯 (used only by `agent-nelly:agent-nelly`'s alignment check, nowhere else — keep it a distinctive, rare signal) |
 
 Use these sparingly — one or two per message where they add real scan-ability, never as
 decoration.

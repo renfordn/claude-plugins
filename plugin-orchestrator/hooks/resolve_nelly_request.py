@@ -2,12 +2,12 @@
 """CLI for resolving a pending agent-nelly request enqueued by a hook.
 
 before_continue.py and subagent_stop.py run as blocking hook subprocesses with
-no Agent-tool access, so neither can call agent-nelly:nelly-orchestrator
+no Agent-tool access, so neither can call agent-nelly:agent-nelly
 directly (see agent-nelly's INTEROP.md and orchestrator/nelly_pending.py).
 Instead they enqueue a request in workflow_state["orchestration"]
 ["pending_nelly_requests"] and surface it via a hook's systemMessage or
 injected context. The main session -- which does have Agent-tool access --
-notices that, calls nelly-orchestrator for a real answer, and runs this
+notices that, calls agent-nelly for a real answer, and runs this
 script to write the result back atomically so the next hook invocation can
 pick it up.
 

@@ -2,7 +2,7 @@
 # Manual Validation Runbook — Agent Nelly Phase 9
 
 This is the literal, step-by-step script for the parts of Phase 9 that require a
-**live Claude Code session** driving the `nelly-orchestrator` subagent and the
+**live Claude Code session** driving the `agent-nelly` subagent and the
 `/nelly-memory` slash command — the promotion-bucket judgment, consolidation,
 prune-via-command, and import-via-command fixtures. These cannot be executed by a
 sandboxed subagent invoking another subagent; a human or a live top-level session must
@@ -10,7 +10,7 @@ run this.
 
 Everything in this runbook was reconstructed from `tasks/tasks.md` (Phase 7/8 Test
 Intent), `design.md`'s Validation Strategy, `REVIEW-HISTORY.md`'s fixture references
-(Fixture Set 1, Fixture Set 2, Fixture B), and the shipped `agents/nelly-orchestrator.md`
+(Fixture Set 1, Fixture Set 2, Fixture B), and the shipped `agents/agent-nelly.md`
 / `commands/nelly-memory.md` text (which quotes some of the same examples verbatim,
 e.g. the bucket 1/2 examples below). The original test-author fixture artifact from
 Phase 7/8 was not persisted as a separate file in SDD memory, so this is a
@@ -45,7 +45,7 @@ output, to isolate a plugin-wiring problem from a hook-logic problem.
 
 ## Fixture Set 1 — Promotion buckets A/B/C
 
-Seed each fact via `/nelly-memory` triggering `nelly-orchestrator`'s "Recording a new
+Seed each fact via `/nelly-memory` triggering `agent-nelly`'s "Recording a new
 fact" path (brief assembly with a `new fact` input), one at a time, then run
 `/nelly-memory view` afterward to read `Written`.
 
@@ -344,7 +344,7 @@ the same way (a live session, or an `EnterWorktree`-provided real scratch cwd).
   2. "Ownership of the `orders.status` enum migration lives in billing-service, not
      checkout-service — checkout-service only reads it."
   3. "The `/health` endpoint has no test coverage at all currently."
-- **How to trigger:** one `nelly-orchestrator` call with a `New facts:` block listing all
+- **How to trigger:** one `agent-nelly` call with a `New facts:` block listing all
   three items verbatim (not three separate calls).
 - **Pass conditions:**
   - Items 1 and 2 are judged an in-batch duplicate pair (same underlying fact — ownership
@@ -391,7 +391,7 @@ as all-writes-then-all-promotions instead of per-entry write-then-promote.
 
 Written by `test-author` per the `2026-08-10-agent-nelly-token-efficiency` feature's Phase 4
 Test Intent, **before** step 1's prose is changed. This is a Red fixture set: run today,
-against the shipped `agents/nelly-orchestrator.md`, none of J/K/L/M can pass for the intended
+against the shipped `agents/agent-nelly.md`, none of J/K/L/M can pass for the intended
 reason, because current step 1 (lines 163-165 as of this writing) reads:
 
 > "Read the project's `entries/` directory (`Glob`/`Grep` over `entries/*.md` frontmatter) and
@@ -415,7 +415,7 @@ other set in this file) as this feature's Task 4 Validation Target, then update 
 - A real, distinct working directory (`EnterWorktree`), since `hooks/nelly_slug_guard.py`
   recomputes `project_slug()` from the real invocation cwd.
 - Phase 2 and Phase 3 of this feature complete first (`write_index_line()` exists and
-  `agents/nelly-orchestrator.md`'s write-back paths already produce field-annotated lines) —
+  `agents/agent-nelly.md`'s write-back paths already produce field-annotated lines) —
   otherwise there is no field-annotated `MEMORY.md` content to seed these fixtures with.
 - Seed entries and `MEMORY.md` lines directly on disk (matching `nelly-entry.template.md`'s
   shape and `write_index_line()`'s documented line format
@@ -602,7 +602,7 @@ line may only ever be used to skip opening a file for a **type-eligibility** det
 ### Before/after token comparison (same session, see Outstanding section below for full context)
 
 Ran Fixture K's exact scenario against both the pre-Phase-4 (0.2.0, commit `50d257c`) and
-post-Phase-4 (0.2.1) `nelly-orchestrator.md`, same seeded 4-entry memory store, same
+post-Phase-4 (0.2.1) `agent-nelly.md`, same seeded 4-entry memory store, same
 `handoff surfacing` trigger:
 
 | Version | Tokens | Tool uses |
@@ -643,17 +643,17 @@ import re
 with open("commands/nelly-memory.md") as f:
     text = f.read()
 # Every sentence describing a mutation (write/move/archive/overwrite/delete/create/
-# update/append) must name "nelly-orchestrator" as the actor in the same sentence,
+# update/append) must name "agent-nelly" as the actor in the same sentence,
 # the immediately preceding sentence, or the same list's introductory sentence.
 EOF
 ```
 
 - **Pass:** manual review confirms no sentence instructs the *command file itself* to
-  perform a mutation without nelly-orchestrator as the named actor (report-string
+  perform a mutation without agent-nelly as the named actor (report-string
   examples that quote an already-delegated action, e.g. "Report... 'Archived
   `<name>`...'", are not instructions to the command and are exempt).
 - **Fail if:** any sentence tells the command to `Write`/`Edit`/move/archive/overwrite
-  a memory file directly, with no nelly-orchestrator delegation stated anywhere nearby.
+  a memory file directly, with no agent-nelly delegation stated anywhere nearby.
 
 ---
 
@@ -671,7 +671,7 @@ EOF
 - [x] Batch fact write-back (Fixture Set G/H/I) — added in 0.1.5, run 2026-08-10.
 
 Record actual outcomes (pass/fail per fixture, and any prompt-iteration needed on
-`nelly-orchestrator.md` per Phase 9's Blockers Or Escalation note) directly in this
+`agent-nelly.md` per Phase 9's Blockers Or Escalation note) directly in this
 file or in a dated addendum once executed.
 
 ---
@@ -687,12 +687,12 @@ Run from a live top-level session whose actual working directory is the
   project.` — no error, no partial brief.
 - **Fixture F (delegation grep-check):** ✅ PASS on manual review of
   `commands/nelly-memory.md` as shipped — every mutation-describing sentence
-  (import/prune/consolidate write-backs) names `nelly-orchestrator` as the actor
+  (import/prune/consolidate write-backs) names `agent-nelly` as the actor
   in the same or an immediately preceding sentence; the only bare
   Write/Edit/move/archive/overwrite mentions are either report-string examples
   (exempt) or the Cross-cutting Rules' explicit negation. No violation found.
 - **Structural finding (blocks the remaining fixtures from this session):**
-  attempted Fixture 1A by asking `nelly-orchestrator` to treat a scratch-project
+  attempted Fixture 1A by asking `agent-nelly` to treat a scratch-project
   path as its `cwd`. The plugin's own `hooks/nelly_slug_guard.py` **correctly
   denied the write** — it recomputes `project_slug()` from the tool call's real
   invocation cwd (this session's actual cwd, the `agent-nelly` repo), not from
@@ -783,7 +783,7 @@ repo's real cwd; everything else from an `EnterWorktree`-provided real
 scratch cwd). No hard deletes were observed anywhere in either run; every
 archive/prune/consolidate operation was verified content-preserving and
 reversible by direct filesystem inspection, not just by trusting
-`nelly-orchestrator`'s self-report.
+`agent-nelly`'s self-report.
 
 ## Addendum — 2026-08-10 targeted re-validation of the entries/ write-back fix
 
@@ -798,13 +798,13 @@ case.
 
 - **Recording a new fact, from `sdd`'s real project cwd** (which already had an
   agent-nelly memory dir but no `entries/` subdirectory — same as the original bug
-  report): ✅ PASS. `nelly-orchestrator` reported creating `entries/` fresh, then the
+  report): ✅ PASS. `agent-nelly` reported creating `entries/` fresh, then the
   entry file, then the index line. Independently verified on disk (not trusting the
   report): both `entries/manual-validation-writeback-fix-test-entry.md` and its
   `MEMORY.md` index line existed, matching content. This is the exact regression the fix
   targets — previously only the index line would have appeared.
 - **Import, from a genuinely fresh cwd (`sdd` repo worktree, no prior agent-nelly memory
-  at all)**: ✅ PASS. Ran `nelly-orchestrator`'s Import flow against a one-file scratch
+  at all)**: ✅ PASS. Ran `agent-nelly`'s Import flow against a one-file scratch
   source directory. Independently verified on disk: `entries/writeback-fix-import-test.md`
   and its `MEMORY.md` index line both existed, matching content, with `entries/` confirmed
   absent immediately before the run.
@@ -851,7 +851,7 @@ different real working directory, not a role-played one.
   one new line (fact 1's line, pre-existing, was left untouched — not corrupted, not
   duplicated). The batch did not abort on fact 1's failure.
 - **Notable process finding, not an orchestrator defect:** the first Fixture I attempt is
-  worth keeping as a record that `nelly-orchestrator` reported the *true* outcome (fact 1
+  worth keeping as a record that `agent-nelly` reported the *true* outcome (fact 1
   succeeded) rather than fabricating a failure to match the fixture's stated expectation —
   it explained, unprompted, exactly why the injected failure didn't materialize (atomic
   rename needs only directory permission, not file permission). That's the honesty
@@ -867,7 +867,7 @@ repo).
 ## Outstanding — Agent Nelly Interoperability (2026-08-10) live sanity check
 
 Scope: the one requirement from `2026-08-10-agent-nelly-interoperability` that needs a live
-session, not static reading — confirming `nelly-orchestrator`'s brief contract holds for a
+session, not static reading — confirming `agent-nelly`'s brief contract holds for a
 caller shaped nothing like SDD (no feature slug, no workflow phase, no goal-alignment
 vocabulary), per `references/example-consumer-pa-jay.md`'s illustrative walkthrough. This
 plugin's docs (`INTEROP.md`, the worked example, and design.md's Generalization Audit) were
@@ -885,7 +885,7 @@ different `cwd`.
 ### Steps
 
 1. From an `EnterWorktree`-provided scratch cwd (a fresh directory unrelated to both
-   `agent-nelly` and SDD's own memory), invoke `nelly-orchestrator` directly with a request
+   `agent-nelly` and SDD's own memory), invoke `agent-nelly` directly with a request
    shaped like `references/example-consumer-pa-jay.md`'s example:
    - `cwd`: the worktree's real path
    - `task description`: "checking Monzo balance and recent spending for Jay"
@@ -930,7 +930,7 @@ directory under `~/.claude/agent-nelly-memory/`, then remove the worktree itself
 
 ### Status
 
-- [ ] Not yet executed — requires a live Claude Code session driving `nelly-orchestrator`
+- [ ] Not yet executed — requires a live Claude Code session driving `agent-nelly`
       directly, same category as every other fixture in this file.
 
 ## Outstanding — Token Efficiency (2026-08-10) before/after comparison
@@ -939,7 +939,7 @@ Scope: the live before/after token-usage comparison for
 `2026-08-10-agent-nelly-token-efficiency`'s Phase 6, per that feature's `tasks.md`. This
 feature's earlier phases (doc trim, index-line fields, write-back wiring, surfacing
 pre-filter) were validated statically and via the Fixture Set below; this section is the
-one requirement that needs a live session to actually measure `nelly-orchestrator`
+one requirement that needs a live session to actually measure `agent-nelly`
 subagent-call token usage, not static reading. Not executed as part of the automated
 implementation task — flagged here as outstanding, consistent with the pattern already
 established by the Interoperability `Outstanding` section above (this project's
@@ -959,16 +959,16 @@ feature).
 ### Steps
 
 1. **Pick two representative sessions:**
-   - One SDD workflow phase-transition session (a `nelly-orchestrator` call made during a
+   - One SDD workflow phase-transition session (a `agent-nelly` call made during a
      normal SDD phase transition, e.g. Requirements → Design or Design → Tasks).
    - One `pa-jay` session (e.g. a `money-check` or `morning-brief` run), per
      `references/example-consumer-pa-jay.md`'s pattern.
 2. **Baseline (before this feature's changes):** for each of the two sessions, capture
-   `nelly-orchestrator` subagent-call token usage. Reuse a baseline from git history or a
+   `agent-nelly` subagent-call token usage. Reuse a baseline from git history or a
    prior session log if one exists for a comparable call; otherwise run a fresh baseline
    once on a throwaway branch checked out to the commit before this feature's changes.
 3. **After (with this feature's changes):** re-run the same two session shapes against
-   the current `agents/nelly-orchestrator.md`, and capture subagent-call token usage the
+   the current `agents/agent-nelly.md`, and capture subagent-call token usage the
    same way.
 4. **Compare** before vs. after token usage for each of the two sessions.
 

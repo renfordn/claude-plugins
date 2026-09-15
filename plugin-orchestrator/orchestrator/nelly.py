@@ -65,7 +65,7 @@ class NellyBriefManager:
         """
         Fetch nelly brief once at workflow start.
 
-        Calls agent-nelly:nelly-orchestrator (mocked in tests).
+        Calls agent-nelly:agent-nelly (mocked in tests).
         Caches: brief_text, metadata, intent_hash, design_hash, fetched_at
         in workflow_state["orchestration"]["nelly_brief_cache"].
 
@@ -299,10 +299,10 @@ class NellyBriefManager:
         workflow_state: dict
     ) -> Tuple[str, dict]:
         """
-        Call agent-nelly:nelly-orchestrator to fetch brief.
+        Call agent-nelly:agent-nelly to fetch brief.
 
         NellyBriefManager runs inside a hook subprocess (PreToolUse), which
-        has no Agent-tool access and so cannot call agent-nelly:nelly-orchestrator
+        has no Agent-tool access and so cannot call agent-nelly:agent-nelly
         directly (see agent-nelly's INTEROP.md). This checks
         PendingNellyRequestQueue for a result the main session already
         resolved out of band (via hooks/resolve_nelly_request.py); if none

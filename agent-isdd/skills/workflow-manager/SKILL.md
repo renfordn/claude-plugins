@@ -19,7 +19,7 @@ authoring, so there's no reason to route to a second skill for it.
 
 ## Inputs (Decision Order)
 
-1. `agent-nelly:nelly-orchestrator`'s stored Intent (via the Availability Check gate — see "Goal
+1. `agent-nelly:agent-nelly`'s stored Intent (via the Availability Check gate — see "Goal
    Field Contract" below)
 2. `workflow-state.md`
 3. `workflow-state.json`
@@ -41,17 +41,17 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
 
 - Source of truth for this feature's `Goal`: `workflow-state.md`'s own `Goal` field, one line per
   feature — sdd owns and writes it directly.
-- Seeded from, and alignment-checked against, `agent-nelly:nelly-orchestrator`'s stored `Intent`
+- Seeded from, and alignment-checked against, `agent-nelly:agent-nelly`'s stored `Intent`
   — one line per *project*, not per-feature (see design.md's "Intent → Goal Mapping"). Intent is
   coarser-grained: it captures what the project is for, Goal what this specific feature is for —
   expected to be consistent with, not identical to, the project's Intent.
-- On `start`, if the Availability Check (below) found `agent-nelly:nelly-orchestrator` available,
-  call it (`Agent` tool, `subagent_type: agent-nelly:nelly-orchestrator`) to read the stored
+- On `start`, if the Availability Check (below) found `agent-nelly:agent-nelly` available,
+  call it (`Agent` tool, `subagent_type: agent-nelly:agent-nelly`) to read the stored
   Intent. If more specific than "not yet captured," seed the new `workflow-state.md`'s `Goal`
   field from it; otherwise ask the user (a feature's Goal isn't always identical to its problem
   statement). If unavailable, always ask the user — there's no Intent to seed from.
 - On every `before-continue`, perform an Intent-alignment check **inline** — do not spawn
-  `agent-nelly:nelly-orchestrator` for this. **[Phase 1.1]** The check compares Intent Hash
+  `agent-nelly:agent-nelly` for this. **[Phase 1.1]** The check compares Intent Hash
   from `workflow-state.md` against session context:
   1. Get Intent Hash from `workflow-state.md` (stored at start)
   2. Get current Intent Hash from session context (from `Intent: <text>` line surfaced at session start by `nelly_session_start.py`, or from `intent/intent.md` if session is new)
@@ -79,7 +79,7 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
 
 - At `before-requirements` (workflow start) and `before-continue` (workflow resume), check the
   session's agent-types listing — the `<system-reminder>` block enumerating "Available agent
-  types for the Agent tool" — for the string `agent-nelly:nelly-orchestrator`.
+  types for the Agent tool" — for the string `agent-nelly:agent-nelly`.
 - Cache the boolean in `workflow-state.json`'s `agent_nelly_available` field so later steps in
   the same hook (and later hooks) don't need to re-inspect the listing.
 - If unavailable, surface one plain notice to the user and continue without the Intent-alignment
@@ -171,7 +171,7 @@ directly. Only the hook itself can judge whether `recap.md`'s content is meaning
 present. If the check fails for a claimed state-changing decision, pause rather than advance.
 
 **Nelly write-back (every `after-*` hook, after its Verification Step, only when advancing or
-handing off)**: if `agent_nelly_available` is `true`, call `agent-nelly:nelly-orchestrator` with a
+handing off)**: if `agent_nelly_available` is `true`, call `agent-nelly:agent-nelly` with a
 `new facts` batch of project-level discoveries from this phase — only facts that would benefit a
 future conversation independently of this feature's own artifacts; ephemeral workflow state never
 qualifies. If a discovery instead describes a specific approach tried and rejected this phase (not
@@ -184,7 +184,7 @@ write-back already covers (do not duplicate).
 | Hook | Evaluates / does | Notes |
 |---|---|---|
 | `before-continue` | Attempt to resolve the active feature folder and read `workflow-state.md`. If no existing workflow state is found, route to `start` (via `before-requirements`). If state exists: check for pending rollback request first (see "Rollback Request Intake" — takes priority over everything else here), **[Phase 1.1]** perform the inline Intent-alignment check (Goal Field Contract; no nelly spawn; compare Intent Hash from session context against workflow-state.md's stored hash for drift), **[Phase 1.2]** check cached nelly brief validity (Intent Hash match + timestamp < 24h; if invalid, clear cache), detect/repair stale or contradictory artifacts, decide the next action. | No nelly write-back at this hook — read-only w.r.t. phase decisions. **[Phase 1.1]** Update `Intent Alignment Status` to `aligned` or `drift` based on hash check. **[Phase 1.2]** Clear `nelly_brief_cache` if Intent drift detected or timestamp stale. |
-| `before-requirements` | Ensure artifacts exist (scaffold if not), initialize/repair `workflow-state.md` incl. its `Goal` field (seeded via `agent-nelly:nelly-orchestrator` if available), decide `requirements-agent`'s entry mode (author vs. review), confirm no invalid earlier phase is skipped. | — |
+| `before-requirements` | Ensure artifacts exist (scaffold if not), initialize/repair `workflow-state.md` incl. its `Goal` field (seeded via `agent-nelly:agent-nelly` if available), decide `requirements-agent`'s entry mode (author vs. review), confirm no invalid earlier phase is skipped. | — |
 | `after-requirements` | Evaluate the `Requirements` checklist, decide advance-to-Design vs. pause. | Facts worth persisting: interface assumptions confirmed/denied during the interview, constraint conflicts found, non-goals that turned out load-bearing. |
 | `before-design` | Confirm Requirements approved, no blocking gap remains, no confirmation checkpoint open, enter native plan mode (see "Native Plan Mode Gate"). | — |
 | `after-design` | Evaluate the `Design` checklist, decide advance-to-Tasks vs. pause. | `design-author` persists `research-consolidator`'s "File Summaries" (coverage gaps, unexpected interfaces, file-level findings) right after research completion — this is the only research pass in the Phase 2+3 architecture; `research-consolidator` produces design_findings, task_findings, and file_summaries together in one call. At this hook, do not re-persist those summaries (avoid duplication). Instead, persist only design-gate discoveries: tradeoff decisions made during authoring, scope choices between equivalent approaches, risk-classification calls (e.g. a risk promoted from feature-specific to project-wide), or constraints surfaced during checklist evaluation rather than research phase. |
@@ -204,9 +204,9 @@ forward in full; summarizing never means silently dropping an open item.
 
 | Action | Choose when | On choosing |
 |---|---|---|
-| `start` | No matching feature folder exists, the user explicitly asks to start a new workflow, or an existing one shouldn't be reused safely. | Derive the slug, scaffold the structure (including `intent/` directory), capture the Goal via `agent-nelly:nelly-orchestrator` (if available, per the Availability Check) or by asking the user, create `intent/intent.md` with Goal + Success Signals + Intent Hash, initialize `workflow-state.md` (with Intent Hash + Intent Alignment Status) and `recap.md`, route into `requirements-agent`. |
+| `start` | No matching feature folder exists, the user explicitly asks to start a new workflow, or an existing one shouldn't be reused safely. | Derive the slug, scaffold the structure (including `intent/` directory), capture the Goal via `agent-nelly:agent-nelly` (if available, per the Availability Check) or by asking the user, create `intent/intent.md` with Goal + Success Signals + Intent Hash, initialize `workflow-state.md` (with Intent Hash + Intent Alignment Status) and `recap.md`, route into `requirements-agent`. |
 | `continue` | A matching feature folder exists, status is `In Progress`, active phase not complete. | Read `workflow-state.md`, validate against phase artifacts, repair if stale, evaluate completion checklists, continue from the earliest incomplete or blocked phase. |
-| `pause` | A blocker exists, user confirmation is required, active feature resolution is ambiguous, a phase gate fails, any completion checklist fails, or (when available) `agent-nelly:nelly-orchestrator` raises an unresolved Intent-alignment flag. | Keep `Current Phase` unchanged; set `Workflow Status` precisely, `Pause Reason`, and a concrete `Next Action`. |
+| `pause` | A blocker exists, user confirmation is required, active feature resolution is ambiguous, a phase gate fails, any completion checklist fails, or (when available) `agent-nelly:agent-nelly` raises an unresolved Intent-alignment flag. | Keep `Current Phase` unchanged; set `Workflow Status` precisely, `Pause Reason`, and a concrete `Next Action`. |
 | `handoff` | `Tasks` are ready, implementation was requested, no unresolved blockers or confirmation checkpoints remain, and the `Tasks` checklist passes. | Set `Current Phase: Implementation`, `Current Owner: User`, `Workflow Status: In Progress`; let `spec-driven-development`'s "Implementation Handoff" step build the Slice Spec and spawn `agent-tdd:agent-TDD` — a single, one-directional handoff (see `INTEROP.md`). Once that spawn returns its report, set `Workflow Status: Complete` **and, in the same write, resync every field that still reflects the pre-handoff state**: `### Tasks`'s `Status` (to `Complete`), `Current Owner` (to `Completed` or the completing agent), `Final Handoff` (today's date), `Next Action` (to `None`, or a concrete post-completion action like a pending release — never left at its pre-handoff value), and the `Notes` section (replace stale pre-implementation notes — e.g. "N slices to be defined" — with the actual outcome: slice count, test results, from the spawn's report/`recap.md`). Do not leave any field describing an in-progress or not-yet-started state once the spawn has returned success; track no further implementation-stage state beyond this sync. |
 | `complete` | Planning finished without an implementation request, or implementation is complete with no further phase work. | Set `Workflow Status: Complete`, `Pause Reason: None`, `Next Action: None`. |
 

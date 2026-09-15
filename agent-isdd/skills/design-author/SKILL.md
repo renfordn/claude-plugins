@@ -15,7 +15,7 @@ migration notes needing implementation-facing design.
 
 Before drafting, delegate to subagents rather than relying only on what's already in context:
 
-1. `agent-nelly:nelly-orchestrator` — reuse the brief the caller passed down; call agent-nelly
+1. `agent-nelly:agent-nelly` — reuse the brief the caller passed down; call agent-nelly
    directly only per the re-fetch triggers defined in `spec-driven-development`'s Goal-Aware
    Memory section, when agent-nelly is available (per the Availability Check defined in
    `workflow-manager/SKILL.md`). When a fresh call is made, it returns a holistic brief (Intent,
@@ -63,7 +63,7 @@ Move forward only when all of the following are true:
 - no unresolved contradiction remains
 - **[Phase 2+3]** research cache created (research/cache.md with design_findings + task_findings)
 - **[Phase 2+3]** file summaries extracted and ready for agent-nelly persistence
-- when `agent-nelly:nelly-orchestrator` is available, its Intent-alignment check for this
+- when `agent-nelly:agent-nelly` is available, its Intent-alignment check for this
   design is clean, or its flag has been surfaced to and resolved with the user
 - no unresolved Security Finding remains unconfirmed by the user
 

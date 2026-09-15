@@ -13,7 +13,7 @@ context and return consolidated findings — research noise is filtered out befo
 The caller (`design-author` during Design phase) passes:
 - Approved `requirements.md` (or specific design/task questions)
 - Feature folder path
-- When available: `agent-nelly:nelly-orchestrator` brief with "Relevant entries" (files touched by prior work)
+- When available: `agent-nelly:agent-nelly` brief with "Relevant entries" (files touched by prior work)
 
 Use the nelly brief to skip re-deriving context it already gives you.
 

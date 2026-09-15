@@ -3,7 +3,7 @@
 
 Agent Nelly is a general-purpose, project-aware memory plugin for Claude Code. It is not
 specific to spec-driven-development (SDD) — SDD is simply its first real consumer, via
-`memory-orchestrator`'s soft dependency on `nelly-orchestrator`. This document is the contract
+`memory-orchestrator`'s soft dependency on `agent-nelly`. This document is the contract
 for any *other* plugin author who wants to use it too.
 
 Nothing below requires SDD to be installed, and nothing below is specific to SDD's concepts
@@ -27,7 +27,7 @@ every session in every project automatically gets:
   `permissionDecisionReason` nudge referencing that entry — with no flag, no explicit ask, and
   no per-consumer setup. This is the one place Agent Nelly deliberately breaks its own
   "never fires unprompted" default (see the next section), and it does so narrowly:
-  - The hook is a pure, deterministic Python script. It **never invokes `nelly-orchestrator`
+  - The hook is a pure, deterministic Python script. It **never invokes `agent-nelly`
     or makes any `Agent`-tool call**, regardless of match strength — it can't (hooks are
     blocking subprocesses with no `Agent`-tool access) and it shouldn't (a full brief costs
     tens of thousands of tokens per call; forcing that onto an ordinary file edit isn't
@@ -48,12 +48,12 @@ every session in every project automatically gets:
 **You do not need your own `hooks.json` entry, and you do not need to "opt in" to any of
 this.** It is easy to wrongly assume a new consumer plugin needs its own hook wiring to
 participate — it doesn't. The only thing your plugin needs to actively do is described below:
-ask `nelly-orchestrator` for a brief when you want one.
+ask `agent-nelly` for a brief when you want one.
 
-## The one thing you actively do: ask `nelly-orchestrator` for a brief
+## The one thing you actively do: ask `agent-nelly` for a brief
 
 Everything else in this plugin (hooks, the `/nelly-memory` command) delegates to the
-`nelly-orchestrator` subagent — it is the sole owner of every file under the memory root, and
+`agent-nelly` subagent — it is the sole owner of every file under the memory root, and
 it's the one interface your plugin should call.
 
 **Request** (what you pass it):
@@ -78,18 +78,18 @@ it's the one interface your plugin should call.
 - `handoff surfacing` (optional flag) — see "Handoff points" below.
 - `aside task description` (optional, text) — see "Spinoff context bundles" below.
 
-**Response**: always the four sections defined in `agents/nelly-orchestrator.md`'s Outputs
+**Response**: always the four sections defined in `agents/agent-nelly.md`'s Outputs
 block — `Intent`, `Relevant entries`, `Intent alignment`, `Written` — with the same invariants
 (never a raw entry file's full contents, never marks anything "resolved," never invents an
 Intent). Two conditional trailing lines (`Spinoff prompt:`/`Spinoff tldr:`) may follow `Written`
 when you passed `aside task description` this call — see "Spinoff context bundles" below. See
-`agents/nelly-orchestrator.md` for the full contract.
+`agents/agent-nelly.md` for the full contract.
 
 ## Handoff points
 
 If your plugin has its own orchestrator, workflow-manager, or any notion of phase/agent
 transitions (an SDD-style workflow-manager is one example, but this applies to any calling
-skill with a similar structure), it is expected to call `nelly-orchestrator` with
+skill with a similar structure), it is expected to call `agent-nelly` with
 `handoff surfacing: true` **at its own existing transition points** — not at points Agent Nelly
 invents or injects. Agent Nelly never surfaces memory automatically at a handoff; it stays a
 per-call opt-in exactly like `surface relevant memory` already is.
@@ -110,7 +110,7 @@ caller's own handoff.
 
 Pass `aside task description` when you believe part of the current work is an "aside" worth
 potentially spinning off into its own conversation (e.g. via `mcp__ccd_session__spawn_task`).
-`nelly-orchestrator` runs the same relevance judgment used for `Relevant entries`/
+`agent-nelly` runs the same relevance judgment used for `Relevant entries`/
 `File relevance:`, but against this separate `aside task description` text rather than your
 main `task description` — the two never share matches.
 
@@ -126,7 +126,7 @@ returns exactly `Spinoff prompt: insufficient memory to construct a grounded con
 this aside — proceed without one.`, with `Spinoff tldr:` correspondingly absent or stating the
 same insufficiency — never a fabricated bundle.
 
-**`nelly-orchestrator` never calls `spawn_task` itself.** It only ever returns the
+**`agent-nelly` never calls `spawn_task` itself.** It only ever returns the
 `Spinoff prompt:`/`Spinoff tldr:` strings; your plugin decides whether and how to invoke
 `spawn_task` (or any other spinoff mechanism) with that bundle.
 
@@ -134,15 +134,15 @@ same insufficiency — never a fabricated bundle.
 
 Two subagents, `nelly-planning-agent` and `nelly-research-agent`, are available if you want a
 memory-grounded plan outline or research/handoff summary rather than raw brief text. Both follow
-a two-hop, caller-orchestrated pattern: your orchestrator calls `nelly-orchestrator` first (as
+a two-hop, caller-orchestrated pattern: your orchestrator calls `agent-nelly` first (as
 above) to get a brief, then pastes that brief verbatim into a `Memory brief:` block in the
-subagent's prompt alongside a stated task. Neither subagent calls `nelly-orchestrator` itself or
+subagent's prompt alongside a stated task. Neither subagent calls `agent-nelly` itself or
 reads/writes anything under the memory root directly — see `agents/nelly-planning-agent.md` and
 `agents/nelly-research-agent.md` for their full contracts.
 
 **Known cost:** if your task needs both subagents, you pay the brief's full input-token cost
 twice. This harness has no subagent-to-subagent calling — a subagent can't call another subagent
-— so your orchestrator must paste the same `nelly-orchestrator` brief text into each subagent's
+— so your orchestrator must paste the same `agent-nelly` brief text into each subagent's
 prompt separately; there is no way to fetch the brief once and share it across both calls. This
 is a hard harness constraint, not a bug, and it is accepted rather than worked around (see the
 `2026-08-10-agent-nelly-memory-orchestration-v2` feature's own design.md, Resolution 2, for where
@@ -183,17 +183,17 @@ alongside facts from your plugin's other skills.
 ## Independence guarantee
 
 Agent Nelly requires no other plugin to function, and no other plugin requires Agent Nelly.
-`/nelly-memory` and `nelly-orchestrator` work standalone in any project, with or without SDD
+`/nelly-memory` and `agent-nelly` work standalone in any project, with or without SDD
 (or any other plugin) installed. Conversely, installing Agent Nelly never breaks a project that
 doesn't use it — its `SessionStart` hook has no effect beyond an informational context string,
 and its `PreToolUse` guardrails only ever apply to writes underneath its own memory root.
 
-## Structured lookups for a consumer that can't call nelly-orchestrator at all
+## Structured lookups for a consumer that can't call agent-nelly at all
 
-Everything above assumes your consumer can invoke the `nelly-orchestrator` subagent (via the
+Everything above assumes your consumer can invoke the `agent-nelly` subagent (via the
 `Agent` tool) whenever it wants a brief. Some consumers can't: a Claude Code hook (`PreToolUse`,
 `SubagentStop`, etc.) is a blocking subprocess with no `Agent`-tool access, so code running
-inside one can never call `nelly-orchestrator` directly, no matter how it's invoked.
+inside one can never call `agent-nelly` directly, no matter how it's invoked.
 
 `plugin-orchestrator` hits exactly this — its `ErrorHandler.nelly_workaround_lookup` (inside the
 `SubagentStop` hook) needs a known-issue workaround from Agent Nelly's memory, but can't ask for
@@ -203,12 +203,12 @@ one itself. Its resolution pattern, for any other hook-bound consumer in the sam
    to the user/main session via whatever the hook contract allows (a `systemMessage` for
    `SubagentStop`, injected prompt context for `PreToolUse`).
 2. The **main session** — which does have `Agent`-tool access — notices the surfaced request,
-   calls `nelly-orchestrator` for a real answer (exactly as described above), and writes the
+   calls `agent-nelly` for a real answer (exactly as described above), and writes the
    result back into the consumer's own state via whatever mechanism the consumer provides (for
    `plugin-orchestrator`, `hooks/resolve_nelly_request.py`).
 3. The consumer's *next* hook invocation reads the now-resolved result from its own state.
 
-Agent Nelly's part of this is unchanged — it still only ever answers `nelly-orchestrator` calls
+Agent Nelly's part of this is unchanged — it still only ever answers `agent-nelly` calls
 and writes/reads its own memory files; it has no awareness of any consumer's pending-request
 queue or resolution mechanism. The one piece specific to this pattern that Agent Nelly does own
 is matching semantics for a **workaround-shaped `error-prevention` entry**: one written to

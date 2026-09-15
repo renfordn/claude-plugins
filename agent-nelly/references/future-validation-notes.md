@@ -1,9 +1,9 @@
 # Future validation notes
 
 Non-loaded reference file. These are the three "test-shape note" blocks moved verbatim out of
-`agents/nelly-orchestrator.md` (they carry zero runtime relevance to the agent's own behavior —
+`agents/agent-nelly.md` (they carry zero runtime relevance to the agent's own behavior —
 they only describe fixture shapes for a future `MANUAL-VALIDATION.md` pass). Each block below is
-labeled with the section of `nelly-orchestrator.md` it was moved from.
+labeled with the section of `agent-nelly.md` it was moved from.
 
 ## From: "Handoff surfacing (narrower mode, restricted entry types)"
 

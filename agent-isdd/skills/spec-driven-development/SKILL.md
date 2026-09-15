@@ -80,7 +80,7 @@ extraction — only where it's documented moved).
 
 Before starting or continuing meaningful phase work, when agent-nelly is available (per the
 Availability Check defined in `workflow-manager/SKILL.md`), delegate to
-`agent-nelly:nelly-orchestrator` for a holistic brief (nelly's four output sections: Intent,
+`agent-nelly:agent-nelly` for a holistic brief (nelly's four output sections: Intent,
 Relevant entries, Intent alignment, Written) instead of reading `~/.claude/sdd-memory/` files
 directly. If it flags an Intent-alignment concern, surface it to the user before proceeding —
 don't silently continue past a stated drift.
@@ -101,7 +101,7 @@ This skill is the single fetch/delegation point, per continuous stretch of phase
 nelly brief **and** for `research-consolidator`/`spec-reviewer` findings still valid from earlier
 in that same stretch (e.g. a `research-consolidator` finding produced during Design). When a
 brief or finding has already been fetched this session and is still visible in context, reuse it
-rather than re-calling `agent-nelly:nelly-orchestrator`/`research-consolidator`/`spec-reviewer`
+rather than re-calling `agent-nelly:agent-nelly`/`research-consolidator`/`spec-reviewer`
 again for the same content. Re-fetch only when one of these triggers applies — identical rule,
 same three triggers, now scoped to a wider set of cached content, not a new or looser rule:
 
@@ -144,7 +144,7 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
 
 1. Use `workflow-manager` to identify or derive the feature title and slug, and to scaffold or
    locate the per-feature artifact structure (including `intent/` directory).
-2. If `agent-nelly:nelly-orchestrator` is available, call it to read the project's stored
+2. If `agent-nelly:agent-nelly` is available, call it to read the project's stored
    Intent and seed the feature's `Goal` field in `workflow-state.md` from it when Intent is more
    specific than "not yet captured". Otherwise ask the user for the Goal directly.
 3. **[NEW Phase 1.1]** Create `intent/intent.md` with:
@@ -173,7 +173,7 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
    - Address the issue and rewind using `/isdd-rewind <target>`, then return to continue the workflow.
 
 1. Use `workflow-manager` to find the relevant feature folder and resolve state (see its
-   Decision Order — `agent-nelly:nelly-orchestrator`'s stored Intent first (when available),
+   Decision Order — `agent-nelly:agent-nelly`'s stored Intent first (when available),
    then `workflow-state.md`, then `workflow-state.json`, then open blockers, then phase files,
    then `recap.md`).
 2. **[Phase 1.2]** Check cached nelly brief in `workflow-state.json` → `nelly_brief_cache`:
@@ -209,7 +209,7 @@ workflow:
 - **[Phase 2+3]** `research-consolidator` — delegate during Design to produce unified research
   (design_findings, task_findings, file_summaries) in one pass, eliminating redundant research
   between design-author and agent-tdd. Replaces the prior separate planning-agent calls.
-- `agent-nelly:nelly-orchestrator` — an external peer-plugin subagent, not one of this plugin's
+- `agent-nelly:agent-nelly` — an external peer-plugin subagent, not one of this plugin's
   own `agents/`, invoked the same way (via the `Agent` tool with that literal `subagent_type`
   string), gated by the Availability Check — delegate before any phase starts, when available,
   for a goal-aware brief (Intent, Relevant entries, Intent alignment, Written); it is
@@ -242,7 +242,7 @@ research/cache.md, pre-fetched file summaries, recap.md).
 
 1. Extract file list from `design.md` + `research/cache.md` (all files mentioned in Research Basis
    and task_findings sections).
-2. Query `agent-nelly:nelly-orchestrator` for cached file summaries (if available):
+2. Query `agent-nelly:agent-nelly` for cached file summaries (if available):
    - Pass file list to agent-nelly
    - Receive cache hits (with git_hash validation) + cache misses
    - Bundle cache hits into Design Spec handoff
@@ -266,7 +266,7 @@ research/cache.md, pre-fetched file summaries, recap.md).
 7. Do not resume, monitor, or drive `agent-TDD` past this initial spawn — anything after its
    own review pauses or implementation is outside this skill's scope.
 8. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
-   `workflow-state.json`, call `agent-nelly:nelly-orchestrator` with those facts as a `new facts`
+   `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
    batch. One call only — no re-fetch of the brief needed.
 
 ## Automatic Code-Reviewer Invocation (High-Risk Slices)

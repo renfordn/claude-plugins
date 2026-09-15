@@ -20,7 +20,7 @@ Feature root:
 
 ## Project Intent
 
-<From `agent-nelly:nelly-orchestrator` stored Intent, or "not yet captured">
+<From `agent-nelly:agent-nelly` stored Intent, or "not yet captured">
 
 ## Feature Goal
 
@@ -53,7 +53,7 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 - Title: <feature title>
 - Slug: <YYYY-MM-DD-feature-slug>
-- Goal: <one line — the user's actual objective for this feature, seeded from `agent-nelly:nelly-orchestrator`'s stored Intent at start if available, otherwise from the user; not the same as the problem statement>
+- Goal: <one line — the user's actual objective for this feature, seeded from `agent-nelly:agent-nelly`'s stored Intent at start if available, otherwise from the user; not the same as the problem statement>
 - Intent Hash: <anchor ID from intent.md, used for drift detection>
 - Intent Alignment Status: <aligned | drift | unreviewed>
 
@@ -87,7 +87,7 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 Use `workflow-state.md` as a compact machine-readable summary for the workflow.
 
 - `Current Phase` is the primary continuation pointer, and is what the top-level breadcrumb (rendered by `agent-ux:ux-agent`, see `INTEROP.md`'s "→ agent-ux (UX rendering)" section) reads directly — no separate progress field exists or should be invented.
-- `Goal` is seeded once via `agent-nelly:nelly-orchestrator` (if available) when the feature starts and rarely rewritten; `agent-nelly:nelly-orchestrator` uses it for the goal-alignment check in every brief it returns.
+- `Goal` is seeded once via `agent-nelly:agent-nelly` (if available) when the feature starts and rarely rewritten; `agent-nelly:agent-nelly` uses it for the goal-alignment check in every brief it returns.
 - `Workflow Status` determines whether the next action is to continue, pause, hand off, or complete.
 - `Pause Reason` must align with any unresolved blocker or confirmation checkpoint in the phase artifacts.
 - `Next Action` should describe the smallest next workflow step, not a broad goal.
@@ -210,7 +210,7 @@ section).
 
 - Wide-pass candidates: <files/modules `research-consolidator` flagged as touched-area candidates>
 - Deep-pass findings: <load-bearing files `research-consolidator` actually read, and what each one constrains>
-- Memory brief used: <one-line reference to the `agent-nelly:nelly-orchestrator` brief this design was seeded with, if available>
+- Memory brief used: <one-line reference to the `agent-nelly:agent-nelly` brief this design was seeded with, if available>
 
 ## Scope Mapping To Requirements
 
@@ -417,7 +417,7 @@ Repeat the same structure for each phase.
 
 ## Goal Alignment Notes
 
-- <any `agent-nelly:nelly-orchestrator` goal-alignment flag raised during this feature, and how it was resolved>
+- <any `agent-nelly:agent-nelly` goal-alignment flag raised during this feature, and how it was resolved>
 - **[Phase 1.1]** Intent drift detected: <hash comparison: old hash vs. new hash; why it changed; how it was addressed>
 - Alignment Status: aligned | drift | unreviewed
 

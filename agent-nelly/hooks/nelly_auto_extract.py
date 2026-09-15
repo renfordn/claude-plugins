@@ -4,11 +4,11 @@ and auto-write a draft `inferred`-confidence `error-prevention` entry, so a
 lesson isn't lost when the user never remembers to run `/nelly-memory
 error-lesson` by hand.
 
-This is a deliberate exception to the "nelly-orchestrator is the sole owner
+This is a deliberate exception to the "agent-nelly is the sole owner
 of every entries/*.md write" convention documented in commands/nelly-memory.md
 -- a hook is a plain deterministic script with no way to invoke the LLM
 agent, so it writes directly via nelly_memory.py's own helpers (same ones
-nelly-orchestrator itself uses) and then calls build_index.upsert_project_entry
+agent-nelly itself uses) and then calls build_index.upsert_project_entry
 to keep nelly-index.json in sync, same as nelly_index_update.py does for
 Write/Edit/MultiEdit. `confidence: inferred` keeps the entry permanently
 excluded from nelly_proactive_surface.py's surfacing gate until a human runs

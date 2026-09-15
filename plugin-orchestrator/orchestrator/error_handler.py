@@ -147,7 +147,7 @@ class ErrorHandler:
         """Query agent-nelly memory for known workarounds.
 
         ErrorHandler runs inside a hook subprocess (SubagentStop), which has no
-        Agent-tool access and so cannot call agent-nelly:nelly-orchestrator
+        Agent-tool access and so cannot call agent-nelly:agent-nelly
         directly (see agent-nelly's INTEROP.md). Instead, this checks
         PendingNellyRequestQueue for a result the main session already resolved
         out of band (via hooks/resolve_nelly_request.py, after noticing a

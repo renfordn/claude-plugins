@@ -258,8 +258,8 @@ def test_cli_entries_path_prints_ensure_entries_dir_for_given_cwd(capsys):
 
 def test_recording_a_new_fact_creates_both_entry_file_and_index_line():
     """Regression test for the reported bug: reproduce the exact write-back
-    sequence the nelly-orchestrator agent's "Recording a new fact" section
-    follows (steps 5-7 of agents/nelly-orchestrator.md) and assert BOTH
+    sequence the agent-nelly agent's "Recording a new fact" section
+    follows (steps 5-7 of agents/agent-nelly.md) and assert BOTH
     outcomes exist afterward — not just the index line, which is exactly
     what silently succeeded while the entry file silently didn't in the
     original bug. Prior to the ensure_entries_dir() fix, step 5 ("Write the
@@ -365,7 +365,7 @@ def test_cli_summary_prints_index_when_real_entries_present(capsys):
 # ---------------------------------------------------------------------------
 # resolve_repo_relative — resolves a stored repo-relative path back to an
 # absolute path anchored at cwd. Pure path resolution, no entry-file I/O:
-# used later by nelly-orchestrator's prose logic (Bash/Glob) during
+# used later by agent-nelly's prose logic (Bash/Glob) during
 # `/nelly-memory prune`'s file-existence check for file-relevance entries.
 # ---------------------------------------------------------------------------
 

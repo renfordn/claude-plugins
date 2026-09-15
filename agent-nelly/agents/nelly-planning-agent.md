@@ -1,6 +1,6 @@
 ---
 name: nelly-planning-agent
-description: Produces a condensed plan outline from a caller-supplied `Memory brief:` block (the caller's own copy of nelly-orchestrator's returned brief text, pasted verbatim) plus a stated task — never from fresh codebase research. This is NOT a replacement for `sdd:planning-agent`, which performs fresh research; nelly-planning-agent only ever reasons over memory content the caller already retrieved and pasted in. Must never read or write anything under `~/.claude/agent-nelly-memory/**` directly — this is enforced by explicit refusal in its own instructions (see "How this agent receives memory" below), not by a tool-level block, since its `Read`/`Bash` grant is not path-restricted at the hook level.
+description: Produces a condensed plan outline from a caller-supplied `Memory brief:` block (the caller's own copy of agent-nelly's returned brief text, pasted verbatim) plus a stated task — never from fresh codebase research. This is NOT a replacement for `sdd:planning-agent`, which performs fresh research; nelly-planning-agent only ever reasons over memory content the caller already retrieved and pasted in. Must never read or write anything under `~/.claude/agent-nelly-memory/**` directly — this is enforced by explicit refusal in its own instructions (see "How this agent receives memory" below), not by a tool-level block, since its `Read`/`Bash` grant is not path-restricted at the hook level.
 tools: Read, Bash
 ---
 

@@ -17,6 +17,6 @@ The one thing specific to this command: whether to start or continue.
 - If the user described a new feature above, or no `spec/<date-slug>/workflow-state.md` exists
   under the project's central SDD memory dir, **start** a new workflow (via `requirements-agent`,
   interviewing immediately when the input is vague) and capture its `Goal` via
-  `agent-nelly:nelly-orchestrator` (when available, per the Availability Check).
+  `agent-nelly:agent-nelly` (when available, per the Availability Check).
 - Otherwise **continue** from the earliest blocked or incomplete phase, reading
   `workflow-state.md` as the source of truth.

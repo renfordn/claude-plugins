@@ -39,7 +39,7 @@ draft.
 2. For source material substantial enough to warrant an isolated pass (a full PRD, a long
    ticket thread), delegate the assessment to the `spec-reviewer` subagent — it returns gaps and
    rewritten EARS sections without spending this thread's context on the raw source. Before
-   delegating, call `agent-nelly:nelly-orchestrator` for a brief on the source material's
+   delegating, call `agent-nelly:agent-nelly` for a brief on the source material's
    touched area (when agent-nelly is available, per the Availability Check defined in
    `workflow-manager/SKILL.md`), and pass that brief down to
    `spec-reviewer` the same way `design-author` passes a brief down to `research-consolidator`.

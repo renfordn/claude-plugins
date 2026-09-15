@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds/updates nelly-index.json -- a compact pre-index of a memory store's
-entries, so nelly-orchestrator can match relevance from one JSON read instead
+entries, so agent-nelly can match relevance from one JSON read instead
 of opening every entries/*.md file.
 
 Two store shapes this script indexes, each getting its own nelly-index.json
@@ -19,7 +19,7 @@ trimmed to its first line:
 
 `seen_count` tracks how many times an auto-extract hook
 (hooks/nelly_auto_extract.py, hooks/nelly_commit_extract.py) has written or
-re-triggered the same slug -- surfaced here so nelly-orchestrator can see how
+re-triggered the same slug -- surfaced here so agent-nelly can see how
 close an `inferred` entry is to auto-promotion without opening the entry
 file. `null` for entries that don't carry the field (hand-authored entries,
 entries predating this field).
@@ -97,7 +97,7 @@ def _build_index_for_memory_dir(d):
     """Full rescan of one already-resolved memory-store directory `d` (must
     be a `<memory_dir>` path, e.g. `nelly_memory.memory_dir(cwd)`'s return
     value -- never a raw `cwd`). entries/ is always the source of truth (see
-    nelly-orchestrator.md's File-move mechanism), so this is the safety net
+    agent-nelly.md's File-move mechanism), so this is the safety net
     that resyncs the index after an archive-move (Bash `mv`) that no
     Write/Edit hook ever observes.
     """
