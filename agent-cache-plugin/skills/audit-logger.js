@@ -377,7 +377,7 @@ class AuditLogger {
     return [
       { name: 'email', pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/ },
       { name: 'credit_card', pattern: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/ },
-      { name: 'api_key', pattern: /api[\w_-]*key[\w_-]*[=:]\s*sk[\w-]{20,}|sk_live[\w-]{20,}|sk_test[\w-]{20,}/i },
+      { name: 'api_key', pattern: /api[\w_-]*key[\w_-]*[=:]\s*sk[\w-]{20,}|sk_live[\w-]{20,}|sk_test[\w-]{20,}|"[\w]*key[\w]*"\s*:\s*"[\w-]{16,}"/i },
       { name: 'password', pattern: /password[=:]\s*['\"]?[\w!@#$%^&*-]+['\"]?/i },
       { name: 'token', pattern: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/ },
       { name: 'ssn', pattern: /\d{3}-\d{2}-\d{4}/ },
