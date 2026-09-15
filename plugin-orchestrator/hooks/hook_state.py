@@ -4,10 +4,8 @@ Locates and persists the same workflow-state.json that agent-isdd scaffolds and
 agent-tdd reads, so the orchestrator's PreToolUse/SubagentStop hooks mutate the
 one shared per-feature state file rather than an orchestrator-private copy.
 
-project_slug()/memory_dir()/spec_dir() mirror the canonical implementation in
-agent-isdd/hooks/sdd_memory.py + shared_slug.py (also duplicated in agent-nelly
-and agent-tdd) -- kept here as a small, dependency-free copy since this plugin's
-CLAUDE_PLUGIN_ROOT is a separate directory tree from agent-isdd's.
+Resolves ${CLAUDE_PLUGIN_DATA} env var for official storage location. Since this
+plugin shares sdd-memory with agent-isdd, symlink logic is coordinated in Task 3.1.
 """
 import glob
 import os
@@ -17,7 +15,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from orchestrator.state_store import FileStateStore  # noqa: E402
 
-BASE = os.path.join(os.path.expanduser("~"), ".claude", "sdd-memory")
+# Add shared directory to path for path_resolution import
+_shared_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
+if _shared_dir not in sys.path:
+    sys.path.insert(0, _shared_dir)
+from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+
+# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
+# Note: plugin-orchestrator shares sdd-memory with agent-isdd; symlink logic is in Task 3.1
+_plugin_data_dir = get_plugin_data_dir("plugin-orchestrator")
+BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
 
 
 def project_slug(cwd):
