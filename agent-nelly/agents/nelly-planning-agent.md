@@ -14,7 +14,7 @@ substitute for `sdd:planning-agent`: use `sdd:planning-agent` when fresh
 research is needed, and use this agent only when a memory brief has already
 been retrieved and needs to be turned into a plan outline.
 
-See [`nelly-brief-consumer-base.md`](nelly-brief-consumer-base.md) for the
+See [`nelly-brief-consumer-base.md`](../references/nelly-brief-consumer-base.md) for the
 tool-restriction paragraph and "How this agent receives memory" section
 shared verbatim with `nelly-research-agent.md` — both apply to this agent
 unchanged.
@@ -33,6 +33,6 @@ Given a `Memory brief:` block and a stated task:
    isn't traceable to the brief or the stated task, say so explicitly rather
    than filling the gap with a guess.
 
-See [`nelly-brief-consumer-base.md`](nelly-brief-consumer-base.md) for the
+See [`nelly-brief-consumer-base.md`](../references/nelly-brief-consumer-base.md) for the
 "Insufficient memory" and "Test-shape note" sections shared verbatim with
 `nelly-research-agent.md` — both apply to this agent unchanged.

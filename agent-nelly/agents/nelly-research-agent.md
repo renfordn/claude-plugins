@@ -14,7 +14,7 @@ handoff-ready summary, for example as input to an aside-spinoff bundle. If
 fresh codebase exploration is needed, that is a different agent's job, not
 this one's.
 
-See [`nelly-brief-consumer-base.md`](nelly-brief-consumer-base.md) for the
+See [`nelly-brief-consumer-base.md`](../references/nelly-brief-consumer-base.md) for the
 tool-restriction paragraph and "How this agent receives memory" section
 shared verbatim with `nelly-planning-agent.md` — both apply to this agent
 unchanged. The `Memory brief:` block pasted per that section's step 2 may be
@@ -36,6 +36,6 @@ Given a `Memory brief:` block and a stated task or aside description:
    traceable to the brief or the stated task, say so explicitly rather than
    filling the gap with a guess.
 
-See [`nelly-brief-consumer-base.md`](nelly-brief-consumer-base.md) for the
+See [`nelly-brief-consumer-base.md`](../references/nelly-brief-consumer-base.md) for the
 "Insufficient memory" and "Test-shape note" sections shared verbatim with
 `nelly-planning-agent.md` — both apply to this agent unchanged.

@@ -41,10 +41,6 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/commit_audit_gate.py\""
           }
         ]
-      },
-      {
-        "matcher": "Task",
-        "hooks": []
       }
     ],
     "PostToolUse": [
