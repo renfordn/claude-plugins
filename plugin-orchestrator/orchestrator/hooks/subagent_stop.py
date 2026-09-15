@@ -22,7 +22,8 @@ from orchestrator.error_handler import ErrorHandler
 from orchestrator.checkpoint import CheckpointManager
 from orchestrator.interop_parser import CapabilityMap
 from orchestrator.error import OrchestrationError
-from orchestrator.error_logger import ErrorLogger
+from orchestrator.error_logger import persist_best_effort
+from orchestrator.core import PluginRouter, HARD_DEPENDENCY_PLUGINS
 
 logger = logging.getLogger(__name__)
 
@@ -502,7 +503,7 @@ def _persist_orchestration_error(
             ),
             context=dict(error_details)
         )
-        ErrorLogger().persist_error(error, error_registry_base_path, project_slug)
+        persist_best_effort(error, error_registry_base_path, project_slug, logger)
     except Exception as e:
         logger.error(
             f"Failed to persist orchestration error: {e.__class__.__name__}: {e}. "
@@ -519,17 +520,48 @@ def _get_iso_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
-def check_plugin_availability(plugin_name: str) -> bool:
+def check_plugin_availability(
+    plugin_name: str,
+    error_registry_base_path: Optional[str] = None,
+    project_slug: Optional[str] = None
+) -> bool:
     """Check if a plugin is available/installed.
 
-    Stub implementation: always returns True.
-    In production, would check plugin registry or system.
+    Real detection against the shared hard-dependency set (see
+    orchestrator.core.HARD_DEPENDENCY_PLUGINS). No plugin-discovery mechanism exists
+    yet, so every plugin currently reports unavailable; a hard-dependency
+    unavailability persists a plugin_unavailable error via ErrorLogger, mirroring
+    _persist_orchestration_error's best-effort, non-blocking, no-op-when-missing
+    pattern. A soft-dependency unavailability never persists.
 
     Args:
         plugin_name: Name of plugin to check
+        error_registry_base_path: Optional base directory for the persistent
+            error registry. No-op persistence unless given together with
+            project_slug.
+        project_slug: Optional project identifier under
+            error_registry_base_path. Required alongside
+            error_registry_base_path for persistence to occur.
 
     Returns:
-        True if plugin available, False otherwise
+        True if plugin available, False otherwise. Never raises -- persistence
+        failure never affects the returned value.
     """
-    # Stub for tests; can be mocked
-    return True
+    normalized_name = PluginRouter._normalize_plugin_name(plugin_name)
+    available = False  # No real plugin-discovery mechanism exists yet.
+
+    if normalized_name in HARD_DEPENDENCY_PLUGINS and error_registry_base_path and project_slug:
+        error = OrchestrationError(
+            timestamp=_get_iso_timestamp(),
+            error_type="plugin_unavailable",
+            source_plugin=normalized_name,
+            root_cause="plugin_not_found",
+            severity="high",
+            suggested_fix=(
+                f"ensure {normalized_name} is installed and enabled for this session"
+            ),
+            context={"hard_dependency": True}
+        )
+        persist_best_effort(error, error_registry_base_path, project_slug, logger)
+
+    return available

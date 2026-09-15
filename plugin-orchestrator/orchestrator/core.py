@@ -32,6 +32,11 @@ from orchestrator.error_logger import ErrorLogger
 
 DEFAULT_ROUTING_TABLE_PATH = Path(__file__).parent / "routing_table.json"
 
+# Hard dependencies: required for workflow continuation. Extracted to module level
+# so callers outside PluginRouter (e.g. orchestrator.hooks.subagent_stop) can reuse
+# the same set without instantiating a PluginRouter.
+HARD_DEPENDENCY_PLUGINS = {"agent-isdd", "agent-tdd", "code-reviewer"}
+
 
 class PluginRouter:
     """Route plugins through workflow, validate availability and handoffs.
@@ -49,8 +54,9 @@ class PluginRouter:
             the router.
     """
 
-    # Hard dependencies: required for workflow continuation
-    HARD_DEPENDENCIES = {"agent-isdd", "agent-tdd", "code-reviewer"}
+    # Hard dependencies: required for workflow continuation. A copy of
+    # HARD_DEPENDENCY_PLUGINS, not an alias -- mutating one must not mutate the other.
+    HARD_DEPENDENCIES = set(HARD_DEPENDENCY_PLUGINS)
 
     # Soft dependencies: optional (log if unavailable, continue)
     SOFT_DEPENDENCIES = {"agent-nelly", "agent-ux", "agent-cache-plugin"}

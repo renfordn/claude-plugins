@@ -1,6 +1,7 @@
 """ErrorLogger: Dual-tier logging for session and persistent error storage."""
 
 import json
+import logging
 from pathlib import Path
 from typing import List
 from orchestrator.error import OrchestrationError
@@ -76,3 +77,30 @@ class ErrorLogger:
     def clear_session_errors(self) -> None:
         """Clear all session-scoped errors from memory."""
         self._session_errors = []
+
+
+def persist_best_effort(
+    error: OrchestrationError,
+    base_path: str,
+    project_slug: str,
+    log: logging.Logger
+) -> None:
+    """Persist an error via a fresh ErrorLogger, swallowing and logging any failure.
+
+    Shared by every orchestration call site that persists an error opportunistically
+    (plugin_unavailable, interop_parse_failure, handoff_validation): persistence is
+    always best-effort and must never raise or affect the caller's own control flow.
+
+    Args:
+        error: OrchestrationError to persist
+        base_path: Base directory for error-registry.json
+        project_slug: Project identifier under base_path
+        log: Caller's module logger, used to report a persistence failure
+    """
+    try:
+        ErrorLogger().persist_error(error, base_path, project_slug)
+    except Exception as e:
+        log.error(
+            f"Failed to persist orchestration error: {e.__class__.__name__}: {e}. "
+            "Continuing without persistence."
+        )

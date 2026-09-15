@@ -21,7 +21,8 @@ class OrchestrationError:
         "handoff_validation",
         "plugin_unavailable",
         "routing_failed",
-        "nelly_fetch_failed"
+        "nelly_fetch_failed",
+        "interop_parse_failure"
     }
 
     VALID_SEVERITIES = {"low", "medium", "high"}

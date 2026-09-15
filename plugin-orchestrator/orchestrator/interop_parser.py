@@ -7,8 +7,11 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
+from orchestrator.error import OrchestrationError
+from orchestrator.error_logger import persist_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +80,12 @@ class CapabilityMap:
     # their own copy of this set; this one only feeds PluginInfo.is_soft_dependency.
     SOFT_DEPENDENCIES = {"agent-nelly", "agent-ux", "agent-cache-plugin"}
 
-    def __init__(self, plugin_dir_base: Optional[str] = None):
+    def __init__(
+        self,
+        plugin_dir_base: Optional[str] = None,
+        error_registry_base_path: Optional[str] = None,
+        project_slug: Optional[str] = None
+    ):
         """
         Parse INTEROP.md files and build capability registry.
 
@@ -87,7 +95,16 @@ class CapabilityMap:
                             otherwise ~/.claude/plugins/claude-plugins (the standard
                             bootstrap location), falling back to test fixtures only
                             when neither exists.
+            error_registry_base_path: Optional base directory for the persistent
+                error-registry.json. No-op persistence of interop_parse_failure
+                errors unless given together with project_slug.
+            project_slug: Optional project identifier under
+                error_registry_base_path. Required alongside
+                error_registry_base_path for persistence to occur.
         """
+        self.error_registry_base_path = error_registry_base_path
+        self.project_slug = project_slug
+
         if plugin_dir_base is None:
             env_dir = os.environ.get("CLAUDE_PLUGINS_DIR")
             if env_dir:
@@ -135,6 +152,8 @@ class CapabilityMap:
         instance.plugin_dir_base = Path(plugin_dir_base)
         instance.plugins = dict(plugins)
         instance.interop_hashes = {}
+        instance.error_registry_base_path = None
+        instance.project_slug = None
         return instance
 
     def _parse_all_plugins(self) -> None:
@@ -182,10 +201,40 @@ class CapabilityMap:
                 f"Failed to load {plugin_name} INTEROP file from {interop_path}: {e}. "
                 f"Creating empty plugin entry for graceful degradation."
             )
+            self._persist_interop_parse_failure(plugin_name, interop_path, e)
 
         # Fallback: create empty plugin entry for graceful degradation
         self.interop_hashes[plugin_name] = ""
         return PluginInfo(name=plugin_name)
+
+    def _persist_interop_parse_failure(
+        self, plugin_name: str, interop_path: Path, exc: Exception
+    ) -> None:
+        """Persist an INTEROP.md parse failure to the project-wide error-registry.json.
+
+        No-op when error_registry_base_path or project_slug is missing (the
+        default -- callers that don't care about cross-session persistence).
+        Never raises -- persistence is best-effort and must never affect the
+        graceful-degradation fallback.
+
+        Args:
+            plugin_name: Plugin whose INTEROP file failed to load/parse
+            interop_path: Path that was attempted
+            exc: The exception raised while loading/parsing
+        """
+        if not self.error_registry_base_path or not self.project_slug:
+            return
+
+        error = OrchestrationError(
+            timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            error_type="interop_parse_failure",
+            source_plugin=plugin_name,
+            root_cause=f"{exc.__class__.__name__}: {exc}",
+            severity="medium",
+            suggested_fix=f"check {interop_path} exists and is valid INTEROP.md content",
+            context={"interop_path": str(interop_path)}
+        )
+        persist_best_effort(error, self.error_registry_base_path, self.project_slug, logger)
 
     def _parse_plugin_file(self, plugin_name: str, content: str) -> PluginInfo:
         """

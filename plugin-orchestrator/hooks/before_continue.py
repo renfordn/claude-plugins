@@ -17,19 +17,23 @@ Agent tool call fails schema validation for missing required fields.
 Any failure degrades to a no-op (exit 0, no output) so a broken hook never blocks
 a real agent spawn.
 
-DISABLED (2026-09-15): confirmed Claude Code harness bug, not fixable from this hook. The
-Agent tool's PreToolUse `tool_input` never contains `description` in the first place (the
-harness doesn't forward it to hooks), and `updatedInput` is validated as the *complete*
-replacement input against the Agent tool's full schema rather than merged onto the original
-tool_input -- so no hook can ever supply `description` back correctly, even with the merge
-fix below in place (kept for whenever the harness bug is fixed; do not remove). Confirmed via:
-(1) manual simulation of this exact patched script produces a fully correct updatedInput
-including `description`; (2) the failure is identical across all 3 install locations after
-patching; (3) the failure persists identically across a genuine app relaunch (new PID). See
-~/.claude/sdd-memory/*/spec/2026-09-15-angular-dashboard-container/workflow-state.md for the
-full investigation (independently reproduced in a different project the same day). Report to
-Anthropic as a Claude Code bug; do not re-enable without new evidence the harness behavior
-changed.
+DISABLED (2026-09-15): confirmed Claude Code harness bug, not fixable from this hook.
+Re-tested 2026-09-15 with stdin/stdout instrumentation added directly to this script (logged
+every invocation to /tmp/before_continue_debug.log): across a fresh `Agent` spawn against
+agent-tdd:agent-TDD, the log file was never created at all -- this hook's `main()` never even
+runs before the Agent tool call fails with "PreToolUse hook for Agent returned updatedInput
+that failed schema validation ... description type expected as string but provided as
+unknown". That rules out this hook (or any other currently-enabled Agent-matcher hook --
+agent-isdd's before_continue.py never sets updatedInput, and agent-cache-plugin's
+pre-agent-spawn.js only ever returns permissionDecision) as the source: the harness produces
+this failure on its own, without invoking any registered PreToolUse hook, and mislabels it as
+a hook-returned value. Do not re-enable without new evidence the harness behavior changed; if
+retrying, re-add stdin logging first to confirm whether the hook actually runs before
+suspecting the hook body again. Report to Anthropic as a Claude Code bug. See
+~/.claude/sdd-memory/*/spec/2026-09-15-angular-dashboard-container/workflow-state.md and
+~/.claude/sdd-memory/*/spec/2026-09-15-expand-error-logger/workflow-state.md for the full
+investigation history (independently reproduced in a different project the same day, and
+reconfirmed with instrumentation months' worth of assumptions later, same day).
 """
 import json
 import os
