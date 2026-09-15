@@ -22,9 +22,74 @@ if _shared_dir not in sys.path:
 from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
 
 # Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
-# Note: plugin-orchestrator shares sdd-memory with agent-isdd; symlink logic is in Task 3.1
 _plugin_data_dir = get_plugin_data_dir("plugin-orchestrator")
-BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
+_default_base = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
+
+
+def _ensure_sdd_memory_coordination():
+    """Coordinate sdd-memory access with agent-isdd via symlink or registry.
+
+    Both agent-isdd and plugin-orchestrator need access to the same sdd-memory
+    directory for workflow state coordination. This function:
+    1. Checks if plugin-orchestrator's sdd-memory path exists
+    2. If not, tries to create a symlink to agent-isdd's sdd-memory
+    3. If symlink fails, creates a registry file with path metadata
+
+    Returns:
+        The actual sdd-memory path (or None if coordination fails completely).
+    """
+    orch_sdd_memory = _default_base
+
+    # If symlink already exists, we're good
+    if os.path.islink(orch_sdd_memory):
+        return orch_sdd_memory
+
+    # If directory already exists (not a symlink), use it as-is
+    if os.path.isdir(orch_sdd_memory):
+        return orch_sdd_memory
+
+    # Neither symlink nor directory exists; try to create symlink to agent-isdd's
+    try:
+        isdd_plugin_data = get_plugin_data_dir("agent-isdd")
+        isdd_sdd_memory = get_legacy_subdir_path(isdd_plugin_data, "sdd-memory")
+
+        # Only create symlink if agent-isdd's sdd-memory exists
+        if os.path.isdir(isdd_sdd_memory):
+            os.symlink(isdd_sdd_memory, orch_sdd_memory)
+            return orch_sdd_memory
+    except (OSError, NotImplementedError):
+        # Symlink creation failed; fall back to registry file
+        pass
+
+    # Fallback: Create registry file so we know where sdd-memory actually is
+    try:
+        orch_plugin_data = os.path.dirname(_default_base)
+        os.makedirs(orch_plugin_data, exist_ok=True)
+
+        registry_path = os.path.join(orch_plugin_data, "sdd-memory-registry.json")
+
+        # Only write registry if it doesn't already exist
+        if not os.path.exists(registry_path):
+            isdd_plugin_data = get_plugin_data_dir("agent-isdd")
+            isdd_sdd_memory = get_legacy_subdir_path(isdd_plugin_data, "sdd-memory")
+
+            registry = {
+                "owner": "agent-isdd",
+                "actual_path": isdd_sdd_memory,
+                "created": True
+            }
+            import json
+            with open(registry_path, "w", encoding="utf-8") as f:
+                json.dump(registry, f)
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    return orch_sdd_memory
+
+
+# Call coordination at module import time
+_ensure_sdd_memory_coordination()
+BASE = _default_base
 
 
 def project_slug(cwd):
