@@ -6,8 +6,13 @@ on stdout) to orchestrator.hooks.before_continue.handle_agent_spawn, the pure
 context-injection function this plugin already implements and tests.
 
 Contract (see https://code.claude.com/docs/en/hooks.md):
-  stdin:  {"cwd": ..., "tool_name": "Agent", "tool_input": {"prompt": ..., "subagent_type": ...}, ...}
-  stdout: {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {"prompt": "..."}}}
+  stdin:  {"cwd": ..., "tool_name": "Agent", "tool_input": {"prompt": ..., "subagent_type": ..., "description": ..., ...}, ...}
+  stdout: {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {...full original tool_input, "prompt": "..."}}}
+
+`updatedInput` replaces the entire tool input, not just the fields this hook cares about —
+it must carry every field the caller originally sent (description, subagent_type,
+run_in_background, ...) with only `prompt` swapped for the context-injected version, or the
+Agent tool call fails schema validation for missing required fields.
 
 Any failure degrades to a no-op (exit 0, no output) so a broken hook never blocks
 a real agent spawn.
@@ -55,7 +60,7 @@ def main():
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
-            "updatedInput": {"prompt": modified_prompt}
+            "updatedInput": {**tool_input, "prompt": modified_prompt}
         }
     }))
     sys.exit(0)
