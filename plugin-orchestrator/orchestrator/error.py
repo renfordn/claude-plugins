@@ -1,6 +1,83 @@
-"""OrchestrationError: Structured error representation for logging and nelly integration."""
+"""OrchestrationError: Structured error representation for logging and nelly integration.
 
+Also includes HookErrorType enum and hook-specific error classes for explicit error
+classification: CONTRACT_VIOLATION (blocking), DEPENDENCY_UNAVAILABLE (soft),
+INFRASTRUCTURE_ERROR (non-recoverable).
+"""
+
+from enum import Enum
 from typing import Optional, Dict, Any
+
+
+class HookErrorType(Enum):
+    """Enum for hook error classification."""
+    CONTRACT_VIOLATION = "contract_violation"
+    DEPENDENCY_UNAVAILABLE = "dependency_unavailable"
+    INFRASTRUCTURE_ERROR = "infrastructure_error"
+
+
+class HookError(Exception):
+    """Base class for hook errors with type, severity, message, and recovery_action."""
+
+    def __init__(
+        self,
+        error_type: HookErrorType,
+        severity: str,
+        message: str,
+        recovery_action: str
+    ):
+        """Initialize HookError.
+
+        Args:
+            error_type: One of HookErrorType enum values
+            severity: "critical", "warn", or "info"
+            message: Error message
+            recovery_action: Suggested recovery/remediation step
+        """
+        self.error_type = error_type
+        self.severity = severity
+        self.message = message
+        self.recovery_action = recovery_action
+        super().__init__(message)
+
+
+class ContractViolationError(HookError):
+    """Error when capability contract is violated (blocking)."""
+
+    def __init__(self, message: str, recovery_action: str):
+        """Initialize ContractViolationError with default critical severity."""
+        super().__init__(
+            error_type=HookErrorType.CONTRACT_VIOLATION,
+            severity="critical",
+            message=message,
+            recovery_action=recovery_action
+        )
+
+
+class DependencyUnavailableError(HookError):
+    """Error when optional dependency is unavailable (soft, graceful)."""
+
+    def __init__(self, message: str, recovery_action: str):
+        """Initialize DependencyUnavailableError with default warn severity."""
+        super().__init__(
+            error_type=HookErrorType.DEPENDENCY_UNAVAILABLE,
+            severity="warn",
+            message=message,
+            recovery_action=recovery_action
+        )
+
+
+class InfrastructureError(HookError):
+    """Error when infrastructure fails (non-recoverable, requires intervention)."""
+
+    def __init__(self, message: str, recovery_action: str):
+        """Initialize InfrastructureError with default critical severity."""
+        super().__init__(
+            error_type=HookErrorType.INFRASTRUCTURE_ERROR,
+            severity="critical",
+            message=message,
+            recovery_action=recovery_action
+        )
 
 
 class OrchestrationError:
