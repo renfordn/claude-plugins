@@ -337,3 +337,26 @@ initial spawn, with one scoped exception: the Test-Author Gate above, which agen
 agent-tdd (not handed back to agent-isdd). Escalations back to agent-isdd (research gap, design
 contradiction, slicing blocker) pause with explicit reason; agent-isdd resumes via its
 `before-continue` hook when user re-enters after addressing the escalation.
+
+### Direct Mode (harness `Agent`-spawn failure fallback, added 2026-09-16)
+
+Everything above this section assumes the caller can actually spawn `agent-TDD` via the `Agent`
+tool. When that assumption fails — the `Agent` tool call itself is rejected at the harness level
+(a `PreToolUse` schema-validation error on the call, not an error from the spawned agent),
+confirmed recurring rather than a one-off flake — spawning is not available at all, and no
+retry, prompt change, or call-site change fixes it. See `agent-isdd/INTEROP.md`'s "Fallback —
+Direct Implementation" section for the exact three-condition Detection check.
+
+[`skills/design-spec-direct/SKILL.md`](skills/design-spec-direct/SKILL.md) reproduces this mode's
+Research Validation → Task Slicing → Ralph Loops → Risk Tier Assignment (`plan` sub-mode,
+unchanged from the pipeline above, just returning to the caller instead of continuing into
+implementation) plus **Slice Spec Mode's** existing per-slice contract (`test-author`, `slice`,
+`refactor` sub-modes) invoked once per slice via the `Skill` tool instead of `Agent`. It
+deliberately does *not* reproduce this section's "No return to caller until all slices complete"
+property — a `Skill` call has no subagent isolation to make that property meaningful, so the
+caller checkpoints every slice instead (Red/Green → review → decide → refactor or pause).
+
+This is a fallback path, invoked only when the Detection conditions in `agent-isdd/INTEROP.md`
+are confirmed, not a second supported way to run Design Spec Mode day-to-day. See that skill
+file for the full mode contract, the caller-owned loop it expects, and what isolation guarantees
+are genuinely lost (not just relocated) versus a real `agent-TDD`/`test-author` spawn.

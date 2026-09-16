@@ -193,6 +193,68 @@ No caching or `workflow-state.json` field is needed. If absent, pause with a con
 actionable message (e.g. "agent-tdd is not installed in this session — install it before
 requesting implementation") rather than attempting the work internally.
 
+**Fallback — Direct Implementation (harness `Agent`-spawn failure)**: distinct from
+"`agent-tdd` not installed" above, this covers the case where `agent-tdd:agent-TDD` *is*
+installed but every attempt to spawn it fails at the tool-call layer itself — a genuine Claude
+Code harness bug, not something a differently-worded prompt, a retry, or a different spawn
+call-site can work around. First confirmed 2026-09-15 on the `2026-09-15-expand-error-logger`
+feature (see that feature's `workflow-state.md` for the full investigation trail): a PreToolUse
+hook rejected the `Agent` call with `"description type expected as string but provided as
+unknown"`, traced conclusively to the harness itself — no currently-enabled hook in any
+installed plugin was producing that `updatedInput`, and the failure reproduced identically for
+a plain `claude` agent type unrelated to `agent-tdd`, meaning it blocks *all* `Agent`-tool spawns
+in the affected session, not something specific to this handoff.
+
+**Detection** — treat the spawn as harness-blocked, not a one-off flake, only once **all** of
+these hold:
+1. The `Agent` call fails with a `PreToolUse` schema-validation error on the tool call itself
+   (not an error returned *by* the spawned agent).
+2. A repeat attempt with the same Design Spec reproduces the identical error text.
+3. A trivial `Agent` spawn to an unrelated agent type (e.g. plain `claude`) in the same session
+   also fails the same way — confirming it's session/harness-wide, not specific to
+   `agent-tdd:agent-TDD` or to this feature's Design Spec content.
+
+Do not retry blind beyond this. If a later `/isdd-continue` session re-hits a rollback or
+escalation that traces back to this same blocker, check for a harness fix first (retry once)
+rather than repeating the full investigation.
+
+**Fallback action** — once confirmed harness-blocked, `agent-isdd` (or whichever skill/session is
+driving) invokes `agent-tdd:design-spec-direct`
+(`agent-tdd/skills/design-spec-direct/SKILL.md`) via the `Skill` tool, never `Agent` — that skill
+exists specifically because a `Skill` call is not subject to this harness bug. It reproduces
+Design Spec Mode's Research Validation/Task Slicing/Ralph Loops/Risk Tier Assignment (its `plan`
+sub-mode) and Slice Spec Mode's per-slice Red/Green/Review/Refactor contract (its `test-author`/
+`slice`/`refactor` sub-modes), one slice at a time, with `agent-isdd` itself owning the loop
+instead of trusting an isolated subagent to run it unsupervised:
+
+1. Call `plan` once → `tasks.md` + readiness verdict. Escalate exactly as a real `agent-TDD`
+   spawn would on a `paused` verdict.
+2. For each slice in dependency order: if `high-risk`, call `test-author <slice-id>` first
+   (passing only Task description/Test Intent/Data Contracts — see that skill's own prompt-
+   hygiene rule for why), then call `slice <slice-id>` → "Implementation Complete" handoff
+   (Red confirmed, Green done, Refactor still pending).
+3. Review that slice's touched files via the `code-reviewer` skill (the same Review Gate this
+   handoff would otherwise require — see "Auto Code-Reviewer Invocation" below).
+4. No blocking finding → call `refactor <slice-id>`, mark the slice done, advance to the next
+   slice. Blocking finding → pause on this slice; do not call `refactor` and do not advance.
+5. Once every slice is `done`, call `summary` → final handoff. Run the full regression suite
+   (not just new tests) and confirm no unrelated pre-existing failures were introduced.
+6. Record in `workflow-state.md`: that this was a direct-implementation fallback (not a normal
+   `agent-tdd` handoff), the harness bug's signature and detection evidence, and the review/
+   regression results — so a later session doesn't mistake "implemented directly" for "never
+   implemented" or re-attempt an already-fixed handoff blindly. Persist per-slice progress in
+   `direct-mode-state.json` (see `design-spec-direct/SKILL.md`'s "Caller-owned loop" section) so
+   a session restart mid-loop resumes at the right slice.
+
+This preserves the *procedural* shape of test-author's isolation (a test written before its
+implementer commits to an approach) and every per-slice review checkpoint a real spawn would
+have — see that skill's "What is genuinely lost" section for what a `Skill` call cannot
+replicate (true context isolation, agent-enforced loop prevention) even with this structure.
+
+This is a fallback, not a preferred path — always attempt the real `agent-tdd:agent-TDD` spawn
+first on every fresh attempt at this handoff; only fall back once Detection's three conditions
+are all met for *that* attempt.
+
 ## ← agent-tdd / code-reviewer (rollback request)
 
 Sometimes `agent-tdd`'s Green→Refactor review pause (or `code-reviewer`) discovers that the

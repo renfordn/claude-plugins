@@ -270,7 +270,17 @@ research/cache.md, pre-fetched file summaries, recap.md).
    `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
    is not installed in this session — install it before requesting implementation") rather than
    attempting the work internally.
-5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool).
+5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool). If this spawn
+   fails at the tool-call layer itself (a `PreToolUse` schema-validation error on the `Agent`
+   call, not an error from the spawned agent) and reproduces identically on retry and for an
+   unrelated agent type in the same session, this is the harness `Agent`-spawn bug, not an
+   installation or Design Spec problem — see `INTEROP.md`'s "Fallback — Direct Implementation
+   (harness `Agent`-spawn failure)" section for the Detection conditions (confirm all of them
+   before falling back — never on a single failure) and the fallback loop: invoke
+   `agent-tdd:design-spec-direct` via the `Skill` tool (never `Agent` — that skill exists
+   because `Skill` calls aren't subject to this bug), driving its `plan` → per-slice
+   `test-author`/`slice`/review/`refactor` → `summary` loop yourself instead of trusting an
+   isolated `agent-TDD` spawn to run it unsupervised.
 6. **[Added 2026-09-16] Test-author pause check** — after the spawn returns, check
    `workflow-state.json` for `test_author_pending` (written by `hooks/high_risk_reviewer.py`
    when `agent-TDD`'s report is at `slicing_complete` with one or more high-risk slices — see

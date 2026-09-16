@@ -1,6 +1,35 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.17] - 2026-09-16
+
+**Feature: Direct Mode (harness `Agent`-spawn failure fallback)**
+
+### Fixes & Improvements
+
+- **`skills/design-spec-direct/SKILL.md`** (new): reproduces Design Spec Mode's Research
+  Validation/Task Slicing/Ralph Loops/Risk Tier Assignment and Slice Spec Mode's per-slice
+  Red/Green/Review/Refactor contract as a `Skill` invocation instead of an `Agent`-tool spawn,
+  for use only when a caller has confirmed (per `INTEROP.md`'s new "Direct Mode" section) that
+  the `Agent` tool itself is failing at the harness level in the current session. The caller
+  owns the per-slice loop (`plan` → per-slice `test-author`/`slice`/review/`refactor` →
+  `summary`) instead of trusting an isolated subagent to run it unsupervised — see that skill
+  file's "What is genuinely lost" and "One thing this mode actually gains" sections for the
+  explicit isolation/checkpoint-recoverability tradeoffs this implies.
+- **`hooks/direct_mode_state.py`** (new): `read_direct_mode_state`/`write_direct_mode_state`/
+  `set_slice_status`/`all_slices_done`/`first_incomplete_slice_id` — persists Direct Mode's
+  per-slice progress to `direct-mode-state.json`, mirroring `tdd_state.py`'s existing read/write
+  pattern. Found and fixed during review: the missing-file fallback originally shallow-copied
+  the module-level default shape, sharing its nested `slices` list by reference across every
+  caller that ever hit that path — one project's `set_slice_status` call would permanently leak
+  into another project's "no state yet" read for the rest of the process. Fixed with
+  `copy.deepcopy`; covered by a regression test.
+- **`INTEROP.md`**: new "Direct Mode (harness `Agent`-spawn failure fallback...)" section
+  cross-referencing the new skill; documented as a fallback, not a second supported day-to-day
+  path for Design Spec Mode.
+
+109 tests pass (12 new).
+
 ## [0.1.16] - 2026-09-16
 
 **Feature: Test-Author Gate for Design Spec Mode high-risk slices**
