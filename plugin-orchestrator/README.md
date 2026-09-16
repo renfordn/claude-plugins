@@ -74,8 +74,9 @@ Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/plugin-orchest
 ## What it actually does
 
 - **`hooks/before_continue.py`** (`PreToolUse`, matcher `Agent`): before an
-  `Agent` tool call, injects workflow-state context into the spawn prompt via
-  `orchestrator.hooks.before_continue.handle_agent_spawn`.
+  `Agent` tool call, caches context and creates checkpoints in `workflow-state.json`,
+  surfaces rollback alerts via `systemMessage`, and exits cleanly without modifying
+  tool input (`agent-isdd` pattern, avoiding harness schema validation errors).
 - **`hooks/subagent_stop.py`** (`SubagentStop`): on subagent completion, logs
   the handoff and validates its contract via
   `orchestrator.hooks.subagent_stop.handle_agent_completion`.

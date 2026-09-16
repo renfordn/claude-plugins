@@ -1,26 +1,18 @@
 #!/usr/bin/env python3
 """PreToolUse hook entrypoint (matcher: Agent).
 
-Bridges Claude Code's actual hook contract (JSON on stdin, `hookSpecificOutput`
-on stdout) to orchestrator.hooks.before_continue.handle_agent_spawn, the pure
-context-injection function this plugin already implements and tests.
+Adopts the agent-isdd non-tampering approach to avoid Claude Code harness schema
+validation issues (where updatedInput for the Agent tool fails validation against description):
 
-Contract (see https://code.claude.com/docs/en/hooks.md):
-  stdin:  {"cwd": ..., "tool_name": "Agent", "tool_input": {"prompt": ..., "subagent_type": ..., "description": ..., ...}, ...}
-  stdout: {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {...full original tool_input, "prompt": "..."}}}
-
-`updatedInput` replaces the entire tool input, not just the fields this hook cares about —
-it must carry every field the caller originally sent (description, subagent_type,
-run_in_background, ...) with only `prompt` swapped for the context-injected version, or the
-Agent tool call fails schema validation for missing required fields.
-
-Any failure degrades to a no-op (exit 0, no output) so a broken hook never blocks
-a real agent spawn.
-
-DEGRADATION (2026-09-16): Claude Code harness bug confirmed (schema validation error
-on updatedInput before hook body runs). Hook now gracefully degrades: exits(0) on error,
-logs all errors to hook_error_log.txt for observability. This is CORRECT best-practice
-hook design, not a workaround. See orchestrator/hook_error_logger.py for logging.
+1. Coordinates and caches orchestrator state in workflow-state.json:
+   - Fetches and caches the agent-nelly brief
+   - Builds and caches the CapabilityMap
+   - Creates pre-spawn checkpoints
+   - Evaluates project error patterns
+2. Does NOT emit `updatedInput` on stdout (prevents harness schema validation crashes).
+3. If an unresolved escalation or rollback is pending, emits a `systemMessage` to alert
+   the user/session.
+4. Otherwise exits cleanly (exit code 0, no stdout) so the Agent tool call proceeds unblocked.
 """
 import json
 import os
@@ -37,12 +29,9 @@ from orchestrator.hook_error_logger import get_hook_error_logger  # noqa: E402
 
 
 def main():
-    """Hook entrypoint: Load context, modify prompt, output to stdout.
-
-    Gracefully degrades on any error (never blocks agent spawn).
-    All errors logged to hook_error_log.txt for observability.
+    """Hook entrypoint: Update workflow state, surface alerts via systemMessage if any,
+    and exit cleanly without emitting updatedInput.
     """
-    # Determine workflow state dir for error logging
     workflow_state_dir = None
 
     try:
@@ -65,7 +54,7 @@ def main():
         agent_type = tool_input.get("subagent_type") or payload.get("agent_type") or "unknown"
 
         if not spawn_prompt:
-            sys.exit(0)  # No prompt to inject; nothing to do
+            sys.exit(0)  # No prompt; nothing to do
 
         cwd = payload.get("cwd") or os.getcwd()
         state_path = workflow_state_path(cwd)
@@ -87,35 +76,40 @@ def main():
 
         workflow_state["error_registry_path"] = error_registry_path(cwd)
 
-        # Import and call context injection logic
-        from orchestrator.hooks.before_continue import handle_agent_spawn  # noqa: E402
-        modified_prompt = handle_agent_spawn(agent_type, spawn_prompt, workflow_state)
+        # Check for pending rollback/escalation before state processing
+        rollback_marker = workflow_state.get("rollback_pending")
+        system_message = None
+        if rollback_marker:
+            if isinstance(rollback_marker, dict):
+                source = rollback_marker.get("source") or rollback_marker.get("escalation_type", "prior agent")
+                reason = rollback_marker.get("reason") or rollback_marker.get("action_required", "unresolved escalation")
+                target = rollback_marker.get("target", "Requirements")
+                system_message = (
+                    f"⚠️ **Rollback Pending** (from {source})\n\n"
+                    f"**Issue:** {reason}\n\n"
+                    f"**Suggested action:** Rewind to **{target}** phase to address the issue.\n\n"
+                    f"To proceed, reply with: `/isdd-rewind {target}`\n"
+                    f"Or type a message to discuss first."
+                )
+            else:
+                system_message = f"⚠️ **Rollback Pending**: {rollback_marker}"
 
-        # Save updated workflow state
+        # Import and execute context coordination logic (caches brief, capability map, checkpoint, etc.)
+        from orchestrator.hooks.before_continue import handle_agent_spawn  # noqa: E402
+        handle_agent_spawn(agent_type, spawn_prompt, workflow_state)
+
+        # Save updated workflow state with cached artifacts & checkpoints
         save_workflow_state(state_path, workflow_state)
 
-        # Attempt to output via hook contract
-        # (Claude Code harness may reject this with schema validation error, which is expected)
-        try:
-            print(json.dumps({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "updatedInput": {**tool_input, "prompt": modified_prompt}
-                }
-            }))
-        except Exception as e:
-            # Output failed (likely harness bug); log and degrade
-            error_logger.log_error(
-                "Hook output failed",
-                str(e),
-                "Gracefully degrading (context stored in workflow-state)",
-                "before_continue"
-            )
+        # Emit systemMessage if an alert is pending (agent-isdd pattern)
+        # Note: Do NOT emit updatedInput, avoiding the harness schema validation bug.
+        if system_message:
+            print(json.dumps({"systemMessage": system_message}))
 
         sys.exit(0)
 
     except Exception as e:
-        # Any other error: log and exit gracefully
+        # Any unexpected error: log and exit gracefully (never block agent spawn)
         if workflow_state_dir:
             error_logger = get_hook_error_logger(workflow_state_dir)
             error_logger.log_error(

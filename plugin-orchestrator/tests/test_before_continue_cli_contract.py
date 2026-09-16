@@ -42,8 +42,9 @@ def _load_hook_module():
     return module
 
 
-class TestBeforeContinueHookDisabled(unittest.TestCase):
-    """The hook must be an unconditional no-op until the harness bug is fixed."""
+class TestBeforeContinueHookContract(unittest.TestCase):
+    """The hook adopts the agent-isdd approach: updates state, never emits updatedInput,
+    and surfaces systemMessage only when rollbacks/escalations are pending."""
 
     def _run_hook(self, tool_input, cwd):
         stdin_payload = json.dumps({
@@ -65,9 +66,9 @@ class TestBeforeContinueHookDisabled(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertEqual(result.stdout.strip(), "")
 
-    def test_no_op_even_when_workflow_state_would_be_active(self):
-        """The disable line must short-circuit before workflow_state_path is
-        even consulted -- simulate an active workflow and confirm still no-op."""
+    def test_state_updated_and_clean_exit_with_active_workflow(self):
+        """When an active workflow exists, state is loaded, checkpoints/context are
+        handled, state is saved, and hook exits 0 with no stdout (no updatedInput)."""
         module = _load_hook_module()
         tool_input = {
             "prompt": "original spawn prompt",
@@ -77,15 +78,54 @@ class TestBeforeContinueHookDisabled(unittest.TestCase):
         stdin_payload = json.dumps({
             "cwd": "/fake/cwd", "tool_name": "Agent", "tool_input": tool_input,
         })
+        fake_state = {"feature": "test-feature", "orchestration": {}}
         with patch.object(module, "workflow_state_path", return_value="/fake/state.json"), \
-             patch.object(module, "load_workflow_state", return_value={}), \
-             patch.object(module, "save_workflow_state"), \
+             patch.object(module, "load_workflow_state", return_value=fake_state), \
+             patch.object(module, "save_workflow_state") as mock_save, \
+             patch("orchestrator.hooks.before_continue.handle_agent_spawn") as mock_spawn, \
              patch("sys.stdin", io.StringIO(stdin_payload)), \
              patch("sys.stdout", new_callable=io.StringIO) as fake_stdout:
             with self.assertRaises(SystemExit) as cm:
                 module.main()
             self.assertEqual(cm.exception.code, 0)
+            mock_spawn.assert_called_once()
+            mock_save.assert_called_once()
+            # Must NOT emit updatedInput (clean no-op pass-through)
             self.assertEqual(fake_stdout.getvalue(), "")
+
+    def test_surfaces_system_message_on_pending_rollback(self):
+        """When a rollback is pending, hook surfaces it via systemMessage and exits 0."""
+        module = _load_hook_module()
+        tool_input = {
+            "prompt": "original spawn prompt",
+            "subagent_type": "agent-tdd",
+        }
+        stdin_payload = json.dumps({
+            "cwd": "/fake/cwd", "tool_name": "Agent", "tool_input": tool_input,
+        })
+        fake_state = {
+            "feature": "test-feature",
+            "orchestration": {},
+            "rollback_pending": {
+                "source": "agent-tdd",
+                "reason": "design contradiction in auth model",
+                "target": "Design",
+            }
+        }
+        with patch.object(module, "workflow_state_path", return_value="/fake/state.json"), \
+             patch.object(module, "load_workflow_state", return_value=fake_state), \
+             patch.object(module, "save_workflow_state") as mock_save, \
+             patch("orchestrator.hooks.before_continue.handle_agent_spawn"), \
+             patch("sys.stdin", io.StringIO(stdin_payload)), \
+             patch("sys.stdout", new_callable=io.StringIO) as fake_stdout:
+            with self.assertRaises(SystemExit) as cm:
+                module.main()
+            self.assertEqual(cm.exception.code, 0)
+            mock_save.assert_called_once()
+            output = fake_stdout.getvalue()
+            self.assertIn("systemMessage", output)
+            self.assertIn("design contradiction in auth model", output)
+            self.assertNotIn("updatedInput", output)
 
 
 class TestDormantMergeLogicStillCorrect(unittest.TestCase):

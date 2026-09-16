@@ -69,6 +69,15 @@ def handle_agent_spawn(
     tier1_context = _build_tier1_context(capability_map, brief_text)
     tier2_context = _build_tier2_context(workflow_state)
     error_pattern_context = _build_error_pattern_context(workflow_state)
+
+    workflow_state["orchestration"]["last_spawn_context"] = {
+        "agent_type": agent_type,
+        "checkpoint": checkpoint_label,
+        "tier1_context": tier1_context,
+        "tier2_context": tier2_context,
+        "error_pattern_context": error_pattern_context,
+    }
+
     parts = [
         p for p in (rollback_context, tier1_context, tier2_context, error_pattern_context, spawn_prompt)
         if p
