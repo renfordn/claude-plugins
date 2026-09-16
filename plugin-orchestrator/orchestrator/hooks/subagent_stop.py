@@ -27,20 +27,106 @@ from orchestrator.core import PluginRouter, HARD_DEPENDENCY_PLUGINS
 
 logger = logging.getLogger(__name__)
 
+# Soft dependencies that degrade gracefully
+SOFT_DEPENDENCY_PLUGINS = ["agent-nelly", "agent-ux"]
+
+
+def validate_in_order(
+    agent_type: str,
+    output: str,
+    workflow_state: dict,
+    capability_map: Optional[CapabilityMap] = None
+) -> Tuple[bool, Optional[HookErrorType], str]:
+    """Validate output in strict order: hard deps → soft deps → payload.
+
+    Args:
+        agent_type: Agent that produced output
+        output: Agent output to validate
+        workflow_state: Workflow state
+        capability_map: Optional CapabilityMap for contract validation
+
+    Returns:
+        Tuple of (is_valid, error_type, error_message)
+    """
+    # 1. Check hard dependencies
+    for dep in HARD_DEPENDENCY_PLUGINS:
+        if dep not in workflow_state.get("orchestration", {}).get("available_plugins", []):
+            return False, HookErrorType.INFRASTRUCTURE_ERROR, f"Hard dependency unavailable: {dep}"
+
+    # 2. Check soft dependencies (log but don't block)
+    for dep in SOFT_DEPENDENCY_PLUGINS:
+        if dep not in workflow_state.get("orchestration", {}).get("available_plugins", []):
+            logger.warning(f"Soft dependency unavailable: {dep}. Continuing with degraded state.")
+
+    # 3. Validate payload against capability contract
+    if capability_map:
+        is_valid, errors = capability_map.validate_output(agent_type, output)
+        if not is_valid:
+            return False, HookErrorType.CONTRACT_VIOLATION, f"Contract validation failed: {errors}"
+
+    return True, None, ""
+
+
+def extract_error_lesson(
+    agent_type: str,
+    error: HookError,
+    root_cause: Optional[str] = None
+) -> Dict[str, str]:
+    """Extract error lesson from HookError for cross-phase sharing.
+
+    Args:
+        agent_type: Agent that failed (e.g., "agent-isdd")
+        error: The HookError that occurred
+        root_cause: Optional root cause description
+
+    Returns:
+        Error lesson dict with agent_type, error_type, root_cause, recommendation
+    """
+    recommendations = {
+        "CONTRACT_VIOLATION": "Re-run with updated spec containing all required fields",
+        "DEPENDENCY_UNAVAILABLE": "Continue with degraded state; available features remain operational",
+        "INFRASTRUCTURE_ERROR": "Check logs and system state; may require manual intervention",
+    }
+    return {
+        "agent_type": agent_type,
+        "error_type": error.error_type.name,
+        "root_cause": root_cause or error.message,
+        "recommendation": recommendations.get(error.error_type.name, error.recovery_action),
+    }
+
+
+def share_error_lessons_to_next_phase(workflow_state: dict, error_lesson: Dict[str, str]) -> None:
+    """Add error lesson to workflow_state for next phase to consume.
+
+    Args:
+        workflow_state: Workflow state dict (modified in-place)
+        error_lesson: Error lesson dict from extract_error_lesson()
+    """
+    if "orchestration" not in workflow_state:
+        workflow_state["orchestration"] = {}
+
+    lessons = workflow_state["orchestration"].setdefault("error_lessons", [])
+    lessons.append(error_lesson)
+
+    # Keep only last 20 for memory efficiency
+    workflow_state["orchestration"]["error_lessons"] = lessons[-20:]
+
 
 def build_system_message(
     error: Optional[HookError] = None,
     errors: Optional[List[HookError]] = None,
     registry_path: Optional[str] = None,
-    min_severity: str = "warn"
+    min_severity: str = "warn",
+    error_lessons: Optional[List[Dict]] = None,
 ) -> str:
-    """Build systemMessage to surface errors to user.
+    """Build systemMessage to surface errors and prior lessons to user.
 
     Args:
         error: Single HookError to include
         errors: List of HookErrors to include (last 3)
         registry_path: Path to error_registry.json for reference
-        min_severity: Minimum severity to include (default "warn", includes "critical")
+        min_severity: Minimum severity to include (default "warn")
+        error_lessons: Prior error lessons from earlier phases
 
     Returns:
         Formatted systemMessage string for user
@@ -65,6 +151,14 @@ def build_system_message(
                 lines.append(f"- Issue: {err.message}")
                 lines.append(f"- Recovery: {err.recovery_action}")
                 lines.append("")
+
+    if error_lessons:
+        lines.append("## Prior Error Lessons")
+        lines.append("")
+        for lesson in error_lessons[-3:]:  # Last 3 lessons
+            lines.append(f"- **{lesson['agent_type']}**: {lesson['error_type']}")
+            lines.append(f"  Avoid: {lesson['recommendation']}")
+        lines.append("")
 
     if registry_path:
         lines.append(f"For full error history, see: {registry_path}")
