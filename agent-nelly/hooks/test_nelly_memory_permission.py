@@ -127,6 +127,12 @@ def test_audit_trail_populated_on_allow(tmp_path):
 def test_cross_agent_access_still_denied(tmp_path):
     """Paths under agent-isdd or agent-tdd memory should be denied."""
     cwd = str(tmp_path / "some-project")
+    isdd_hooks_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "agent-isdd", "hooks",
+    )
+    if isdd_hooks_dir not in sys.path:
+        sys.path.insert(0, isdd_hooks_dir)
     import sdd_memory
     # Try to access agent-isdd's memory
     target = os.path.join(sdd_memory.memory_dir(cwd), "spec", "feature", "workflow-state.md")

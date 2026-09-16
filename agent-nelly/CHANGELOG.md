@@ -1,6 +1,13 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Fixed a production-breaking import bug (0.4.4).** `hooks/nelly_memory.py` — the module
+  every agent-nelly hook imports — had an off-by-one in its shared-directory path
+  (`'..', 'shared'` instead of `'..', '..', 'shared'`), so `import nelly_memory` raised
+  `ModuleNotFoundError: path_resolution` unconditionally, breaking every hook in this plugin at
+  import time. Also isolated ~9 tests in `hooks/test_nelly_memory.py` that were writing directly
+  into the real `~/.claude/...` memory store (contradicting the file's own documented isolation
+  invariant), and fixed a stale pre-migration path in `hooks/test_nelly_index_update.py`.
 - `references/nelly-entry.template.md` / `INTEROP.md` — new optional, all-or-nothing
   `metadata.error_type` / `source_plugin` / `target_plugin` fields on `error-prevention` entries,
   plus a `Workaround action:` body line, for a consumer that needs a structured (exact-match, not

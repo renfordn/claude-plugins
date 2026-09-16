@@ -143,7 +143,10 @@ def test_memory_md_edit_resyncs_after_out_of_band_archive_move(tmp_path):
 
 def test_global_memory_edit_triggers_global_rescan(tmp_path):
     env = _isolated_env(tmp_path)
-    global_md_dir = os.path.join(str(tmp_path / "home"), ".claude", "agent-nelly-memory", "global")
+    global_md_dir = os.path.join(
+        str(tmp_path / "home"), ".claude", "plugins", "data", "agent-nelly",
+        "agent-nelly-memory", "global",
+    )
     os.makedirs(global_md_dir, exist_ok=True)
     global_md = os.path.join(global_md_dir, "GLOBAL-MEMORY.md")
     with open(global_md, "w", encoding="utf-8") as fh:

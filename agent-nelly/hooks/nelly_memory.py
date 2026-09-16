@@ -28,7 +28,7 @@ import sys
 from shared_slug import get_project_slug
 
 # Add shared directory to path for path_resolution import
-_shared_dir = os.path.join(os.path.dirname(__file__), '..', 'shared')
+_shared_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
 if _shared_dir not in sys.path:
     sys.path.insert(0, _shared_dir)
 from path_resolution import get_plugin_data_dir, get_legacy_subdir_path

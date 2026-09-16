@@ -240,14 +240,14 @@ def test_archive_path_never_escapes_archive_dir(name):
 # never landed on disk. Regression coverage for exactly that failure mode.
 # ---------------------------------------------------------------------------
 
-def test_ensure_entries_dir_creates_entries_subdir():
+def test_ensure_entries_dir_creates_entries_subdir(isolated_base):
     cwd = CWD
     d = nelly_memory.ensure_entries_dir(cwd)
     assert os.path.isdir(d)
     assert d == os.path.join(nelly_memory.memory_dir(cwd), "entries")
 
 
-def test_ensure_entries_dir_also_creates_project_dir_and_index():
+def test_ensure_entries_dir_also_creates_project_dir_and_index(isolated_base):
     # entries/ is nested under the project dir — calling ensure_entries_dir
     # alone (without a prior ensure_dir call) must still produce a fully
     # valid project dir + MEMORY.md, not just the entries/ subdir.
@@ -259,7 +259,7 @@ def test_ensure_entries_dir_also_creates_project_dir_and_index():
     assert os.path.isdir(os.path.join(d, "entries"))
 
 
-def test_ensure_entries_dir_is_idempotent():
+def test_ensure_entries_dir_is_idempotent(isolated_base):
     cwd = CWD
     first = nelly_memory.ensure_entries_dir(cwd)
     with open(os.path.join(first, "existing.md"), "w", encoding="utf-8") as fh:
@@ -269,14 +269,14 @@ def test_ensure_entries_dir_is_idempotent():
     assert os.path.isfile(os.path.join(second, "existing.md"))
 
 
-def test_cli_entries_path_prints_ensure_entries_dir_for_given_cwd(capsys):
+def test_cli_entries_path_prints_ensure_entries_dir_for_given_cwd(capsys, isolated_base):
     nelly_memory.main(["--entries-path", CWD])
     out = capsys.readouterr().out.strip()
     assert out == nelly_memory.ensure_entries_dir(CWD)
     assert os.path.isdir(out)
 
 
-def test_recording_a_new_fact_creates_both_entry_file_and_index_line():
+def test_recording_a_new_fact_creates_both_entry_file_and_index_line(isolated_base):
     """Regression test for the reported bug: reproduce the exact write-back
     sequence the agent-nelly agent's "Recording a new fact" section
     follows (steps 5-7 of agents/agent-nelly.md) and assert BOTH
@@ -331,7 +331,7 @@ def test_list_entries_returns_empty_list_when_entries_dir_absent():
     assert nelly_memory.list_entries(cwd) == []
 
 
-def test_list_entries_returns_sorted_names_without_md_extension():
+def test_list_entries_returns_sorted_names_without_md_extension(isolated_base):
     entries_dir = os.path.join(nelly_memory.memory_dir(CWD), "entries")
     os.makedirs(entries_dir, exist_ok=True)
     for fname in ("zeta.md", "alpha.md", "not-markdown.txt"):
@@ -357,20 +357,20 @@ def test_cli_global_path_prints_global_dir(capsys):
     assert out == nelly_memory.global_dir()
 
 
-def test_cli_path_prints_ensure_dir_for_given_cwd(capsys):
+def test_cli_path_prints_ensure_dir_for_given_cwd(capsys, isolated_base):
     nelly_memory.main(["--path", CWD])
     out = capsys.readouterr().out.strip()
     assert out == nelly_memory.ensure_dir(CWD)
 
 
-def test_cli_summary_silent_when_index_has_no_real_entries(capsys):
+def test_cli_summary_silent_when_index_has_no_real_entries(capsys, isolated_base):
     nelly_memory.ensure_dir(CWD)  # header scaffold only, no "- [" entries
     nelly_memory.main(["--summary", CWD])
     out = capsys.readouterr().out
     assert out == ""
 
 
-def test_cli_summary_prints_index_when_real_entries_present(capsys):
+def test_cli_summary_prints_index_when_real_entries_present(capsys, isolated_base):
     d = nelly_memory.ensure_dir(CWD)
     index = os.path.join(d, "MEMORY.md")
     with open(index, "a", encoding="utf-8") as fh:
