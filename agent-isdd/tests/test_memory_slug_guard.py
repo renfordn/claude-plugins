@@ -20,7 +20,7 @@ class MemorySlugGuardTests(unittest.TestCase):
         with h.temp_home() as home:
             correct_slug = h.project_slug_for(CWD)
             wrong_path = os.path.join(
-                home, ".claude", "sdd-memory", correct_slug + "-WRONG", "PROJECT-MEMORY.md"
+                home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", correct_slug + "-WRONG", "PROJECT-MEMORY.md"
             )
             decision, rc = h.run_hook(
                 "memory_slug_guard.py",
@@ -35,7 +35,7 @@ class MemorySlugGuardTests(unittest.TestCase):
     def test_correct_slug_is_noop(self):
         with h.temp_home() as home:
             correct_slug = h.project_slug_for(CWD)
-            path = os.path.join(home, ".claude", "sdd-memory", correct_slug, "PROJECT-MEMORY.md")
+            path = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", correct_slug, "PROJECT-MEMORY.md")
             decision, rc = h.run_hook(
                 "memory_slug_guard.py",
                 {"tool_input": {"file_path": path}, "cwd": CWD},
@@ -46,7 +46,7 @@ class MemorySlugGuardTests(unittest.TestCase):
 
     def test_global_dir_is_noop(self):
         with h.temp_home() as home:
-            path = os.path.join(home, ".claude", "sdd-memory", "global", "GLOBAL-MEMORY.md")
+            path = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", "global", "GLOBAL-MEMORY.md")
             decision, rc = h.run_hook(
                 "memory_slug_guard.py",
                 {"tool_input": {"file_path": path}, "cwd": CWD},
@@ -69,7 +69,7 @@ class MemorySlugGuardTests(unittest.TestCase):
         with h.temp_home() as home:
             correct_slug = h.project_slug_for(CWD)
             wrong_path = os.path.join(
-                home, ".claude", "sdd-memory", correct_slug + "-WRONG", "PROJECT-MEMORY.md"
+                home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", correct_slug + "-WRONG", "PROJECT-MEMORY.md"
             )
             decision, rc = h.run_hook(
                 "memory_slug_guard.py",

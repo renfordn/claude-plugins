@@ -358,140 +358,33 @@ compatibility. If agent-cache-plugin is installed and running, performance impro
 
 ## Auto Code-Reviewer Invocation (Review Gate, High-Risk Slices)
 
-**[Phase 2+3]** Automatic code-reviewer invocation on high-risk slices during Green→Refactor pauses.
+**Corrected 2026-09-16**: this section previously described a fully-automatic pipeline —
+`high_risk_reviewer` hook shelling out to `/code-reviewer` as a subprocess, parsing JSON
+severity dimensions, auto-emitting rollback markers or auto-resuming `agent-tdd` — that was
+never implemented and, per the harness constraint documented in `agent-tdd/INTEROP.md` ("The
+harness constraint that shapes everything here": hooks are blocking subprocesses with no
+`Agent`/skill-invocation access) and `code-reviewer/INTEROP.md` ("it is a skill, not a
+Task-tool subagent" — no subprocess CLI, no machine-readable JSON output separate from its
+rendered `ReportFindings`), could not have worked as described even in principle. It also
+contradicted this same document's own "→ code-reviewer (review gate)" section above, which
+correctly states agent-isdd never invokes code-reviewer directly.
 
-### High-Level Workflow
+**What `hooks/high_risk_reviewer.py` actually does**: on `agent-tdd`'s `SubagentStop`, it reads
+`tasks.md`, tracks which phases are high-risk (or standard-risk touching a high-risk file path)
+in `workflow-state.json`'s `code_reviewer_tracking`, and surfaces a passive checkpoint message —
+"Recommended: Run `code-reviewer` on these high-risk slices if not already done... **No automatic
+enforcement yet — this is a documented expectation.**" (the hook's own message text). Running
+code-reviewer on a flagged slice is left to whoever is driving the session, via the ordinary
+manual "Code-Review Gate" path described above — there is no severity classification, no
+auto-rollback marker, no TaskCreate/GitHub-issue follow-up, and no auto-resume.
 
-```
-agent-tdd: Green phase complete → emit green_pause marker
-    ↓
-high_risk_reviewer hook (SubagentStop):
-  1. Detect green_pause marker
-  2. Extract high-risk phases + file-path-scoped standard phases
-  3. Invoke /code-reviewer subprocess → JSON findings
-  4. Classify severity: major | non-major | clean
-  5. On MAJOR: emit rollback marker → pause at Tasks
-     On NON-MAJOR/CLEAN: emit resume msg + create follow-ups → auto-advance to refactor
-    ↓
-agent-tdd: Resume refactoring (or pause for rollback handling)
-```
-
-### Severity Taxonomy
-
-**MAJOR** (blocks refactor):
-- Any FAIL or WARN on: intent, regressions, security
-- Rationale: Critical dimension; requires re-evaluation
-- Action: Emit rollback marker to Tasks phase
-
-**NON-MAJOR** (proceed with follow-ups):
-- Any FAIL/WARN on: best_practices, naming, scalability (AND no major issues)
-- Rationale: Standard dimension; doesn't block logical correctness
-- Action: Create follow-up tasks, append to recap.md, resume to refactor
-
-**CLEAN**:
-- All dimensions: PASS
-- Action: No follow-ups, resume to refactor immediately
-
-### Rollback vs. Severity Distinction
-
-Rollback and severity are orthogonal:
-- **Severity** classifies the findings (major/non-major/clean)
-- **Rollback** is an orchestration decision (whether to pause work)
-  - MAJOR severity → emit rollback marker (pause at Tasks, return to developer)
-  - NON-MAJOR/CLEAN severity → no rollback (continue to refactor)
-
-### Integration with Code-Reviewer Plugin
-
-**Subprocess Invocation**:
-- Command: `/code-reviewer --slice-spec '<JSON>'`
-- Timeout: 600 seconds (configurable)
-- Output: JSON with dimensions: {intent, regressions, security, best_practices, naming, scalability}
-- Each dimension: {status: PASS|FAIL|WARN, findings: [{dimension, status, finding_text}]}
-
-**Error Handling**:
-- Timeout: Log and continue (non-blocking)
-- Exit non-zero: Log and continue (non-blocking)
-- Invalid JSON: Log and treat as no findings
-- Command not found: Log and continue
-
-### Integration with Agent-TDD
-
-**Marker Detection**:
-- Pattern: `<!--AGENT-TDD-PHASE:green_pause-->`
-- Emitted by: agent-tdd's SubagentStop report
-- Consumed by: high_risk_reviewer hook SubagentStop event
-
-**Resume Path**:
-- Non-major/clean findings: emit "Code review complete" message → before-continue hook
-  detects green_pause and resumes agent-tdd
-- Major findings: emit rollback marker → dev addresses findings → /isdd-continue restarts
-  at Tasks phase
-
-### Follow-Up Tracking Stages
-
-1. **TaskCreate**: Create tasks for non-major findings (non-blocking)
-   - Title: "[Code Review] <dimension>: <summary>"
-   - Tags: ["code-review-finding", "follow-up", "<phase-slug>"]
-   - Error: Log and continue
-
-2. **recap.md**: Log findings with severity, task IDs, issue URLs
-   - Section: "## Code-Review Findings"
-   - Format: "- <phase> / <dimension> (<status>): <text> [task:id] [issue:url]"
-   - Idempotent: duplicate findings skipped
-
-3. **GitHub Issues**: Create issues for post-implementation triage (non-blocking)
-   - Command: `gh issue create -R <repo> --title "..." --body "..." --label "..."`
-   - Labels: ["code-review", "follow-up", "<phase-slug>"]
-   - Error: Log and continue
-
-### File-Path Scoping
-
-**High-Risk File Paths** (from design.md Risks section or config):
-- Parsed at invocation time from design.md "Risks And Tradeoffs" section
-- Fallback: workflow-state.json config.high_risk_file_paths
-
-**Standard Slices Scoping**:
-- Standard-risk slices touching high-risk paths are also reviewed
-- Reduces noise: limits review to critical changes only
-- Example: if design.md lists `src/models/user.py` as high-risk,
-  standard slices modifying it trigger automatic review
-
-### Configuration
-
-**workflow-state.json Schema**:
-```json
-{
-  "code_reviewer_tracking": {
-    "high_risk_phases": ["Phase 1: ...", "Phase 2: ...", ...],
-    "reviewed_phases": [
-      {
-        "phase_name": "Phase 1: ...",
-        "severity": "clean|non-major|major",
-        "findings_count": 3,
-        "findings": [{dimension, status, finding_text}, ...],
-        "reviewed_at": "2026-08-24T12:00:00Z",
-        "reviewer_version": "code-reviewer@0.1.0"
-      },
-      ...
-    ],
-    "config": {
-      "high_risk_file_paths": ["src/models/user.py", "src/api/endpoints.py"],
-      "review_timeout_seconds": 600,
-      "skip_on_timeout": true,
-      "github_repo": "https://github.com/org/repo"  // Optional
-    }
-  }
-}
-```
-
-**Backward Compatibility**:
-- Old schema (no config): treated as empty config
-- Defensive reads: `.get("code_reviewer_tracking", {})` safe if key absent
-- Missing fields default to sensible values (empty lists, 600s timeout)
-
-### Future Deprecation Plan
-
-When code-reviewer adds native severity classification (planned):
-- Retire synthetic severity logic (MAJOR/NON-MAJOR categories)
-- Consume code-reviewer's native severity field directly
-- Update this section and spec-driven-development SKILL.md
+The functions implementing that fuller pipeline (`invoke_code_reviewer`, `classify_severity`,
+`construct_rollback_marker`, `create_follow_up_tasks`, `create_github_issues`, etc.) exist in
+`hooks/high_risk_reviewer.py` and have their own unit tests, but are dead code — `main()` (the
+function actually wired to `SubagentStop`) never calls them. `invoke_code_reviewer` in particular
+would always fail (`FileNotFoundError`/exit -1): it shells out to a literal `/code-reviewer`
+command, which is a conversational skill invocation, not a CLI binary on `PATH`. Anyone
+resuming this work should either wire these functions into `main()` after first replacing the
+subprocess-CLI premise with a real invocation path (main-thread skill call, not a hook), or
+remove them — see `code-reviewer/INTEROP.md`'s "What you get back" for why a machine-parseable
+severity JSON isn't something code-reviewer can hand back today.

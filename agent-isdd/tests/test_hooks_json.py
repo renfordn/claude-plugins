@@ -40,6 +40,13 @@ class HooksJsonStructureTests(unittest.TestCase):
         self.assertFalse(any("state_consistency_check.py" in c for c in commands))
         self.assertFalse(any("phase_task_sync.py" in c for c in commands))
 
+    def test_nelly_spawn_failure_registered_on_post_tool_use_agent(self):
+        """PostToolUse backstop that clears a stale agent_nelly_available cache when
+        agent-nelly:agent-nelly fails to spawn -- see hooks/nelly_spawn_failure.py."""
+        config = _load()
+        commands = _commands_for(config, "PostToolUse", "Agent")
+        self.assertTrue(any("nelly_spawn_failure.py" in c for c in commands))
+
     def test_slice_spec_gate_disabled_for_phase_2_3(self):
         """Phase 2+3 (Design Spec handoff) eliminated per-slice Slice Spec validation.
         The old slice_spec_gate.py hook is incompatible with one-directional Design Spec

@@ -263,6 +263,61 @@ class SubagentReportTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertIsNone(msg)
 
+    def test_test_author_needed_marker_writes_test_author_pending(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            json_path = os.path.join(feature_dir, "workflow-state.json")
+            with open(json_path, "w", encoding="utf-8") as fh:
+                json.dump({"current_phase": "Implementation"}, fh)
+            transcript = os.path.join(home, "transcript.jsonl")
+            _write_transcript(
+                transcript,
+                [_assistant_line(
+                    '<!--AGENT-TDD-TEST-AUTHOR-NEEDED:slice="auth-token-refresh"-->\n'
+                    "This slice is high-risk and needs test-author to write Red first."
+                )],
+            )
+            msg, rc = h.run_hook_message(
+                "subagent_report.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(msg)
+            self.assertIn("auth-token-refresh", msg)
+
+            with open(json_path) as fh:
+                state = json.load(fh)
+            self.assertEqual(state["test_author_pending"]["slice"], "auth-token-refresh")
+            self.assertIn("timestamp", state["test_author_pending"])
+
+    def test_report_without_test_author_marker_does_not_write_pending(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            json_path = os.path.join(feature_dir, "workflow-state.json")
+            with open(json_path, "w", encoding="utf-8") as fh:
+                json.dump({"current_phase": "Implementation"}, fh)
+            transcript = os.path.join(home, "transcript.jsonl")
+            _write_transcript(
+                transcript,
+                [_assistant_line(
+                    "<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:green_pause-->\n"
+                    "Implemented the counter reset behavior with a targeted unit test."
+                )],
+            )
+            msg, rc = h.run_hook_message(
+                "subagent_report.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNone(msg)
+            with open(json_path) as fh:
+                state = json.load(fh)
+            self.assertNotIn("test_author_pending", state)
+
     def test_missing_transcript_file_is_silent_no_crash(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)

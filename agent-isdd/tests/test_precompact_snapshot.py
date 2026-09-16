@@ -11,7 +11,7 @@ import hook_test_utils as h
 class PrecompactSnapshotTests(unittest.TestCase):
     def _snapshots_dir(self, home, cwd):
         slug = h.project_slug_for(cwd)
-        return os.path.join(home, ".claude", "sdd-memory", slug, "snapshots")
+        return os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug, "snapshots")
 
     def test_nothing_to_snapshot_is_silent(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:

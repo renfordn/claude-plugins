@@ -269,56 +269,35 @@ research/cache.md, pre-fetched file summaries, recap.md).
    `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
    batch. One call only — no re-fetch of the brief needed.
 
-## Automatic Code-Reviewer Invocation (High-Risk Slices)
+## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
 
-**[Phase 2+3]** After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a
-Risk Tier (`standard` or `high-risk`). At the Green→Refactor pause for each slice, the
-`high_risk_reviewer` hook automatically invokes code-reviewer and applies severity-based logic:
+**Corrected 2026-09-16**: this section previously described an automatic invoke-classify-advance
+pipeline that was never implemented — see `INTEROP.md`'s "Auto Code-Reviewer Invocation" section
+for the full correction. What actually exists:
 
-**Automatic Flow (High-Risk Slices)**:
-
-1. **Detection**: After green tests pass, agent-tdd emits `<!--AGENT-TDD-PHASE:green_pause-->`.
-2. **Invocation**: The `high_risk_reviewer` hook (SubagentStop) signals this orchestrating skill,
-   which invokes `code-reviewer` via the Skill tool (never as a subprocess or subagent — see
-   code-reviewer/SKILL.md) scoped to files touched by the high-risk slice and file-path-scoped
-   standard slices.
-3. **Severity Classification**: Code-reviewer findings are mapped to three categories:
-   - **MAJOR** (critical): Any FAIL/WARN on intent, regressions, or security dimensions
-   - **NON-MAJOR** (follow-up): Any FAIL/WARN on best_practices, naming, or scalability (no majors)
-   - **CLEAN**: All dimensions PASS
-4. **Auto-Advance Logic**:
-   - **CLEAN or NON-MAJOR**: Emit resume message, create follow-up tasks, append to recap.md,
-     optionally create GitHub issues. Resume agent-tdd to refactor.
-   - **MAJOR**: Emit rollback marker (`<!--SDD-ROLLBACK-REQUEST-->`) to pause and return to Tasks
-     phase. Developer reviews the critical findings and resubmits the slice.
-
-**Follow-Up Tracking**:
-- Non-major findings create TaskCreate items for post-refactor review
-- Findings appended to recap.md with severity and task/issue references
-- GitHub issues optionally created with detailed finding descriptions
-- No manual intervention required for non-major findings — refactor proceeds automatically
-
-**For Standard Slices**:
-- Standard slices touching high-risk file paths (from design.md Risks section) are also reviewed
-- File-path scoping reduces noise: only slices modifying critical files are reviewed
-- Same severity classification and auto-advance logic applies
+After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a Risk Tier
+(`standard` or `high-risk`). On each `agent-tdd` `SubagentStop`, the `high_risk_reviewer` hook
+tracks high-risk phases (and standard phases touching a high-risk file path) in
+`workflow-state.json`'s `code_reviewer_tracking`, and surfaces a passive reminder listing which
+high-risk phases haven't been marked reviewed yet — no severity classification, no automatic
+invocation, no auto-resume. Running code-reviewer on those phases, resolving findings, and
+resuming `agent-tdd` all go through the ordinary manual review pause (see "The mandatory review
+pause" in `agent-tdd/INTEROP.md` and the "Code-Review Gate" section in this plugin's own
+`INTEROP.md`) — this checkpoint only helps you not forget a high-risk slice, it doesn't drive
+the review itself.
 
 **Configuration** (workflow-state.json):
 ```json
 {
   "code_reviewer_tracking": {
     "high_risk_phases": ["Phase 1", "Phase 2", ...],
-    "reviewed_phases": [...],
-    "config": {
-      "high_risk_file_paths": ["src/models/user.py", ...],
-      "review_timeout_seconds": 600,
-      "skip_on_timeout": true
-    }
+    "reviewed_phases": [...]
   }
 }
 ```
 
-See `INTEROP.md` "Auto Code-Reviewer Invocation" section for full integration details.
+See `INTEROP.md`'s "Auto Code-Reviewer Invocation" section for the full correction and the
+dead-code inventory it points to.
 
 ## Requirements Gate
 

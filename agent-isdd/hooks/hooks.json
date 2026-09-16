@@ -52,6 +52,15 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_write_check.py\""
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_spawn_failure.py\""
+          }
+        ]
       }
     ],
     "Stop": [

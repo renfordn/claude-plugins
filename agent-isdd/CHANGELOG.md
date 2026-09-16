@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Ecosystem-audit fixes and new hooks (0.1.25).**
+  - Fixed `tests/hook_test_utils.py` and 5 other test files hardcoding the pre-migration
+    `~/.claude/sdd-memory/` path instead of the `${CLAUDE_PLUGIN_DATA}`-migrated
+    `~/.claude/plugins/data/agent-isdd/sdd-memory/` — 14 tests were failing against the real
+    (already-fixed) `sdd_state.py`.
+  - Corrected `INTEROP.md`'s and `skills/spec-driven-development/SKILL.md`'s "Auto
+    Code-Reviewer Invocation" sections: both described a fully-automatic severity-classifying
+    subprocess pipeline that was never implemented and contradicted `agent-tdd`'s and
+    `code-reviewer`'s own documented contracts. `hooks/high_risk_reviewer.py` only ever emitted
+    a passive checkpoint reminder; the fuller pipeline's functions exist but are dead code.
+  - Added `hooks/subagent_report.py`'s `TEST_AUTHOR_NEEDED_MARKER` detection (mirrors
+    `PLAN_FLAG_MARKER`), closing the gap where a high-risk slice mid-Design-Spec-Mode had no
+    escalation path back to the caller for a `test-author` spawn.
+  - Added `hooks/nelly_spawn_failure.py`, a `PostToolUse`/`Agent` backstop that clears a stale
+    `agent_nelly_available` cache when a spawn fails, scoped to `agent-nelly:agent-nelly` only
+    (`agent-tdd:agent-TDD` stays deliberately uncached per `INTEROP.md`).
+  - Added `hooks/research_cache.py`'s `find_stale_summaries()`, a git-hash-gated staleness
+    check for cached `research/cache.md` file summaries.
 - **Reconciled `proposals/2026-08-12-agent-isdd-token-efficiency-pass` with the current
   architecture.** Phases 1, 3, and 5 of that pass were already satisfied by pre-existing content;
   Phase 2 and Phase 4 each had one remaining step targeting `tdd-planner`, which no longer exists

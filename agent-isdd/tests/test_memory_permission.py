@@ -16,7 +16,7 @@ class MemoryPermissionTests(unittest.TestCase):
             cwd = "/some/project/path"
             slug = h.project_slug_for(cwd)
             path = os.path.join(
-                home, ".claude", "sdd-memory", slug, "spec", "2020-01-01-feature",
+                home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug, "spec", "2020-01-01-feature",
                 "workflow-state.md",
             )
             decision, rc = h.run_hook(
@@ -33,7 +33,7 @@ class MemoryPermissionTests(unittest.TestCase):
         with h.temp_home() as home:
             cwd = "/some/project/path"
             slug = h.project_slug_for(cwd)
-            path = os.path.join(home, ".claude", "sdd-memory", slug, "PROJECT-MEMORY.md")
+            path = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug, "PROJECT-MEMORY.md")
             decision, rc = h.run_hook(
                 "memory_permission.py",
                 {"tool_input": {"file_path": path}, "cwd": cwd},
@@ -46,7 +46,7 @@ class MemoryPermissionTests(unittest.TestCase):
         """Phase 3: the global/ tier is no longer sdd's domain to auto-approve."""
         with h.temp_home() as home:
             cwd = "/some/project/path"
-            path = os.path.join(home, ".claude", "sdd-memory", "global", "GLOBAL-MEMORY.md")
+            path = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", "global", "GLOBAL-MEMORY.md")
             decision, rc = h.run_hook(
                 "memory_permission.py",
                 {"tool_input": {"file_path": path}, "cwd": cwd},

@@ -7,10 +7,11 @@ code path production uses and needs no per-module mock/reset bookkeeping between
 Assumed baseline: Python 3.11 (see .github/workflows/tests.yml -- nothing in this repo pinned a
 version before this test suite existed).
 
-Isolation: hooks resolve ~/.claude/sdd-memory/ via os.path.expanduser("~"), which reads the HOME
+Isolation: hooks resolve ~/.claude/plugins/data/agent-isdd/sdd-memory/ (the ${CLAUDE_PLUGIN_DATA}
+fallback -- see hooks/sdd_memory.py's BASE) via os.path.expanduser("~"), which reads the HOME
 environment variable on POSIX. Every test that could reach that resolution MUST pass
 env_extra={"HOME": <temp_home() path>} to run_hook()/run_sdd_memory_cli() -- omitting it risks
-silently touching the real ~/.claude/sdd-memory/ tree during a test run.
+silently touching the real ~/.claude/plugins/data/agent-isdd/sdd-memory/ tree during a test run.
 """
 import contextlib
 import json
@@ -32,10 +33,13 @@ def project_slug_for(path):
 
 
 def feature_spec_dir(home, cwd, feature_slug="2020-01-01-test-feature"):
-    """Create and return <home>/.claude/sdd-memory/<project_slug(cwd)>/spec/<feature_slug>/,
-    the same location active_state_file()/find_state_files() would look under given HOME=home."""
+    """Create and return <home>/.claude/plugins/data/agent-isdd/sdd-memory/<project_slug(cwd)>/
+    spec/<feature_slug>/, the same location active_state_file()/find_state_files() would look
+    under given HOME=home (mirrors hooks/sdd_memory.py's BASE -- the ${CLAUDE_PLUGIN_DATA}
+    fallback path, since tests don't set that env var)."""
     slug = project_slug_for(cwd)
-    d = os.path.join(home, ".claude", "sdd-memory", slug, "spec", feature_slug)
+    d = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory",
+                      slug, "spec", feature_slug)
     os.makedirs(d, exist_ok=True)
     return d
 

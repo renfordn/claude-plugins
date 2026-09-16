@@ -13,7 +13,7 @@ import hook_test_utils as h
 class StopCheckTests(unittest.TestCase):
     def _marker_path(self, home, cwd):
         slug = h.project_slug_for(cwd)
-        return os.path.join(home, ".claude", "sdd-memory", slug, "last-stop.json")
+        return os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug, "last-stop.json")
 
     def test_no_active_state_is_silent_and_writes_nothing(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:

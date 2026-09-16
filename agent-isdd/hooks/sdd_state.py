@@ -87,6 +87,17 @@ def read_rollback_pending(path):
     return parse_state_json(path).get("rollback_pending")
 
 
+def write_test_author_pending(path, slice_name, timestamp):
+    """Set workflow-state.json's test_author_pending field, preserving other fields.
+
+    Creates the file if it doesn't exist yet, mirroring write_rollback_pending's
+    tolerant-of-missing-file behavior.
+    """
+    data = parse_state_json(path)
+    data["test_author_pending"] = {"slice": slice_name, "timestamp": timestamp}
+    write_state_json(path, data)
+
+
 def clear_rollback_pending(path):
     """Remove rollback_pending from workflow-state.json. No-op if file or field is missing."""
     data = parse_state_json(path)

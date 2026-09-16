@@ -70,7 +70,7 @@ class CommitAuditGateTests(unittest.TestCase):
 
             import re
             slug = re.sub(r"[^A-Za-z0-9]+", "-", os.path.abspath(repo)).strip("-").lower()
-            mem_dir = os.path.join(home, ".claude", "sdd-memory", slug)
+            mem_dir = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug)
             os.makedirs(mem_dir)
             with open(os.path.join(mem_dir, "DOC-AUDIT-STATE.md"), "w") as fh:
                 fh.write(f"- Status: `passed`\n- Diff Fingerprint: `{fp}`\n")
@@ -91,7 +91,7 @@ class CommitAuditGateTests(unittest.TestCase):
 
             import re
             slug = re.sub(r"[^A-Za-z0-9]+", "-", os.path.abspath(repo)).strip("-").lower()
-            mem_dir = os.path.join(home, ".claude", "sdd-memory", slug)
+            mem_dir = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory", slug)
             os.makedirs(mem_dir)
             with open(os.path.join(mem_dir, "DOC-AUDIT-STATE.md"), "w") as fh:
                 fh.write(f"- Status: `passed`\n- Diff Fingerprint: `{fp}`\n")
