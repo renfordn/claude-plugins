@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Fix stale `slice_spec_gate.py` claim in the `after-tasks` hook table (0.1.28).**
+  `skills/workflow-manager/SKILL.md`'s `after-tasks` row claimed `hooks/slice_spec_gate.py`
+  hard-denies an incomplete `agent-tdd` spawn — stale from before the Phase 2+3 Design Spec
+  handoff replaced the old Slice Spec path. That hook validates the wrong schema and isn't
+  registered in `hooks.json` (`tests/test_hooks_json.py`'s own
+  `test_slice_spec_gate_disabled_for_phase_2_3` already asserted this). No hook currently gates
+  Design Spec completeness before spawn — corrected the doc to say so plainly rather than claim
+  a safety net that doesn't exist. Found doing a feature-find pass over the isdd→tdd handover.
+
 - **Remove the unreachable agent-nelly spawn-failure hook; move self-healing to where it can
   actually work (0.1.27).** `hooks/nelly_spawn_failure.py` (added in 0.1.25, moved to
   `PostToolUseFailure` in 0.1.26) was built to detect a `subagent_type`-not-found spawn failure
