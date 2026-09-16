@@ -84,9 +84,28 @@ with `workflow_action: block_commit` prevents the commit until resolved or expli
   threshold exists to avoid.
 - If review turns up something concrete but genuinely outside the diff's scope (dead code, a
   stale doc, a confirmed TODO unrelated to this change) — not a finding against the change
-  itself — flag it via `spawn_task` directly instead of folding it into `ReportFindings`. Only
-  for issues you've already confirmed are real and out of scope; never for a low-confidence
-  hunch.
+  itself — flag it. Only for issues you've already confirmed are real and out of scope; never for
+  a low-confidence hunch. Two ways to flag, same rule for choosing between them as the dashboard
+  above:
+  - **`agent-ux:ux-agent` available and a `phase_state` was supplied**: delegate via an
+    `out_of_scope_flag` envelope (`caller: code-reviewer`, `phase_state`, `delta: {title,
+    file_path, context_summary}`) rather than calling `spawn_task` yourself — see `agent-ux`'s
+    own `INTEROP.md` for the envelope contract.
+  - **Otherwise**: call `spawn_task` directly, exactly as before.
+  - **Either way**, if a review-state directory was supplied, append a row to that directory's
+    `TODO-LEDGER.md` (`references/TODO-LEDGER.md.template`) immediately after the call returns
+    its `task_id` — this is `code-reviewer`'s own record, independent of which path spawned the
+    task, and it's the only writer of this file (`agent-ux` only ever reads it, never writes it —
+    see `agent-ux`'s own `INTEROP.md` "Rendering, not tracking"). No review-state directory: skip
+    the ledger, same ephemeral-pass discipline as `REVIEW-STATE.md`.
+  - If a later pass finds a ledger row's item stale, superseded, or already handled: call
+    `dismiss_task` with its `task_id`, then flip that row's `Status` to `dismissed` in place
+    (never delete the row).
+  - To surface the ledger as a visible dashboard (on user request, or at the end of a pass with
+    open items), and `agent-ux:ux-agent` is available: send a `todo_digest` envelope (`delta:
+    {ledger_path}`, `artifact_path` pointing at a stable dashboard file in the same review-state
+    directory). No `agent-ux`, or no review-state directory to hold a ledger: skip this — there's
+    nothing to render a dashboard from.
 
 ## Evidence Tier Model
 

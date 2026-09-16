@@ -33,7 +33,7 @@ for this extraction, cross-checked against the recorded examples in
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `caller` | `agent-isdd \| code-reviewer \| ...` (any orchestrating plugin's own identity) | always | Selects caller-specific rendering rules, when any are defined (see `caller`-keyed rendering rules below). **Never `agent-tdd`**: `agent-TDD` (the subagent) has no `Agent` tool and can never be the literal actor sending this envelope — per `agent-tdd`'s own `INTEROP.md`, only a main-thread orchestrating skill can. An orchestrator rendering an `agent-tdd` slice's progress supplies its own identity here instead; TDD-internal stages are detected from `phase_state`'s shape, not from `caller` (see below). |
-| `event_type` | `breadcrumb_only \| phase_transition \| section_checkpoint \| review_threshold \| out_of_scope_flag` | always | Selects which `delta` shape applies and which action family is in play. |
+| `event_type` | `breadcrumb_only \| phase_transition \| section_checkpoint \| review_threshold \| out_of_scope_flag \| todo_digest` | always | Selects which `delta` shape applies and which action family is in play. |
 | `phase_state` | string (compact token, e.g. `Design`, `TDD:green`) | always | Current phase for breadcrumb rendering. Never the full `workflow-state.md` or any other state file — a short token only. |
 | `delta` | object (event-specific, see below) | always | Event-specific minimal payload. Never a full artifact body, with exactly one named exception (`section_checkpoint`'s `section_body`, below). |
 | `artifact_path` | string (stable path) | when applicable per `event_type` | Caller-owned path for `agent-ux` to redeploy to, or to read further from on its own initiative. Never regenerated or invented by `agent-ux`. |
@@ -67,6 +67,20 @@ the authoritative field shape.
 | `section_checkpoint` | `section_name, section_body, remaining_section_names, open_gaps` | stable spec-canvas path, same every call within a phase | `section_body` is **the single named exception** to "never a full artifact body" in this whole contract; `remaining_section_names` is names only, no bodies; `open_gaps` is short strings, no nested rationale/evidence. | `references/example-envelopes/section-checkpoint.md` |
 | `review_threshold` | `finding_count, files_touched, findings` | findings artifact to redeploy the dashboard from/to | `findings` is `{id, title, tier, severity}` objects — no `evidence`/`diff` field on any finding; `agent-ux` reads `artifact_path` for hunks/evidence only once it has independently confirmed the threshold from `finding_count`/`files_touched`, never before. | `references/example-envelopes/review-threshold.md` |
 | `out_of_scope_flag` | `title, file_path, context_summary` | none | Unchanged from pre-extraction shape, already minimal; `spawn_task`'s prompt is built from `context_summary` + `file_path` only. Caller has already judged the issue concrete and out of scope before delegating — `agent-ux` never infers that judgment itself. | `references/example-envelopes/out-of-scope-flag.md` |
+| `todo_digest` | `ledger_path` | stable dashboard path, same every call within a review-state directory | Rendering only — `agent-ux` has no `Write`/`Edit` tool grant and cannot itself track todo state; the caller owns `ledger_path`'s content (one row per `spawn_task`/`dismiss_task` call it made) and `agent-ux` only ever renders what that file currently says. See "Rendering, not tracking" below. | `references/example-envelopes/todo-digest.md` |
+
+### Rendering, not tracking (`todo_digest`)
+
+`todo_digest` exists to make `spawn_task`-flagged items visible as more than a fire-and-forget
+chip, without giving `agent-ux` a second responsibility it isn't built for. Deliberately
+asymmetric: `agent-ux` can *trigger* the `spawn_task`/`dismiss_task` call a ledger row records
+(when a caller delegates `out_of_scope_flag` to it), but the caller is solely responsible for
+*writing* that row — `agent-ux` never does so itself, and structurally cannot: its tool grant
+(`agents/ux-agent.md` frontmatter) has no `Write`/`Edit`. The caller that owns the review-state directory
+(e.g. `code-reviewer`'s `TODO-LEDGER.md`, next to its `REVIEW-STATE.md`) appends a row itself
+right after any `spawn_task`/`dismiss_task` call — whether that call was made directly by the
+caller or indirectly via `agent-ux`'s `out_of_scope_flag` handling — and only then, optionally,
+sends a `todo_digest` envelope to (re)publish the dashboard from current ledger content.
 
 ### Envelope misuse
 

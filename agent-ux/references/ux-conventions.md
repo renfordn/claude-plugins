@@ -105,6 +105,22 @@ one did.
 - If a caller later reports a flagged item is stale, superseded, or already handled, dismiss it
   via `dismiss_task` using the id the caller was given.
 
+## Todo dashboard (Artifact) — rendering only
+
+Rendered via the `todo_digest` event (see `agents/ux-agent.md`) for a caller that wants its
+`spawn_task`-flagged items visible as more than a fire-and-forget chip. `ux-agent` never tracks
+this state itself — it has no `Write`/`Edit` tool grant — so the caller (e.g. `code-reviewer`)
+owns a `TODO-LEDGER.md` of its own, appending a row on every `spawn_task` call and marking one
+dismissed on every `dismiss_task` call, whether that call was made directly or delegated through
+`ux-agent`'s `out_of_scope_flag` handling.
+
+- Read `ledger_path` fresh on every `todo_digest` call — never cache a prior read across calls.
+- Render one resolvable card per open row (`task_id`, `title`, `file_path`, `spawned_at`);
+  collapse dismissed rows into a single "`<n>` dismissed" line rather than full cards, so the
+  dashboard stays scannable as items get resolved over a long-running project.
+- No ledger file yet, or an empty one: report it plainly and take no artifact action — never
+  publish an empty dashboard just because the event fired.
+
 ## Icon set (for prose/status lines, not the plugin's marketplace icon)
 
 | Meaning | Glyph |

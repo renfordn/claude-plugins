@@ -1,0 +1,29 @@
+## `TODO-LEDGER.md`
+
+```md
+# Todo Ledger: <scope title>
+
+## Status
+
+- Scope: <caller-defined identifier, e.g. a feature slug or project name>
+- Last Updated: <YYYY-MM-DDTHH:MM:SSZ>
+
+## Flagged Items
+
+| Task ID | Title | File Path | Status | Spawned At |
+| --- | --- | --- | --- | --- |
+| <task-id from spawn_task> | <short title> | <relative/path/to/file> | <open \| dismissed> | <YYYY-MM-DDTHH:MM:SSZ> |
+
+## Interpretation Notes
+
+- One row per `spawn_task` call made from this review-state directory's out-of-scope findings —
+  append a row immediately after the call returns its `task_id`, never batch them.
+- `Status` flips from `open` to `dismissed` in place when a later pass reports the item stale,
+  superseded, or already handled and calls `dismiss_task` — never delete the row (this file is
+  the durable record; `dismiss_task` only affects the live chip).
+- This file exists independently of `REVIEW-STATE.md`/`REVIEW-HISTORY.md` — it tracks
+  out-of-scope items flagged *during* a review, not the reviewed files themselves.
+- `agent-ux:ux-agent`'s `todo_digest` event (see its own `INTEROP.md`) reads this file verbatim
+  to render a dashboard — `code-reviewer` is this file's only writer; `agent-ux` never writes to
+  it, only reads.
+```

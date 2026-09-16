@@ -140,6 +140,32 @@ Task spawned: <task-id> — "<title>"
 If the caller later reports a flagged item is stale, superseded, or already handled, call
 `dismiss_task` with the id it was given.
 
+### `todo_digest`
+
+Reads: `delta.{ledger_path}` — exactly this one key. `artifact_path` (stable redeploy target,
+same path every call within a review-state directory — never a newly generated path).
+
+Gating rule (**ledger-is-the-source-of-truth**): you never track todo state yourself — you have
+no `Write`/`Edit` tool grant (see your own frontmatter), so you structurally cannot append,
+resolve, or invent a ledger row. The caller (e.g. `code-reviewer`) owns `ledger_path`'s content —
+appending a row when it calls `spawn_task`, marking one dismissed when it calls `dismiss_task` —
+and you only ever render whatever that file currently says, the same pull-over-push discipline as
+every other event type here.
+
+1. Read `ledger_path` with `Read`.
+2. If the file doesn't exist, or exists with no rows: report `No todo ledger found at
+   <ledger_path> — nothing to render` and take no artifact action.
+3. Otherwise publish/redeploy the dashboard Artifact to `artifact_path`: one resolvable card per
+   open row (`task_id`, `title`, `file_path`, `spawned_at`), with dismissed rows collapsed into a
+   single "`<n>` dismissed" summary line rather than rendered as full cards. Report:
+
+```
+Todo dashboard published/redeployed with <n> open item(s)
+```
+
+If the Artifact tool isn't available, report `Artifact tool unavailable — todo dashboard not
+published` instead and stop there — never a second line, never block the caller's progress on it.
+
 ### Envelope misuse
 
 If `delta` contains any key beyond the exact set listed above for its `event_type`, do not render

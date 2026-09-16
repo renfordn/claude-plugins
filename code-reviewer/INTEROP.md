@@ -49,6 +49,16 @@ invoke it" above). Either way it's the same dashboard content; there is no separ
 to parse beyond what `ReportFindings`/the dashboard already show — `code-reviewer` does not return
 a machine-readable summary distinct from its rendered output.
 
+## Out-of-scope items (`TODO-LEDGER.md`)
+
+If you supplied a review-state directory, `code-reviewer` also maintains a `TODO-LEDGER.md`
+there (`references/TODO-LEDGER.md.template`) — one row per out-of-scope item it flags during a
+pass, independent of `REVIEW-STATE.md`/`REVIEW-HISTORY.md`. `code-reviewer` is this file's only
+writer. If `agent-ux:ux-agent` is installed, you can ask `code-reviewer` to surface it as a
+dashboard: it sends a `todo_digest` envelope (see `agent-ux`'s own `INTEROP.md`) that reads the
+ledger and publishes/redeploys it — `agent-ux` never tracks this state itself, only renders what
+`code-reviewer` already wrote.
+
 ## Cross-project or cross-feature memory
 
 If your ecosystem has a separate memory plugin (e.g. `agent-nelly`) for durable, higher-level
