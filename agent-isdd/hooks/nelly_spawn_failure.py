@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""PostToolUse hook: detect a failed agent-nelly spawn (subagent_type not found) and clear the
-stale `agent_nelly_available` cache in workflow-state.json, so the next Availability Check (see
-workflow-manager/SKILL.md's "Availability Check" section) re-derives it instead of trusting a
+"""PostToolUseFailure hook: detect a failed agent-nelly spawn (subagent_type not found) and clear
+the stale `agent_nelly_available` cache in workflow-state.json, so the next Availability Check
+(see workflow-manager/SKILL.md's "Availability Check" section) re-derives it instead of trusting a
 stale SessionStart-time snapshot.
+
+Corrected 2026-09-16: originally registered on PostToolUse, which never fires for this failure
+mode -- a subagent_type-not-found rejection is a parameter-validation failure, so the Agent tool
+never executes at all, and Claude Code's hooks docs are explicit that PostToolUse doesn't fire
+when the tool never executes; PostToolUseFailure does. Confirmed live: an invalid subagent_type
+surfaces as a hard tool-call-level error, not a completed tool result. This hook was effectively
+dead code under its original registration.
 
 Scope: `agent-nelly:agent-nelly` only. `agent-tdd:agent-TDD` is deliberately out of scope here --
 per INTEROP.md's "Availability check" section, agent-tdd's availability is checked inline, once,
@@ -10,14 +17,14 @@ at the implementation handoff, and is never cached in workflow-state.json by des
 corresponding field for this hook to clear, and introducing one would contradict that documented
 decision -- a separate call for whoever owns that doc, not this hook.
 
-UNVERIFIED PAYLOAD SHAPE: no real failed-spawn PostToolUse payload for the Agent tool was
-available to confirm this against (see the agent-tdd handoff report for this slice). Detection
-below is a best-effort guess at Claude Code's PostToolUse conventions -- an `is_error`-style
-truthy field on `tool_response`, an `error` string containing "not found", or (when
-`tool_response` is a string/list of content blocks instead of a dict) a case-insensitive
-substring match for "not found" alongside the subagent_type string. It is deliberately
-conservative and fail-closed: any payload shape that doesn't clearly match one of these is a
-no-op -- never a crash, never a false-positive clear. CONFIRM/ADJUST THIS against a real harness
+UNVERIFIED PAYLOAD SHAPE: no real PostToolUseFailure payload for the Agent tool was available to
+confirm this against (see the agent-tdd handoff report for this slice). Detection below is a
+best-effort guess at Claude Code's PostToolUseFailure conventions -- an `is_error`-style truthy
+field on `tool_response`, an `error` string containing "not found", or (when `tool_response` is a
+string/list of content blocks instead of a dict) a case-insensitive substring match for "not
+found" alongside the subagent_type string. It is deliberately conservative and fail-closed: any
+payload shape that doesn't clearly match one of these is a no-op -- never a crash, never a
+false-positive clear. CONFIRM/ADJUST THIS against a real harness
 payload once one is available.
 """
 import json

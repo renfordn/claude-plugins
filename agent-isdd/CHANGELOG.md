@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Fix wrong hook event for the agent-nelly spawn-failure backstop (0.1.26).**
+  `hooks/nelly_spawn_failure.py` was registered on `PostToolUse`, but a `subagent_type`-not-found
+  rejection is a parameter-validation failure — the Agent tool never executes, so `PostToolUse`
+  never fires for it (confirmed against Claude Code's hooks docs and live testing: an invalid
+  `subagent_type` surfaces as a hard tool-call error, not a completed tool result).
+  `PostToolUseFailure` is the correct event. The hook was effectively dead code under its
+  original registration. Moved in `hooks/hooks.json`; `tests/test_hooks_json.py` updated to
+  match.
+- **Cap `recap.md`'s size in the Design Spec handoff.** `INTEROP.md` and
+  `skills/spec-driven-development/SKILL.md`'s Implementation Handoff step 3 now say to summarize
+  `recap.md` before bundling it into a Design Spec, rather than pasting it in full — unlike the
+  rest of the bundle, `recap.md` has no bound on how large it grows across a feature's phases.
 - **Ecosystem-audit fixes and new hooks (0.1.25).**
   - Fixed `tests/hook_test_utils.py` and 5 other test files hardcoding the pre-migration
     `~/.claude/sdd-memory/` path instead of the `${CLAUDE_PLUGIN_DATA}`-migrated

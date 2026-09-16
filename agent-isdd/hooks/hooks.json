@@ -52,7 +52,9 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_write_check.py\""
           }
         ]
-      },
+      }
+    ],
+    "PostToolUseFailure": [
       {
         "matcher": "Agent",
         "hooks": [

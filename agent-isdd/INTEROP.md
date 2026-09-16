@@ -21,7 +21,9 @@ validation, task slicing, and implementation.
 - Full `design.md` (approved, with Research Basis section)
 - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
 - Pre-fetched file summaries from agent-nelly cache (if available)
-- `recap.md` (summary, known risks, blockers, Goal alignment notes)
+- `recap.md`, summarized rather than pasted in full when it has grown large — see
+  `skills/spec-driven-development/SKILL.md`'s "Implementation Handoff" step 3 (summary, known
+  risks, blockers, Goal alignment notes)
 
 **Agent-tdd responsibilities** (Phase 2+3):
 1. **Research Validation** (optional re-research gaps only)

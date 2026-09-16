@@ -251,7 +251,13 @@ research/cache.md, pre-fetched file summaries, recap.md).
    - Full `design.md` (approved, with Research Basis)
    - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
    - Pre-fetched file summaries from agent-nelly (if available)
-   - `recap.md` (summary, risks, blockers, Goal alignment)
+   - `recap.md`, **summarized, not pasted in full** — unlike the other fields above, `recap.md`
+     grows unbounded across a long-running feature's phases, and `agent-TDD` only needs enough of
+     it to inform implementation, not a full phase-by-phase history. Extract just: the current
+     summary, any open risks or blockers, and the Goal-alignment note — a few sentences, not the
+     whole file. If `recap.md` is already short (a new feature, few phases so far), passing it in
+     full is fine; the summarization step exists for the case where it's grown large, not as a
+     blanket rule to always compress it.
 4. Before spawning, check the session's `<system-reminder>` agent-types block for
    `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
    is not installed in this session — install it before requesting implementation") rather than

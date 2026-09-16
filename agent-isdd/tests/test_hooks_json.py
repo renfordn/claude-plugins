@@ -40,11 +40,17 @@ class HooksJsonStructureTests(unittest.TestCase):
         self.assertFalse(any("state_consistency_check.py" in c for c in commands))
         self.assertFalse(any("phase_task_sync.py" in c for c in commands))
 
-    def test_nelly_spawn_failure_registered_on_post_tool_use_agent(self):
-        """PostToolUse backstop that clears a stale agent_nelly_available cache when
-        agent-nelly:agent-nelly fails to spawn -- see hooks/nelly_spawn_failure.py."""
+    def test_nelly_spawn_failure_registered_on_post_tool_use_failure_agent(self):
+        """PostToolUseFailure backstop that clears a stale agent_nelly_available cache when
+        agent-nelly:agent-nelly fails to spawn -- see hooks/nelly_spawn_failure.py.
+
+        Corrected 2026-09-16: a subagent_type-not-found rejection is a parameter-validation
+        failure, so the Agent tool never executes and PostToolUse never fires for it --
+        PostToolUseFailure does (see Claude Code's hooks docs). Originally wired to the wrong
+        event (PostToolUse), which meant the hook would never have run for this failure mode.
+        """
         config = _load()
-        commands = _commands_for(config, "PostToolUse", "Agent")
+        commands = _commands_for(config, "PostToolUseFailure", "Agent")
         self.assertTrue(any("nelly_spawn_failure.py" in c for c in commands))
 
     def test_slice_spec_gate_disabled_for_phase_2_3(self):
