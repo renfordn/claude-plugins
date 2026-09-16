@@ -85,6 +85,20 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
 - If unavailable, surface one plain notice to the user and continue without the Intent-alignment
   check — graceful degradation, never a blocking condition.
 
+**Self-healing on a stale cache (2026-09-16).** The listing above is a point-in-time snapshot
+captured at session start — it can be stale relative to the actual installed plugin (a plugin
+updated or removed after this session began still shows its old state). A hook cannot backstop
+this: `agent-nelly:agent-nelly` failing to spawn because the type doesn't actually resolve is a
+routing failure that occurs before the model's tool call is even considered an invocation
+attempt, so no `PreToolUse`/`PostToolUse`/`PostToolUseFailure` hook ever fires for it (confirmed
+against Claude Code's own hooks documentation and live-tested — see the removed
+`hooks/nelly_spawn_failure.py`, which was built as exactly this backstop and never once fired).
+The only place that genuinely sees this failure is the calling skill itself, in the same turn it
+attempted the spawn — the tool call returns an "Agent type not found" error directly into this
+skill's own context. When that happens for `agent-nelly:agent-nelly` specifically, immediately
+correct `agent_nelly_available` to `false` in `workflow-state.json` before proceeding, rather
+than leaving the stale cached `true` for a later step to trust and fail against again.
+
 ### `workflow-state.md` Vs `workflow-state.json` — Write Responsibilities
 
 `workflow-state.md` is the model-written file for all phase state. `workflow-state.json` has two

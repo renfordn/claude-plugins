@@ -40,18 +40,21 @@ class HooksJsonStructureTests(unittest.TestCase):
         self.assertFalse(any("state_consistency_check.py" in c for c in commands))
         self.assertFalse(any("phase_task_sync.py" in c for c in commands))
 
-    def test_nelly_spawn_failure_registered_on_post_tool_use_failure_agent(self):
-        """PostToolUseFailure backstop that clears a stale agent_nelly_available cache when
-        agent-nelly:agent-nelly fails to spawn -- see hooks/nelly_spawn_failure.py.
-
-        Corrected 2026-09-16: a subagent_type-not-found rejection is a parameter-validation
-        failure, so the Agent tool never executes and PostToolUse never fires for it --
-        PostToolUseFailure does (see Claude Code's hooks docs). Originally wired to the wrong
-        event (PostToolUse), which meant the hook would never have run for this failure mode.
-        """
+    def test_nelly_spawn_failure_not_registered(self):
+        """Removed 2026-09-16: hooks/nelly_spawn_failure.py was built to catch a
+        subagent_type-not-found spawn failure, first on PostToolUse, then (after that was
+        found wrong) on PostToolUseFailure. Live-tested and confirmed by Claude Code's own
+        docs: subagent_type resolution happens during model-output parsing, before the
+        PreToolUse/PostToolUse/PostToolUseFailure lifecycle begins at all -- routing failures
+        never reach any tool-use hook. The hook was permanently unreachable for its one
+        purpose regardless of which event it was bound to; removed rather than kept as
+        documented-but-dead code (see workflow-manager/SKILL.md's Availability Check section
+        for where this self-healing now actually lives: the orchestrating skill itself, which
+        does see the routing failure directly)."""
         config = _load()
-        commands = _commands_for(config, "PostToolUseFailure", "Agent")
-        self.assertTrue(any("nelly_spawn_failure.py" in c for c in commands))
+        for event in ("PostToolUse", "PostToolUseFailure"):
+            commands = _commands_for(config, event, "Agent")
+            self.assertFalse(any("nelly_spawn_failure.py" in c for c in commands))
 
     def test_slice_spec_gate_disabled_for_phase_2_3(self):
         """Phase 2+3 (Design Spec handoff) eliminated per-slice Slice Spec validation.

@@ -20,7 +20,10 @@ validation, task slicing, and implementation.
 - Full `requirements.md` (approved)
 - Full `design.md` (approved, with Research Basis section)
 - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
-- Pre-fetched file summaries from agent-nelly cache (if available)
+- Pre-fetched file summaries from agent-nelly cache (if available), for files *not* already
+  covered by `research/cache.md`'s own fresh `file_summaries` — see
+  `skills/spec-driven-development/SKILL.md`'s "Implementation Handoff" step 2 for why querying
+  nelly for a file `research-consolidator` just summarized would double it up in the bundle
 - `recap.md`, summarized rather than pasted in full when it has grown large — see
   `skills/spec-driven-development/SKILL.md`'s "Implementation Handoff" step 3 (summary, known
   risks, blockers, Goal alignment notes)

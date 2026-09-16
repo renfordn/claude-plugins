@@ -242,8 +242,16 @@ research/cache.md, pre-fetched file summaries, recap.md).
 
 1. Extract file list from `design.md` + `research/cache.md` (all files mentioned in Research Basis
    and task_findings sections).
-2. Query `agent-nelly:agent-nelly` for cached file summaries (if available):
-   - Pass file list to agent-nelly
+2. **Subtract, then query.** `research/cache.md`'s own `file_summaries` field (produced fresh by
+   `research-consolidator` earlier in this same Design phase — see `design-author/SKILL.md`'s
+   Research First section) already covers every file that pass touched. Querying
+   `agent-nelly:agent-nelly` for those same files again would bundle the same summary into the
+   Design Spec twice — once fresh from this session's research, once again from nelly's cache.
+   Remove those files from the extracted list before querying, so the nelly call only asks about
+   files research-consolidator's pass didn't cover (files named in requirements/design but never
+   deep-read, or adjacent files worth knowing about from earlier features). If the resulting list
+   is empty, skip the nelly query entirely — there's nothing left to ask about.
+   - Pass the reduced file list to agent-nelly (if available)
    - Receive cache hits (with git_hash validation) + cache misses
    - Bundle cache hits into Design Spec handoff
 3. Construct **Design Spec** with:

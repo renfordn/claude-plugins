@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Remove the unreachable agent-nelly spawn-failure hook; move self-healing to where it can
+  actually work (0.1.27).** `hooks/nelly_spawn_failure.py` (added in 0.1.25, moved to
+  `PostToolUseFailure` in 0.1.26) was built to detect a `subagent_type`-not-found spawn failure
+  and clear the stale `agent_nelly_available` cache. Live-tested and confirmed against Claude
+  Code's own hooks docs: `subagent_type` resolution happens during model-output parsing, before
+  the `PreToolUse`/`PostToolUse`/`PostToolUseFailure` lifecycle begins at all — no hook event
+  can ever fire for this failure, regardless of which one it's bound to. Removed the hook, its
+  `hooks.json` registration, and its dedicated test file rather than keep documented-but-dead
+  code (same anti-pattern as the Auto Code-Reviewer pipeline corrected in 0.1.25). The
+  self-healing intent moves to `skills/workflow-manager/SKILL.md`'s Availability Check section:
+  the calling skill sees this exact failure directly in its own context when it happens, and
+  corrects the cache itself.
+- **Skip re-fetching file summaries from agent-nelly for files `research-consolidator` already
+  summarized fresh this Design phase**, in the Design Spec handoff (`INTEROP.md` and
+  `skills/spec-driven-development/SKILL.md`'s Implementation Handoff step 2) — previously the
+  full touched-file list was queried against agent-nelly regardless of overlap with
+  `research/cache.md`'s own fresh `file_summaries`, double-bundling the same file's summary.
 - **Fix wrong hook event for the agent-nelly spawn-failure backstop (0.1.26).**
   `hooks/nelly_spawn_failure.py` was registered on `PostToolUse`, but a `subagent_type`-not-found
   rejection is a parameter-validation failure — the Agent tool never executes, so `PostToolUse`
