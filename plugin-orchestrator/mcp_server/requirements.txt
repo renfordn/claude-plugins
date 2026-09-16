@@ -1,0 +1,5 @@
+# Required only to run mcp_server/server.py, the bundled MCP server. The
+# production hooks (hooks/before_continue.py, hooks/subagent_stop.py) stay
+# dependency-free by design -- this is the one place in the plugin that
+# needs the MCP protocol implementation.
+mcp>=1.2,<2

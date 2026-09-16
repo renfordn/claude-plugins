@@ -100,6 +100,29 @@ Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/plugin-orchest
 Both hooks degrade to a no-op on any failure (`except Exception: sys.exit(0)`)
 so a bug here never blocks a real agent spawn or subagent completion.
 
+## MCP server: `get_spawn_context`
+
+`hooks/before_continue.py` computes the same Tier 1 (capability map + nelly
+brief) / Tier 2 (design spec) / error-pattern context on every `Agent`-tool
+spawn, but can never inject it into the spawned subagent's prompt — the
+harness's `updatedInput` merge for the `Agent` tool is broken (see that
+hook's own module docstring and `tests/test_before_continue_cli_contract.py`
+for the full history), so today the computed context is simply thrown away.
+
+[`mcp_server/server.py`](mcp_server/server.py) is a small bundled MCP server
+(declared in `.claude-plugin/plugin.json`'s `mcpServers` field, started
+automatically) exposing one tool, `get_spawn_context(agent_type, cwd)`. A
+subagent has no `Agent` tool and can't invoke a skill or hook, but it *can*
+call an ordinary MCP tool — so instead of trying (and failing) to push
+context into its prompt, it can pull the exact same cached context itself,
+read-only, as soon as it's spawned.
+
+Requires `pip install -r mcp_server/requirements.txt` (the `mcp` package) —
+the one place in this plugin with a real third-party dependency; the
+production hooks themselves stay dependency-free. Tests for it
+(`tests/test_mcp_spawn_context_server.py`) skip automatically when `mcp`
+isn't installed.
+
 ## Dependencies
 
 Declared as `optionalDependencies` in

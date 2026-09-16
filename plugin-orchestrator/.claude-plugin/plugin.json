@@ -1,6 +1,6 @@
 {
   "name": "plugin-orchestrator",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "displayName": "Plugin Orchestrator",
   "description": "Caching-first multi-plugin workflow router that coordinates plugin capabilities via INTEROP.md contracts, distributes nelly brief once, and maximizes prompt cache efficiency via three-tier context layout.",
   "homepage": "https://github.com/renfordn/plugin-orchestrator",
@@ -14,5 +14,11 @@
     "plugin-coordination",
     "caching",
     "context-optimization"
-  ]
+  ],
+  "mcpServers": {
+    "spawn-context": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp_server/server.py"]
+    }
+  }
 }
