@@ -355,6 +355,55 @@ See [API.md](../API.md) for complete API reference:
 - Standard event structure with metadata
 - Integration points for monitoring/alerting
 
+## Hook Architecture
+
+### Setup_Workflow_State (Before_Continue)
+
+**When:** Session initialization, before first agent spawn
+
+**Responsibilities:**
+1. Fetch and cache nelly brief (Intent Hash + 1-hour TTL)
+2. Build capability map snapshot
+3. Create pre-spawn checkpoints
+4. Initialize error_lessons for cross-phase sharing
+
+**Key Features:**
+- Idempotent: safe to call multiple times
+- Graceful degradation: never blocks on network failure
+- Intent Hash validation: refresh cache if Intent diverges
+
+**Error Handling:**
+- Network timeout → log warning, use stale cache or empty brief
+- Missing INTEROP.md → log warning, skip that plugin
+- I/O failure → log warning, create empty cache structure
+
+### Subagent_Stop (Post-Agent Completion)
+
+**When:** After any agent completes
+
+**Responsibilities:**
+1. Parse phase markers from agent report
+2. Detect escalation markers (research gaps, contract violations)
+3. Validate output against capability contract (with strict ordering)
+4. Log handoff event to workflow-state
+5. Persist errors to error_registry.json (JSON lines format)
+6. Return systemMessage if errors detected
+
+**Validation Order (strict):**
+1. Hard dependencies unavailable → HALT (set escalation_marker)
+2. Soft dependencies unavailable → LOG WARN, CONTINUE
+3. Payload schema mismatch → CONTRACT_VIOLATION error
+
+**Error Types:**
+- **CONTRACT_VIOLATION** (critical): Required fields missing or invalid
+- **DEPENDENCY_UNAVAILABLE** (warn): Optional plugin missing
+- **INFRASTRUCTURE_ERROR** (critical): File corruption, I/O failure
+
+**Error Observability:**
+- All errors logged to error_registry.json (timestamps, severity, recovery actions)
+- Errors surface in systemMessage to user (readable format, not JSON)
+- Error lessons shared to next phase via workflow_state
+
 ## Known Limitations & Tradeoffs
 
 ### Validation Scope
