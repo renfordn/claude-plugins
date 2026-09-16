@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Document the harness `Agent`-spawn-failure fallback, and route it at agent-tdd's new
+  Direct Mode skill (0.1.32).** `INTEROP.md`'s "→ agent-tdd" section gains a "Fallback — Direct
+  Implementation (harness `Agent`-spawn failure)" subsection: a three-condition Detection check
+  (schema-validation error on the `Agent` call itself, reproduces on retry, reproduces for an
+  unrelated agent type in-session) before ever treating a spawn failure as harness-level rather
+  than a one-off. First written from the real investigation on the
+  `2026-09-15-expand-error-logger` feature, then updated once `agent-tdd:design-spec-direct`
+  (a `Skill`, not `Agent`, invocation reproducing Design Spec Mode's slicing/Ralph
+  Loops/Risk Tiers and Slice Spec Mode's per-slice Red/Green/Review/Refactor contract) existed
+  to name concretely: `spec-driven-development/SKILL.md`'s Implementation Handoff step 5 now
+  points at that skill's `plan` → per-slice loop → `summary` contract instead of freeform
+  "implement it yourself" prose. 246 tests pass.
+
 - **Test-Author Gate: close the mid-pipeline high-risk-slice escalation gap for real
   (0.1.31).** Full reimplementation of the isdd-tdd Design Spec handoff, following its own SDD
   workflow (Requirements → Design → Implementation via `agent-tdd:agent-TDD`). Replaces the
