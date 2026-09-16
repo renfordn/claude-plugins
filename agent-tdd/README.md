@@ -1,6 +1,6 @@
 <!-- TDD-SKIP -->
 # Agent TDD
-![Tests](https://github.com/renfordn/agent-tdd/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/renfordn/claude-plugins/actions/workflows/tests.yml/badge.svg)
 
 A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD implementation for Claude Code.
 
