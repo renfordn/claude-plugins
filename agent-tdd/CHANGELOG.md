@@ -1,6 +1,27 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-16
+
+**Remove: dead modular Design Spec pipeline**
+
+### Fixes & Improvements
+
+- **Retired the modular `design-spec` skill** (`skills/design-spec/SKILL.md`,
+  `skills/design-spec/ORCHESTRATION.md`) and its five dedicated subagents
+  (`agents/research-validator.md`, `agents/task-slicer.md`, `agents/ralph-loops.md`,
+  `agents/risk-assign.md`, `agents/readiness-check.md`), plus
+  `references/design-spec.schema.json` and their associated tests. This pipeline was
+  independently-maintained drift alongside `agent-TDD`'s own inline Design Spec Workflow —
+  no known caller ever invoked it (`agent-isdd` always spawns `agent-TDD` directly), and it
+  emitted an incompatible escalation-marker vocabulary that `agent-isdd`'s own hooks never
+  recognized. See `INTEROP.md`'s "Design Spec Mode" section for the full history.
+- Updated `README.md` and `INTEROP.md` to describe the single remaining (inline) Design Spec
+  path.
+- **`INTEROP.md`'s Design Spec Input Format** now notes `recap.md` should be summarized rather
+  than pasted in full for a long-running feature — matches the same guidance added to
+  `agent-isdd/INTEROP.md` and `spec-driven-development/SKILL.md`'s handoff-construction steps.
+
 ## [0.1.12] - 2026-09-16
 
 **Fix: test-isolation leak in `${CLAUDE_PLUGIN_DATA}` env var tests**

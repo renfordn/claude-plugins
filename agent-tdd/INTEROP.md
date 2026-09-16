@@ -172,37 +172,29 @@ cache) and need agent-tdd to:
 3. **Apply Ralph Loops validation** (size, dependency, traceability).
 4. **Implement all slices end-to-end** (Red-Green-Refactor per slice, no return until complete or escalation).
 
-### Two implementations of this mode — pick the one you're actually integrating with
+### One implementation of this mode (the modular alternative was retired)
 
-**Added 2026-09-15, documenting existing (undocumented) drift.** Steps 1–3 above exist as two
-separate, independently-maintained implementations in this plugin. They are not interchangeable
-and do not share code — know which one your integration talks to:
+**Added 2026-09-15, documenting existing (undocumented) drift; retired 2026-09-16.** Steps 1–3
+above used to exist as two separate, independently-maintained implementations in this plugin,
+discovered as undocumented drift and then removed once neither documentation nor any real caller
+justified keeping both:
 
-- **Inline (the one `agent-isdd` actually uses today)**: `agent-TDD` itself performs Research
-  Validation, Task Slicing, all three Ralph Loops, Risk Tier Assignment, and the Readiness Check
-  as its own instructions (see `agents/agent-TDD.md`'s "Design Spec Workflow" section) — a single
-  spawn of `agent-TDD` with a Design Spec does the entire pipeline through to implementation.
-  `agent-isdd`'s `spec-driven-development` skill spawns `agent-tdd:agent-TDD` directly (never the
-  skill below) and this is the only path that marker (`<!--AGENT-TDD-PLAN-FLAG:reason="..."-->`,
-  see "Plan Validity Flag" above) and `<!--AGENT-TDD-PHASE:...-->` come from.
-- **Modular (`skills/design-spec/SKILL.md`, orchestrating five separate subagents)**:
-  `research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, and `readiness-check` each
-  perform one phase, spawned in sequence by the `design-spec` skill, which then hands off to
-  `agent-TDD` for implementation only. It emits a different, incompatible escalation-marker
-  vocabulary — `<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->`,
-  `<!--AGENT-TDD-DESIGN-CONTRADICTION:...-->`, `<!--AGENT-TDD-SLICING-REQUIRES-DECISION:...-->`,
-  `<!--AGENT-TDD-PLAN-VALIDITY-FLAGGED:...-->` (see the skill's own "Escalation Paths") —
-  recognized by `plugin-orchestrator`'s `SubagentStop` hook, but **not** by `agent-isdd`'s own
-  `hooks/subagent_report.py`, which only watches for the inline path's markers above. As of this
-  writing no known caller invokes `design-spec` in practice — `agent-isdd` bypasses it — so this
-  path's marker-recognition code in `plugin-orchestrator` is currently unreachable in the real
-  flow, not merely untested.
+`agent-TDD` itself performs Research Validation, Task Slicing, all three Ralph Loops, Risk Tier
+Assignment, and the Readiness Check as its own instructions (see `agents/agent-TDD.md`'s "Design
+Spec Workflow" section) — a single spawn of `agent-TDD` with a Design Spec does the entire
+pipeline through to implementation. This is the only path there has ever been a real caller for:
+`agent-isdd`'s `spec-driven-development` skill spawns `agent-tdd:agent-TDD` directly, and this is
+the only source of the `<!--AGENT-TDD-PLAN-FLAG:reason="..."-->` marker (see "Plan Validity Flag"
+above) and `<!--AGENT-TDD-PHASE:...-->`.
 
-If you're integrating a new caller: use the **inline** path (spawn `agent-TDD` directly) unless
-you specifically want the modular skill's per-phase token-accounting/resume-caching behavior
-(see `skills/design-spec/SKILL.md`'s "Workflow (Token-Efficient Design)") and are prepared to be
-the first real consumer of it — including wiring your own hook to recognize its distinct marker
-vocabulary, since `agent-isdd`'s does not.
+A second, modular implementation (`skills/design-spec/SKILL.md`, orchestrating five separate
+subagents — `research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, `readiness-check`,
+one phase each) existed alongside it, emitting its own incompatible escalation-marker vocabulary
+recognized only by `plugin-orchestrator`'s `SubagentStop` hook, never by `agent-isdd`'s own
+`hooks/subagent_report.py`. No known caller ever invoked it — `agent-isdd` always bypassed it in
+favor of the inline path above — so it was removed rather than kept as a documented-but-dead
+alternative. If you want its per-phase token-accounting/resume-caching behavior back, that's a
+fresh design decision, not something to resurrect from `git log`.
 
 ### Design Spec Input Format
 
@@ -212,7 +204,9 @@ Pass a **Design Spec** inline in the spawn prompt:
 - **design.md** (full, approved) — file touchpoints, interfaces, research basis section.
 - **research/cache.md** — design_findings, task_findings, file_summaries, git_hashes from prior
   research consolidation.
-- **recap.md** (optional) — summary, known risks, blockers, Goal alignment notes.
+- **recap.md** (optional) — summary, known risks, blockers, Goal alignment notes. Expect this
+  summarized rather than pasted in full for a long-running feature — `agent-TDD` doesn't need a
+  phase-by-phase history, just enough to inform implementation.
 - **Pre-fetched file summaries** (optional) — cached context keyed by file path (from agent-nelly
   or prior deep-reads).
 

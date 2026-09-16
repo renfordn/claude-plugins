@@ -4,33 +4,29 @@
 
 A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD implementation for Claude Code.
 
-**New in 0.1.8:** Accepts **Design Spec** (full requirements + design + validated research) from
-agent-isdd. Validates research, slices into TDD-sized phases with Ralph Loops, assigns Risk Tiers,
-and executes Red-Green-Refactor with optional test-author split for high-risk work — all in one
-coordinated flow. Token-efficient: 30-70% reduction via caching, early escalation, and hard iteration
-limits.
+**Accepts two input modes**, both handled by the single `agent-TDD` agent:
 
-**Legacy support:** Still accepts **Slice Spec** from any orchestrator via `slice-spec` skill.
-Both inputs work independently; neither agent assumes SDD's file formats.
+- **Design Spec** (full requirements + design + validated research, e.g. from agent-isdd) —
+  `agent-TDD` itself performs research validation, task slicing, Ralph Loops validation, Risk
+  Tier assignment, and the Readiness Check as its own instructions (see its "Design Spec
+  Workflow" section), then executes Red-Green-Refactor per slice — one coordinated spawn, no
+  separate orchestration skill or sub-agents.
+- **Slice Spec** (a single approved slice) — implements it directly: Plan → Red → Green →
+  (mandatory caller-driven review pause) → Refactor → Validate.
+
+**Removed in 0.1.12:** the earlier modular `design-spec` skill (five separate subagents —
+`research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, `readiness-check` — each
+performing one phase) was never the path any real caller used; `agent-isdd` always spawned
+`agent-TDD` directly with a Design Spec. It emitted its own incompatible escalation-marker
+vocabulary that no caller's hooks recognized, and had drifted out of sync with the inline path it
+duplicated. Retired rather than kept as a documented-but-dead alternative — see `CHANGELOG.md`.
 
 ## What's in this plugin
 
-### Design Spec Orchestration (New in 0.1.8)
-
-- **`design-spec`** skill — orchestrates full workflow: Design Spec → research validation → task slicing → Ralph Loops → Risk assignment → Readiness check → Red-Green-Refactor.
-  Token-efficient: 18-28K tokens initial, 10-15K on resume (30-70% savings).
-- **`research-validator`** agent — validates design.md's file touchpoints against research cache; escalates if gaps or contradictions.
-- **`task-slicer`** agent — generates TDD-sized, dependency-ordered tasks.md from EARS behaviors, design touchpoints, and research findings.
-- **`ralph-loops`** agent — three autonomous validation loops (slice size, dependency correctness, research traceability) with hard iteration limits (3/loop max).
-- **`risk-assign`** agent — assigns Risk Tiers based on design risks, migrations, multi-module complexity, testability, and Ralph findings.
-- **`readiness-check`** agent — 10-item deterministic checklist gate before Red-Green-Refactor.
-- **`references/design-spec.schema.json`** — strict JSON schema for Design Spec validation.
-- **`ORCHESTRATION.md`** — token-efficient orchestration design, caching strategy, resume flow.
-
-### Legacy Slice Spec Support (0.1.7 and earlier)
-
-- **`agent-TDD`** — implements one approved slice: Plan → Red → Green → (mandatory caller-driven review pause) → Refactor → Validate.
-- **`test-author`** — for `high-risk`-tier slices only, writes just the failing Red test from the Slice Spec.
+- **`agent-TDD`** — implements a Slice Spec or a Design Spec (see above); Plan → Red → Green →
+  (mandatory caller-driven review pause) → Refactor → Validate per slice.
+- **`test-author`** — for `high-risk`-tier slices only, writes just the failing Red test from the
+  Slice Spec.
 - **`slice-spec`** skill — assembles and validates a Slice Spec before spawning either agent.
 - **`references/slice-spec.schema.json`** — machine-checkable JSON Schema for Slice Spec.
 
