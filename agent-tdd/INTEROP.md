@@ -245,7 +245,10 @@ Before proceeding to per-slice implementation, `agent-TDD` itself emits a **Read
 verdict as part of its own instructions (see `agents/agent-TDD.md`'s "Phase 5: Readiness Check"
 — corrected 2026-09-16; this used to name a separate `readiness-check` agent, a leftover
 reference to the retired modular pipeline described above):
-- ✓ **Ready For Implementation** — tasks.md is final, proceed to Red-Green-Refactor per slice.
+- ✓ **Ready For Implementation** — tasks.md is final. If no slice is `high-risk`, proceed
+  directly to Red-Green-Refactor per slice. If one or more slices are `high-risk`, stop instead
+  and hand back the report — see "Test-Author Gate" below; this is a distinct reason to return,
+  not the `Paused` verdict below (nothing about the plan is wrong).
 - ✗ **Paused** — escalate with specific reason (research gap, design contradiction, slicing
   blocker, etc.). Caller (agent-isdd) pauses; user re-enters and addresses the reason.
 
@@ -264,13 +267,35 @@ The caller's SubagentStop hook (e.g., `agent-isdd`'s `subagent_report.py`) captu
 For comprehensive escalation documentation including Mid-Slice Research Request, Plan Validity Flag, and
 detailed resume mechanisms, see [`references/escalation-paths.md`](references/escalation-paths.md).
 
-### Per-Slice Implementation (after Readiness)
+### Test-Author Gate (added 2026-09-16)
 
-Once Readiness Check passes, agent-tdd iterates through tasks.md:
+Every slice's Risk Tier is already known by Readiness Check (Phase 4, Risk Tier Assignment,
+runs before this) — so a high-risk slice's need for `test-author` is never actually discovered
+mid-pipeline, it's known upfront. When Readiness Check passes with one or more `high-risk`
+slices in `tasks.md`, `agent-TDD` stops at the `slicing_complete` handoff (see *Design Spec
+Handoff Report* below — its **High-Risk Slices** field names them) instead of proceeding to
+implementation, and awaits resume — the exact same "stop, hand back a report, await
+caller-driven resume via `SendMessage`" shape as *The mandatory review pause* above, not a new
+mechanism. The caller spawns `test-author` once per named slice, bundles the results, and
+resumes the same `agent-TDD` instance with them. Zero high-risk slices: no pause, proceed
+straight through exactly as before this gate existed.
+
+This replaces an earlier, abandoned approach (a caller-side marker,
+`AGENT-TDD-TEST-AUTHOR-NEEDED`, briefly added and then removed the same day, once it became
+clear no marker was needed — the existing `slicing_complete` marker plus `tasks.md` already on
+disk are sufficient for the caller to detect the condition without `agent-TDD` needing to say
+anything new).
+
+### Per-Slice Implementation (after Readiness and the Test-Author Gate)
+
+Once Readiness Check passes and (if applicable) the Test-Author Gate above has been satisfied,
+agent-tdd iterates through tasks.md:
 - For each slice: Plan → Red → Green → (mandatory review pause) → Refactor → Validate.
-- High-risk slices: caller spawns test-author first; agent-tdd takes that test as Red.
+- High-risk slices: use the test supplied via the Test-Author Gate above as Red.
 - Standard slices: agent-tdd writes Red itself.
-- **No return to caller** until all slices complete (except escalations).
+- **No return to caller** until all slices complete (except escalations). The Test-Author Gate
+  above is not an exception to this — it happens *before* per-slice implementation begins, not
+  during it.
 
 ### Design Spec Handoff Report
 
@@ -283,6 +308,8 @@ Provide:
 - Task Slicing summary (count, distribution).
 - Ralph Loops status (all passed / which loop, iteration N of max).
 - Risk Tier distribution (high-risk count vs. standard).
+- **High-Risk Slices** — the exact slice names/ids that are `high-risk`, or "none". What the
+  Test-Author Gate above actually acts on; the distribution count alone isn't enough.
 - Readiness Verdict (ready for implementation / paused with reason).
 - tasks.md file path.
 - Handoff Facts (constraints, test surfaces, migration risks, etc.).
@@ -305,6 +332,8 @@ Provide:
 ### One-Directional Handoff
 
 This is a **one-directional handoff** — agent-isdd does not resume or monitor agent-tdd past the
-initial spawn. Task slicing happens inside agent-tdd (not handed back to agent-isdd). Escalations
-back to agent-isdd (research gap, design contradiction, slicing blocker) pause with explicit reason;
-agent-isdd resumes via its `before-continue` hook when user re-enters after addressing the escalation.
+initial spawn, with one scoped exception: the Test-Author Gate above, which agent-isdd's
+`spec-driven-development` skill does resume for, and only for that. Task slicing happens inside
+agent-tdd (not handed back to agent-isdd). Escalations back to agent-isdd (research gap, design
+contradiction, slicing blocker) pause with explicit reason; agent-isdd resumes via its
+`before-continue` hook when user re-enters after addressing the escalation.

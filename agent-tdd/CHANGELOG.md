@@ -1,6 +1,26 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-16
+
+**Feature: Test-Author Gate for Design Spec Mode high-risk slices**
+
+### Fixes & Improvements
+
+- **`agents/agent-TDD.md`**: "After Readiness Passes" now stops at `slicing_complete` when
+  `tasks.md` contains one or more `high-risk` slices, instead of proceeding straight into
+  implementation with no way for the caller to have supplied `test-author`'s output. Zero
+  high-risk slices: no behavior change. The `slicing_complete` handoff report gains a new
+  **High-Risk Slices** field naming them (previously only a count was reported). Replaces an
+  abandoned caller-side-marker approach (`AGENT-TDD-TEST-AUTHOR-NEEDED`) added and removed the
+  same day it was added, once it became clear the existing `slicing_complete` marker plus
+  `tasks.md` already on disk were sufficient signal on their own.
+- **`INTEROP.md`**: "Design Spec Mode" section rewritten to describe this gate, matching
+  `agent-isdd/INTEROP.md`'s corresponding section exactly (both files edited together in the
+  same change).
+
+89 tests pass.
+
 ## [0.1.15] - 2026-09-16
 
 **Critical: fix a packaging bug breaking every fresh install**

@@ -265,13 +265,27 @@ Pause and surface reason when:
 
 **After Readiness Passes**
 
-When verdict == **Ready For Implementation**:
-- Proceed to per-slice Red-Green-Refactor (below).
-- For each task in `tasks.md`, iterate: Plan → Red → Green → Review → Refactor → Validate.
-- High-risk tasks: use the conditional test-author split (caller spawns test-author first).
-- Standard tasks: write Red yourself.
+When verdict == **Ready For Implementation**, check whether any slice in `tasks.md` is
+`high-risk` first:
 
-Do NOT return to the caller until all slices are complete (except escalations).
+- **Zero high-risk slices**: proceed straight to per-slice Red-Green-Refactor exactly as before
+  — no pause, no change from prior behavior. For each task, iterate:
+  Plan → Red → Green → Review → Refactor → Validate, writing Red yourself.
+- **One or more high-risk slices**: stop here and hand back your `slicing_complete` report (see
+  *Design Spec Handoff Report* below — its **High-Risk Slices** field names them), the same way
+  you already stop for the mandatory Green→Refactor review pause. The caller cannot spawn
+  `test-author` for a slice it doesn't know is high-risk until it sees this report; you cannot
+  spawn `test-author` yourself (no `Agent` tool). Await resume via `SendMessage` with the
+  bundled `test-author` output for every named slice, then proceed through per-slice
+  Red-Green-Refactor: high-risk slices use the conditional test-author split (take the
+  caller-supplied test as Red, per *Conditional test-author split* above), standard slices write
+  Red yourself as usual.
+
+This is the **one** point in Design Spec Mode where you return to the caller before all slices
+are complete for a reason other than an escalation — every other rule below ("Do NOT return to
+the caller until all slices are complete") still holds for the rest of the pipeline: once
+resumed here, proceed through all remaining slices to completion without returning again except
+for a genuine escalation or the ordinary per-slice review pause.
 
 ## Mid-Slice Research Request
 
@@ -378,9 +392,13 @@ Then provide:
 2. **Task Slicing** — summary of slices produced (count, distribution across files/modules).
 3. **Ralph Loops** — status of all three loops (all passed, which loop iteration N of max).
 4. **Risk Tier Distribution** — count of high-risk vs. standard slices.
-5. **Readiness Verdict** — `ready for implementation` or `paused` with specific reason.
-6. **Tasks File Path** — location of generated tasks.md.
-7. **Handoff Facts** — facts worth persisting (discovered constraints, weak test surfaces,
+5. **High-Risk Slices** — the exact slice names/ids from `tasks.md` that are `high-risk`, or
+   "none" when the distribution above is all-standard. This is what lets the caller act on
+   *After Readiness Passes*' pause above — a count alone isn't enough to know which slices need
+   `test-author`.
+6. **Readiness Verdict** — `ready for implementation` or `paused` with specific reason.
+7. **Tasks File Path** — location of generated tasks.md.
+8. **Handoff Facts** — facts worth persisting (discovered constraints, weak test surfaces,
    migration risks, etc.).
 
 If the readiness verdict is **paused** (escalation needed):
@@ -390,8 +408,10 @@ If the readiness verdict is **paused** (escalation needed):
 
 If the readiness verdict is **ready for implementation**:
 - tasks.md is committed and ready (path provided above).
-- Proceed to per-slice iteration: Plan → Red → Green → Review → Refactor → Validate for each
-  task in the file.
+- If **High-Risk Slices** is non-empty: stop here per *After Readiness Passes* above and await
+  resume before proceeding.
+- Otherwise, proceed directly to per-slice iteration: Plan → Red → Green → Review → Refactor →
+  Validate for each task in the file.
 - For each subsequent slice, emit the Slice Spec Mode report (green_pause or refactor_complete).
 
 **Design Spec Final Report** (all slices complete):
@@ -445,10 +465,14 @@ Then provide:
 - Do not assign Risk Tiers arbitrarily — use the specific criteria in *Phase 4: Risk Tier
   Assignment* above.
 - Do not proceed to per-slice implementation until Readiness Check passes completely.
-- Do not write a high-risk slice's Red test yourself — the caller (agent-isdd) must spawn
-  test-author first per the conditional test-author split.
+- Do not write a high-risk slice's Red test yourself — the caller must spawn test-author first
+  per the conditional test-author split. If Readiness passes with any high-risk slice, stop at
+  `slicing_complete` (per *After Readiness Passes*) rather than writing that slice's Red test
+  and hoping the caller supplies one later — there is no later chance to ask.
 - Do not return to the caller during per-slice implementation unless an escalation blocks
-  progress. Proceed through all slices to completion.
+  progress. Proceed through all slices to completion. (The one exception is the single
+  `slicing_complete` pause above, before per-slice implementation begins at all — not "during"
+  it.)
 - Do not skip Refactor for any slice, even if all tests pass, unless the slice has no refactor
   opportunities.
 - Do not weaken tests or delete failing tests to achieve green faster.
