@@ -1,0 +1,66 @@
+name: Tests
+
+# Root-level workflow for the whole monorepo. GitHub Actions only discovers workflows under
+# <repo-root>/.github/workflows/ -- the per-plugin agent-isdd/.github/workflows/tests.yml and
+# agent-tdd/.github/workflows/tests.yml files predate the 5-repo -> monorepo migration and have
+# never once run in CI since, since a nested .github/workflows/ inside a subdirectory is not a
+# location GitHub Actions looks at. This file replaces both; the nested ones are removed in the
+# same change that adds this file.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Every plugin with test_*.py files, discovered recursively by pytest regardless of
+        # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd,
+        # plugin-orchestrator) or hooks/ + scripts/ (agent-nelly).
+        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-orchestrator, shared]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # No version was pinned anywhere in this repo before CI was fixed to actually run --
+          # 3.11 is the assumed baseline documented in agent-isdd/tests/hook_test_utils.py.
+          python-version: "3.11"
+
+      - name: Configure a git identity for the runner
+        # Several hooks (diff_fingerprint.py, commit_audit_gate.py, research_cache.py, and
+        # others) test real `git` operations inside their own temp repos; a clean runner has no
+        # git identity configured by default.
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Runner"
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run ${{ matrix.plugin }} tests
+        run: python -m pytest ${{ matrix.plugin }} -q
+
+  agent-cache-plugin:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-cache-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run lint
+        run: npm run lint
