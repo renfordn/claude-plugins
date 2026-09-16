@@ -241,12 +241,15 @@ Agent-tdd validates via three Ralph Loops (max 3–5 iterations each):
 
 ### Readiness Check & Escalation
 
-Before proceeding to per-slice implementation, `readiness-check` agent emits a **Readiness Check** verdict:
+Before proceeding to per-slice implementation, `agent-TDD` itself emits a **Readiness Check**
+verdict as part of its own instructions (see `agents/agent-TDD.md`'s "Phase 5: Readiness Check"
+— corrected 2026-09-16; this used to name a separate `readiness-check` agent, a leftover
+reference to the retired modular pipeline described above):
 - ✓ **Ready For Implementation** — tasks.md is final, proceed to Red-Green-Refactor per slice.
 - ✗ **Paused** — escalate with specific reason (research gap, design contradiction, slicing
   blocker, etc.). Caller (agent-isdd) pauses; user re-enters and addresses the reason.
 
-**Marker Emission:** When verdict = `paused`, readiness-check emits:
+**Marker Emission:** When verdict = `paused`, `agent-TDD` emits:
 ```
 <!--AGENT-TDD-PLAN-FLAG:reason="<specific blocker reason>"-->
 ```

@@ -1,6 +1,17 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-16
+
+**Fix: stale readiness-check references left after the modular design-spec retirement**
+
+### Fixes & Improvements
+
+- **`INTEROP.md`'s "Readiness Check & Escalation" section** still named a `readiness-check`
+  agent as the emitter of the Readiness Check verdict and the `AGENT-TDD-PLAN-FLAG` marker — a
+  leftover reference to the subagent deleted in 0.1.13's modular-pipeline retirement. Corrected
+  to `agent-TDD` itself, matching the inline path that's the only one left.
+
 ## [0.1.13] - 2026-09-16
 
 **Remove: dead modular Design Spec pipeline**
