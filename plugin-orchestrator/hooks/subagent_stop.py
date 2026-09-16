@@ -19,6 +19,7 @@ from finishing.
 import json
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,6 +28,7 @@ from hook_state import (  # noqa: E402
     workflow_state_path, load_workflow_state, save_workflow_state,
     BASE, project_slug as _project_slug,
 )
+from orchestrator.hook_telemetry import get_hook_telemetry_logger  # noqa: E402
 
 
 def _extract_last_assistant_text(transcript_path, tail_bytes=16384):
@@ -93,6 +95,9 @@ def main():
         sys.exit(0)  # no active SDD workflow — nothing to log
 
     workflow_state = load_workflow_state(state_path)
+    workflow_state_dir = Path(state_path).parent
+    telemetry = get_hook_telemetry_logger(workflow_state_dir)
+    telemetry.emit("hook_invoked", hook="subagent_stop", agent_type=agent_type)
 
     try:
         from orchestrator.hooks.subagent_stop import handle_agent_completion
@@ -100,8 +105,19 @@ def main():
             agent_type, report, workflow_state,
             error_registry_base_path=BASE, project_slug=_project_slug(cwd)
         )
-    except Exception:
+    except Exception as e:
+        telemetry.emit(
+            "hook_error", hook="subagent_stop", agent_type=agent_type,
+            error_type=type(e).__name__,
+        )
         sys.exit(0)  # graceful degradation — never block subagent completion
+
+    telemetry.emit(
+        "hook_completed", hook="subagent_stop", agent_type=agent_type,
+        outcome="ok",
+        validation_result=(summary or {}).get("validation_result"),
+        escalation_marker=bool((summary or {}).get("escalation_marker")),
+    )
 
     save_workflow_state(state_path, workflow_state)
 

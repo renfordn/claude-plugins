@@ -26,6 +26,7 @@ from hook_state import (  # noqa: E402
     workflow_state_path, load_workflow_state, save_workflow_state, error_registry_path,
 )
 from orchestrator.hook_error_logger import get_hook_error_logger  # noqa: E402
+from orchestrator.hook_telemetry import get_hook_telemetry_logger  # noqa: E402
 
 
 def main():
@@ -63,6 +64,8 @@ def main():
 
         workflow_state_dir = Path(state_path).parent
         error_logger = get_hook_error_logger(workflow_state_dir)
+        telemetry = get_hook_telemetry_logger(workflow_state_dir)
+        telemetry.emit("hook_invoked", hook="before_continue", agent_type=agent_type)
 
         workflow_state = load_workflow_state(state_path)
         if not workflow_state:
@@ -71,6 +74,10 @@ def main():
                 f"Could not load {state_path}",
                 "Continuing without context",
                 "before_continue"
+            )
+            telemetry.emit(
+                "hook_completed", hook="before_continue", agent_type=agent_type,
+                outcome="workflow_state_load_failed",
             )
             sys.exit(0)
 
@@ -106,6 +113,11 @@ def main():
         if system_message:
             print(json.dumps({"systemMessage": system_message}))
 
+        telemetry.emit(
+            "hook_completed", hook="before_continue", agent_type=agent_type,
+            outcome="ok", rollback_pending=bool(rollback_marker),
+        )
+
         sys.exit(0)
 
     except Exception as e:
@@ -117,6 +129,9 @@ def main():
                 str(e),
                 "Continuing with graceful degradation",
                 "before_continue"
+            )
+            get_hook_telemetry_logger(workflow_state_dir).emit(
+                "hook_error", hook="before_continue", error_type=type(e).__name__,
             )
         sys.exit(0)
 

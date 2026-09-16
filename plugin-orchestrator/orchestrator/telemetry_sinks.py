@@ -11,7 +11,9 @@ import json
 import logging
 import socket
 import urllib.request
-from typing import Dict, Iterable, Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Iterable, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,40 @@ _TAGGABLE_FIELDS = (
     "plugin", "source", "target", "success", "available",
     "current_plugin", "current_phase", "next_plugin",
 )
+
+
+class JSONLFileHook:
+    """Append every event as one JSON line to a local file -- the zero-config
+    default sink, for when no Datadog/New Relic backend is set up.
+
+    Exists specifically to make skill/hook invocation observable without any
+    external service: registering *no* hook on a TelemetryPublisher silently
+    drops every event (by design, per TelemetryPublisher.emit's docstring),
+    which is exactly how orchestration events went unnoticed before this
+    sink existed -- the publisher and emit() call sites were already there,
+    nothing was ever listening. Same fail-closed contract as the other
+    hooks here: a write failure only loses that one line, logged and
+    skipped, never raised back to the caller.
+
+    Example:
+        telemetry.register_hook(JSONLFileHook(workflow_state_dir / "hook_telemetry_log.jsonl"))
+    """
+
+    def __init__(self, path: Union[str, Path]):
+        self.path = Path(path)
+        self._dir_ready = False
+
+    def __call__(self, event: Dict) -> None:
+        record = dict(event)
+        record.setdefault("logged_at", datetime.now(timezone.utc).isoformat())
+        try:
+            if not self._dir_ready:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                self._dir_ready = True
+            with open(self.path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, default=str) + "\n")
+        except (IOError, OSError) as e:
+            logger.warning(f"JSONLFileHook failed to write {self.path}: {e!r}")
 
 
 class DatadogStatsDHook:
