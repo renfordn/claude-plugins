@@ -17,15 +17,59 @@ Error Handling:
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List, Union
 from orchestrator.error_handler import ErrorHandler
 from orchestrator.checkpoint import CheckpointManager
 from orchestrator.interop_parser import CapabilityMap
-from orchestrator.error import OrchestrationError
-from orchestrator.error_logger import persist_best_effort
+from orchestrator.error import OrchestrationError, HookError
+from orchestrator.error_logger import persist_best_effort, ErrorRegistry
 from orchestrator.core import PluginRouter, HARD_DEPENDENCY_PLUGINS
 
 logger = logging.getLogger(__name__)
+
+
+def build_system_message(
+    error: Optional[HookError] = None,
+    errors: Optional[List[HookError]] = None,
+    registry_path: Optional[str] = None,
+    min_severity: str = "warn"
+) -> str:
+    """Build systemMessage to surface errors to user.
+
+    Args:
+        error: Single HookError to include
+        errors: List of HookErrors to include (last 3)
+        registry_path: Path to error_registry.json for reference
+        min_severity: Minimum severity to include (default "warn", includes "critical")
+
+    Returns:
+        Formatted systemMessage string for user
+    """
+    severity_order = {"info": 0, "warn": 1, "critical": 2}
+    min_sev_level = severity_order.get(min_severity, 1)
+
+    lines = []
+    error_list = []
+
+    if error:
+        error_list = [error]
+    elif errors:
+        error_list = errors[-3:]  # Last 3 errors
+
+    if error_list:
+        lines.append("## Error Report")
+        lines.append("")
+        for err in error_list:
+            if severity_order.get(err.severity, 0) >= min_sev_level:
+                lines.append(f"**{err.error_type.name}** ({err.severity})")
+                lines.append(f"- Issue: {err.message}")
+                lines.append(f"- Recovery: {err.recovery_action}")
+                lines.append("")
+
+    if registry_path:
+        lines.append(f"For full error history, see: {registry_path}")
+
+    return "\n".join(lines) if lines else ""
 
 
 def handle_agent_completion(
