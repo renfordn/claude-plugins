@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Add `plan-reviewer` skill: tiered, token-efficient design verification (0.1.30).**
+  Replaces ad hoc use of the harness's built-in `Plan` subagent for verifying `design.md`
+  before the Design Gate — `Plan` is open-scoped and was observed taking 10+ minutes for a
+  single design check. `plan-reviewer` (new `skills/plan-reviewer/SKILL.md`, backed by
+  `agents/plan-reviewer-tier1.md`/`tier2.md`/`tier3.md`) instead verifies a fixed list of
+  falsifiable claims extracted from the design doc, tiered by cost: Tier 1 (Read/Grep/Glob,
+  fast, claim-scoped) runs always; Tier 2 (same tools, boundary-expands to adjacent
+  files/callers) only for claims Tier 1 flags `escalate: true`; Tier 3 (adds read-only Bash for
+  git blame/call-graph tracing) only for findings Tier 2 confirms as a genuine blocker/risk.
+  Wired into `design-author/SKILL.md`'s Research First step 3 and a new Design Gate check.
+  Also callable standalone (outside any SDD workflow) — the skill and its three agents are
+  symlinked from `~/.claude/skills/plan-reviewer` and `~/.claude/agents/` to this plugin's
+  copy, so there is one source of truth and no drift between global and plugin-bundled use.
 - **Critical: fix a packaging bug breaking every fresh install (0.1.29).**
   `hooks/sdd_memory.py` imported `path_resolution` from a monorepo-relative `shared/`
   directory (`os.path.join(os.path.dirname(__file__), '..', '..', 'shared')`) — this only

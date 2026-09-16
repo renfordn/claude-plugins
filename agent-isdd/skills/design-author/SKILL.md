@@ -51,6 +51,21 @@ Before drafting, delegate to subagents rather than relying only on what's alread
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
      section for criterion)
 
+3. **Independent verification** — once `design.md` has a draft (even a rough one) with a
+   `Research Basis` section, invoke the `plan-reviewer` skill (ships with this plugin at
+   `skills/plan-reviewer/`) against it before the Design Gate is checked. This replaces any ad
+   hoc use of the harness's built-in `Plan` subagent, which is open-scoped and observed to take
+   10+ minutes for a single design check — `plan-reviewer`'s tiered, claim-scoped subagents
+   (`plan-reviewer-tier1/2/3`, also in this plugin's `agents/`) verify only the design's own
+   factual claims and stay fast in the common case.
+   - Extract the design's falsifiable claims yourself (per `plan-reviewer/SKILL.md`'s Step 0) —
+     don't skip straight to spawning Tier 1 with the whole document.
+   - Fold `plan-reviewer`'s Blockers into the design before the gate check; fold Resolved
+     concerns into `Research Basis` as confirming evidence; surface any Genuinely unresolved item
+     to the user rather than silently proceeding.
+   - Skip this step only when the design is a trivial, low-risk change the user has explicitly
+     asked to fast-track — note the skip in `design.md` rather than doing it silently.
+
 ## Design Gate
 
 Move forward only when all of the following are true:
@@ -62,6 +77,8 @@ Move forward only when all of the following are true:
 - key tradeoffs are visible
 - no unresolved contradiction remains
 - **[Phase 2+3]** research cache created (research/cache.md with design_findings + task_findings)
+- `plan-reviewer` has been run against this design (or its skip was explicitly noted, per
+  Research First step 3) — no unresolved Blocker or Genuinely-unresolved finding remains
 - **[Phase 2+3]** file summaries extracted and ready for agent-nelly persistence
 - when `agent-nelly:agent-nelly` is available, its Intent-alignment check for this
   design is clean, or its flag has been surfaced to and resolved with the user
