@@ -1,10 +1,14 @@
-"""ErrorLogger: Dual-tier logging for session and persistent error storage."""
+"""ErrorLogger: Dual-tier logging for session and persistent error storage.
+
+Also includes ErrorRegistry: JSON lines format with auto-rotation at 10MB.
+"""
 
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
-from typing import List
-from orchestrator.error import OrchestrationError
+from typing import List, Dict, Any
+from orchestrator.error import OrchestrationError, HookError
 
 
 class ErrorLogger:
@@ -104,3 +108,101 @@ def persist_best_effort(
             f"Failed to persist orchestration error: {e.__class__.__name__}: {e}. "
             "Continuing without persistence."
         )
+
+
+class ErrorRegistry:
+    """Structured error logging in JSON lines format with auto-rotation at 10MB.
+
+    Each error is logged as one JSON line: timestamp, hook, agent_type, error_type,
+    severity, message, recovery_action.
+
+    Auto-rotates when file exceeds 10MB: error_registry.json → error_registry.<timestamp>.json
+    """
+
+    MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+    def __init__(self, registry_path: Path):
+        """Initialize ErrorRegistry.
+
+        Args:
+            registry_path: Path to error_registry.json file
+        """
+        self.registry_path = Path(registry_path)
+
+    def log_error(
+        self,
+        error: HookError,
+        hook: str,
+        agent_type: str
+    ) -> None:
+        """Log error to error_registry.json in JSON lines format.
+
+        Args:
+            error: HookError to log
+            hook: Hook name (e.g., "before_continue", "subagent_stop")
+            agent_type: Agent type (e.g., "agent-isdd", "agent-tdd")
+        """
+        try:
+            # Ensure directory exists
+            self.registry_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Build error entry
+            entry = {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "hook": hook,
+                "agent_type": agent_type,
+                "error_type": error.error_type.value,
+                "severity": error.severity,
+                "message": error.message,
+                "recovery_action": error.recovery_action,
+            }
+
+            # Check if rotation needed before writing
+            if self.registry_path.exists():
+                if self.registry_path.stat().st_size >= self.MAX_SIZE_BYTES:
+                    self.rotate_on_size()
+
+            # Append entry as JSON line
+            with open(self.registry_path, "a") as f:
+                f.write(json.dumps(entry) + "\n")
+
+        except Exception:
+            # Graceful degradation: don't block on logging failure
+            pass
+
+    def rotate_on_size(self) -> None:
+        """Rotate error_registry.json when it exceeds MAX_SIZE_BYTES.
+
+        Renames current file to error_registry.<timestamp>.json.
+        """
+        try:
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            rotated_name = self.registry_path.parent / f"error_registry.{timestamp}.json"
+            self.registry_path.rename(rotated_name)
+        except Exception:
+            # Graceful degradation: rotation failure doesn't block logging
+            pass
+
+    def read_errors(self) -> List[Dict[str, Any]]:
+        """Read all errors from error_registry.json.
+
+        Returns:
+            List of error entries (dicts), one per JSON line
+        """
+        try:
+            if not self.registry_path.exists():
+                return []
+
+            errors = []
+            with open(self.registry_path) as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            errors.append(json.loads(line))
+                        except json.JSONDecodeError:
+                            # Skip malformed lines
+                            pass
+            return errors
+        except Exception:
+            # Graceful degradation: return empty list on read failure
+            return []
