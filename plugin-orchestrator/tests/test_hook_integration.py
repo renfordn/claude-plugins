@@ -477,8 +477,14 @@ Agent-TDD encountered validation failure.
 ### Error
 Contract validation failed: missing 'research_cache' field
 
-<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:research_cache_missing-->
+<!--AGENT-TDD-RESEARCH-FAILED:research_cache_missing-->
 """
+        # Note (2026-09-16): the marker above used to be the three-segment
+        # AGENT-TDD-RESEARCH-VALIDATION-FAILED, which _detect_escalation_marker's FAILED regex
+        # (exactly two dash-separated segments between AGENT- and -FAILED) never actually
+        # matched -- these tests were silently exercising their `if "rollback_pending" in
+        # workflow_state` fallback, not real detection. Fixed to the two-segment form the regex
+        # actually matches.
 
 
 class TestSubagentStopHookParsesReport(TestSubagentStopHookSetup):
@@ -778,11 +784,11 @@ class TestSubagentStopHookDetectsEscalation(TestSubagentStopHookSetup):
 
     @unittest.skipIf(not HOOKS_AVAILABLE, "Hooks not yet implemented (expected Red state)")
     def test_hook_detects_escalation_marker(self):
-        """Hook should detect escalation markers (<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->).
+        """Hook should detect escalation markers (<!--AGENT-TDD-RESEARCH-FAILED:...-->).
 
         Expected behavior:
         - Hook scans report for escalation markers
-        - Detects <!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->
+        - Detects <!--AGENT-TDD-RESEARCH-FAILED:...-->
         - Adds rollback_pending marker to workflow_state if found
         """
         # Arrange
@@ -814,7 +820,7 @@ class TestSubagentStopHookDetectsEscalation(TestSubagentStopHookSetup):
         {
             "source": "escalation_marker_detected",
             "escalation_type": "research_validation_failed",
-            "marker_found": "<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:research_cache_missing-->",
+            "marker_found": "<!--AGENT-TDD-RESEARCH-FAILED:research_cache_missing-->",
             "timestamp": "ISO timestamp",
             "action_required": "Review escalation trigger and retry or rollback"
         }

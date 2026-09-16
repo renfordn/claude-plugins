@@ -77,7 +77,7 @@ class TestEscalationMarkerDetection(unittest.TestCase):
         """GIVEN agent report with escalation marker
         WHEN escalation detection runs
         THEN returns the escalation marker string."""
-        report = "Research validation failed.\n<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:findings-contradiction-->"
+        report = "Research validation failed.\n<!--AGENT-TDD-RESEARCH-FAILED:findings-contradiction-->"
         # Hook should detect escalation marker
         # Expected: escalation_marker = "findings-contradiction"
         self.assertIn("FAILED", report)

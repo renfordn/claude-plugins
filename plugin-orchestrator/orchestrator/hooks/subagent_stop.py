@@ -2,7 +2,7 @@
 
 Implements the subagent_stop hook that intercepts agent completion and:
 1. Parses phase markers from agent report (e.g., RED_GREEN_REFACTOR_COMPLETE)
-2. Detects escalation markers (<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->)
+2. Detects escalation markers (<!--AGENT-TDD-PLAN-FLAG:...-->, <!--AGENT-*-FAILED:...-->)
 3. Validates output against capability contract (from INTEROP.md "produces" field)
 4. Logs handoff to workflow-state["orchestration"]["handoff_history"]
 5. Triggers error handler on contract violations (for rollback/degrade/pause)
@@ -310,9 +310,24 @@ def _detect_escalation_marker(report: str) -> Optional[str]:
 
     Escalation markers signal that an agent encountered a condition requiring
     orchestrator intervention (research gap, design conflict, etc.). Supported formats:
-    - <!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:reason-->
     - <!--AGENT-TDD-PLAN-FLAG:reason-->
-    - <!--AGENT-*-FAILED:reason-->
+    - <!--AGENT-*-FAILED:reason--> (generic; no live emitter as of 2026-09-16 -- see note below)
+
+    Note on the FAILED pattern (2026-09-16): agent-tdd's retired modular design-spec pipeline
+    named four escalation markers in its own docs, most prominently
+    <!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->, and this docstring used to cite that one
+    as this pattern's real-world example. It never actually was: the regex requires exactly
+    two dash-separated segments between "AGENT-" and "-FAILED" (`AGENT-[A-Z]+-[A-Z]+-FAILED`),
+    and "TDD-RESEARCH-VALIDATION" is three, so that marker -- and all four of the retired
+    pipeline's markers -- never matched this pattern (verified directly against the regex, not
+    assumed). This pattern has therefore never had a real emitter; the pipeline it was
+    documented as supporting is now retired regardless (see agent-tdd/INTEROP.md's "Design
+    Spec Mode" section). Kept as generic infrastructure -- any future agent can raise a hard
+    escalation this way without this hook needing a per-agent marker vocabulary;
+    test_e2e_isdd_to_tdd.py's
+    test_e2e_error_recovery_escalation_marker_research_validation_failed exercises this
+    generic path directly with its own two-segment example marker (it does not require the
+    specific classification below, only that the marker is detected at all).
 
     Handles regex errors gracefully (logs warning, returns None).
 
@@ -320,8 +335,8 @@ def _detect_escalation_marker(report: str) -> Optional[str]:
         report: Agent report text
 
     Returns:
-        Full escalation marker string (e.g., "<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->")
-        or None if no escalation detected
+        Full escalation marker string (e.g., '<!--AGENT-TDD-PLAN-FLAG:reason="..."-->') or
+        None if no escalation detected
     """
     try:
         # Pattern 1: FAILED markers (highest priority)
@@ -417,7 +432,7 @@ def _set_rollback_pending(workflow_state: dict, escalation_marker: str) -> None:
     Rollback marker structure:
     {
         "source": "escalation_marker_detected",
-        "escalation_type": "research_validation_failed" | "plan_validity_conflict" | "unknown_escalation",
+        "escalation_type": "plan_validity_conflict" | "unknown_escalation",
         "marker_found": "full HTML comment marker",
         "timestamp": "ISO 8601 timestamp",
         "action_required": "Guidance for orchestrator"
@@ -425,7 +440,7 @@ def _set_rollback_pending(workflow_state: dict, escalation_marker: str) -> None:
 
     Args:
         workflow_state: Workflow state dict (modified in-place)
-        escalation_marker: Full escalation marker string (e.g., "<!--AGENT-TDD-RESEARCH-VALIDATION-FAILED:...-->")
+        escalation_marker: Full escalation marker string (e.g., '<!--AGENT-TDD-PLAN-FLAG:reason="..."-->')
     """
     # Classify escalation type based on marker content
     escalation_type = _classify_escalation_type(escalation_marker)
@@ -451,11 +466,9 @@ def _classify_escalation_type(escalation_marker: str) -> str:
         escalation_marker: Full escalation marker string
 
     Returns:
-        Escalation type: "research_validation_failed" | "plan_validity_conflict" | "unknown_escalation"
+        Escalation type: "plan_validity_conflict" | "unknown_escalation"
     """
-    if "RESEARCH-VALIDATION-FAILED" in escalation_marker:
-        return "research_validation_failed"
-    elif "PLAN-FLAG" in escalation_marker:
+    if "PLAN-FLAG" in escalation_marker:
         return "plan_validity_conflict"
     else:
         return "unknown_escalation"
