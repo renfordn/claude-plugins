@@ -1,6 +1,29 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.12] - 2026-09-16
+
+**Fix: test-isolation leak in `${CLAUDE_PLUGIN_DATA}` env var tests**
+
+### Fixes & Improvements
+
+- **`tests/test_tdd_state.py`** — the three `ClaudePluginDataEnvVarTests` tests
+  `importlib.reload()`'d `tdd_state` inside a `patch.dict(os.environ, ...)` context but never
+  reloaded it back afterward, permanently corrupting the module-global `BASE` in `sys.modules`
+  for every test file collected later in the same run (`test_tdd_stop.py`,
+  `test_tdd_subagent_stop.py`). Each test now reloads `tdd_state` again after its patched-env
+  context exits, restoring `BASE` to its real value regardless of test outcome.
+
+## [0.1.11] - 2026-09-16
+
+**Chore: storage directory migration**
+
+### Fixes & Improvements
+
+- **`${CLAUDE_PLUGIN_DATA}` env var support** — `hooks/tdd_state.py`'s `BASE` now resolves via the
+  official `${CLAUDE_PLUGIN_DATA}` env var, falling back to `~/.claude/plugins/data/agent-tdd/`
+  when unset, instead of a hardcoded `~/.claude/agent-tdd-state/` path
+
 ## [0.1.10] - 2026-09-15
 
 **Fix: ecosystem audit compatibility fixes**

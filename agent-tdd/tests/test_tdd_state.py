@@ -129,34 +129,51 @@ class WriteLastStopTests(unittest.TestCase):
 
 
 class ClaudePluginDataEnvVarTests(unittest.TestCase):
-    """Tests for ${CLAUDE_PLUGIN_DATA} env var support (Task 4.2)."""
+    """Tests for ${CLAUDE_PLUGIN_DATA} env var support (Task 4.2).
+
+    Each test below reloads tdd_state inside a patched os.environ to force it to
+    recompute the module-global BASE from the patched value. patch.dict restores
+    os.environ on exit, but does NOT undo the reload -- left alone, tdd_state.BASE
+    stays permanently set to the patched-env value in sys.modules for the rest of
+    the pytest process, silently breaking every other test file that imports
+    tdd_state afterward (e.g. test_tdd_stop.py, test_tdd_subagent_stop.py). Each
+    test therefore reloads tdd_state again in a finally block to restore BASE to
+    its real, unpatched value before returning control to the rest of the suite.
+    """
 
     def test_base_respects_claude_plugin_data_env_var(self):
         """Verify BASE uses CLAUDE_PLUGIN_DATA when set."""
-        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/custom/data"}):
-            # Force reload to pick up env var
-            import importlib
+        import importlib
+        try:
+            with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/custom/data"}):
+                importlib.reload(tdd_state)
+                self.assertIn("/custom/data", tdd_state.BASE)
+        finally:
             importlib.reload(tdd_state)
-            self.assertIn("/custom/data", tdd_state.BASE)
 
     def test_base_uses_fallback_when_env_unset(self):
         """Verify BASE falls back to ~/.claude/plugins/data when CLAUDE_PLUGIN_DATA unset."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-            # Force reload to pick up cleared env var
-            import importlib
+        import importlib
+        try:
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+                importlib.reload(tdd_state)
+                self.assertIn(".claude/plugins/data", tdd_state.BASE)
+                self.assertIn("agent-tdd", tdd_state.BASE)
+        finally:
             importlib.reload(tdd_state)
-            self.assertIn(".claude/plugins/data", tdd_state.BASE)
-            self.assertIn("agent-tdd", tdd_state.BASE)
 
     def test_tdd_memory_dir_uses_updated_base(self):
         """Verify tdd_memory_dir returns paths under updated BASE."""
-        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/test/plugin-data"}):
-            import importlib
+        import importlib
+        try:
+            with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/test/plugin-data"}):
+                importlib.reload(tdd_state)
+                d = tdd_state.tdd_memory_dir("/some/project")
+                self.assertIn("/test/plugin-data", d)
+                self.assertIn("agent-tdd-state", d)
+        finally:
             importlib.reload(tdd_state)
-            d = tdd_state.tdd_memory_dir("/some/project")
-            self.assertIn("/test/plugin-data", d)
-            self.assertIn("agent-tdd-state", d)
 
 
 if __name__ == "__main__":
