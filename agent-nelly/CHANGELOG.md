@@ -1,6 +1,17 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Critical: fix a packaging bug breaking every fresh install (0.4.6).** `hooks/nelly_memory.py`
+  imported `path_resolution` from a monorepo-relative `shared/` directory — only resolves
+  inside the dev checkout, never in a marketplace-installed package, which bundles only this
+  plugin's own subdirectory. This is a second, independent packaging bug from the same-named
+  off-by-one fixed in 0.4.4 — that one was a wrong relative path inside the repo; this one is
+  the dependency not existing at all once installed outside it. Every hook depending on
+  `nelly_memory.py` raised `ModuleNotFoundError` on a real fresh install of any version since
+  the `${CLAUDE_PLUGIN_DATA}` migration. Fixed by giving this plugin its own local copy of
+  `path_resolution.py` in `hooks/`, verified by copying `hooks/` alone to an isolated tmp
+  directory with no monorepo present and confirming it still imports.
+
 - **Finished isolating tests that wrote into the real `~/.claude/...` memory store (0.4.5).**
   Follow-up to 0.4.4's partial fix. `hooks/test_nelly_memory.py` had 9 more tests (mostly
   `write_index_line`/`global_dir`/`ensure_dir` callers) missing the `isolated_base` fixture;
