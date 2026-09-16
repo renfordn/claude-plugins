@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Finished isolating tests that wrote into the real `~/.claude/...` memory store (0.4.5).**
+  Follow-up to 0.4.4's partial fix. `hooks/test_nelly_memory.py` had 9 more tests (mostly
+  `write_index_line`/`global_dir`/`ensure_dir` callers) missing the `isolated_base` fixture;
+  `hooks/test_nelly_memory_permission.py` and `hooks/test_nelly_proactive_surface.py` had no
+  isolation at all — `nelly_memory_permission.py`'s hook logic itself calls `global_dir()` as
+  a side effect, so every test in that file created the real `global/` dir regardless of which
+  test ran. All three files now isolate consistently via `CLAUDE_PLUGIN_DATA` +
+  `nelly_memory.BASE` (both matter: `BASE` is computed once at import time, so a later env var
+  change alone doesn't reach code that already imported it in-process).
 - **Fixed a production-breaking import bug (0.4.4).** `hooks/nelly_memory.py` — the module
   every agent-nelly hook imports — had an off-by-one in its shared-directory path
   (`'..', 'shared'` instead of `'..', '..', 'shared'`), so `import nelly_memory` raised

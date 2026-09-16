@@ -21,6 +21,23 @@ import pytest
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nelly_proactive_surface.py")
 
 
+@pytest.fixture(autouse=True)
+def isolated_nelly_base(tmp_path, monkeypatch):
+    """Isolate every test in this file to a tmp BASE, never the real
+    ~/.claude/plugins/data/agent-nelly/agent-nelly-memory/ tree on disk.
+
+    Two call paths need the same BASE: make_entry()/add_index_line() call nelly_memory
+    in-process, while run_hook() drives nelly_proactive_surface.py as a subprocess. Setting
+    CLAUDE_PLUGIN_DATA via monkeypatch.setenv covers both -- run_hook's `dict(os.environ)`
+    picks it up for the subprocess automatically, and monkeypatching nelly_memory.BASE directly
+    covers the in-process helpers without waiting on a fresh import to re-read the env var.
+    """
+    plugin_data = str(tmp_path / "plugin-data")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", plugin_data)
+    import nelly_memory
+    monkeypatch.setattr(nelly_memory, "BASE", os.path.join(plugin_data, "agent-nelly-memory"))
+
+
 def run_hook(payload, env=None):
     full_env = dict(os.environ)
     if env:

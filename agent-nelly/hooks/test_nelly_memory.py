@@ -91,14 +91,14 @@ def test_project_slug_empty_result_falls_back_to_root():
 # memory_dir / global_dir resolve under the new independent BASE
 # ---------------------------------------------------------------------------
 
-def test_memory_dir_resolves_under_new_base_root():
+def test_memory_dir_resolves_under_new_base_root(isolated_base):
     cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.memory_dir(cwd)
     assert d.startswith(nelly_memory.BASE)
     assert "sdd-memory" not in d
 
 
-def test_global_dir_resolves_under_new_base_root(tmp_path):
+def test_global_dir_resolves_under_new_base_root(isolated_base):
     d = nelly_memory.global_dir()
     assert d.startswith(nelly_memory.BASE)
     assert "sdd-memory" not in d
@@ -114,7 +114,7 @@ def test_base_root_is_agent_nelly_memory_not_sdd_memory():
 # ensure_dir / read_index — creation, idempotency, best-effort reads
 # ---------------------------------------------------------------------------
 
-def test_ensure_dir_creates_project_dir_with_index_header():
+def test_ensure_dir_creates_project_dir_with_index_header(isolated_base):
     cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.ensure_dir(cwd)
     assert os.path.isdir(d)
@@ -122,7 +122,7 @@ def test_ensure_dir_creates_project_dir_with_index_header():
     assert os.path.isfile(index)
 
 
-def test_ensure_dir_is_idempotent_and_preserves_existing_content():
+def test_ensure_dir_is_idempotent_and_preserves_existing_content(isolated_base):
     cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.ensure_dir(cwd)
     index = os.path.join(d, "MEMORY.md")
@@ -137,12 +137,12 @@ def test_ensure_dir_is_idempotent_and_preserves_existing_content():
     assert after == before
 
 
-def test_read_index_returns_empty_string_when_absent():
+def test_read_index_returns_empty_string_when_absent(isolated_base):
     cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly/never-created"
     assert nelly_memory.read_index(cwd) == ""
 
 
-def test_read_index_returns_written_content():
+def test_read_index_returns_written_content(isolated_base):
     cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
     nelly_memory.ensure_dir(cwd)
     content = nelly_memory.read_index(cwd)
@@ -153,7 +153,7 @@ def test_read_index_returns_written_content():
 # global_dir / read_global_index — creation, idempotency, best-effort reads
 # ---------------------------------------------------------------------------
 
-def test_global_dir_is_idempotent_and_preserves_existing_content():
+def test_global_dir_is_idempotent_and_preserves_existing_content(isolated_base):
     d = nelly_memory.global_dir()
     index = os.path.join(d, "GLOBAL-MEMORY.md")
     with open(index, "a", encoding="utf-8") as fh:
@@ -167,13 +167,13 @@ def test_global_dir_is_idempotent_and_preserves_existing_content():
     assert after == before
 
 
-def test_read_global_index_returns_written_content():
+def test_read_global_index_returns_written_content(isolated_base):
     nelly_memory.global_dir()
     content = nelly_memory.read_global_index()
     assert "Global" in content or "global" in content
 
 
-def test_read_global_index_is_best_effort_and_never_raises(monkeypatch):
+def test_read_global_index_is_best_effort_and_never_raises(monkeypatch, isolated_base):
     # Pre-create the index so global_dir()'s write branch is skipped, then simulate
     # an OSError on the subsequent read (e.g. a permission error) to confirm the
     # best-effort discipline: caught and turned into "", never raised.
@@ -351,7 +351,7 @@ def test_cli_no_args_prints_memory_dir(capsys):
     assert out == nelly_memory.memory_dir(os.getcwd())
 
 
-def test_cli_global_path_prints_global_dir(capsys):
+def test_cli_global_path_prints_global_dir(capsys, isolated_base):
     nelly_memory.main(["--global-path"])
     out = capsys.readouterr().out.strip()
     assert out == nelly_memory.global_dir()
@@ -412,7 +412,7 @@ def test_resolve_repo_relative_rejects_absolute_path():
 # Data Contracts And Interfaces section for the exact line format.
 # ---------------------------------------------------------------------------
 
-def test_write_index_line_round_trip_all_fields_populated():
+def test_write_index_line_round_trip_all_fields_populated(isolated_base):
     d = nelly_memory.ensure_dir(CWD)
     line = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project",
@@ -440,7 +440,7 @@ def test_parse_index_line_fields_fallback_old_format_never_raises():
 # unaffected). See design.md's Data Contracts And Interfaces section.
 # ---------------------------------------------------------------------------
 
-def test_write_index_line_emits_paths_fragment_when_paths_given():
+def test_write_index_line_emits_paths_fragment_when_paths_given(isolated_base):
     line = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project",
         paths=["src/foo.py", "src/bar.py"],
@@ -448,14 +448,14 @@ def test_write_index_line_emits_paths_fragment_when_paths_given():
     assert "paths:src/foo.py;src/bar.py]" in line
 
 
-def test_write_index_line_omits_paths_fragment_when_paths_absent():
+def test_write_index_line_omits_paths_fragment_when_paths_absent(isolated_base):
     line = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project",
     )
     assert "paths:" not in line
 
 
-def test_write_index_line_omits_paths_fragment_when_paths_none_or_empty():
+def test_write_index_line_omits_paths_fragment_when_paths_none_or_empty(isolated_base):
     line_none = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project", paths=None,
     )
@@ -466,7 +466,7 @@ def test_write_index_line_omits_paths_fragment_when_paths_none_or_empty():
     assert "paths:" not in line_empty
 
 
-def test_parse_index_line_fields_extracts_paths_list():
+def test_parse_index_line_fields_extracts_paths_list(isolated_base):
     line = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project",
         confidence="explicit", files_present=True,
@@ -481,7 +481,7 @@ def test_parse_index_line_fields_extracts_paths_list():
     }
 
 
-def test_parse_index_line_fields_paths_none_when_fragment_absent():
+def test_parse_index_line_fields_paths_none_when_fragment_absent(isolated_base):
     line = nelly_memory.write_index_line(
         CWD, "some-test-fact", "project fact", "project",
         confidence="explicit", files_present=True,

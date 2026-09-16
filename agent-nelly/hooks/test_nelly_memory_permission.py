@@ -14,6 +14,29 @@ import pytest
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nelly_memory_permission.py")
 
 
+@pytest.fixture(autouse=True)
+def isolated_nelly_base(tmp_path, monkeypatch):
+    """Isolate every test in this file to a tmp BASE.
+
+    hooks/nelly_memory_permission.py itself calls global_dir() as part of its own allow/deny
+    logic (see nelly_memory.global_dir's write-on-first-call behavior), so every run_hook()
+    call below has always created the real global/ dir under
+    ~/.claude/plugins/data/agent-nelly/agent-nelly-memory/ as a side effect, regardless of
+    which test triggered it.
+
+    Two call paths need the same BASE: tests build expected target paths in-process via
+    nelly_memory.memory_dir()/BASE, while run_hook() drives nelly_memory_permission.py as a
+    subprocess. CLAUDE_PLUGIN_DATA covers the subprocess (run_hook's `dict(os.environ)` picks
+    it up automatically); monkeypatching nelly_memory.BASE directly covers the in-process
+    calls, since BASE is computed once at import time and a later env var change alone
+    wouldn't be re-read by an already-imported module.
+    """
+    plugin_data = str(tmp_path / "plugin-data")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", plugin_data)
+    import nelly_memory
+    monkeypatch.setattr(nelly_memory, "BASE", os.path.join(plugin_data, "agent-nelly-memory"))
+
+
 def run_hook(payload, env=None):
     full_env = dict(os.environ)
     if env:
