@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Critical: fix a packaging bug breaking every fresh install (0.1.29).**
+  `hooks/sdd_memory.py` imported `path_resolution` from a monorepo-relative `shared/`
+  directory (`os.path.join(os.path.dirname(__file__), '..', '..', 'shared')`) — this only
+  resolves inside the dev checkout. A marketplace-installed plugin package contains only this
+  plugin's own subdirectory; `shared/` is never bundled. Every hook depending on
+  `sdd_memory.py` (`memory_permission.py`, `subagent_report.py`, `before_continue.py`,
+  `stop_check.py`, and more) raised `ModuleNotFoundError` on a real fresh install of any
+  version since the `${CLAUDE_PLUGIN_DATA}` migration (0.1.24+) — this session never hit it
+  only because it's running from a stale pre-migration snapshot. Fixed by giving this plugin
+  its own local copy of `path_resolution.py` in `hooks/`, verified by copying the plugin's
+  `hooks/` directory alone to an isolated tmp directory with no monorepo present and
+  confirming it still imports. Added `shared/test_plugin_packaging_self_containment.py` to
+  catch this class of bug for all 4 affected plugins going forward.
+
 - **Fix stale `slice_spec_gate.py` claim in the `after-tasks` hook table (0.1.28).**
   `skills/workflow-manager/SKILL.md`'s `after-tasks` row claimed `hooks/slice_spec_gate.py`
   hard-denies an incomplete `agent-tdd` spawn — stale from before the Phase 2+3 Design Spec
