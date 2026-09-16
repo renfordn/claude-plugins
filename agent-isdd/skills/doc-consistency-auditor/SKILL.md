@@ -1,6 +1,6 @@
 ---
 name: doc-consistency-auditor
-description: "[Internal — invoked automatically by hooks/commit_audit_gate.py, or on request] Audits skills/, agents/, commands/, hooks/ for duplicated or contradictory claims and dangling references, auto-fixing high-confidence findings."
+description: "[Internal — invoked automatically by hooks/commit_audit_gate.py, or on request] Audits skills/, agents/, commands/, hooks/, and every plugin's INTEROP.md for duplicated/contradictory claims, dangling references, and cross-plugin interop drift, auto-fixing high-confidence findings."
 ---
 
 # Doc Consistency Auditor
@@ -30,7 +30,10 @@ this claim needs to be current rather than historical).
 ## Scope
 
 Read every file under `skills/`, `agents/`, `commands/`, `hooks/` (not just files touched in the
-current diff — see above). Look for exactly four finding classes:
+current diff — see above), plus every plugin root's `INTEROP.md` (one per plugin, e.g.
+`agent-tdd/INTEROP.md`, `code-reviewer/INTEROP.md` — discover the set with
+`find . -maxdepth 2 -name INTEROP.md`, never a hardcoded list, so a new plugin's `INTEROP.md` is
+picked up automatically). Look for exactly five finding classes:
 
 1. **Duplicated or contradictory responsibility claims** — two or more files claiming the same
    capability without an explicit "this is a documented shared split" note, or two files stating
@@ -44,7 +47,31 @@ current diff — see above). Look for exactly four finding classes:
    settled fact ("confirmed via live test", "confirmed by live re-test," or equivalent) with
    nothing in the repo backing the claim beyond the phrasing itself.
 4. **Dangling agent/skill references** — a file naming an agent, skill, command, or hook file
-   that no longer exists, was renamed, or never existed.
+   that no longer exists, was renamed, or never existed. Applies across plugin boundaries too:
+   an `INTEROP.md` (or any other file) naming another plugin's agent, skill, tool, file path, or
+   schema file is a dangling reference if that target no longer exists in the named plugin.
+5. **Cross-plugin interop drift** — a claim one plugin's `INTEROP.md` (or a skill/agent file)
+   makes *about another plugin's* current behavior, contract, or shape, where that claim no
+   longer matches the referenced plugin's actual current file. This is `doc-consistency-auditor`'s
+   only finding class that requires reading a *second* plugin to verify a claim made in the
+   first — a same-file or same-plugin contradiction belongs in class 1 instead. Concretely, for
+   every cross-plugin reference found (a quoted rule, a named threshold/value, a described
+   schema or file shape, a "re-check X if this claim needs to be current" hedge already present
+   in the source file — treat that hedge as marking exactly the claim to verify, not as an
+   excuse to skip it):
+   - Read the referenced plugin's actual current file/section.
+   - Confirm the quoted or paraphrased claim still holds (e.g. `agent-isdd`'s own
+     `doc-consistency-auditor` SKILL.md claims elsewhere in this file that `code-reviewer`'s
+     `SKILL.md` scopes reviews to a caller-named diff/file set — verify that's still what
+     `code-reviewer/SKILL.md` says, not what it said historically).
+   - A **mirrored value** (the same literal threshold/constant intentionally duplicated across
+     plugins, e.g. the 5-finding/1-file dashboard threshold declared once in `code-reviewer`'s
+     `SKILL.md` and mirrored by `agent-ux`'s `ux-conventions.md`/`ux-agent.md` and
+     `agent-isdd`'s own override note) drifts the moment the values disagree — diff the literal
+     values, don't just confirm each file parses.
+   - A documented, explained deviation (like this skill's own "Visual Review" override above) is
+     not drift — only flag a mismatch that is *not* already acknowledged as intentional in both
+     places.
 
 ## Evidence Tier Model
 
@@ -119,5 +146,10 @@ here.
 - Never write `DOC-AUDIT-STATE.md`/`DOC-AUDIT-HISTORY.md` anywhere other than the project-level
   memory directory resolved via `hooks/sdd_memory.py`.
 - Never mark `Status: passed` while any `confidence: high` finding remains unresolved.
-- Never invent a fifth finding class beyond the four in Scope without the user explicitly asking
+- Never invent a sixth finding class beyond the five in Scope without the user explicitly asking
   — scope creep here defeats the point of a narrowly-defined, repeatable check.
+- Never auto-fix a class-5 (cross-plugin interop drift) finding by editing the *referenced*
+  plugin's file to match the claim — only the file making the claim is safe to correct
+  mechanically (update its own wording/value to match the referenced plugin's actual current
+  state). Changing the other plugin's behavior to satisfy a stale claim about it is out of scope
+  for this skill regardless of confidence.

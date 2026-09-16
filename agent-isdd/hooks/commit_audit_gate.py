@@ -9,8 +9,9 @@ job, an LLM-driven skill -- hooks can't reason semantically). Uses the same
 SDD_GATE=off escape-hatch convention as the (now-external) sdd plugin's own
 gate hooks used.
 
-Scoped to this plugin specifically: no-ops immediately for any repo that
-doesn't have skills/, agents/, commands/, and hooks/ at its root, so this
+Scoped to this plugin (or a monorepo containing it): no-ops immediately for
+any repo that doesn't have skills/, agents/, commands/, and hooks/ at its
+root *and* doesn't contain sibling plugin dirs carrying INTEROP.md, so this
 hook never affects commits in unrelated repositories even though it's
 registered globally via this plugin's hooks.json.
 """
@@ -51,8 +52,33 @@ def no_decision():
     sys.exit(0)
 
 
+_MIN_INTEROP_SIBLINGS = 2
+
+
 def _looks_like_this_plugin(repo_root):
-    return all(os.path.isdir(os.path.join(repo_root, d)) for d in _TRACKED_DIRS)
+    if all(os.path.isdir(os.path.join(repo_root, d)) for d in _TRACKED_DIRS):
+        return True
+    # Monorepo shape: repo_root isn't a single plugin's own layout, but
+    # contains sibling plugin dirs with INTEROP.md -- e.g. this repo, where
+    # agent-isdd/, agent-tdd/, code-reviewer/, etc. each carry one. Class-5
+    # cross-plugin drift findings only make sense with all siblings visible,
+    # so the gate must also apply when run from here, not just from inside
+    # a standalone agent-isdd checkout. Require at least
+    # _MIN_INTEROP_SIBLINGS matches, not just one -- a single subdir with a
+    # file named INTEROP.md is too weak a signal (that filename isn't unique
+    # to this ecosystem) and would risk tripping the gate in an unrelated
+    # repo, contradicting this hook's "never affects unrelated repos" goal.
+    try:
+        entries = os.listdir(repo_root)
+    except OSError:
+        return False
+    hits = sum(
+        1
+        for entry in entries
+        if os.path.isdir(os.path.join(repo_root, entry))
+        and os.path.isfile(os.path.join(repo_root, entry, "INTEROP.md"))
+    )
+    return hits >= _MIN_INTEROP_SIBLINGS
 
 
 def _parse_state(path):
