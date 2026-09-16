@@ -16,10 +16,11 @@ import os
 import re
 import sys
 
-# Add shared directory to path for path_resolution import
-_shared_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'shared')
-if _shared_dir not in sys.path:
-    sys.path.insert(0, _shared_dir)
+# path_resolution.py lives alongside this file (a per-plugin copy -- see its own
+# docstring for why it isn't imported from a monorepo-relative shared/ directory).
+_this_dir = os.path.dirname(os.path.abspath(__file__))
+if _this_dir not in sys.path:
+    sys.path.insert(0, _this_dir)
 from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
 
 # Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback

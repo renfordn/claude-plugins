@@ -1,6 +1,20 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.15] - 2026-09-16
+
+**Critical: fix a packaging bug breaking every fresh install**
+
+### Fixes & Improvements
+
+- **`hooks/tdd_state.py`** imported `path_resolution` from a monorepo-relative `shared/`
+  directory — only resolves inside the dev checkout, never in a marketplace-installed package,
+  which bundles only this plugin's own subdirectory. Every hook depending on `tdd_state.py`
+  raised `ModuleNotFoundError` on a real fresh install of any version since the
+  `${CLAUDE_PLUGIN_DATA}` migration (0.1.11+). Fixed by giving this plugin its own local copy
+  of `path_resolution.py` in `hooks/`, verified by copying `hooks/` alone to an isolated tmp
+  directory with no monorepo present and confirming it still imports.
+
 ## [0.1.14] - 2026-09-16
 
 **Fix: stale readiness-check references left after the modular design-spec retirement**
