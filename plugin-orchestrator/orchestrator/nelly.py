@@ -449,3 +449,64 @@ class NellyBriefManager:
         fetched_at = cache.get("fetched_at", 0)
         age = time.time() - fetched_at
         return age > NELLY_BRIEF_CACHE_TTL
+
+    def fetch_and_cache(
+        self,
+        workflow_state: dict,
+        cwd: str = ".",
+        task_description: str = "",
+        intent_hash: Optional[str] = None
+    ) -> None:
+        """Fetch nelly brief and cache in workflow_state.
+
+        Handles Intent Hash validation and TTL-based cache refresh.
+        Graceful degradation: no error raised if nelly unavailable.
+
+        Args:
+            workflow_state: Workflow state dict (modified in-place)
+            cwd: Current working directory (default ".")
+            task_description: Task description for brief
+            intent_hash: Optional explicit Intent Hash for validation
+        """
+        try:
+            # Ensure orchestration structure exists
+            if "orchestration" not in workflow_state:
+                workflow_state["orchestration"] = {}
+
+            # Compute hashes
+            comp_intent_hash, comp_design_hash = self._compute_hashes(cwd)
+
+            # Check if cache is valid
+            cache = workflow_state["orchestration"].get("nelly_brief_cache", {})
+
+            # If Intent Hash provided and matches, reuse cache if not expired
+            if intent_hash and cache.get("intent_hash") == intent_hash:
+                if not self._cache_is_expired(cache):
+                    return  # Cache is still valid
+
+            # Fetch fresh brief
+            brief_text, metadata = self._call_agent_nelly(
+                cwd, task_description, comp_intent_hash, comp_design_hash, workflow_state
+            )
+
+            # Update cache
+            workflow_state["orchestration"]["nelly_brief_cache"] = {
+                "brief_text": brief_text,
+                "metadata": metadata or {},
+                "intent_hash": comp_intent_hash,
+                "design_hash": comp_design_hash,
+                "timestamp": time.time(),
+            }
+
+        except Exception:
+            # Graceful degradation: ensure cache structure exists even if fetch fails
+            if "orchestration" not in workflow_state:
+                workflow_state["orchestration"] = {}
+            if "nelly_brief_cache" not in workflow_state["orchestration"]:
+                workflow_state["orchestration"]["nelly_brief_cache"] = {
+                    "brief_text": "",
+                    "metadata": {},
+                    "intent_hash": "",
+                    "design_hash": "",
+                    "timestamp": time.time(),
+                }
