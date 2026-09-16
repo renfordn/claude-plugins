@@ -87,14 +87,25 @@ def read_rollback_pending(path):
     return parse_state_json(path).get("rollback_pending")
 
 
-def write_test_author_pending(path, slice_name, timestamp):
+def write_test_author_pending(path, slices, detected_at):
     """Set workflow-state.json's test_author_pending field, preserving other fields.
 
+    `slices` is a list of {"name": str, "files": [str, ...]} dicts -- one per high-risk
+    slice detected at agent-tdd's slicing_complete checkpoint (see high_risk_reviewer.py).
     Creates the file if it doesn't exist yet, mirroring write_rollback_pending's
     tolerant-of-missing-file behavior.
     """
     data = parse_state_json(path)
-    data["test_author_pending"] = {"slice": slice_name, "timestamp": timestamp}
+    data["test_author_pending"] = {"slices": slices, "detected_at": detected_at}
+    write_state_json(path, data)
+
+
+def clear_test_author_pending(path):
+    """Remove test_author_pending from workflow-state.json. No-op if file or field missing."""
+    data = parse_state_json(path)
+    if "test_author_pending" not in data:
+        return
+    del data["test_author_pending"]
     write_state_json(path, data)
 
 

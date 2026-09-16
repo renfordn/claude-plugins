@@ -56,6 +56,17 @@ class HooksJsonStructureTests(unittest.TestCase):
             commands = _commands_for(config, event, "Agent")
             self.assertFalse(any("nelly_spawn_failure.py" in c for c in commands))
 
+    def test_design_spec_gate_registered_before_before_continue(self):
+        """design_spec_gate.py (2026-09-16) must be registered on PreToolUse/Agent, ordered
+        before before_continue.py so a deny can short-circuit ahead of state-coordination
+        work (see design.md's Architecture Or Code Touchpoints, touchpoint 5)."""
+        config = _load()
+        commands = _commands_for(config, "PreToolUse", "Agent")
+        self.assertTrue(any("design_spec_gate.py" in c for c in commands))
+        gate_idx = next(i for i, c in enumerate(commands) if "design_spec_gate.py" in c)
+        continue_idx = next(i for i, c in enumerate(commands) if "before_continue.py" in c)
+        self.assertLess(gate_idx, continue_idx)
+
     def test_slice_spec_gate_disabled_for_phase_2_3(self):
         """Phase 2+3 (Design Spec handoff) eliminated per-slice Slice Spec validation.
         The old slice_spec_gate.py hook is incompatible with one-directional Design Spec

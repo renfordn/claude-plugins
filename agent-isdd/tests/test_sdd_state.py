@@ -160,5 +160,59 @@ class RollbackPendingTests(unittest.TestCase):
         self.sdd_state.clear_rollback_pending("/nonexistent/workflow-state.json")
 
 
+class TestAuthorPendingTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, h.HOOKS_DIR)
+        import importlib
+        self.sdd_state = importlib.import_module("sdd_state")
+
+    def _write_json(self, path, data):
+        import json
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+
+    def test_write_then_read_round_trip(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "workflow-state.json")
+            self._write_json(path, {"current_phase": "Implementation"})
+            slices = [{"name": "Slice 3: Auth token refresh", "files": ["src/auth.py"]}]
+            self.sdd_state.write_test_author_pending(path, slices, "2026-09-16T00:00:00")
+            pending = self.sdd_state.parse_state_json(path).get("test_author_pending")
+            self.assertEqual(pending["slices"], slices)
+            self.assertEqual(pending["detected_at"], "2026-09-16T00:00:00")
+            # other fields preserved
+            self.assertEqual(
+                self.sdd_state.parse_state_json(path).get("current_phase"), "Implementation"
+            )
+
+    def test_clear_removes_field(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "workflow-state.json")
+            self._write_json(path, {"current_phase": "Implementation"})
+            self.sdd_state.write_test_author_pending(
+                path, [{"name": "Slice 1", "files": []}], "2026-09-16T00:00:00"
+            )
+            self.sdd_state.clear_test_author_pending(path)
+            self.assertNotIn(
+                "test_author_pending", self.sdd_state.parse_state_json(path)
+            )
+
+    def test_clear_is_noop_when_file_missing(self):
+        # must not raise
+        self.sdd_state.clear_test_author_pending("/nonexistent/workflow-state.json")
+
+    def test_write_creates_file_if_missing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "workflow-state.json")
+            self.sdd_state.write_test_author_pending(
+                path, [{"name": "Slice 1", "files": []}], "2026-09-16T00:00:00"
+            )
+            pending = self.sdd_state.parse_state_json(path).get("test_author_pending")
+            self.assertIsNotNone(pending)
+
+
 if __name__ == "__main__":
     unittest.main()

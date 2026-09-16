@@ -17,6 +17,7 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'hooks'))
 
 import high_risk_reviewer
+import hook_test_utils as h
 
 
 class ParseAgentTddPhaseTests(unittest.TestCase):
@@ -1826,6 +1827,96 @@ class ClassifySeverityTests(unittest.TestCase):
         }
         result = high_risk_reviewer.classify_severity(dimensions)
         self.assertEqual(result, "major")
+
+
+class MainSlicingCompleteTests(unittest.TestCase):
+    """Tests for main()'s slicing_complete + test_author_pending detection (design.md
+    touchpoint 2: reuses read_tasks_md()/get_high_risk_phases() unchanged, writes
+    test_author_pending via sdd_state.write_test_author_pending)."""
+
+    def _write_tasks_md(self, feature_dir, body):
+        tasks_dir = os.path.join(feature_dir, "tasks")
+        os.makedirs(tasks_dir, exist_ok=True)
+        with open(os.path.join(tasks_dir, "tasks.md"), "w", encoding="utf-8") as fh:
+            fh.write(body)
+
+    def _write_transcript(self, path, report_text):
+        line = json.dumps({
+            "type": "assistant",
+            "message": {"role": "assistant", "content": report_text},
+        })
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
+    def test_slicing_complete_with_high_risk_writes_test_author_pending(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Risky migration
+
+**Risk Tier:** high-risk
+**Files:** `src/migrate.py`
+
+## Slice 2: Safe rename
+
+**Risk Tier:** standard
+**Files:** `src/rename.py`
+""")
+            transcript = os.path.join(home, "transcript.jsonl")
+            self._write_transcript(
+                transcript,
+                "<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:slicing_complete-->\n"
+                "Ready for implementation.",
+            )
+            msg, rc = h.run_hook_message(
+                "high_risk_reviewer.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(msg)
+            self.assertIn("Risky migration", msg)
+
+            json_path = os.path.join(feature_dir, "workflow-state.json")
+            with open(json_path, encoding="utf-8") as fh:
+                state = json.load(fh)
+            pending = state.get("test_author_pending")
+            self.assertIsNotNone(pending)
+            self.assertEqual(len(pending["slices"]), 1)
+            self.assertEqual(pending["slices"][0]["name"], "Risky migration")
+            self.assertEqual(pending["slices"][0]["files"], ["src/migrate.py"])
+            self.assertIn("detected_at", pending)
+
+    def test_slicing_complete_with_zero_high_risk_makes_no_write(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Safe rename
+
+**Risk Tier:** standard
+**Files:** `src/rename.py`
+""")
+            transcript = os.path.join(home, "transcript.jsonl")
+            self._write_transcript(
+                transcript,
+                "<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:slicing_complete-->\n"
+                "Ready for implementation.",
+            )
+            h.run_hook_message(
+                "high_risk_reviewer.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+
+            json_path = os.path.join(feature_dir, "workflow-state.json")
+            if os.path.exists(json_path):
+                with open(json_path, encoding="utf-8") as fh:
+                    state = json.load(fh)
+                self.assertNotIn("test_author_pending", state)
 
 
 if __name__ == "__main__":

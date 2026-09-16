@@ -6,6 +6,7 @@ Tracks high-risk slices from tasks.md and reminds user to run code-reviewer
 during agent-tdd's Green→Refactor pauses. Surfaces a checkpoint after all
 slices complete to verify code-reviewer was run on each high-risk slice.
 """
+import datetime
 import json
 import os
 import subprocess
@@ -15,12 +16,20 @@ import re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from sdd_state import active_state_file, parse_state_json
+    from sdd_state import active_state_file, parse_state_json, write_test_author_pending
 except ImportError:
     def active_state_file(cwd):
         return None
     def parse_state_json(path):
         return {}
+    def write_test_author_pending(path, slices, detected_at):
+        pass
+
+try:
+    from subagent_report import extract_last_assistant_text
+except ImportError:
+    def extract_last_assistant_text(transcript_path, tail_bytes=16384):
+        return ""
 
 
 # Regex patterns for markdown parsing
@@ -853,6 +862,27 @@ def main(payload=None):
     # Initialize tracking on first pass
     tasks_md_phases = read_tasks_md(feature_dir)
     high_risk = get_high_risk_phases(tasks_md_phases)
+
+    # Conditional slicing_complete pause (design.md touchpoint 2): when agent-tdd's own
+    # report is at the slicing_complete checkpoint and >=1 slice is high-risk, write
+    # test_author_pending so the caller's Implementation Handoff step can spawn test-author
+    # and resume. Zero high-risk slices: no write (inertness), fall through to the existing
+    # green_pause checkpoint logic below unchanged.
+    report_text = extract_last_assistant_text(payload.get("transcript_path", ""))
+    if report_text:
+        _, phase_name = parse_agent_tdd_phase(report_text)
+        if phase_name == "slicing_complete" and high_risk:
+            json_path = os.path.join(feature_dir, "workflow-state.json")
+            slices = [{"name": p["name"], "files": p.get("files", [])} for p in high_risk]
+            detected_at = datetime.datetime.now().isoformat(timespec="seconds")
+            write_test_author_pending(json_path, slices, detected_at)
+            names = "\n".join(f"- {s['name']}" for s in slices)
+            return (
+                f"agent-TDD: {len(slices)} high-risk slice(s) need test-author before "
+                f"implementation can proceed:\n{names}\n\n"
+                "Recorded as test_author_pending in workflow-state.json. Spawn test-author "
+                "for each, then resume agent-TDD via SendMessage with the bundled results."
+            )
 
     if high_risk:
         init_code_reviewer_tracking(feature_dir, high_risk)

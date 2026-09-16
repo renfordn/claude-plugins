@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Test-Author Gate: close the mid-pipeline high-risk-slice escalation gap for real
+  (0.1.31).** Full reimplementation of the isdd-tdd Design Spec handoff, following its own SDD
+  workflow (Requirements → Design → Implementation via `agent-tdd:agent-TDD`). Replaces the
+  abandoned `TEST_AUTHOR_NEEDED_MARKER` approach (added and removed the same day) with a
+  simpler mechanism: since `agent-tdd` already knows every slice's Risk Tier before
+  implementation begins, `agent-TDD` now stops at `slicing_complete` when any slice is
+  high-risk (previously it proceeded straight through with no way for the caller to supply
+  `test-author`'s output). `hooks/high_risk_reviewer.py` detects this and writes
+  `test_author_pending` to `workflow-state.json`; `skills/spec-driven-development/SKILL.md`'s
+  Implementation Handoff spawns `test-author` per named slice and resumes `agent-TDD` via
+  `SendMessage` — the one scoped exception to the one-directional handoff. Also adds a real
+  Design Spec completeness gate (`hooks/design_spec_gate.py`, modeled on
+  `memory_permission.py`), replacing the disabled, wrong-schema `slice_spec_gate.py`. Both
+  `INTEROP.md` files rewritten together to describe this identically. 260 tests pass.
+
 - **Add `plan-reviewer` skill: tiered, token-efficient design verification (0.1.30).**
   Replaces ad hoc use of the harness's built-in `Plan` subagent for verifying `design.md`
   before the Design Gate — `Plan` is open-scoped and was observed taking 10+ minutes for a

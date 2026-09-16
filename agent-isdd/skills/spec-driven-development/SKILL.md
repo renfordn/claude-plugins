@@ -271,15 +271,34 @@ research/cache.md, pre-fetched file summaries, recap.md).
    is not installed in this session — install it before requesting implementation") rather than
    attempting the work internally.
 5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool).
-6. Take its returned handoff report:
+6. **[Added 2026-09-16] Test-author pause check** — after the spawn returns, check
+   `workflow-state.json` for `test_author_pending` (written by `hooks/high_risk_reviewer.py`
+   when `agent-TDD`'s report is at `slicing_complete` with one or more high-risk slices — see
+   its **High-Risk Slices** field, and `agent-tdd/INTEROP.md`'s "Design Spec Mode" section for
+   the full contract). If set:
+   - Spawn `agent-tdd:test-author` once per slice named in `test_author_pending.slices`,
+     passing that slice's Task description/Test Intent/Data Contracts (per
+     `agent-tdd/INTEROP.md`'s existing test-author field-subset rule — Task description, Test
+     Intent, Data Contracts And Interfaces only).
+   - Bundle every returned test into one resume message.
+   - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results.
+   - Clear `test_author_pending` from `workflow-state.json` (mirrors `clear_rollback_pending`'s
+     existing pattern in `hooks/sdd_state.py`).
+   - This is the **one** scoped exception to step 7 below — resuming here, for this specific
+     reason, is expected. Nothing else about the one-directional handoff changes: this skill
+     still never resumes `agent-TDD` for an ordinary per-slice Green→Refactor review pause, only
+     for this single upfront test-author gate before per-slice implementation begins.
+7. Take its returned handoff report (the resumed one, if step 6 applied; the original one
+   otherwise):
    - If report indicates research validation escalation: pause and surface reason (user re-enters
      to address, then agent-isdd continues via before-continue hook)
    - If report indicates slicing blockers: pause with specific blocker
    - If report indicates implementation started: log handoff in `recap.md`, set
      `Workflow Status: Complete`
-7. Do not resume, monitor, or drive `agent-TDD` past this initial spawn — anything after its
-   own review pauses or implementation is outside this skill's scope.
-8. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
+8. Do not resume, monitor, or drive `agent-TDD` past step 6's single test-author pause —
+   anything after that (its own per-slice review pauses, or implementation) is outside this
+   skill's scope, same as before this change.
+9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
    `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
    batch. One call only — no re-fetch of the brief needed.
 

@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import (  # noqa: E402
     active_state_file,
     write_rollback_pending,
-    write_test_author_pending,
 )
 
 # Markers that identify a spec-reviewer report.
@@ -57,11 +56,10 @@ ROLLBACK_MARKER = re.compile(
 # the reason clearly indicates a narrower problem instead.
 PLAN_FLAG_MARKER = re.compile(r'<!--AGENT-TDD-PLAN-FLAG:\s*reason="([^"]*)"-->')
 
-# agent-tdd's marker for the conditional test-author split (see agent-tdd's own docs on
-# Risk Tier `high-risk` slices): emitted when agent-TDD determines a slice needs test-author
-# spawned before it can write Red itself. Same shape as PLAN_FLAG_MARKER -- a regex plus a
-# small extractor function -- and wired into the same main() rollback/flag-detection block.
-TEST_AUTHOR_NEEDED_MARKER = re.compile(r'<!--AGENT-TDD-TEST-AUTHOR-NEEDED:slice="([^"]*)"-->')
+# Note: an earlier TEST_AUTHOR_NEEDED_MARKER convention (marker emitted by agent-TDD itself)
+# was removed 2026-09-16 -- detection of high-risk slices needing test-author now happens in
+# high_risk_reviewer.py, which parses agent-TDD's slicing_complete phase marker plus tasks.md
+# already on disk (no separate marker needed; see design.md's Research Basis for this feature).
 
 
 def is_sdd_report(text):
@@ -90,14 +88,6 @@ def extract_plan_validity_flag(text):
         "reason": f"[agent-tdd Plan Validity Flag, target defaulted to Requirements (most "
                    f"conservative) -- re-evaluate against reason] {reason}",
     }
-
-
-def extract_test_author_needed(text):
-    """Return the slice name from agent-tdd's TEST-AUTHOR-NEEDED marker, else None."""
-    m = TEST_AUTHOR_NEEDED_MARKER.search(text)
-    if not m:
-        return None
-    return m.group(1)
 
 
 def _append_pending_rollback_line(state_md_path, target, reason):
@@ -191,16 +181,6 @@ def main(payload=None):
             f"SDD: a rollback request was received (target={rollback['target']}) — "
             "recorded as rollback_pending in workflow-state.json and workflow-state.md. "
             "The next /isdd-continue will route it through the Rewind Contract."
-        )
-
-    slice_name = extract_test_author_needed(report)
-    if slice_name:
-        json_path = os.path.join(feature_dir, "workflow-state.json")
-        ts = datetime.datetime.now().isoformat(timespec="seconds")
-        write_test_author_pending(json_path, slice_name, ts)
-        return (
-            f'agent-TDD: slice "{slice_name}" needs test-author spawned before agent-TDD can '
-            "be resumed."
         )
 
     if not is_sdd_report(report):

@@ -42,10 +42,29 @@ validation, task slicing, and implementation.
 3. **Implementation** (Red-Green-Refactor per slice, existing behavior)
 
 This is a **one-directional handoff**: agent-isdd does not resume or monitor agent-tdd past
-the initial spawn. Task slicing happens inside agent-tdd (not handed back to agent-isdd as
-Slice Specs). Escalations back to agent-isdd (design contradicts research, research too thin)
-pause with explicit reason; agent-isdd resumes via its `before-continue` hook when user
-re-enters after addressing the escalation.
+the initial spawn, with one scoped exception (Test-Author Gate, immediately below). Task
+slicing happens inside agent-tdd (not handed back to agent-isdd as Slice Specs). Escalations
+back to agent-isdd (design contradicts research, research too thin) pause with explicit reason;
+agent-isdd resumes via its `before-continue` hook when user re-enters after addressing the
+escalation.
+
+**Exception — Test-Author Gate (automatic, `spec-driven-development` skill-driven,
+added 2026-09-16)**: `agent-tdd` already determines every slice's Risk Tier during Task Slicing
+and Risk Tier Assignment (Phases 2 and 4 below), *before* per-slice implementation begins — so a
+high-risk slice needing `test-author` is never actually discovered mid-pipeline, it's known at
+the `slicing_complete` checkpoint. When `tasks.md` contains at least one `high-risk` slice,
+`agent-TDD` stops there and hands back a report naming them (its **High-Risk Slices** field —
+see `agent-tdd`'s own `agents/agent-TDD.md`). `hooks/high_risk_reviewer.py` (on `SubagentStop`)
+detects this and writes `test_author_pending` to `workflow-state.json`, structurally parallel to
+this file's existing `rollback_pending` field. `skills/spec-driven-development/SKILL.md`'s
+Implementation Handoff step 6 reads it, spawns `agent-tdd:test-author` once per named slice,
+bundles the results, and resumes the same `agent-TDD` instance via `SendMessage` — the *only*
+point this skill ever resumes `agent-tdd`. Zero high-risk slices means zero behavior change:
+`agent-TDD` proceeds straight through exactly as before this exception existed. This closes a
+gap from an earlier attempt at the same problem (a caller-side marker,
+`TEST_AUTHOR_NEEDED_MARKER`, added and then removed the same day it was added, once it became
+clear no marker was needed at all — see `hooks/subagent_report.py`'s own comment for that
+history).
 
 **Exception — Code-Review Gate (manual, caller-driven)**: `agent-TDD`'s Review pause between
 Green and Refactor is mandatory for *every* slice (see `agent-tdd`'s own `INTEROP.md`, "The
@@ -147,9 +166,24 @@ Ralph Loops results: all passed | <loop name> iteration X of max
 ```
 
 **After Tasks readiness passes:**
-- If verdict == `ready`: proceed to Red-Green-Refactor per slice (existing agent-tdd behavior)
-- If verdict == `paused`: return reason; user re-enters agent-isdd to address it
-- Do NOT proceed to implementation until readiness checklist fully passes
+- If verdict == `ready` and no slice is `high-risk`: proceed to Red-Green-Refactor per slice
+  directly (existing agent-tdd behavior, unchanged).
+- If verdict == `ready` and one or more slices are `high-risk`: stop and hand back the report
+  (naming them) instead of proceeding — see "Exception — Test-Author Gate" above for the full
+  contract. This is not an escalation/pause in the sense of the paths below (nothing is wrong;
+  the plan is fine); it's a different reason to return, requiring `test-author` output before
+  implementation can start.
+- If verdict == `paused`: return reason; user re-enters agent-isdd to address it.
+- Do NOT proceed to implementation until readiness checklist fully passes, and (when
+  applicable) until the Test-Author Gate has been satisfied.
+
+**Design Spec completeness gate**: `hooks/design_spec_gate.py` (`PreToolUse`, matcher `Agent`,
+scoped to `subagent_type: agent-tdd:agent-TDD`) hard-denies the spawn unless the active
+feature's `requirements.md` and `design.md` are both `State: Approved` on disk — modeled on
+`hooks/memory_permission.py`'s pattern, replacing the retired `slice_spec_gate.py` (which
+validated a different, incompatible schema and was never wired into `hooks.json` for this
+handoff path). Read-only; never mutates state; falls through with no decision when no SDD
+workflow is active at all.
 
 **Availability check**: unlike `agent-nelly`, which is checked eagerly at `before-requirements`
 and cached in `workflow-state.json` because it is used throughout the workflow, `agent-tdd` is
