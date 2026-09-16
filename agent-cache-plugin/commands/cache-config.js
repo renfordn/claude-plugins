@@ -324,47 +324,53 @@ Hit Rate:              ${config.current.hitRate}
   _validateValue(key, value) {
     try {
       switch (key) {
-        case 'maxSize':
+        case 'maxSize': {
           const sizeBytes = this._parseBytes(value);
           if (sizeBytes < 1024 * 1024) { // Min 1 MB
             return { valid: false, error: 'maxSize must be at least 1 MB', hint: 'Use units: 100MB, 1GB, etc.' };
           }
           return { valid: true, parsedValue: sizeBytes };
+        }
 
-        case 'maxEntries':
+        case 'maxEntries': {
           const entries = parseInt(value);
           if (isNaN(entries) || entries < 100) {
             return { valid: false, error: 'maxEntries must be at least 100', hint: 'Example: 10000' };
           }
           return { valid: true, parsedValue: entries };
+        }
 
-        case 'defaultTTL':
+        case 'defaultTTL': {
           const ttl = this._parseDuration(value);
           if (ttl < 60 * 1000) { // Min 1 minute
             return { valid: false, error: 'defaultTTL must be at least 1 minute', hint: 'Use: 1h, 7d, 1d, etc.' };
           }
           return { valid: true, parsedValue: ttl };
+        }
 
-        case 'evictionPolicy':
+        case 'evictionPolicy': {
           const policy = String(value).toUpperCase();
           if (!['LRU', 'LFU', 'FIFO'].includes(policy)) {
             return { valid: false, error: 'evictionPolicy must be LRU, LFU, or FIFO', hint: 'Example: LRU' };
           }
           return { valid: true, parsedValue: policy };
+        }
 
-        case 'relevanceThreshold':
+        case 'relevanceThreshold': {
           const threshold = parseInt(value);
           if (isNaN(threshold) || threshold < 50 || threshold > 95) {
             return { valid: false, error: 'relevanceThreshold must be between 50 and 95', hint: 'Example: 75' };
           }
           return { valid: true, parsedValue: threshold };
+        }
 
-        case 'stalenessThreshold':
+        case 'stalenessThreshold': {
           const stale = this._parseDuration(value);
           if (stale < 60 * 1000) { // Min 1 minute
             return { valid: false, error: 'stalenessThreshold must be at least 1 minute', hint: 'Use: 1h, 7d, etc.' };
           }
           return { valid: true, parsedValue: stale };
+        }
 
         default:
           return { valid: false, error: `Unknown key: ${key}` };
