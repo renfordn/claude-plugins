@@ -66,3 +66,14 @@ facts, `code-reviewer` will never write its own per-file/per-pass records there 
 is a guardrail in its own SKILL.md, not something you need to enforce from the caller side. A
 recurring convention violation worth remembering across features is something *you* decide to
 write to that memory tier, separately from this skill's review-state directory.
+
+## Validating findings before ReportFindings
+
+Before calling `ReportFindings`, ensure all findings meet the tool's field constraints:
+
+- `short_summary`: ≤60 characters (required)
+- `summary`: ≤200 characters (recommended)
+
+Use the shared `findings_validator` utility to truncate oversized fields and validate input before
+calling the tool. See `shared/FINDINGS_VALIDATOR_USAGE.md` for examples and API reference. This
+prevents `ReportFindings` call failures when findings contain verbose summaries.
