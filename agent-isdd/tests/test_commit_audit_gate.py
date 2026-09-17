@@ -111,6 +111,42 @@ class CommitAuditGateTests(unittest.TestCase):
             self.assertIsNotNone(decision)
             self.assertEqual(decision["permissionDecision"], "deny")
 
+    def test_count_today_reflects_logged_runs(self):
+        with h.temp_git_repo(with_plugin_dirs=True) as repo, h.temp_home() as home:
+            env = dict(os.environ, HOME=home)
+
+            # nothing staged -> allow, logged
+            decision, rc = h.run_hook(
+                "commit_audit_gate.py",
+                {"tool_input": {"command": 'git commit -m "test"'}, "cwd": repo},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(decision["permissionDecision"], "allow")
+
+            # stage a change with no recorded audit state -> deny, logged
+            self._stage_a_change(repo)
+            decision, rc = h.run_hook(
+                "commit_audit_gate.py",
+                {"tool_input": {"command": 'git commit -m "test"'}, "cwd": repo},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(decision["permissionDecision"], "deny")
+
+            # a non-commit command must not add to the count
+            h.run_hook(
+                "commit_audit_gate.py",
+                {"tool_input": {"command": "ls -la"}, "cwd": repo},
+                env_extra={"HOME": home},
+            )
+
+            script = os.path.join(h.HOOKS_DIR, "commit_audit_gate.py")
+            result = __import__("subprocess").run(
+                ["python3", script, "--count-today", repo],
+                capture_output=True, text=True, env=env, timeout=10,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.strip(), "2")
+
     def test_sdd_gate_off_bypasses(self):
         with h.temp_git_repo(with_plugin_dirs=True) as repo, h.temp_home() as home:
             self._stage_a_change(repo)

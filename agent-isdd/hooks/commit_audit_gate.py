@@ -15,20 +15,47 @@ root *and* doesn't contain sibling plugin dirs carrying INTEROP.md, so this
 hook never affects commits in unrelated repositories even though it's
 registered globally via this plugin's hooks.json.
 """
+import datetime
 import json
 import os
 import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_memory import memory_dir  # noqa: E402
+from sdd_memory import memory_dir, ensure_dir  # noqa: E402
 from diff_fingerprint import compute as compute_fingerprint  # noqa: E402
 
 _COMMIT_RE = re.compile(r"(?:^|[;&|]\s*)git\s+commit\b")
 _TRACKED_DIRS = ("skills", "agents", "commands", "hooks")
+_RUN_LOG_NAME = "RUN-LOG.jsonl"
 
 
-def allow(reason=None):
+def _log_run(cwd, decision, reason=None):
+    """Append one JSONL record for this evaluation of a `git commit` invocation.
+
+    Only called once the hook has confirmed it's looking at a real `git commit`
+    in this plugin's repo -- no-ops for unrelated Bash calls are not logged,
+    since "how many times did the gate run" means commit evaluations, not
+    every Bash invocation it happens to be wired to via PreToolUse.
+    """
+    try:
+        record = {
+            "ts": datetime.datetime.now().astimezone().isoformat(),
+            "decision": decision,
+        }
+        if reason:
+            record["reason"] = reason
+        log_path = os.path.join(ensure_dir(cwd), _RUN_LOG_NAME)
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+    except OSError:
+        print(f"commit_audit_gate: failed to write run log to {cwd!r}: logging is "
+              f"unavailable, --count-today may undercount", file=sys.stderr)
+
+
+def allow(reason=None, cwd=None):
+    if cwd is not None:
+        _log_run(cwd, "allow", reason)
     out = {"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": "allow",
@@ -39,7 +66,9 @@ def allow(reason=None):
     sys.exit(0)
 
 
-def deny(reason):
+def deny(reason, cwd=None):
+    if cwd is not None:
+        _log_run(cwd, "deny", reason)
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": "deny",
@@ -124,7 +153,7 @@ def main():
     current_fp = compute_fingerprint(cwd)
     if current_fp is None:
         allow("SDD doc-audit gate: nothing staged under skills/agents/commands/hooks, "
-              "nothing to audit.")
+              "nothing to audit.", cwd=cwd)
 
     state_path = os.path.join(memory_dir(cwd), "DOC-AUDIT-STATE.md")
     fields = _parse_state(state_path)
@@ -133,16 +162,42 @@ def main():
 
     if status == "passed" and recorded_fp == current_fp:
         allow("SDD doc-audit gate: doc-consistency-auditor already ran clean against this "
-              "exact staged diff.")
+              "exact staged diff.", cwd=cwd)
 
     deny(
         "SDD doc-audit gate: doc-consistency-auditor has not run against the currently "
         "staged skills/agents/commands/hooks diff (or its last run is stale/blocked). "
         "Run the doc-consistency-auditor skill, then retry this commit.\n"
         f"Current status: '{status or 'none recorded'}'. "
-        "To bypass for one-off work: SDD_GATE=off in the environment."
+        "To bypass for one-off work: SDD_GATE=off in the environment.",
+        cwd=cwd,
     )
 
 
+def _count_today(cwd):
+    log_path = os.path.join(memory_dir(cwd), _RUN_LOG_NAME)
+    today = datetime.datetime.now().astimezone().date().isoformat()
+    count = 0
+    try:
+        with open(log_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("ts", "").startswith(today):
+                    count += 1
+    except OSError:
+        pass
+    return count
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--count-today":
+        cwd_arg = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
+        print(_count_today(cwd_arg))
+    else:
+        main()
