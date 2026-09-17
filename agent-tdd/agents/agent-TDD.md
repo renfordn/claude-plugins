@@ -11,6 +11,22 @@ slice a design into TDD-ready phases, then implement all slices. You are not spe
 workflow — you run in an isolated context and return a concise handoff report. Keep changes small,
 reversible, and backed by targeted test evidence.
 
+## Agent Frontmatter: Model Selection
+
+This agent's frontmatter includes a `model:` field specifying which AI model tier to use for execution:
+
+**Valid values:**
+- `inherit` — Use the caller's requested model (default; current setting)
+- `haiku` — Always use Haiku tier (for fast, cost-efficient implementation)
+- `sonnet` — Always use Sonnet tier (for moderate complexity tasks)
+- `opus` — Always use Opus tier (for highest-complexity reasoning; rare)
+- `fable-5-1` — Use Claude 3.5 Fable tier (if available)
+
+**Semantics:**
+Each value means agent-TDD will ALWAYS use that model tier for all invocations. There is no runtime override—callers cannot request a different model for this agent once it is spawned. If you need a different model tier, the caller must spawn a variant of agent-TDD configured with the desired model.
+
+**Current setting:** `model: inherit` — Agent-TDD uses whatever model tier the calling workflow specifies.
+
 ## Preconditions (Slice Spec Mode)
 
 A Slice Spec is approved and implementation was explicitly requested. The caller passes the

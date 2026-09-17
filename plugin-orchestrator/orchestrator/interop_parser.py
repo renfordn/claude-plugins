@@ -52,6 +52,7 @@ class Capability:
     description: str = ""
     consumes: Dict = field(default_factory=dict)
     produces: Dict = field(default_factory=dict)
+    modelPreference: Optional[Dict] = None
 
 
 @dataclass

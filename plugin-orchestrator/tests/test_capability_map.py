@@ -485,6 +485,34 @@ class TestCapabilityMapFromPlugins(unittest.TestCase):
         self.assertIsNotNone(cap_map.get_plugin("fake"))
         self.assertEqual(cap_map.get_interop_hashes(), {})
 
+    def test_capability_includes_model_preference_field(self):
+        """Slice 5: Capability supports modelPreference metadata."""
+        capability = Capability(
+            plugin="test-plugin",
+            id="test_capability",
+            description="Test capability with model preference",
+            modelPreference={
+                "min_tier": "haiku",
+                "preferred_tier": "sonnet"
+            }
+        )
+
+        self.assertIsNotNone(capability.modelPreference)
+        self.assertEqual(capability.modelPreference["min_tier"], "haiku")
+        self.assertEqual(capability.modelPreference["preferred_tier"], "sonnet")
+
+    def test_capability_model_preference_optional(self):
+        """Slice 5: modelPreference field is optional (backward compatibility)."""
+        capability = Capability(
+            plugin="test-plugin",
+            id="test_capability",
+            description="Test capability without model preference"
+            # No modelPreference field
+        )
+
+        # Should not raise; old capabilities work without modelPreference
+        self.assertIsNone(capability.modelPreference)
+
 
 if __name__ == "__main__":
     unittest.main()
