@@ -201,8 +201,12 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
    reviews-and-rewrites when the user hands over an existing ticket/PRD/draft, or — when
    `Track: Fast` — drafts and self-approves a minimal requirement directly (its own Fast Track
    entry mode; see `requirements-agent/SKILL.md`) — three entry modes, same gate.
-8. After Requirements are approved, continue automatically into `Design` (`design-author`).
-9. After Design is approved, continue automatically into `Implementation` (`agent-tdd`).
+8. **After Requirements are approved, immediately invoke `design-author` in this turn** (see
+   "Turn Management: Continuation Guarantee" below for the critical constraint). Do not end your
+   turn after approving requirements — advance to Design without stopping.
+9. **After Design is approved, immediately prepare and invoke `agent-tdd` for Implementation
+   handoff in this turn** (same constraint applies). Do not end your turn after approving design
+   — proceed to handoff without stopping.
 10. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
     transfers to `agent-tdd`.)
 
@@ -227,6 +231,31 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
 
 Do not restart from Requirements if a later phase is already the active incomplete phase,
 unless requirement changes invalidate the design or tasks.
+
+## Turn Management: Continuation Guarantee
+
+**Critical constraint to prevent mid-workflow stalls:**
+
+After advancing to a new phase (Requirements → Design → Tasks → Implementation), the orchestrator **must stay in this turn** to invoke the next phase skill. Providing guidance, decisions, or explanations at a phase boundary is not a stopping point — it is a prerequisite to invoking the next skill.
+
+### When to NOT End Your Turn
+- **After Requirements approval**: You have approved requirements. Do NOT stop here. Immediately invoke `design-author` in this turn.
+- **After Design approval**: You have approved design. Do NOT stop here. Immediately invoke `agent-tdd` for implementation handoff in this turn.
+- **After delegating to a subagent**: You invoked `design-author`, `research-consolidator`, or another subagent. Do NOT end your turn and wait passively. When the subagent's work is complete, immediately integrate its results and continue to the next phase in this turn.
+
+### Guidance is a Step, Not a Stop
+Providing guidance ("These are the tradeoffs," "Consider this approach," "Next we'll...") or decisions ("Proceed with Category 1") is an intermediate step within a turn, not a turn-ending checkpoint. **Always follow guidance with the next actionable step** — invoke the next skill or confirm a decision — in the same turn. If you cannot proceed in this turn, explicitly tell the user why and ask for permission to pause.
+
+### Exception: Explicit Pause Conditions
+Stop your turn **only** when:
+1. A hard gate blocks you (Requirements ambiguous, Design contradicts requirements, Tasks validation fails) → surface the blocker and pause for user input
+2. The user explicitly asks you to stop or wait for confirmation
+3. The next phase requires the user's explicit permission (`EnterPlanMode` gate, implementation approval)
+
+If none of these apply, **do not end your turn.**
+
+### Recovery from Stalls
+If you realize mid-turn that you provided guidance and ended without invoking the next skill, **do not rely on the user to notice and run /sdd-continue**. Recognize the stall immediately and invoke the next phase skill retroactively in your very next message — the session may have ended, but the workflow state already reflects phase completion, so continuing via `/sdd-continue` will resume correctly.
 
 ## Internal Routing Rule
 
