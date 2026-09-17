@@ -11,6 +11,8 @@ Locate the active feature's `workflow-state.md` under the project's central SDD 
 `agent-ux:ux-agent` for the breadcrumb line, then summarize concisely:
 
 - Feature title, slug, and Goal
+- Track (Fast or Standard — Standard if the field is absent) and, for Fast, that no `tasks.md`
+  will be produced
 - Current phase and previous phase
 - Workflow status and pause reason
 - Next action

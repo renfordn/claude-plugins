@@ -67,14 +67,24 @@ class HooksJsonStructureTests(unittest.TestCase):
         continue_idx = next(i for i, c in enumerate(commands) if "before_continue.py" in c)
         self.assertLess(gate_idx, continue_idx)
 
-    def test_slice_spec_gate_disabled_for_phase_2_3(self):
-        """Phase 2+3 (Design Spec handoff) eliminated per-slice Slice Spec validation.
-        The old slice_spec_gate.py hook is incompatible with one-directional Design Spec
-        handoff and has been disabled. This test verifies it's no longer wired."""
+    def test_slice_spec_gate_reenabled_for_fast_track(self):
+        """Phase 2+3 (Design Spec handoff) eliminated *unconditional* per-slice Slice Spec
+        validation -- a real Design Spec prompt has no field-labeled Task description/Test
+        Intent text, so this gate was removed from hooks.json entirely rather than left to
+        misfire on every Design Spec handoff. Re-enabled 2026-09-17 for Track: Fast, which
+        reintroduces a genuine single-slice Slice Spec handoff (see slice_spec_gate.py's own
+        module docstring) -- the hook itself reads workflow-state.json's Track and no-ops for
+        Track: Standard, so it's now safe to register unconditionally on PreToolUse/Agent."""
         config = _load()
-        commands = _commands_for(config, "PreToolUse", "Task")
-        self.assertFalse(any("slice_spec_gate.py" in c for c in commands),
-                        "slice_spec_gate.py should be disabled (not registered) for Phase 2+3")
+        commands = _commands_for(config, "PreToolUse", "Agent")
+        self.assertTrue(any("slice_spec_gate.py" in c for c in commands),
+                        "slice_spec_gate.py should be registered on PreToolUse/Agent")
+        gate_idx = next(i for i, c in enumerate(commands) if "slice_spec_gate.py" in c)
+        continue_idx = next(i for i, c in enumerate(commands) if "before_continue.py" in c)
+        self.assertLess(gate_idx, continue_idx,
+                         "slice_spec_gate.py must run before before_continue.py so a deny "
+                         "can short-circuit ahead of state-coordination work, same reasoning "
+                         "as design_spec_gate.py's own ordering.")
 
 
 if __name__ == "__main__":

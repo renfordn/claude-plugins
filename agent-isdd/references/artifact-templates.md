@@ -60,6 +60,7 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 ## Current State
 
 - Current Phase: <Requirements | Design | Implementation | Complete>
+- Track: <Fast | Standard>
 - Previous Phase: <None | Requirements | Design | Implementation>
 - Workflow Status: <In Progress | Blocked | Awaiting Confirmation | Awaiting Implementation Request | Complete>
 - Pause Reason: <None | blocker | confirmation required | waiting for implementation request>
@@ -87,6 +88,7 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 Use `workflow-state.md` as a compact machine-readable summary for the workflow.
 
 - `Current Phase` is the primary continuation pointer, and is what the top-level breadcrumb (rendered by `agent-ux:ux-agent`, see `INTEROP.md`'s "→ agent-ux (UX rendering)" section) reads directly — no separate progress field exists or should be invented.
+- `Track` is set once at Start (see `spec-driven-development/SKILL.md`'s "Fast Track" section) and absent/unset means `Standard` — no migration needed for features started before this field existed. `Track: Fast` means `requirements-agent` used its Fast Track entry mode and the Implementation Handoff will send a single Slice Spec with review skipped, never a Design Spec; no `tasks.md` is produced. It can flip from `Fast` to `Standard` mid-flight (the Fast Track escape hatch) but never the other way around.
 - `Goal` is seeded once via `agent-nelly:agent-nelly` (if available) when the feature starts and rarely rewritten; `agent-nelly:agent-nelly` uses it for the goal-alignment check in every brief it returns.
 - `Workflow Status` determines whether the next action is to continue, pause, hand off, or complete.
 - `Pause Reason` must align with any unresolved blocker or confirmation checkpoint in the phase artifacts.
@@ -278,7 +280,9 @@ section).
 - [ ] Design is testable
 - [ ] Design avoids unresolved contradictions
 - [ ] No unresolved Security Finding remains
-- [ ] Ready to move to Tasks
+- [ ] Ready to move to Tasks (`Track: Standard`) or ready for direct Slice Spec handoff
+      (`Track: Fast` — no `tasks.md` is produced on this track; see `design-author/SKILL.md`'s
+      Design Gate)
 
 ## Phase Completion
 

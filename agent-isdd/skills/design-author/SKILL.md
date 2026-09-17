@@ -87,6 +87,15 @@ Move forward only when all of the following are true:
 If any of the above are weak or missing: stop, return a partial design draft, list the open
 questions or contradictions, ask the next smallest clarifying question.
 
+**`Track: Fast`** (see `spec-driven-development/SKILL.md`'s "Fast Track" section): the Design
+Gate above is unchanged — still run in full, against a smaller scope. The one difference is the
+`design.md` template's Phase Decision item "Ready to move to Tasks": for `Track: Fast` it means
+"ready for direct Slice Spec handoff to `agent-tdd`" instead, since no `tasks.md` is ever
+produced on this track. **Escape hatch**: if satisfying the Design Gate turns out to need real
+architecture/interface decisions this scope assumed away, say so and report it back to
+`spec-driven-development` instead of forcing a thin design through — same escalation path
+`requirements-agent`'s Fast Track mode uses.
+
 ## Diagrams (`show_widget`)
 
 When architecture, a data flow, or a state transition is genuinely clearer as a picture than as

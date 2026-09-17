@@ -1,13 +1,15 @@
 ---
 name: requirements-agent
-description: "[Internal — use /isdd instead] Produces EARS-based requirements.md under a hard completion gate — interview mode from scratch, or review-and-rewrite from an existing ticket/PRD."
+description: "[Internal — use /isdd instead] Produces EARS-based requirements.md under a hard completion gate — interview mode from scratch, review-and-rewrite from an existing ticket/PRD, or a Fast Track draft-and-self-approve mode for Track: Fast."
 ---
 
 # Requirements Agent
 
 Merges what used to be two separate skills (`spec-author`, `spec-reviewer`): both ultimately
-produce the same gated `requirements.md`, and only differ in starting material. One skill, two
-entry modes, no duplicated gate logic.
+produce the same gated `requirements.md`, and only differ in starting material. Three entry
+modes, no duplicated gate logic — Author and Review predate `spec-driven-development`'s Fast
+Track; Fast Track is a third, driven entirely by `workflow-state.md`'s `Track` field rather
+than by what material the user handed over.
 
 ## Entry Mode: Author (blank slate)
 
@@ -59,7 +61,29 @@ since been deprecated project-wide) is still caught by the `after-requirements` 
 `new facts`/`error lesson` write-back — see `workflow-manager/SKILL.md`'s Lifecycle Hooks section
 — so nothing falls through; it just isn't eager like `research-consolidator`'s per-call persist.
 
-## Required Requirement Fields (both modes)
+## Entry Mode: Fast Track (`Track: Fast`)
+
+Use when `spec-driven-development` has classified the request as `Track: Fast` (see its own
+"Fast Track" section) and hands over a one-line description instead of interviewing material.
+
+1. Draft a minimal EARS requirement satisfying every field in "Required Requirement Fields"
+   below directly from the one-line description — no interview loop, no `AskUserQuestion`
+   round beyond the single question allowed in step 2.
+2. If something is genuinely ambiguous (not merely terse), ask **at most one** clarifying
+   question — the same Stop Condition below, not a separate rule; do not chain a second
+   question off the answer to the first.
+3. Set `State: Approved` immediately after drafting (and after the single clarifying question,
+   if one was needed) — no separate user-confirmation turn. `Track: Fast` exists for momentum on
+   changes small enough that a wrong guess is cheap to correct; requiring a confirmation turn
+   here would defeat the point.
+4. **Escape hatch**: if drafting reveals the change isn't actually small (a required field can't
+   be filled in without real interviewing — e.g. non-functional constraints that need
+   discussion, or edge cases that fork into multiple designs), stop and say so instead of
+   forcing a thin requirement. Report this back to `spec-driven-development` so it can flip
+   `Track` to `Standard` (see its "Fast Track" § Escape hatch) and re-enter Author mode from
+   whatever this draft already captured — never discard it and restart blank.
+
+## Required Requirement Fields (all modes)
 
 Problem statement, user outcome, constraints, non-goals, edge cases, success criteria,
 dependencies, non-functional constraints (value or explicit `N/A: <reason>` per key) — all
@@ -94,7 +118,9 @@ missing or ambiguous requirement areas, propose the next smallest requirement qu
 
 ## Guardrails
 
-- Do not proceed directly from legacy or informal input into Design.
+- Do not proceed directly from legacy or informal input into Design — except in Fast Track
+  entry mode, whose entire point is drafting directly from a one-line description; that mode's
+  own escape hatch (not this guardrail) is what catches a request too informal for it.
 - Do not flatten nuanced constraints into generic requirement language.
 - Do not hide low testability; flag it.
 - Do not skip `AskUserQuestion` for a closed-set question just because free text is the default

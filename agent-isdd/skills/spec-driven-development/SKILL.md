@@ -41,9 +41,40 @@ first.
 Phase-driven, always in this order: `Requirements` → `Design` → `Tasks` → `Implementation`.
 `Recap` is maintained throughout as ongoing memory and handoff context. `workflow-state.md` is
 the source of truth for current phase and continuation state. `Implementation` here means "the
-Slice Spec handoff to `agent-tdd` has been made" — this skill's own responsibility ends there.
+handoff to `agent-tdd` has been made" (a Design Spec, or — for `Track: Fast` — a Slice Spec; see
+"Fast Track" below) — this skill's own responsibility ends there.
 
 Do not skip forward across phases unless the current phase is complete and not blocked.
+
+## Fast Track
+
+`Track: Fast | Standard` (`workflow-state.md`'s Status section, `"track"` in
+`workflow-state.json`; absent/unset means `Standard` — no migration needed for in-flight
+features) is set once at Start (see Start Protocol step 6) for a small, well-defined change,
+and never changed automatically once Design begins. It changes exactly two things, both
+described in full where they apply:
+
+- `requirements-agent` runs its Fast Track entry mode instead of interviewing from scratch
+  (see `requirements-agent/SKILL.md`) — Requirements and Design are otherwise identical to
+  `Track: Standard`; Design still runs `design-author` + `research-consolidator` in full,
+  just against a smaller scope.
+- The Implementation Handoff (below) sends a single Slice Spec instead of a Design Spec, with
+  `Review handoff mode: skip` — no `tasks.md` is ever produced. The **inline status line** this
+  skill renders itself (see "Visible Progress" above) omits the `Tasks` segment for `Track:
+  Fast` (`Requirements [✓] → Design [✓] → Implementation [▶]`) rather than showing it as
+  permanently pending. The `agent-ux:ux-agent`-rendered phase-transition breadcrumb is a
+  separate contract owned by `agent-ux` (fixed 4-segment order, see its own `agents/ux-agent.md`)
+  and is unchanged by this feature — a known cosmetic mismatch (`Tasks` shows as pending, not
+  skipped, on that path) left for a future cross-plugin update rather than modified here.
+
+**Escape hatch**: if `requirements-agent` or `design-author` discovers mid-flight that the
+change is bigger than the initial classification assumed (real interface/architecture
+decisions, multiple subsystems touched), it says so plainly instead of forcing a thin
+requirement or design onto something that needs real interviewing. Flip `Track` to `Standard`
+at that point, tell the user why in one line, and continue via the Standard path from wherever
+the artifact currently stands (re-running Requirements' interview from what Fast Track already
+drafted, not from a blank slate). This is the mitigation for the accepted risk of
+auto-classification — it costs one course-correction, never a silent bad fit.
 
 ## Visible Progress (every phase-transition or status response)
 
@@ -157,13 +188,23 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
    - `Intent Hash: <anchor>`
    - `Intent Alignment Status: unreviewed`
 5. Initialize `workflow-state.md` with `Current Phase: Requirements` and `recap.md` to match.
-6. Route into `requirements-agent`: it interviews from scratch when the input is vague, or
-   reviews-and-rewrites when the user hands over an existing ticket/PRD/draft — one skill, two
-   entry modes, same gate.
-7. After Requirements are approved, continue automatically into `Design` (`design-author`).
-8. After Design is approved, continue automatically into `Implementation` (`agent-tdd`).
-9. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
-   transfers to `agent-tdd`.)
+6. **Fast Track classification** (see "Fast Track" below for the full contract): judge whether
+   this request is a small, well-defined change — a single behavior change, no new external
+   interface, no data migration, no cross-plugin `INTEROP.md` contract change, testable in one
+   sentence. This is a judgment call, the same kind already made in `workflow-manager`'s
+   Mid-Phase Change Classification, never a keyword regex. Skip this judgment and honor the
+   user's own words directly if they explicitly asked for the full workflow or explicitly asked
+   to fast-track. Set `Track: Fast` or `Track: Standard` in `workflow-state.md` accordingly. When
+   `Track: Fast`, tell the user in one line: "Fast-tracking this as a small change — say 'full
+   workflow' if you'd rather go through the full Requirements interview and task slicing."
+7. Route into `requirements-agent`: it interviews from scratch when the input is vague, or
+   reviews-and-rewrites when the user hands over an existing ticket/PRD/draft, or — when
+   `Track: Fast` — drafts and self-approves a minimal requirement directly (its own Fast Track
+   entry mode; see `requirements-agent/SKILL.md`) — three entry modes, same gate.
+8. After Requirements are approved, continue automatically into `Design` (`design-author`).
+9. After Design is approved, continue automatically into `Implementation` (`agent-tdd`).
+10. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
+    transfers to `agent-tdd`.)
 
 ## Continue Protocol
 
@@ -235,10 +276,16 @@ Delegation rules:
 ## Implementation Handoff (Phase 2+3 revised)
 
 **[Phase 2+3]** Once Design is approved and implementation is requested, this skill's job is to
-build a **Design Spec** and spawn `agent-tdd` for research validation, task slicing, and
-implementation — a single, one-directional handoff, not an orchestrated multi-stage loop. See
-`INTEROP.md` at the repo root for the exact Design Spec contract (requirements.md, design.md,
-research/cache.md, pre-fetched file summaries, recap.md).
+hand off to `agent-tdd` for implementation — a single, one-directional handoff, not an
+orchestrated multi-stage loop. `Track: Standard` sends a **Design Spec** (steps below); `Track:
+Fast` sends a single **Slice Spec** instead — see "Fast Track: Slice Spec handoff" right after
+these steps for that branch in full. Both are one-directional handoffs with no orchestrated multi-stage
+loop; only the spec shape and `agent-tdd` mode differ.
+
+### Standard: Design Spec handoff
+
+See `INTEROP.md` at the repo root for the exact Design Spec contract (requirements.md,
+design.md, research/cache.md, pre-fetched file summaries, recap.md).
 
 1. Extract file list from `design.md` + `research/cache.md` (all files mentioned in Research Basis
    and task_findings sections).
@@ -311,6 +358,43 @@ research/cache.md, pre-fetched file summaries, recap.md).
 9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
    `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
    batch. One call only — no re-fetch of the brief needed.
+
+### Fast Track: Slice Spec handoff
+
+`Track: Fast` replaces the Design Spec steps above entirely — no task-slicing, no test-author
+gate (that gate exists specifically for a Design Spec's high-risk multi-slice case), no
+mandatory post-Green review pause:
+
+1. Use the `agent-tdd:slice-spec` skill to assemble a single Slice Spec straight from the
+   approved `design.md` (and `requirements.md`) — this skill already exists for exactly this:
+   gathering and validating the fields a Slice Spec needs and emitting a correctly formatted
+   spawn prompt block. No `tasks.md` is created; the Design checklist's "Ready to move to
+   Tasks" item is satisfied instead as "ready for direct Slice Spec handoff" (see
+   `design-author/SKILL.md`).
+2. In that Slice Spec, explicitly set **Review handoff mode: skip** — `Track: Fast`'s whole
+   point is momentum, so the mandatory pause after Green does not apply here. (A caller can
+   still re-review afterward via the standalone `code-reviewer` skill if it wants to; this just
+   means `agent-TDD` doesn't block on it.)
+3. Same session/availability check as step 4 above: confirm `agent-tdd:agent-TDD` is in the
+   session's agent-types listing before spawning; same harness-bug fallback as step 5 above if
+   the spawn itself fails at the tool-call layer.
+4. **If the Slice Spec's Risk Tier is `high-risk`**: this is a *caller-driven upfront* split,
+   not the Standard path's hook-driven mid-flight resume (that pattern —
+   `hooks/high_risk_reviewer.py` setting `test_author_pending` after `agent-TDD`'s own
+   slicing-complete report — belongs to Design Spec Mode's task-slicer path and never fires for
+   a Slice Spec Mode spawn). Per `agent-tdd/INTEROP.md`'s "Two-part invocation" section: spawn
+   `agent-tdd:test-author` first, passing only Task description/Test Intent/Data Contracts And
+   Interfaces from the Slice Spec, take its returned test file(s) and failure confirmation, and
+   fold that into the Slice Spec (telling `agent-TDD` not to write its own test for that
+   behavior) before spawning it. For `standard` Risk Tier, skip straight to the next step.
+5. Spawn `agent-tdd:agent-TDD` with the Slice Spec (Slice Spec Mode, single invocation).
+6. Take its returned handoff report: pause and surface a research-gap flag if raised (same as
+   Standard step 7's first bullet); otherwise log the handoff in `recap.md` and set
+   `Workflow Status: Complete`. No step 6/8 equivalent from the Standard path applies here —
+   step 4 already handled the one high-risk case upfront, so there's no post-hoc
+   test-author-pause-then-resume cycle to manage.
+7. Same as Standard step 9: forward non-empty Handoff Facts to `agent-nelly:agent-nelly` if
+   available.
 
 ## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
 

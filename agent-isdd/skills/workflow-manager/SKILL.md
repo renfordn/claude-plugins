@@ -75,6 +75,23 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
   `spec-driven-development`'s Goal-Aware Memory section — neither is ever satisfied by reusing a
   cached brief (persistent cache is OK; in-session context cache is different).
 
+### Track Field Contract
+
+- Source of truth: `workflow-state.md`'s `Track` field (`Fast | Standard`), mirrored to
+  `workflow-state.json`'s `track`. Absent/unset means `Standard` — no migration needed for
+  features started before this field existed.
+- Set once, at Start, by `spec-driven-development`'s Fast Track classification (see its own
+  SKILL.md) — `workflow-manager` never sets or classifies `Track` itself, only scaffolds and
+  persists whatever `spec-driven-development` decided, same division of responsibility as the
+  `Goal` field above.
+- Can flip `Fast` → `Standard` mid-flight via the Fast Track escape hatch (`requirements-agent`
+  or `design-author` reporting the change is bigger than assumed); never the reverse — a
+  workflow that started `Standard` stays `Standard`.
+- `Track: Fast` means no `tasks/tasks.md` is ever scaffolded or written for this feature (see
+  Scaffolding below) and the Implementation Handoff sends a Slice Spec, not a Design Spec — this
+  changes what `spec-driven-development` does at handoff, not anything `workflow-manager` itself
+  evaluates in Phase Pass/Fail Rules (Requirements and Design gates are identical either way).
+
 ### Availability Check
 
 - At `before-requirements` (workflow start) and `before-continue` (workflow resume), check the
@@ -141,7 +158,7 @@ On `start`, create the per-feature structure; on later phases, update files in p
       workflow-state.json
       requirements/requirements.md
       design/design.md
-      tasks/tasks.md
+      tasks/tasks.md       # Track: Standard only -- never written for Track: Fast
       recap/recap.md
 ```
 
@@ -150,6 +167,8 @@ template bodies from `references/artifact-templates.md` and
 `references/workflow-state.template.json`; preserve section order so later agents can rely on
 stable parsing; `workflow-state.json` is scaffolded together with `workflow-state.md` every time
 the latter is created or updated (field schema in `references/workflow-state.template.json`).
+The `tasks/` folder itself can still be created up front alongside the others (cheap, keeps
+scaffolding uniform); only `tasks.md` inside it is conditional on `Track`.
 
 ## Phase Completion Evaluation
 
@@ -255,7 +274,7 @@ confirmation:
 |---|---|---|
 | Requirements | `Approval Checkpoint` fully satisfied, required EARS fields present, `Open Gaps` has no unresolved blocking item, `Phase Completion` fully satisfied, `State: Approved`. | Any checkpoint item incomplete, EARS requirements missing or materially weak, or unresolved ambiguity remains. |
 | Design | `Phase Decision` fully satisfied, requirement coverage explicit, interfaces/touchpoints grounded in research (design-author's Research First rule), validation strategy present, `Phase Completion` fully satisfied, `State: Approved`. | Any phase decision item incomplete, design contradicts approved requirements, or validation strategy weak or absent. |
-| Tasks | `Task Readiness Checklist` fully satisfied, at least one concrete implementation phase exists, tasks sliced safely for TDD, confirmation blockers resolved, `State: Ready For Implementation` or `Complete`. | Slices oversized, validation targets missing, test intent missing, or required confirmation remains open. |
+| Tasks | `Task Readiness Checklist` fully satisfied, at least one concrete implementation phase exists, tasks sliced safely for TDD, confirmation blockers resolved, `State: Ready For Implementation` or `Complete`. Applies to `Track: Standard`'s `tasks.md` only — `Track: Fast` never produces one, so this row doesn't apply (see "Track Field Contract" above). | Slices oversized, validation targets missing, test intent missing, or required confirmation remains open. |
 
 ## State Repair Rules
 
