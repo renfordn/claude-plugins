@@ -171,6 +171,35 @@ Impact: Slice 3 implementation blocked until gap is clarified
 - Resume agent-tdd
 - agent-tdd continues
 
+#### 3.4 Model Insufficiency (Model Escalation)
+**Trigger**: Agent running at a lower model tier (e.g., Haiku) encounters a task that exceeds its reasoning capacity
+
+**Example**: Haiku-tier agent-tdd is implementing a complex recursive pattern slice. After multiple attempts, logic remains unsound; Haiku's context window or reasoning depth is insufficient.
+
+**Agent-tdd Action**:
+- Recognize that further attempts at current model tier will not resolve the issue
+- Emit a **Model Escalation Marker** in the handoff report
+- Pause implementation
+- Include specific reason for escalation (e.g., "complex recursive pattern needs stronger reasoning")
+
+**Example handoff marker**:
+```
+<!--AGENT-TDD-MODEL-ESCALATE:reason="complex recursive pattern needs stronger reasoning"; attempted_at_haiku=true; suggest_tier="sonnet"-->
+```
+
+**Marker Fields**:
+- `reason`: Human-readable explanation why this tier couldn't proceed (required)
+- `attempted_at_haiku`: Boolean; indicates whether Haiku was attempted (optional, defaults to true if field omitted)
+- `suggest_tier`: Recommended escalation tier—"sonnet" or "opus" (required)
+
+**Agent-isdd Action**:
+- Detect the Model Escalation Marker in agent-tdd's handoff report via before-continue hook
+- Invoke `get_spawn_context` MCP tool to retrieve accumulated context (prior test attempts, error messages, code so far)
+- Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with cached context
+- Pass context to continue where lower-tier agent left off
+- agent-cache-plugin detects escalation marker in prompt context, adds model-aware cache invalidation
+- Higher-tier agent reuses scaffolding (test definitions, error patterns) but re-reasons solution
+
 ---
 
 ## Escalation Summary Table
@@ -184,6 +213,7 @@ Impact: Slice 3 implementation blocked until gap is clarified
 | Per-Slice Red/Green | Research Gap | Code structure different from design | Stop, emit flag | Provide clarification | Yes |
 | Per-Slice Red/Green | Plan Validity | Task requirements conflict | Stop, emit flag | Replan requirements | Yes |
 | Per-Slice Red/Green | Blocker | Cannot satisfy test | Surface blocker, pause | Adjust design or prerequisites | Yes |
+| Per-Slice Red/Green | Model Escalation | Lower-tier model insufficient | Emit marker with reason, pause | Re-spawn at higher tier with cached context | Yes |
 
 ---
 
@@ -310,6 +340,7 @@ Agent-TDD resumes, adjusts Slice 3 acceptance criteria, continues
 - ✅ Code structure doesn't match design assumptions
 - ✅ Test requirements unachievable within slice scope
 - ✅ Dependencies unresolvable without design change
+- ✅ Model tier insufficient for task reasoning (emits MODEL-ESCALATE marker)
 
 ### Agent-TDD Does NOT Silently:
 - ✗ Modify design.md

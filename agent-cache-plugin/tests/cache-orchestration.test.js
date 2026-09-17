@@ -56,7 +56,10 @@ describe('CacheOrchestration Skill', () => {
     // Create mock cache and metrics
     mockCache = {
       search: jest.fn(),
-      retrieve: jest.fn(),
+      retrieve: jest.fn().mockImplementation((id) => {
+        // Return properly formatted resolve value
+        return Promise.resolve({ found: true, entry: mockCachedEntry() });
+      }),
       stats: jest.fn()
     };
 
@@ -222,6 +225,345 @@ describe('CacheOrchestration Skill', () => {
 
       expect(result).toBeDefined();
       expect(result.decision).toBeDefined();
+    });
+  });
+
+  describe('Model/ModelTier Conflict Detection', () => {
+    describe('High-Risk Slice: Cache Model Dimension', () => {
+      test('should treat model tier mismatch as conflict (Haiku vs Sonnet)', async () => {
+        // Cached entry from Haiku execution
+        const cachedHaiku = mockCachedEntry({
+          prompt: 'Write a comprehensive unit test',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'testing',
+              model: 'claude-3-haiku',
+              modelTier: 'haiku'
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: cachedHaiku });
+
+        // Current request escalated to Sonnet
+        const result = await orchestration.validateCachedContext(
+          cachedHaiku.id,
+          buildContext({
+            prompt: 'Write a comprehensive unit test',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'testing',
+              model: 'claude-3-sonnet',
+              modelTier: 'sonnet'
+            }
+          })
+        );
+
+        // Should reject cache due to model tier mismatch
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+        expect(result.reason).toMatch(/[Cc]onflict/);
+      });
+
+      test('should treat model name mismatch as conflict', async () => {
+        const cachedEntry = mockCachedEntry({
+          prompt: 'Analyze code quality',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'analysis',
+              model: 'claude-3-haiku-20240307'
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: cachedEntry });
+
+        const result = await orchestration.validateCachedContext(
+          cachedEntry.id,
+          buildContext({
+            prompt: 'Analyze code quality',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'analysis',
+              model: 'claude-3-sonnet-20240229'
+            }
+          })
+        );
+
+        // Should reject cache due to model name mismatch
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+        expect(result.reason).toMatch(/[Cc]onflict/);
+      });
+
+      test('should accept cache when model and modelTier match exactly', async () => {
+        const cachedEntry = mockCachedEntry({
+          prompt: 'Review test coverage',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'review',
+              model: 'claude-3-sonnet',
+              modelTier: 'sonnet'
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: cachedEntry });
+
+        const result = await orchestration.validateCachedContext(
+          cachedEntry.id,
+          buildContext({
+            prompt: 'Review test coverage',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'review',
+              model: 'claude-3-sonnet',
+              modelTier: 'sonnet'
+            }
+          })
+        );
+
+        // Should accept cache when model and modelTier match
+        expect(result.isValid).toBe(true);
+        expect(result.recommendation).not.toBe('discard');
+      });
+
+      test('should treat old cache entry without model dimension as miss', async () => {
+        // Pre-model-dimension cache entry (backward compatibility)
+        const legacyCachedEntry = mockCachedEntry({
+          prompt: 'Process user input',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'processing'
+              // Missing model and modelTier
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: legacyCachedEntry });
+
+        const result = await orchestration.validateCachedContext(
+          legacyCachedEntry.id,
+          buildContext({
+            prompt: 'Process user input',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'processing',
+              model: 'claude-3-haiku',
+              modelTier: 'haiku'
+            }
+          })
+        );
+
+        // Should treat missing model dimension as conflict/mismatch
+        // Old cache entries without model should not be reused by new code
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+      });
+
+      test('should make fresh_reasoning decision when model escalates from Haiku to Sonnet', async () => {
+        // Simulating pre-escalation cache from Haiku
+        const cachedHaiku = mockCachedEntry({
+          prompt: 'Generate implementation code',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-2',
+              projectId: 'proj-2',
+              domain: 'implementation',
+              model: 'claude-3-haiku',
+              modelTier: 'haiku'
+            }
+          }
+        });
+
+        mockCache.search.mockResolvedValue([cachedHaiku]);
+
+        // Post-escalation request to Sonnet
+        const result = await orchestration.makeDecision(
+          buildContext({
+            prompt: 'Generate implementation code',
+            parameters: {
+              userId: 'user-2',
+              projectId: 'proj-2',
+              domain: 'implementation',
+              model: 'claude-3-sonnet',
+              modelTier: 'sonnet'
+            }
+          })
+        );
+
+        // Must return fresh_reasoning, not cache reuse
+        expect(result.decision).toBe('fresh_reasoning');
+        expect(result.reasoning).toMatch(/[Cc]onflict|[Mm]odel/i);
+      });
+
+      test('should allow cache reuse within same model tier across multiple executions', async () => {
+        const cachedSonnet = mockCachedEntry({
+          prompt: 'Write comprehensive tests',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-3',
+              projectId: 'proj-3',
+              domain: 'testing',
+              model: 'claude-3-sonnet-20240229',
+              modelTier: 'sonnet'
+            }
+          }
+        });
+
+        mockCache.search.mockResolvedValue([cachedSonnet]);
+
+        const result = await orchestration.makeDecision(
+          buildContext({
+            prompt: 'Write comprehensive tests',
+            parameters: {
+              userId: 'user-3',
+              projectId: 'proj-3',
+              domain: 'testing',
+              model: 'claude-3-sonnet-20240229',
+              modelTier: 'sonnet'
+            }
+          })
+        );
+
+        // Should reuse cache when model tier is identical
+        if (result.relevanceScore >= DEFAULTS.RELEVANCE_THRESHOLD) {
+          expect(result.decision).toBe('use_cache');
+        }
+      });
+
+      test('_checkConflicts should detect modelTier mismatch', () => {
+        const cachedParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test',
+          model: 'claude-3-haiku',
+          modelTier: 'haiku'
+        };
+
+        const currentParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test',
+          model: 'claude-3-sonnet',
+          modelTier: 'sonnet'
+        };
+
+        const hasConflicts = orchestration._checkConflicts(cachedParams, currentParams);
+
+        // Must return true when modelTier differs
+        expect(hasConflicts).toBe(true);
+      });
+
+      test('_checkConflicts should detect model name mismatch', () => {
+        const cachedParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test',
+          model: 'claude-3-haiku-20240307'
+        };
+
+        const currentParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test',
+          model: 'claude-3-opus-20240229'
+        };
+
+        const hasConflicts = orchestration._checkConflicts(cachedParams, currentParams);
+
+        // Must return true when model names differ
+        expect(hasConflicts).toBe(true);
+      });
+
+      test('_checkConflicts should NOT flag conflict when one side missing model (legacy entry)', () => {
+        const cachedParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test'
+          // Legacy: no model or modelTier
+        };
+
+        const currentParams = {
+          userId: 'user-1',
+          projectId: 'proj-1',
+          domain: 'test',
+          model: 'claude-3-haiku',
+          modelTier: 'haiku'
+        };
+
+        // This documents current behavior; implementation must treat as conflict
+        // or reject the old cache entry via other means (e.g., in validateCachedContext)
+        const hasConflicts = orchestration._checkConflicts(cachedParams, currentParams);
+
+        // Current implementation doesn't flag this, but validateCachedContext
+        // must still reject the old entry (test this in validation layer)
+        expect(hasConflicts).toBe(false); // Current behavior
+      });
+
+      test('validateCachedContext should reject old entry even if _checkConflicts misses model mismatch', async () => {
+        // Old entry without model dimension
+        const legacyEntry = mockCachedEntry({
+          prompt: 'Some task',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'test'
+              // Deliberately omit model/modelTier
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: legacyEntry });
+
+        const currentContext = buildContext({
+          prompt: 'Some task',
+          parameters: {
+            userId: 'user-1',
+            projectId: 'proj-1',
+            domain: 'test',
+            model: 'claude-3-haiku',
+            modelTier: 'haiku'
+          }
+        });
+
+        // Even if _checkConflicts returns false, validation must detect the mismatch
+        const result = await orchestration.validateCachedContext(
+          legacyEntry.id,
+          currentContext
+        );
+
+        // Must reject the legacy entry when new context has model but cached doesn't
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+      });
     });
   });
 });

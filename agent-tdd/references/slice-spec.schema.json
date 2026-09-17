@@ -23,6 +23,12 @@
       "default": "standard",
       "description": "Governs whether the conditional test-author split applies. Defaults to standard when omitted."
     },
+    "modelTier": {
+      "type": "string",
+      "enum": ["inherit", "haiku", "sonnet", "opus"],
+      "default": "inherit",
+      "description": "Suggested model tier for this slice based on complexity. 'inherit' uses the caller's default model. Defaults to 'inherit' when omitted."
+    },
     "dataContractsAndInterfaces": {
       "type": "string",
       "description": "Optional: relevant type signatures, module boundaries, or API shapes the caller already knows. Absence is not an error — agent-TDD explores the codebase itself when it's missing."

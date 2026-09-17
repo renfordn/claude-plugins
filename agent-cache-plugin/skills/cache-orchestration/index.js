@@ -21,7 +21,7 @@ const CONFIG = {
   STALENESS_THRESHOLD_MS: 24 * 60 * 60 * 1000, // 24 hours
   CANDIDATE_LIMIT: 10,
   MIN_WORD_LENGTH: 3,
-  CRITICAL_PARAMS: ['userId', 'projectId', 'domain', 'noCache']
+  CRITICAL_PARAMS: ['userId', 'projectId', 'domain', 'model', 'modelTier', 'noCache']
 };
 
 class CacheOrchestration {
@@ -76,8 +76,14 @@ class CacheOrchestration {
 
       const bestMatch = scored[0];
 
-      // Step 3: Make decision
-      if (bestMatch.relevanceScore >= this.relevanceThreshold) {
+      // Step 3: Check for conflicts (including model dimension)
+      const hasConflicts = this._checkConflicts(
+        bestMatch.metadata?.parameters || {},
+        parameters || {}
+      );
+
+      // Step 4: Make decision
+      if (bestMatch.relevanceScore >= this.relevanceThreshold && !hasConflicts) {
         // Use cache
         const tokenSavings = bestMatch.metadata?.tokenCount || 0;
 
@@ -104,12 +110,16 @@ class CacheOrchestration {
           agentType: agentType
         });
 
+        const reason = hasConflicts
+          ? `Parameter conflicts detected (model mismatch or other critical params)`
+          : `Best match relevance (${bestMatch.relevanceScore}%) below threshold (${this.relevanceThreshold}%)`;
+
         return {
           decision: 'fresh_reasoning',
           cachedContextId: null,
           relevanceScore: bestMatch.relevanceScore,
           tokenSavings: 0,
-          reasoning: `Best match relevance (${bestMatch.relevanceScore}%) below threshold (${this.relevanceThreshold}%)`
+          reasoning: reason
         };
       }
     } catch (error) {
@@ -149,6 +159,12 @@ class CacheOrchestration {
         cached.entry.prompt
       );
 
+      // Check for model dimension mismatch (legacy entries without model)
+      const hasModelMismatch = this._checkModelDimensionMismatch(
+        cached.entry.metadata.parameters || {},
+        currentContext.parameters || {}
+      );
+
       // Check for conflicts
       const hasConflicts = this._checkConflicts(
         cached.entry.metadata.parameters || {},
@@ -161,6 +177,18 @@ class CacheOrchestration {
           recommendation: 'discard',
           reason: 'Cache entry is stale',
           age: age
+        };
+      }
+
+      if (hasModelMismatch) {
+        return {
+          isValid: false,
+          recommendation: 'discard',
+          reason: 'Cache entry lacks model dimension (legacy entry)',
+          modelMismatch: {
+            cached: cached.entry.metadata.parameters || {},
+            current: currentContext.parameters || {}
+          }
         };
       }
 
@@ -264,6 +292,20 @@ class CacheOrchestration {
     const union = new Set([...set1, ...set2]).size;
 
     return Math.round((intersection / (union || 1)) * 100);
+  }
+
+  /**
+   * Check if model dimension is missing in cached entry but present in current context.
+   * Legacy cache entries without model/modelTier should be treated as misses.
+   * Returns true if current context has model/modelTier but cached doesn't, false otherwise.
+   */
+  _checkModelDimensionMismatch(cachedParams, currentParams) {
+    const modelFields = ['model', 'modelTier'];
+    const currentHasModel = modelFields.some(field => currentParams[field] !== undefined);
+    const cachedHasModel = modelFields.some(field => cachedParams[field] !== undefined);
+
+    // Only flag mismatch if current has model but cached doesn't
+    return currentHasModel && !cachedHasModel;
   }
 
   /**

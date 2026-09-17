@@ -60,6 +60,41 @@ class TestInMemoryStateStore(unittest.TestCase):
         self.assertEqual(self.store.get("wf-1"), {"phase": "a"})
         self.assertEqual(self.store.get("wf-2"), {"phase": "b"})
 
+    def test_model_selection_key_persists_in_state(self):
+        """Slice 4: Workflow State Model Selection Key - model_selection persisted"""
+        state = {
+            "phase": "implementation",
+            "orchestration": {
+                "model_selection": {
+                    "current_model": "claude-3-sonnet",
+                    "tokens_used": 8234,
+                    "cost": 0.041,
+                    "escalations": [
+                        {"from": "haiku", "to": "sonnet", "reason": "complex recursion"}
+                    ]
+                }
+            }
+        }
+        self.store.save("wf-model", state)
+        retrieved = self.store.get("wf-model")
+        self.assertEqual(retrieved["orchestration"]["model_selection"]["current_model"], "claude-3-sonnet")
+        self.assertEqual(retrieved["orchestration"]["model_selection"]["tokens_used"], 8234)
+
+    def test_backward_compatibility_old_state_without_model_selection(self):
+        """Slice 4: Old workflow states without model_selection key still work"""
+        old_state = {
+            "phase": "design_approved",
+            "orchestration": {
+                "handoff_history": []
+            }
+            # No model_selection key - legacy state
+        }
+        self.store.save("wf-old", old_state)
+        retrieved = self.store.get("wf-old")
+        self.assertEqual(retrieved["phase"], "design_approved")
+        # State should still be retrievable without model_selection
+        self.assertNotIn("model_selection", retrieved.get("orchestration", {}))
+
 
 class TestFileStateStore(unittest.TestCase):
     def setUp(self):
@@ -118,6 +153,43 @@ class TestFileStateStore(unittest.TestCase):
         # File must be valid, fully-written JSON, not truncated/interleaved.
         result = self.store.get("wf-shared")
         self.assertIn("counter", result)
+
+    def test_model_selection_key_persists_to_json_file(self):
+        """Slice 4: Workflow State Model Selection Key - file-backed persistence"""
+        state = {
+            "phase": "implementation",
+            "orchestration": {
+                "model_selection": {
+                    "current_model": "claude-3-sonnet",
+                    "tokens_used": 8234,
+                    "cost": 0.041,
+                    "escalations": []
+                }
+            }
+        }
+        self.store.save("wf-model-file", state)
+        # Verify file was written with correct JSON structure
+        path = os.path.join(self.tmpdir.name, "wf-model-file.json")
+        self.assertTrue(os.path.exists(path))
+        with open(path) as f:
+            file_state = json.load(f)
+        self.assertEqual(file_state["orchestration"]["model_selection"]["current_model"], "claude-3-sonnet")
+
+    def test_old_file_based_state_still_loads_without_model_selection(self):
+        """Slice 4: Backward compatibility - old persisted files without model_selection work"""
+        # Write an old-style state file directly (simulating legacy workflow-state.json)
+        old_state = {
+            "phase": "design_approved",
+            "orchestration": {
+                "handoff_history": []
+            }
+        }
+        path = os.path.join(self.tmpdir.name, "wf-legacy.json")
+        with open(path, "w") as f:
+            json.dump(old_state, f)
+        # Store should load it without errors
+        retrieved = self.store.get("wf-legacy")
+        self.assertEqual(retrieved["phase"], "design_approved")
 
 
 class TestRedisStateStoreImportGuard(unittest.TestCase):

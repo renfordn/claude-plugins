@@ -1,6 +1,6 @@
 """Tests that references/slice-spec.schema.json is valid JSON Schema and
 stays in sync with the Slice Spec contract documented in INTEROP.md (the two
-required fields, the two enums, and the full set of six properties).
+required fields, three enums, and the full set of seven properties).
 """
 
 import json
@@ -14,6 +14,7 @@ EXPECTED_PROPERTIES = {
     "taskDescription",
     "acceptanceCriteria",
     "riskTier",
+    "modelTier",
     "dataContractsAndInterfaces",
     "preSliceBrief",
     "reviewHandoffMode",
@@ -33,7 +34,7 @@ class TestSliceSpecSchemaIsValidJson(unittest.TestCase):
 
 
 class TestSliceSpecSchemaMatchesContract(unittest.TestCase):
-    def test_declares_all_six_slice_spec_fields(self):
+    def test_declares_all_slice_spec_fields(self):
         schema = _load_schema()
         properties = set(schema.get("properties", {}).keys())
         self.assertEqual(properties, EXPECTED_PROPERTIES)
@@ -54,6 +55,12 @@ class TestSliceSpecSchemaMatchesContract(unittest.TestCase):
         review_mode = schema["properties"]["reviewHandoffMode"]
         self.assertEqual(set(review_mode["enum"]), {"pause", "skip"})
         self.assertEqual(review_mode.get("default"), "pause")
+
+    def test_model_tier_enum_matches_documented_values(self):
+        schema = _load_schema()
+        model_tier = schema["properties"]["modelTier"]
+        self.assertEqual(set(model_tier["enum"]), {"inherit", "haiku", "sonnet", "opus"})
+        self.assertEqual(model_tier.get("default"), "inherit")
 
     def test_rejects_unknown_properties(self):
         schema = _load_schema()
