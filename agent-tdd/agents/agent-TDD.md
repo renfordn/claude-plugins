@@ -228,29 +228,168 @@ For each slice, follow this pattern for each `/code-reviewer` invocation:
 | Standard | Quick + design coherence, API contracts, edge cases | Regressions, breaking changes, contract violations |
 | Deep | Standard + security, patterns, regressions, modules | Security flaws, design violations, cross-file impact |
 
-### Coherence Review: Post-All-Slices (Design Spec Mode Only)
+### Coherence Review: Post-All-Slices Coherence Gate (Design Spec Mode Only)
 
-After all slices complete Green + Refactor:
+After all slices complete Green + Refactor, execute the **Coherence Review Gate** — a critical
+validation checkpoint that examines cross-slice interactions, detects duplicates, validates
+module boundaries, and identifies regressions across the entire implementation.
 
-1. **Determine review level** (see SKILL.md §Review-Level Strategy):
+#### Step 1: Pre-Gate Checklist
+
+Before invoking the coherence review, verify:
+- [ ] All slices have completed Red-Green-Refactor cycle (all Green, all Refactored)
+- [ ] All per-slice code-reviewer findings resolved or escalated
+- [ ] ralph loops validation complete (if applicable)
+- [ ] No unresolved blocking findings from individual slices
+
+#### Step 2: Determine Review Level
+
+Compute high-risk composition and select review level:
+
+```python
+high_risk_count = count(slice.risk_tier == "high_risk" for slice in all_slices)
+total_slices = len(all_slices)
+high_risk_ratio = high_risk_count / total_slices if total_slices > 0 else 0
+
+# Decision tree
+if high_risk_ratio > 0.5 and multi_agent_available():
+  review_level = "Ultra"  # Majority high-risk with multi-agent capability
+elif high_risk_count > 0:
+  review_level = "Deep"   # At least one high-risk slice
+else:
+  review_level = "Deep"   # Default even for all-standard slices (coherence is critical)
+```
+
+**Examples:**
+- 3 slices (1 high-risk): 1/3 = 33% → Deep
+- 3 slices (2 high-risk): 2/3 = 67% > 50% → Ultra (if multi-agent available)
+- 5 slices (all standard): 0/5 = 0% → Deep
+
+#### Step 3: Collect Modified Files Across All Slices
+
+Assemble the scope for coherence review:
+- Read all completed slices from tasks.md
+- For each slice: extract "Files" field (all files touched)
+- Union all files into `coherence_scope`
+- Pass `coherence_scope` to /code-reviewer
+
+#### Step 4: Invoke Coherence Review
+
+```
+/code-reviewer <coherence_scope> [review_level: <Deep|Ultra>]
+```
+
+**Scope guidance:**
+- Include: all production code files modified by any slice
+- Include: all test files added/modified (to check test coverage of cross-slice behavior)
+- Exclude: documentation, config, vendor code (unless directly relevant)
+
+**Review focus** (expected to be emphasized by /code-reviewer):
+1. **Cross-slice interactions**: Do changes from one slice conflict with assumptions of another?
+2. **Duplicate detection**: Did multiple slices introduce redundant code/logic?
+3. **Module boundary integrity**: Are abstraction layers maintained across slices?
+4. **Regression risk**: Could these combined changes break existing tests outside slice scope?
+5. **(Ultra only) Security implications**: Do the combined changes introduce vulnerabilities?
+6. **(Ultra only) Performance impact**: Do combined changes degrade performance?
+
+#### Step 5: Parse & Categorize Findings
+
+Receive findings from /code-reviewer and categorize by:
+
+**Severity Categories:**
+- **CRITICAL** (block completion): Security flaws, breaking changes to public API, major regressions
+- **MAJOR** (escalate): Design violations, duplicate logic affecting multiple slices, cross-slice conflicts
+- **WARNING** (document): Minor inconsistencies, style issues, missing edge cases
+- **INFO** (note): Observations, suggestions, minor improvements
+
+**Finding Categories (detect these patterns):**
+- `cross_slice_interaction`: Slice X's changes assume invariant Y that Slice Z violated
+- `duplicate_code`: Same logic/pattern appears in multiple slices; consider extraction
+- `module_boundary_violation`: Abstraction leak between modules across slices
+- `regression_risk`: Change pattern matches known regression trigger
+- `security_implication`: Combined effect creates vulnerability (Ultra only)
+- `performance_impact`: Combined effect likely degrades performance (Ultra only)
+
+#### Step 6: Gate Decision Logic
+
+**CRITICAL findings:**
+```
+Block implementation completion.
+Offer user choices:
+  1. Re-slice: split conflicting slices and return to implementation
+  2. Escalate: accept risk with documented rationale (skip coherence completion)
+  3. Fix: request specific implementation changes and re-run coherence review
+```
+
+**MAJOR findings:**
+```
+Log as blocker. Require user decision (same options as CRITICAL).
+Document in findings ledger: which slices conflict, what the conflict is, why it matters.
+```
+
+**WARNING findings:**
+```
+Document as follow-up tasks (not blockers).
+Create TaskCreate entries for post-coherence improvements.
+Allow implementation to proceed (no gate blocking).
+```
+
+**INFO findings:**
+```
+Note in findings ledger.
+Include in final handoff as recommendations.
+Allow implementation to proceed (informational only).
+```
+
+#### Step 7: Findings Ledger & Handoff
+
+Store coherence review findings in structured format:
+
+```
+Coherence Review Findings:
+  - Review Level: <Deep|Ultra>
+  - Total Files Scoped: <N>
+  - Finding Count: Critical=X, Major=Y, Warning=Z, Info=W
+  
+  Critical Findings (if any):
+    [List with: slice IDs affected, category, severity, description, remediation]
+  
+  Major Findings (if any):
+    [List with: slice IDs affected, category, description]
+  
+  Non-Blocking Findings (if any):
+    [List with: category, description, recommended action (task/issue)]
+  
+  Gate Decision: <PASS|ESCALATION_REQUIRED>
+```
+
+#### Step 8: Escalation Path (Critical/Major Findings Present)
+
+When CRITICAL or MAJOR findings block completion:
+
+1. **Emit escalation marker** in handoff:
    ```
-   high_risk_count = count(slices with risk_tier == "high_risk")
-   total_slices = count(all slices)
-   if high_risk_count / total_slices > 0.5 AND multi_agent_available():
-     review_level = Ultra
-   else:
-     review_level = Deep
+   <!--AGENT-TDD-COHERENCE-GATE:blocked="true" reason="Cross-slice regression risk: ...">
    ```
 
-2. **Invoke /code-reviewer**:
-   - Scope: all modified files from all slices combined
-   - Focus: cross-slice interactions, duplicates, module boundaries, regressions
+2. **Return to user** with:
+   - Coherence Review Findings (full detail)
+   - Recommended action (re-slice, accept risk, request fixes)
+   - Links to affected slices
 
-3. **Gate logic** (block completion if needed):
-   - Critical findings: Block completion; offer user choices (re-slice, accept with risk, request fixes)
-   - Non-critical findings: Document as follow-up tasks; allow completion
+3. **Await user decision** (three paths):
+   - **Re-slice**: User provides new slicing; agent-tdd resumes from task-slicing phase
+   - **Accept Risk**: User documents rationale; implementation proceeds (noted in recap)
+   - **Request Fixes**: User specifies changes; agent-tdd can optionally re-run coherence on fixes
 
-4. **Store findings**: Include in final handoff report as "Coherence Review Findings"
+#### Error Handling & Graceful Degradation
+
+- **If /code-reviewer unavailable** for coherence: Skip coherence review; log warning in handoff;
+  allow completion (coherence was attempted but unavailable)
+- **If coherence findings unparseable**: Document raw response; allow completion; flag as
+  "coherence review findings unavailable"
+- **If timeout on coherence review**: Treat same as unavailable; skip and document
+- **If multi_agent_available() fails** to evaluate: Default to Deep (conservative approach)
 
 ## Design Spec Workflow (Multi-Slice with Validation & Slicing)
 
