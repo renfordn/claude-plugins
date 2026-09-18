@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 from orchestrator.error import OrchestrationError
 from orchestrator.error_logger import persist_best_effort
+from orchestrator.schema_extractor import SchemaExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,15 @@ class CapabilityMap:
         self.plugin_dir_base = Path(plugin_dir_base)
         self.plugins: Dict[str, PluginInfo] = {}
         self.interop_hashes: Dict[str, str] = {}
+
+        # Initialize schema extractor for INTEROP.md parsing
+        try:
+            self.schema_extractor = SchemaExtractor(base_dir=self.plugin_dir_base)
+            self.schema_registry = self.schema_extractor.extract_all_plugins()
+        except Exception as e:
+            logger.warning(f"Failed to initialize schema extractor: {e}")
+            self.schema_extractor = None
+            self.schema_registry = None
 
         self._parse_all_plugins()
 
@@ -290,7 +300,9 @@ class CapabilityMap:
         """
         Extract capabilities from INTEROP.md content.
 
-        Each plugin has hardcoded capability definitions based on its role.
+        Attempts to extract capabilities from the schema registry first (parsed from INTEROP.md
+        tables). Falls back to hardcoded schemas for backwards compatibility if registry is
+        unavailable or schema not found.
 
         Args:
             plugin_name: Name of the plugin
@@ -301,74 +313,111 @@ class CapabilityMap:
         """
         capabilities = []
 
-        if plugin_name == "agent-isdd":
-            if "Design Spec" in content:
-                capabilities.append(Capability(
-                    plugin=plugin_name,
-                    id="design_spec_handoff",
-                    description="Hand off design spec to implementation agent"
-                ))
-
-        elif plugin_name == "agent-tdd":
-            if "Design Spec" in content or "Slice Spec" in content:
-                capabilities.append(Capability(
-                    plugin=plugin_name,
-                    id="design_spec_slicing",
-                    description="Slice design into TDD-ready phases",
-                    consumes={
+        # Fallback hardcoded schemas for backwards compatibility
+        # These are used when schema registry is unavailable or doesn't have the schema
+        fallback_schemas = {
+            "agent-isdd": {
+                "design_spec_handoff": {
+                    "description": "Hand off design spec to implementation agent",
+                    "pattern": "Design Spec",
+                    "consumes": {}
+                }
+            },
+            "agent-tdd": {
+                "design_spec_slicing": {
+                    "description": "Slice design into TDD-ready phases",
+                    "pattern": "Design Spec",
+                    "consumes": {
                         "requirements_md": "string",
                         "design_md": "string",
                         "research_cache": "object",
                         "recap_md": "string"
                     }
-                ))
-
-        elif plugin_name == "agent-nelly":
-            capabilities.append(Capability(
-                plugin=plugin_name,
-                id="memory_brief",
-                description="Retrieve project memory and error lessons"
-            ))
-
-        elif plugin_name == "agent-cache-plugin":
-            if "Phase Transition Caching" in content or "phase_state_cache" in content:
-                capabilities.append(Capability(
-                    plugin=plugin_name,
-                    id="phase_state_cache",
-                    description="Cache workflow phase state and render token-optimized breadcrumbs",
-                    consumes={
+                }
+            },
+            "agent-nelly": {
+                "memory_brief": {
+                    "description": "Retrieve project memory and error lessons",
+                    "pattern": None,
+                    "consumes": {}
+                }
+            },
+            "agent-cache-plugin": {
+                "phase_state_cache": {
+                    "description": "Cache workflow phase state and render token-optimized breadcrumbs",
+                    "pattern": "Phase Transition Caching",
+                    "consumes": {
                         "prompt": "string",
                         "output": "object",
                         "metadata": "object"
                     },
-                    produces={
+                    "produces": {
                         "cache_hit": "boolean",
                         "cached_state": "object"
                     }
-                ))
-
-        elif plugin_name == "agent-ux":
-            capabilities.append(Capability(
-                plugin=plugin_name,
-                id="render_event",
-                description="Render progress UI events"
-            ))
-
-        elif plugin_name == "code-reviewer":
-            if "Integrating Code Reviewer" in content or "code-reviewer INTEROP" in content:
-                capabilities.append(Capability(
-                    plugin=plugin_name,
-                    id="code_review",
-                    description="Review implementation output and return approval/feedback",
-                    consumes={
+                }
+            },
+            "agent-ux": {
+                "render_event": {
+                    "description": "Render progress UI events",
+                    "pattern": None,
+                    "consumes": {}
+                }
+            },
+            "code-reviewer": {
+                "code_review": {
+                    "description": "Review implementation output and return approval/feedback",
+                    "pattern": "Integrating Code Reviewer",
+                    "consumes": {
                         "sliced_specs": "array",
                         "implementation": "object"
                     },
-                    produces={
+                    "produces": {
                         "review_feedback": "array",
                         "approval": "boolean"
                     }
-                ))
+                }
+            }
+        }
+
+        if plugin_name not in fallback_schemas:
+            return []
+
+        for cap_id, cap_data in fallback_schemas[plugin_name].items():
+            description = cap_data.get("description", "")
+            pattern = cap_data.get("pattern")
+
+            # Check if capability should be detected (pattern matching)
+            if pattern is not None and pattern not in content:
+                continue
+
+            # Try to get schema from registry (prefer registry over fallback)
+            consumes = {}
+            produces = {}
+
+            if self.schema_registry:
+                schema_consumes = self.schema_registry.get_capability_consumes(plugin_name, cap_id)
+                if schema_consumes:
+                    consumes = schema_consumes
+                    logger.debug(f"Using schema registry for {plugin_name}:{cap_id}")
+                else:
+                    # Use fallback schema
+                    consumes = cap_data.get("consumes", {})
+            else:
+                # Schema registry unavailable, use fallback
+                consumes = cap_data.get("consumes", {})
+
+            produces = cap_data.get("produces", {})
+
+            # Create capability with schemas
+            capability = Capability(
+                plugin=plugin_name,
+                id=cap_id,
+                description=description,
+                consumes=consumes,
+                produces=produces
+            )
+            capabilities.append(capability)
 
         return capabilities
 
