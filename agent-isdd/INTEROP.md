@@ -489,3 +489,50 @@ resuming this work should either wire these functions into `main()` after first 
 subprocess-CLI premise with a real invocation path (main-thread skill call, not a hook), or
 remove them — see `code-reviewer/INTEROP.md`'s "What you get back" for why a machine-parseable
 severity JSON isn't something code-reviewer can hand back today.
+
+**Alternative to abandoned hook pipeline: Review levels as native pattern (2026-09-18)**
+
+The tiered review-level feature (Quick/Standard/Deep/Ultra) provides a native, native design 
+pattern for strategic review placement across ISDD phases, replacing the attempted hook-driven 
+auto-invocation. Rather than hooks shelling out to `/code-reviewer`, callers (agent-tdd, 
+spec-driven-development) now invoke `/code-reviewer` directly at the appropriate level for 
+each phase context. This is simpler, more debuggable, and respects the harness constraint that 
+hooks cannot invoke skills.
+
+### Strategic Review Placement by ISDD Phase
+
+| Phase | Review Level | Purpose | When | Invoked By |
+|-------|--------------|---------|------|-----------|
+| Requirements | Standard | Clarity check | Before approval gate | requirements-agent (optional) |
+| Design | Deep | Coherence validation | After design complete, before Tasks | design-author (mandatory) |
+| Tasks | Standard | Clarity check | After task slicing, before implementation | task-slicer |
+| Per-Slice (Red) | Quick | Test clarity | After test written, before implementation | test-author (high-risk only) |
+| Per-Slice (Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
+| Coherence Review | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if >50% high-risk) |
+
+### Ralph Loops Integration
+
+Review findings feed into ralph loops validation at multiple checkpoints:
+
+- **Design-phase Deep review** → Traceability validation input: does design.md touch the right files?
+- **Tasks-phase Standard review** → Dependency Correctness loop: are task dependencies valid?
+- **Per-slice Standard review** → Per-slice correctness: implementation matches slice requirements
+- **Coherence review (Deep/Ultra)** → Cross-slice Traceability validation: did all slices co-evolve correctly?
+
+Each review level produces findings appropriate to its scope; ralph loops' Traceability validation 
+then confirms that design-level decisions were respected through implementation.
+
+### Auto-Detection Rules
+
+Auto-detection of review level lives in **calling code** (agent-tdd, spec-driven-development), 
+not in hooks or `code-reviewer` itself. Callers apply these rules (in priority order) when 
+invoking `/code-reviewer`:
+
+1. Explicit request (caller-specified `review_level`)
+2. ISDD workflow phase (Requirements → Standard, Design → Deep, Tasks → Standard, Implementation → context-dependent)
+3. Risk tier (high-risk slices → Deep, standard → Standard)
+4. File scope (single function → Quick, single file → Standard, multiple → Deep)
+5. Fallback: Standard
+
+This keeps review-level selection close to the context that motivated it, rather than trying 
+to infer it from static configuration.

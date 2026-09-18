@@ -15,6 +15,11 @@ README's "Why this is a skill, not an agent"). Tell it:
   Modes).
 - **Scope** — the file set or diff to review. For `review-improve`, this is the files an
   implementer agent (e.g. `agent-tdd`'s `agent-TDD`) named in its pre-refactor handoff.
+- **`review_level`** (optional) — `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls
+  the depth of analysis and checks performed. Allows balancing comprehensiveness with token
+  efficiency across different workflows. See SKILL.md's "Parameters / Review Levels" section for
+  definitions, use cases, and token budgets. If omitted, skill auto-detects level from context
+  (phase, file scope, prior context) using rules documented in SKILL.md's "Auto-Detection Rules".
 - **Review state directory** (optional) — a path where you want `REVIEW-STATE.md` /
   `REVIEW-HISTORY.md` persisted across passes. Omit it for a single ephemeral pass with no
   persistence; see SKILL.md's "Review State" section for exactly what changes when you do.
@@ -40,6 +45,37 @@ implementer itself:
    for this pass.
 4. Resume the implementer once clear, passing along whether/what review found.
 
+## Evidence Tier Model (Orthogonal to Review Level)
+
+The existing Evidence Tier Model (tier-1..5) and the new Review Level (Quick/Standard/Deep/Ultra)
+are **independent axes**, both applied to every finding:
+
+- **Evidence Tier** (tier-1..5) = how directly a finding was verified (mechanically, code-read, 
+  inferred, pattern-based, speculative). Reflects verification confidence, not severity.
+- **Review Level** (Quick/Standard/Deep/Ultra) = what checks were performed and what scope was 
+  analyzed. Reflects analysis depth.
+
+Both fields are always present in findings; callers should interpret them independently. A finding
+can be Evidence Tier 3 and Review Level Deep, or tier-1 and Quick, etc. This orthogonality is
+intentional and allows flexible interpretation across different workflows.
+
+**No breaking change**: Evidence Tier definitions, downgrade logic, and Decision Model all remain
+unchanged. Review Level is added alongside, not replacing Evidence Tier.
+
+## Graceful Degradation for Review Levels
+
+When a requested `review_level` is unavailable (e.g., `Ultra` requested but multi-agent capability
+missing):
+
+1. **Degrade to next-lower level**: `Ultra` → `Deep`, `Deep` → `Standard`, etc.
+2. **Emit notification**: Inform caller that review is running at lower level.
+3. **No auto-upgrade**: If caller requests `Deep` and multi-agent is available, do NOT auto-upgrade
+   to `Ultra` without explicit request.
+4. **Never block**: User always gets some review; review never fails silently or returns an error.
+
+This pattern follows existing `agent-tdd` and `agent-ux` capability-gating practices (check once,
+degrade, notify, proceed).
+
 ## What you get back
 
 Findings are rendered via `ReportFindings` (always) and, above a 5-finding/1-file threshold, an
@@ -48,6 +84,10 @@ by `agent-ux:ux-agent` instead when you supplied a `phase_state` and it's instal
 invoke it" above). Either way it's the same dashboard content; there is no separate report object
 to parse beyond what `ReportFindings`/the dashboard already show — `code-reviewer` does not return
 a machine-readable summary distinct from its rendered output.
+
+Each finding carries both `evidence_tier` (tier-1..5) and (optionally) `review_level` 
+(Quick/Standard/Deep/Ultra) for caller interpretation. See "Evidence Tier Model (Orthogonal to
+Review Level)" above for how both axes interact.
 
 ## Out-of-scope items (`TODO-LEDGER.md`)
 

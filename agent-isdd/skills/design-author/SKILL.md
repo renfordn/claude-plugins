@@ -107,6 +107,41 @@ requirements sections, a different artifact for a different phase). Reference th
 `design.md` in prose (what it shows and why) rather than treating the widget itself as the
 durable record — `design.md` stays the artifact of record.
 
+## Design Validation: Deep Review (Before Tasks Advancement)
+
+After the Design Gate passes and `design.md` is approved, invoke `/code-reviewer` at **Deep** 
+review level against `design.md` + `research/cache.md` to validate design coherence and slice 
+feasibility before advancing to the Tasks phase.
+
+**Step: Design Coherence Validation**
+
+1. Invoke `/code-reviewer` skill with:
+   - **Mode**: `direct-review` (or `review-improve` if piping findings into user review)
+   - **Scope**: `design.md` + `research/cache.md` (full design artifact + research basis)
+   - **`review_level`**: `Deep` (design pattern validation, coherence checks)
+
+2. Focus areas for Deep review in design context:
+   - Design pattern alignment (is the implementation matching the stated patterns?)
+   - Single Responsibility Principle (SRP) validation (do modules/classes have focused scope?)
+   - File touchpoint correctness (are the right files being touched for the right reasons?)
+   - Slice feasibility (can the proposed slices be implemented independently?)
+   - Interface consistency (do stated contracts match across touchpoints?)
+   - Architecture coherence (do design decisions hang together or conflict?)
+
+3. Gate logic:
+   - **Critical findings**: Block advancement to Tasks. Surface issues to user, suggest design rework.
+   - **Non-critical findings** (warnings, improvement suggestions): Document as follow-up tasks,
+     allow advancement to Tasks phase.
+   - **No findings**: Proceed to Tasks phase.
+
+4. Output: Attach Deep review findings to the handoff to `task-slicer` (next phase) so that 
+   any design-level concerns are visible during task planning.
+
+**Rationale**: This upfront Deep review catches wrong-shape designs early, before task slicing 
+and implementation, reducing rework during Red-Green-Refactor cycles. See 
+`code-reviewer/SKILL.md`'s "Review Levels" section for Deep level definition and 
+`design.md` §ISDD Workflow Integration for strategic review placement rationale.
+
 ## Required Output
 
 - a concise design summary

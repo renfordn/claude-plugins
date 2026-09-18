@@ -1,7 +1,27 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
-## [0.1.17] - 2026-09-16
+## [0.1.19] - 2026-09-18
+
+**Feature: Tiered Reviewing Strategy for Agent-TDD**
+
+### Features
+
+- **`SKILL.md`** (new): "Review-Level Strategy" section documenting per-slice review checkpoints (Quick/Standard/Deep), coherence gate logic (Deep/Ultra based on high-risk composition), and auto-detection priority rules (phase context, risk tier, file scope, fallback).
+- **`agents/task-slicer/SKILL.md`** (new): Standard review invocation on tasks.md output, validating task clarity, Depends-On correctness, and sequencing before implementation begins.
+
+### Improvements
+
+- **Per-slice reviews** integrated into Red-Green-Refactor: Quick (red) → Standard/Deep (green, risk-tier-dependent) → Quick (refactor checkpoint)
+- **Coherence review gate**: After all slices complete, invoke Deep (standard composition) or Ultra (>50% high-risk slices) review to validate cross-slice interactions, regressions, and module boundaries
+- **Auto-detection logic**: Review level inferred from ISDD phase + risk context, supporting context-driven tier selection without explicit caller specification
+
+### Integration
+
+- Ralph loops Traceability validation enhanced to ingest review-level findings from all phases
+- Backward compatible: existing agent-tdd workflows work unchanged (Standard level is default)
+
+## [0.1.18] - 2026-09-17
 
 **Feature: Direct Mode (harness `Agent`-spawn failure fallback)**
 

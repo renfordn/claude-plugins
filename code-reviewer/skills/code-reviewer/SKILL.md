@@ -48,6 +48,139 @@ Triggered immediately before a commit, by whatever mechanism the calling workflo
 commits, or by explicit user request. Scope: the full staged diff. Any `tier-1`/`tier-2` finding
 with `workflow_action: block_commit` prevents the commit until resolved or explicitly overridden.
 
+## Parameters
+
+### `review_level`
+
+Controls the depth of analysis and checks performed. Optional; defaults to `Standard`.
+
+**Type**: enum (`Quick | Standard | Deep | Ultra`)  
+**Default**: `Standard`  
+**Description**: Depth of analysis and checks performed. Allows balancing comprehensiveness with token efficiency across different workflows.
+
+### Review Levels
+
+Each review level defines a specific set of checks, skipped checks, token budget, use cases, and output style. Levels are ordered by scope and depth:
+
+#### **Level 1: Quick (Fact-Finding)**
+
+- **Alias**: Fact-Finding
+- **Purpose**: Brief understanding of code purpose and structure; minimal essential feedback
+- **Checks Performed**:
+  - Basic syntax correctness
+  - Function/variable naming clarity
+  - Function signature coherence
+  - Obvious logic errors (null checks, type mismatches)
+  - Import/export completeness (at file level)
+- **Skipped Checks**: Impact analysis, design patterns, security implications, performance analysis, cross-file impact
+- **Token Budget**: < 50k tokens typical
+- **Use Cases**:
+  - Local development: quick understanding of a function's purpose
+  - Code exploration: getting oriented in unfamiliar code
+  - PR draft review: early feedback on implementation direction
+- **Output Style**: Minimal findings, high signal-to-noise ratio; focus on clarity and correctness issues only
+
+#### **Level 2: Standard (Impact/Research) — Default**
+
+- **Alias**: Impact/Research Analysis
+- **Purpose**: Comprehensive within scope; understand code usage and cross-file impact
+- **Checks Performed**:
+  - All Quick level checks
+  - Import/export correctness and contract consistency
+  - API contract consistency
+  - Naming conventions (variable, function, class)
+  - Basic design coherence (functions not doing too many things)
+  - Obvious bugs and edge cases
+  - Test coverage basics (are obvious test cases covered?)
+- **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, refactoring opportunities, module-wide coherence
+- **Token Budget**: 50-150k tokens typical
+- **Use Cases**:
+  - PR reviews: impact analysis and usage correctness
+  - Code ownership reviews: ensure basic quality gates
+  - Integration risk assessment: validate API contracts
+- **Output Style**: Organized by finding type (correctness, naming, design); severity-tiered; typical current behavior
+
+#### **Level 3: Deep (Coherence/Sanity)**
+
+- **Alias**: Coherence/Sanity Checks
+- **Purpose**: Validate function/class definitions and design consistency; thorough design validation
+- **Checks Performed**:
+  - All Standard level checks
+  - Design pattern alignment (does implementation match intended patterns?)
+  - Single Responsibility Principle (SRP) validation
+  - Interface coherence (methods group logically, no leaky abstractions)
+  - Class-level design consistency
+  - Module-wide coherence (do related functions form a cohesive unit?)
+  - Edge case and error handling comprehensiveness
+  - Refactoring suggestions (improve clarity, reduce complexity)
+- **Skipped Checks**: Security-specific vulnerabilities, performance profiling, multi-module regression analysis
+- **Token Budget**: 150-300k tokens typical
+- **Use Cases**:
+  - Design review: architecture validation before implementation
+  - Code coherence gate: class/function-level quality validation
+  - Refactoring review: validate design improvements
+- **Output Style**: Design-level findings grouped by concern (SRP, interface, patterns); refactoring suggestions included; context-rich evidence
+
+#### **Level 4: Ultra (Deep Analysis + Security)**
+
+- **Alias**: Deep Analysis + Security/Regression Focus
+- **Purpose**: Comprehensive analysis including security, performance, and regression risk; final vetting for critical code
+- **Checks Performed**:
+  - All Deep level checks
+  - Security vulnerabilities (injection, authorization, data exposure, crypto, etc.)
+  - Regression risk (could changes break existing code outside modified files?)
+  - Duplicate detection (code duplication across project scope)
+  - Performance implications (memory, I/O, CPU complexity)
+  - Refactoring opportunities at whole-system scale
+- **Skipped Checks**: None (comprehensive)
+- **Token Budget**: 300k+ tokens (no limit; multi-agent capable)
+- **Use Cases**:
+  - Release branches: final vetting before shipping
+  - Critical paths: security-sensitive code, high-impact refactors
+  - End-of-feature validation: cross-slice coherence, whole-system impact
+- **Output Style**: Full spectrum of findings, severity-tiered; separate security findings; regression risks highlighted; performance notes included
+
+### Auto-Detection Rules
+
+When `review_level` is not explicitly specified, the skill infers level from context using this priority order:
+
+1. **Explicit request** (highest priority): If caller explicitly states a level, use it
+2. **ISDD workflow phase** (if available in caller context):
+   - Requirements phase → `Standard`
+   - Design phase → `Deep`
+   - Tasks phase → `Standard`
+   - Implementation phase (per-slice) → `Deep` (if `risk_tier: high_risk`), otherwise `Standard`
+   - Implementation phase (post-slices coherence) → `Ultra` (if majority high-risk slices), otherwise `Deep`
+3. **File scope** (if available):
+   - Single function → `Quick`
+   - Single file → `Standard`
+   - Multiple files → `Deep`
+   - Entire module/subsystem → `Ultra`
+4. **Prior context** (if reviewing same code multiple times):
+   - Escalate by one level: `Quick` → `Standard` → `Deep` → `Ultra`
+   - User can override by explicit re-request
+5. **Fallback** (lowest priority): `Standard` (balanced, comprehensive-within-scope, existing behavior)
+
+### Graceful Degradation
+
+If a requested review level is unavailable (e.g., `Ultra` requested but multi-agent capability missing):
+
+- Degrade to the next-lower available level (e.g., `Ultra` → `Deep`)
+- Emit a notification to the caller indicating the downgrade
+- If caller requests `Deep` and multi-agent is available: still run as `Deep` (do not auto-upgrade without asking)
+- Never block or error; user always gets some review
+
+### Design Rationale And Cross-References
+
+The review levels, auto-detection rules, and graceful degradation strategy are documented in detail in:
+
+- **Design rationale**: `design.md` §Terminology, §Invocation Mechanism, §Auto-Detection Rules, §Graceful Degradation
+- **ISDD workflow integration**: `design.md` §ISDD Workflow Integration (strategic review placement by phase)
+- **Evidence Tier interaction**: `design.md` §Finding Structure & Evidence Tier Interaction (review level and Evidence Tier are orthogonal axes)
+- **Ralph Loops integration**: `design.md` §Ralph Loops Integration, §Success Criteria (Revised)
+
+See those sections for design reasoning, trade-offs, and integration patterns with other plugins.
+
 ## Visual Review
 
 - **Default**: report findings through the `ReportFindings` tool — host-native structured
