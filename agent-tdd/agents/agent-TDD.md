@@ -688,13 +688,60 @@ Three autonomous validation loops, max 3–5 iterations each:
 - If cycle or missing dependency: reorganize slices, re-slice as needed.
 - Exit when: acyclic, complete, topologically sorted.
 
-**Loop 3: Research-to-Implementation Traceability**
-- For each slice's "Ordered Steps": validate against research/cache.md.
-- Verify: file/interface exists, constraint is respected, no unresearched assumptions.
-- If missed research: identify the specific gap (one file, one constraint, one interface).
-  Do not re-research; flag it with a brief note ("needs deep-read on async error handling").
-- If contradiction: note it as a known risk in the slice.
-- Exit when: all steps are traceable or flagged.
+**Loop 3: Research-to-Implementation Traceability (Enhanced with Review-Level Findings)**
+
+Validate ordered steps against research and review-level findings:
+
+1. **Research-to-Steps Traceability** (existing):
+   - For each slice's "Ordered Steps": validate against research/cache.md.
+   - Verify: file/interface exists, constraint is respected, no unresearched assumptions.
+   - If missed research: identify the specific gap (one file, one constraint, one interface).
+     Do not re-research; flag it with a brief note ("needs deep-read on async error handling").
+   - If contradiction: note it as a known risk in the slice.
+
+2. **Review-Level Coverage Validation** (new):
+   - **Design-Phase Coverage**: Did the Design phase's Deep review touch all files in design.md's
+     "File Touchpoints" section? Compare review scope against design.md's declared files.
+     - If gap: design.md touches file X but design-phase review didn't examine it → escalate.
+     - If coverage OK: design-phase findings inform risk assessment for affected slices.
+   
+   - **Per-Slice Review Coverage**: Did each slice's Green-phase review touch all files declared
+     in the slice's "Files" field in tasks.md?
+     - If gap: slice declares file X but review findings don't mention it → possible oversight.
+     - If coverage OK: per-slice findings inform implementation quality signal.
+   
+   - **Coherence Review Coverage**: Did the coherence review examine all modified files across
+     all slices?
+     - If gap: slice A modified file X, slice B modified file Y, but coherence review only
+       examined X → possible cross-slice interaction missed.
+     - If coverage OK: coherence findings validate cross-slice correctness.
+
+3. **Finding Consistency Checks**:
+   - **No major conflicts**: Compare per-slice findings against coherence findings.
+     - If finding X in slice review conflicts with finding Y in coherence review → escalate.
+     - If consistent: coherence review validated per-slice approach.
+   
+   - **File-to-Review-Level Mapping**: For each modified file, map which review levels examined it:
+     - Design phase (Deep)? Per-slice (Standard/Deep)? Coherence (Deep/Ultra)?
+     - Verify: critical files (from design.md Risks) examined at appropriate depth.
+   
+   - **Risk Coverage**: For each high-risk slice, verify:
+     - Did design phase flag it as risky? If so, was it examined at Deep level?
+     - Did coherence review flag cross-slice risks? If so, are they documented?
+
+4. **Exit Condition**: Traceability validation passes if:
+   - All files in design.md touched by Design phase review (Deep)
+   - All files in each slice touched by that slice's review (Standard or Deep)
+   - All modified files examined by coherence review (Deep or Ultra)
+   - No unexplained file changes (file modified but no slice claims it in tasks.md)
+   - No major conflicts between per-slice and coherence findings
+   - High-risk slices reviewed at appropriate depth (Deep for per-slice, included in coherence)
+
+5. **Escalation Path** (if gaps found):
+   - **Uncovered files**: Suggest re-run review at higher level for missed files
+   - **Missing slices**: Update tasks.md to include files that were modified but not declared
+   - **Finding conflicts**: Investigate and resolve contradictions between review phases
+   - **Risk misses**: If high-risk file reviewed at Standard level, escalate to re-review at Deep
 
 **Phase 4: Risk Tier Assignment**
 
