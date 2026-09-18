@@ -170,6 +170,52 @@ If a requested review level is unavailable (e.g., `Ultra` requested but multi-ag
 - If caller requests `Deep` and multi-agent is available: still run as `Deep` (do not auto-upgrade without asking)
 - Never block or error; user always gets some review
 
+### ISDD Phase Context: Auto-Detection in Workflows
+
+When invoked during ISDD (Integrated Spec-Driven Development) workflows, `/code-reviewer` infers 
+`review_level` from phase context and risk information. This section documents the automatic 
+level selection for each ISDD phase.
+
+**ISDD Phase → Review Level Mapping:**
+
+| Phase | Context | Recommended Level | What to Review | Why |
+|-------|---------|-------------------|---|---|
+| **Requirements** | Clarity review before approval | Standard | EARS formatting, scope completeness, non-goal conflicts | Ensure requirements are unambiguous before design |
+| **Design** | Architecture validation before tasks | Deep | Design patterns, file touchpoints, slice feasibility | Catch design issues early, before implementation effort |
+| **Tasks** | Task clarity before implementation | Standard | Task phrasing, Depends-On graph, validation steps | Validate slices are implementable at TDD scale |
+| **Impl: Per-Slice (Red)** | Test clarity check | Quick | Test intent, acceptance criteria wording | Ensure tests are understandable before implementation |
+| **Impl: Per-Slice (Green)** | Implementation check | Standard (or Deep if high-risk) | Code correctness, design alignment | Standard for normal slices; Deep for risky code |
+| **Impl: Post-Slices (Coherence)** | Cross-slice validation | Deep (or Ultra if majority high-risk) | Cross-slice interactions, regressions, duplicates | Validate slices work together correctly |
+
+**Auto-Detection Priority (ISDD context):**
+
+1. **Explicit request**: Caller specifies `review_level` → use it (overrides all phase context)
+2. **Phase + Risk Context**: Current workflow phase + slice risk_tier → recommended level
+3. **File scope**: If phase unavailable, use file scope (single → Quick, module → Ultra)
+4. **Prior context**: If reviewing same code twice, escalate one level
+5. **Fallback**: `Standard` (comprehensive but not extreme)
+
+**Examples:**
+
+- **Red phase of any slice**: Auto-detect → `Quick` (test clarity only)
+- **Green phase of standard-tier slice**: Auto-detect → `Standard` (implementation correctness)
+- **Green phase of high-risk slice**: Auto-detect → `Deep` (design patterns + edge cases)
+- **Coherence review, 60% high-risk slices, multi-agent available**: Auto-detect → `Ultra`
+- **Coherence review, 60% high-risk slices, no multi-agent**: Auto-detect → `Deep`
+
+**Key Insight:**
+
+Auto-detection lives in the caller's reasoning (`agent-tdd`, `spec-driven-development`), not in 
+`/code-reviewer` itself. The skill accepts `review_level` as a parameter and respects explicit 
+requests; the caller determines phase context and passes the level. See linked INTEROP.md sections 
+for invocation details.
+
+**Cross-references:**
+- **Agent-TDD Review Strategy**: `agent-tdd/SKILL.md` §Review-Level Strategy (per-slice checkpoints)
+- **Agent-ISDD Strategic Placement**: `agent-isdd/INTEROP.md` §Strategic Review Placement (workflow-wide invocations)
+- **Auto-Detection Priority Logic**: `agent-tdd/agents/agent-TDD.md` §Auto-Detection Logic (detailed priority tree)
+- **Design Rationale**: `design.md` §Auto-Detection Rules (why each level for each phase)
+
 ### Design Rationale And Cross-References
 
 The review levels, auto-detection rules, and graceful degradation strategy are documented in detail in:
