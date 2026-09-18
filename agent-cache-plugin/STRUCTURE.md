@@ -419,18 +419,23 @@ agent-isdd (see `agent-isdd/INTEROP.md` → "agent-cache-plugin (phase state
 caching — optional)" for the consumer-side contract this mirrors).
 
 **Phase Transition Caching**:
-- Write: `{prompt, output, metadata}` — `output` carries
-  `{current_phase, phase_state, workflow_status, last_updated}`
+- Write: `{prompt, output, metadata}` — `output` carries `{current_phase, phase_state, workflow_status, last_updated}`
 - Invalidate: `{scope}` on rollback/rewind
 - Cache scope: `agent-isdd:<feature-slug>`; TTL: 3600s
 
-Consumes:
-- `prompt`: string
-- `output`: object
-- `metadata`: object
+**Consumes:**
 
-Produces:
-- `cache_hit`: boolean
-- `cached_state`: object
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| prompt | string | yes | Description of cached content |
+| output | object | yes | Carries current_phase, phase_state, workflow_status, last_updated |
+| metadata | object | yes | Cache metadata including scope, ttl, type |
+
+**Produces:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| cache_hit | boolean | yes | Whether cache entry was found and valid |
+| cached_state | object | no | Retrieved cached state if cache_hit is true |
 
 See SHIPPING_CHECKLIST.md for complete pre-deployment verification.
