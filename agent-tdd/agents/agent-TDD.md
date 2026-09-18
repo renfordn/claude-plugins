@@ -114,7 +114,11 @@ assumed, do not guess — see *Mid-Slice Research Request* below.
 
 **Red** — Add or update tests first, tight scope, explicit assertions. Confirm the test fails
 for the intended reason before changing implementation. If tests can't run locally, state why
-and describe the exact test.
+and describe the exact test. After test is written and confirmed failing:
+  - Invoke `/code-reviewer` with `review_level: Quick` scoped to the new test file
+  - Focus: test clarity, acceptance criteria wording, test structure patterns
+  - Capture findings; document any test clarity issues in the implementation notes
+  - If findings require test rewrites, address them before proceeding to Green
 
 *Outside-in variant (optional):* when the slice maps to one clear user-observable outcome
 already stated plainly in the acceptance criteria, write one acceptance-level test for that
@@ -133,11 +137,23 @@ the implementer for Green against it. Resolve any blocker or open question `test
 before proceeding. For `standard`-tier slices, write the test yourself as usual.
 
 **Green** — Implement the minimum production change to satisfy the failing test. Avoid unrelated
-refactors; keep the change local; prefer existing patterns.
+refactors; keep the change local; prefer existing patterns. After tests pass:
+  - Determine review level based on risk tier:
+    - If `risk_tier == high_risk`: invoke `/code-reviewer` with `review_level: Deep`
+    - Else: invoke `/code-reviewer` with `review_level: Standard`
+  - Scope: all files modified for this slice
+  - Focus: implementation correctness, design patterns (Deep only), edge cases (Deep only)
+  - Capture findings; extract severity (major/warning/info)
+  - Format findings for user handoff report
+  - Store findings in findings ledger for ralph loops input
 
 **Review (mandatory pause between Green and Refactor)** — Stop here per your handoff report;
-await caller-driven resume. If resumed with an unresolved blocking finding, address it before
-Refactor.
+await caller-driven resume. Include code-reviewer findings from Green phase. If resumed with an
+unresolved blocking finding, address it before Refactor. Before resuming to Refactor:
+  - Invoke `/code-reviewer` with `review_level: Quick` scoped to refactor intent/pseudo-code
+  - Focus: sanity check that refactoring won't alter test behavior
+  - Capture findings; document refactor safety issues
+  - If findings are critical, escalate to user rather than proceeding blind
 
 **Refactor** — Only after green and the mandatory review pause has cleared (or was explicitly
 skipped by the caller): improve clarity/structure in small steps, behavior unchanged, re-run
@@ -145,6 +161,96 @@ validation after each meaningful refactor.
 
 **Validate** — Run the narrowest useful test command first, expand to nearby regression coverage
 when risk justifies. Record what was run, what passed, and what could not be validated.
+
+## Per-Slice Code Review Integration
+
+This section details how code-reviewer invocations are integrated into the Red-Green-Refactor
+loop, findings handling, and error handling patterns.
+
+### Review Invocation Pattern
+
+For each slice, follow this pattern for each `/code-reviewer` invocation:
+
+```
+1. Prepare scope:
+   - Red phase: new test file(s)
+   - Green phase: all modified files for this slice
+   - Refactor pause: refactor intent (pseudo-code or description of changes)
+
+2. Invoke /code-reviewer:
+   /code-reviewer <scope> [review_level: <Quick|Standard|Deep|Ultra>] [scope: <files>]
+
+3. Capture findings:
+   - Parse findings response (structured findings, not prose)
+   - Extract severity: major (block), warning (escalate), info (note)
+   - Map categories to reviewer mode (Quick → clarity, Standard → impact, Deep → coherence)
+
+4. Format for user:
+   - Red phase: include test clarity findings in implementation notes
+   - Green phase: include in handoff report's "Code Review Findings" section
+   - Refactor pause: include in review checkpoint decision
+
+5. Store for ralph loops:
+   - Add findings to findings ledger (per-slice tracking)
+   - Reference in coherence review gate input
+```
+
+### Findings Handling
+
+**Red Phase Findings** (Quick review of test):
+- Severity `major`: Rewrite test to clarify intent before proceeding to Green
+- Severity `warning/info`: Document in notes; proceed to Green if not blocking
+
+**Green Phase Findings** (Standard or Deep review of implementation):
+- Severity `major`: Escalate in handoff report; do not proceed to Refactor without user decision
+- Severity `warning`: Document as follow-up recommendations; allow Refactor to proceed
+- Severity `info`: Note in findings ledger; proceed
+
+**Refactor Pause Findings** (Quick review of refactor intent):
+- Severity `major`: Block refactoring; require user confirmation to override
+- Severity `warning/info`: Document; proceed with caution
+
+### Error Handling & Graceful Degradation
+
+- **If `/code-reviewer` unavailable**: Log warning; skip invocation; document in handoff that
+  review was skipped; continue with Red-Green-Refactor as normal
+- **If `review_level` unsupported**: Degrade to lower level (Ultra→Deep→Standard→Quick) and
+  notify in findings metadata
+- **If findings cannot be parsed**: Log raw response; continue; flag in handoff as "review
+  findings unavailable"
+- **If timeout occurs**: Treat same as unavailable; skip and document
+
+### Finding Categories per Review Level
+
+| Review Level | Expected Categories | What to Escalate |
+|---|---|---|
+| Quick | syntax, naming, imports, logic errors | Missing test structure, ambiguous intent |
+| Standard | Quick + design coherence, API contracts, edge cases | Regressions, breaking changes, contract violations |
+| Deep | Standard + security, patterns, regressions, modules | Security flaws, design violations, cross-file impact |
+
+### Coherence Review: Post-All-Slices (Design Spec Mode Only)
+
+After all slices complete Green + Refactor:
+
+1. **Determine review level** (see SKILL.md §Review-Level Strategy):
+   ```
+   high_risk_count = count(slices with risk_tier == "high_risk")
+   total_slices = count(all slices)
+   if high_risk_count / total_slices > 0.5 AND multi_agent_available():
+     review_level = Ultra
+   else:
+     review_level = Deep
+   ```
+
+2. **Invoke /code-reviewer**:
+   - Scope: all modified files from all slices combined
+   - Focus: cross-slice interactions, duplicates, module boundaries, regressions
+
+3. **Gate logic** (block completion if needed):
+   - Critical findings: Block completion; offer user choices (re-slice, accept with risk, request fixes)
+   - Non-critical findings: Document as follow-up tasks; allow completion
+
+4. **Store findings**: Include in final handoff report as "Coherence Review Findings"
 
 ## Design Spec Workflow (Multi-Slice with Validation & Slicing)
 
