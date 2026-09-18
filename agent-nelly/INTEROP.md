@@ -68,32 +68,31 @@ it.
 
 **Request** (what you pass it):
 
-- `cwd` — your plugin's/skill's resolved project root.
-- `task description` — one line describing what you're currently doing.
-- `surface relevant memory` (optional flag) — pass this only when you explicitly want proactive
-  relevant-entry surfacing for this call. It never fires unless you ask for it.
-- `new fact` — one fact you want recorded this call (mutually exclusive with `new facts`).
-- `new facts` — several facts at once, as a `New facts:` block; near-duplicates within the batch
-  are merged into one entry rather than written N times.
-- `target files` (optional) — a list of repo-relative paths your current task plausibly touches.
-  Only has any effect when `surface relevant memory` (or `handoff surfacing`, below) is also set
-  for the same call; it biases which entries are judged relevant and adds a `File relevance:`
-  sub-list (see "Response" below) when a `file-relevance`-typed entry matches.
-- `error lesson` (optional, raw text) — a lesson about a failed approach worth avoiding next
-  time. Written as a new `error-prevention` entry with `metadata.confidence: explicit` before the
-  promotion judgment runs. This is the primary capture path for error-prevention entries.
-- `confirm error lesson: <name>` (optional) — flips one existing `inferred`-confidence
-  `error-prevention` entry named `<name>` to `explicit`. This is the only mechanism by which an
-  `inferred` entry ever becomes eligible for surfacing.
-- `handoff surfacing` (optional flag) — see "Handoff points" below.
-- `aside task description` (optional, text) — see "Spinoff context bundles" below.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| cwd | string | yes | Your plugin's/skill's resolved project root |
+| task description | string | yes | One line describing what you're currently doing |
+| surface relevant memory | flag | no | Request proactive relevant-entry surfacing; never fires unless explicitly asked |
+| new fact | string | no | One fact to record (mutually exclusive with `new facts`) |
+| new facts | array/block | no | Multiple facts at once; near-duplicates merged into single entry |
+| target files | array | no | List of repo-relative paths your task plausibly touches; only effective when `surface relevant memory` or `handoff surfacing` set; biases relevance judgment and adds `File relevance:` sub-list in response |
+| error lesson | string | no | Lesson about failed approach to avoid; written as `error-prevention` entry with `metadata.confidence: explicit` |
+| confirm error lesson | string | no | Name of existing `inferred`-confidence `error-prevention` entry to flip to `explicit` |
+| handoff surfacing | flag | no | Enable surfacing at handoff points (see "Handoff points" section) |
+| aside task description | string | no | Spinoff aside for potential separate conversation (see "Spinoff context bundles" section) |
 
-**Response**: always the four sections defined in `agents/agent-nelly.md`'s Outputs
-block — `Intent`, `Relevant entries`, `Intent alignment`, `Written` — with the same invariants
-(never a raw entry file's full contents, never marks anything "resolved," never invents an
-Intent). Two conditional trailing lines (`Spinoff prompt:`/`Spinoff tldr:`) may follow `Written`
-when you passed `aside task description` this call — see "Spinoff context bundles" below. See
-`agents/agent-nelly.md` for the full contract.
+**Response**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| Intent | string | yes | Project-level goal and intent (per `agents/agent-nelly.md` contract) |
+| Relevant entries | array | yes | Matching memory entries with content (never raw file contents; never marks "resolved"; never invents Intent) |
+| Intent alignment | string | yes | Assessment of whether current task aligns with stored project Intent |
+| Written | string/object | yes | Summary of any facts written during this call |
+| Spinoff prompt | string | conditional | Self-contained context bundle if `aside task description` matched memory; omitted if no match |
+| Spinoff tldr | string | conditional | One-to-two sentence summary if `aside task description` matched memory; omitted if no match |
+
+See `agents/agent-nelly.md` for full contract details.
 
 ## Handoff points
 
