@@ -1,6 +1,38 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-18
+
+**Feature: Comprehensive Tiered Review Integration for ISDD**
+
+### Features
+
+- **Per-Slice Code Review Integration** (`agent-TDD.md`): Full Red-Green-Refactor review checkpoints with Quick (red), Standard/Deep (green based on risk tier), and conditional review holds before refactor
+- **Coherence Review Gate** (`agent-TDD.md`): Post-all-slices validation with Deep (≤50% high-risk) or Ultra (>50% high-risk) level selection, comprehensive cross-slice interaction checking
+- **Auto-Detection Logic** (`agent-TDD.md`): Context-driven review level selection with 5-priority hierarchy (explicit → phase → scope → prior → fallback) plus 6 real-world scenario examples
+- **Ralph Loops Traceability Enhancement** (`agent-TDD.md` Loop 3): Review-level findings validation, design-phase coverage, per-slice coverage, coherence coverage, file-to-review-level mapping, risk coverage validation
+- **ISDD Phase Context Documentation** (`SKILL.md`): Phase-to-level mapping table for Requirements/Design/Tasks/Per-Slice/Coherence phases with auto-detection priority order and concrete examples
+
+### Testing
+
+- 22 per-slice review invocation tests (Red/Green/Refactor, risk tier mapping, error handling)
+- 27 coherence gate tests (level determination, scope collection, finding categorization, gate decisions, ledger storage)
+- 27 auto-detection logic tests (all 5 priorities, 6 real-world scenarios)
+- 29 ralph loops traceability tests (coverage validation, finding consistency, file mapping, risk coverage)
+- 37 end-to-end integration tests (full workflow requirements → design → tasks → per-slice → coherence → ralph loops)
+
+### Documentation
+
+- Updated SKILL.md with ISDD Phase Context section and auto-detection rules
+- Enhanced INTEROP.md with Strategic Review Placement by Phase table and ralph loops integration details
+- Comprehensive cross-references to code-reviewer, agent-isdd, and design.md
+
+### Improvements
+
+- Backward compatible: Standard review remains default level when not specified
+- Graceful degradation for unavailable review levels (Ultra → Deep → Standard cascade)
+- Findings validation across all phases with conflict detection and escalation
+
 ## [0.1.19] - 2026-09-18
 
 **Feature: Tiered Reviewing Strategy for Agent-TDD**
