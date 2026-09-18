@@ -391,6 +391,210 @@ When CRITICAL or MAJOR findings block completion:
 - **If timeout on coherence review**: Treat same as unavailable; skip and document
 - **If multi_agent_available() fails** to evaluate: Default to Deep (conservative approach)
 
+## Auto-Detection Logic (Context-Driven Review Level Selection)
+
+When a caller doesn't specify `review_level` explicitly, agent-TDD auto-detects the appropriate
+level using a priority-based decision tree. This eliminates the need for callers to understand
+review levels while ensuring the right depth of analysis for each context.
+
+### Priority Order (Highest to Lowest)
+
+**Priority 1: Explicit Request (Caller-Specified)**
+```
+if caller_specified_review_level:
+  return caller_specified_review_level
+```
+When a caller explicitly specifies `review_level` in the invocation, that takes precedence over
+all other factors. Use case: power users or orchestrators that want fine-grained control.
+
+**Priority 2: Phase Context (Current Loop Position)**
+```
+if phase == "red":
+  return "Quick"
+elif phase == "green":
+  if risk_tier == "high_risk":
+    return "Deep"
+  else:
+    return "Standard"
+elif phase == "refactor":
+  return "Quick"
+elif phase == "coherence":
+  if high_risk_ratio > 0.5 and multi_agent_available():
+    return "Ultra"
+  else:
+    return "Deep"
+```
+The phase context provides strong signal about what to review:
+- Red (test writing): Quick check on test clarity
+- Green (implementation): Standard for normal, Deep for risky
+- Refactor: Quick sanity check
+- Coherence: Deep or Ultra for cross-slice validation
+
+**Priority 3: File Scope (If Available)**
+```
+if file_scope == "single_function":
+  return "Quick"
+elif file_scope == "single_file":
+  return "Standard"
+elif file_scope == "multiple_files":
+  return "Deep"
+elif file_scope == "module":
+  return "Ultra"
+```
+When phase context isn't available, file scope indicates complexity:
+- Single function: minimal scope → Quick
+- Single file: moderate scope → Standard
+- Multiple files: higher scope → Deep
+- Entire module: largest scope → Ultra
+
+**Priority 4: Prior Context (Escalate by One Level)**
+```
+if prior_review_level_available():
+  # Escalate: Quick → Standard → Deep → Ultra
+  escalated_levels = {
+    "Quick": "Standard",
+    "Standard": "Deep",
+    "Deep": "Ultra",
+    "Ultra": "Ultra"  # Already max
+  }
+  return escalated_levels.get(prior_review_level, "Standard")
+```
+When reviewing the same code multiple times (e.g., after fix attempt):
+- Escalate by one level to catch issues missed in prior review
+- Prevents review fatigue and escalation loops
+
+**Priority 5: Fallback (Conservative Default)**
+```
+return "Standard"
+```
+When no context available, use Standard (comprehensive but not extreme).
+
+### Integration Points
+
+**In Per-Slice Invocations (Red-Green-Refactor Loop)**
+
+For each invocation that doesn't have explicit `review_level`:
+
+```python
+def get_review_level_for_phase(phase, risk_tier, file_scope=None, prior_level=None):
+  # Priority 1: Explicit (checked before calling this function)
+  
+  # Priority 2: Phase context
+  if phase == "red":
+    return "Quick"
+  elif phase == "green":
+    return "Deep" if risk_tier == "high_risk" else "Standard"
+  elif phase == "refactor":
+    return "Quick"
+  
+  # Priority 3: File scope (fallback for phase-less contexts)
+  if file_scope:
+    scope_levels = {
+      "single_function": "Quick",
+      "single_file": "Standard",
+      "multiple_files": "Deep",
+      "module": "Ultra",
+    }
+    return scope_levels.get(file_scope, "Standard")
+  
+  # Priority 4: Prior context (escalate)
+  if prior_level:
+    escalation = {"Quick": "Standard", "Standard": "Deep", "Deep": "Ultra", "Ultra": "Ultra"}
+    return escalation.get(prior_level, "Standard")
+  
+  # Priority 5: Fallback
+  return "Standard"
+```
+
+**Usage in Red Phase:**
+```
+# Caller provides: phase="red", risk_tier (from slice metadata)
+review_level = get_review_level_for_phase(phase="red", risk_tier=slice.risk_tier)
+# Returns: "Quick" (from phase context, Priority 2)
+```
+
+**Usage in Green Phase:**
+```
+# Caller provides: phase="green", risk_tier (from slice metadata)
+review_level = get_review_level_for_phase(phase="green", risk_tier=slice.risk_tier)
+# Returns: "Deep" if high_risk; "Standard" if standard (from phase context, Priority 2)
+```
+
+**Usage in Refactor Phase:**
+```
+# Caller provides: phase="refactor"
+review_level = get_review_level_for_phase(phase="refactor", risk_tier=slice.risk_tier)
+# Returns: "Quick" (from phase context, Priority 2)
+```
+
+**In Coherence Review Gate**
+
+```python
+# After all slices complete, auto-detect coherence review level
+high_risk_count = sum(1 for s in slices if s.risk_tier == "high_risk")
+high_risk_ratio = high_risk_count / len(slices)
+
+review_level = get_review_level_for_phase(
+  phase="coherence",
+  risk_tier=None,  # Not applicable for coherence
+  file_scope="module",  # All modified files from all slices
+  prior_level=None
+)
+# Returns: "Ultra" if high_risk_ratio > 0.5 and multi_agent; else "Deep"
+```
+
+### Examples
+
+**Example 1: Standard Slice, Red Phase**
+```
+Inputs: phase="red", risk_tier="standard", file_scope=None, explicit_level=None
+Priority 1: No explicit level
+Priority 2: phase="red" → "Quick"
+Result: "Quick"
+```
+
+**Example 2: High-Risk Slice, Green Phase**
+```
+Inputs: phase="green", risk_tier="high_risk", file_scope=None, explicit_level=None
+Priority 1: No explicit level
+Priority 2: phase="green" AND risk_tier="high_risk" → "Deep"
+Result: "Deep"
+```
+
+**Example 3: Standard Slice, Green Phase**
+```
+Inputs: phase="green", risk_tier="standard", file_scope=None, explicit_level=None
+Priority 1: No explicit level
+Priority 2: phase="green" AND risk_tier="standard" → "Standard"
+Result: "Standard"
+```
+
+**Example 4: No Phase, Single-File Scope**
+```
+Inputs: phase=None, file_scope="single_file", explicit_level=None
+Priority 1: No explicit level
+Priority 2: No phase
+Priority 3: file_scope="single_file" → "Standard"
+Result: "Standard"
+```
+
+**Example 5: Fix Attempt, Prior Review Failed**
+```
+Inputs: phase=None, prior_level="Standard", explicit_level=None
+Priority 1: No explicit level
+Priority 2: No phase
+Priority 3: No file_scope
+Priority 4: prior_level="Standard" → escalate to "Deep"
+Result: "Deep"
+```
+
+**Example 6: Caller Overrides**
+```
+Inputs: phase="green", risk_tier="standard", explicit_level="Deep"
+Priority 1: explicit_level="Deep" → return immediately
+Result: "Deep" (ignores all other context)
+```
+
 ## Design Spec Workflow (Multi-Slice with Validation & Slicing)
 
 **Phase 1: Research Validation**
