@@ -11,24 +11,13 @@ it.
 Invoke the `code-reviewer` skill directly (it is a skill, not a Task-tool subagent — see
 README's "Why this is a skill, not an agent"). Tell it:
 
-- **Mode** — `direct-review`, `review-improve`, or `pre-commit` (see SKILL.md's Invocation
-  Modes).
-- **Scope** — the file set or diff to review. For `review-improve`, this is the files an
-  implementer agent (e.g. `agent-tdd`'s `agent-TDD`) named in its pre-refactor handoff.
-- **`review_level`** (optional) — `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls
-  the depth of analysis and checks performed. Allows balancing comprehensiveness with token
-  efficiency across different workflows. See SKILL.md's "Parameters / Review Levels" section for
-  definitions, use cases, and token budgets. If omitted, skill auto-detects level from context
-  (phase, file scope, prior context) using rules documented in SKILL.md's "Auto-Detection Rules".
-- **Review state directory** (optional) — a path where you want `REVIEW-STATE.md` /
-  `REVIEW-HISTORY.md` persisted across passes. Omit it for a single ephemeral pass with no
-  persistence; see SKILL.md's "Review State" section for exactly what changes when you do.
-- **`phase_state`** (optional) — pass this only if your workflow has a compact phase token of its
-  own (e.g. `agent-isdd`'s `Design`, or `TDD:green`) to attribute this review pass to. This is the
-  one thing that unlocks `agent-ux:ux-agent` delegation for the review dashboard, if it's
-  installed — see SKILL.md's "Visual Review" section. Omit it entirely for a standalone or
-  pre-commit pass with no surrounding workflow; `code-reviewer` never invents one, and its own
-  behavior is identical either way except for which tool renders the above-threshold dashboard.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| Mode | string | yes | `direct-review`, `review-improve`, or `pre-commit` (see SKILL.md's Invocation Modes) |
+| Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff |
+| review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
+| review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
+| phase_state | string | no | Compact phase token (e.g. `Design`, `TDD:green`) if your workflow has one. Unlocks `agent-ux:ux-agent` delegation for review dashboard if installed. Omit for standalone/pre-commit pass |
 
 ## Pairing with an implementer agent (e.g. `agent-tdd`)
 
@@ -87,20 +76,19 @@ at each phase.
 
 | ISDD Phase | Review Level | Purpose | What to Review | When | Invoked By |
 |------------|--------------|---------|---|---|---|
-| **Requirements** | Standard | Clarity validation | EARS formatting, scope completeness, non-goal conflicts | After requirements draft, before approval | spec-reviewer |
-| **Design** | Deep | Coherence validation | Design patterns, file touchpoints, slice feasibility | After design complete, before Tasks | design-author |
-| **Tasks** | Standard | Clarity validation | Task phrasing, Depends-On graph, validation steps | After task slicing, before implementation | task-slicer |
-| **Impl: Per-Slice (Red)** | Quick | Test clarity | Test intent, acceptance criteria wording | After test written, before implementation | test-author (high-risk only) |
+| **Design** | Deep | Coherence validation | Design patterns, file touchpoints, slice feasibility | After design complete, before Tasks | design-author (agent-isdd skill) |
+| **Tasks** | Standard | Clarity validation | Task phrasing, Depends-On graph, validation steps | After task slicing, before implementation | task-slicer (agent-tdd internal skill) |
 | **Impl: Per-Slice (Green)** | Standard or Deep | Implementation check | Code correctness, design alignment (Deep for high-risk) | After slice passes tests | agent-tdd |
 | **Impl: Post-Slices (Coherence)** | Deep or Ultra | Cross-slice validation | Cross-slice interactions, duplicates, module boundaries, regressions | After all slices complete Green + Refactor | agent-tdd |
 
 **Rationale:**
 
-- **Requirements & Tasks (Standard)**: Early feedback on clarity; full depth not needed until design is complete
 - **Design (Deep)**: Design decisions have architectural impact; thorough validation prevents rework
-- **Per-Slice Red (Quick)**: Tests should be understandable before implementation; Quick level ensures intent is clear
+- **Tasks (Standard)**: Early feedback on clarity; full depth not needed until design is complete
 - **Per-Slice Green (Standard/Deep)**: Standard for normal slices; Deep for high-risk to catch edge cases early
 - **Coherence Review (Deep/Ultra)**: Ultra when majority of slices are high-risk; captures cross-slice interactions that per-slice reviews miss
+
+*Note: Requirements-phase review and Per-Slice Red reviews are not currently implemented; integration at those points is aspirational. The table above reflects current invocation points.*
 
 **Ralph Loops Integration:**
 
@@ -109,7 +97,7 @@ Review-level findings feed into ralph loops validation:
 - **Per-slice Standard findings** → Per-slice correctness validation
 - **Coherence Deep/Ultra findings** → Cross-slice regression detection and duplicate detection
 
-See `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops for detailed integration.
+See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
 
 **Capability Detection Note:**
 
@@ -126,16 +114,16 @@ for auto-detection to succeed. See `plugin-orchestrator/tests/test_smoke_e2e.py`
 
 ## What you get back
 
-Findings are rendered via `ReportFindings` (always) and, above a 5-finding/1-file threshold, an
-additional review-dashboard — an `Artifact` this skill opens directly by default, or one rendered
-by `agent-ux:ux-agent` instead when you supplied a `phase_state` and it's installed (see "How to
-invoke it" above). Either way it's the same dashboard content; there is no separate report object
-to parse beyond what `ReportFindings`/the dashboard already show — `code-reviewer` does not return
-a machine-readable summary distinct from its rendered output.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| findings | array (ReportFindings) | yes | All review findings with full details |
+| review_dashboard | Artifact | no | Visual dashboard rendered by skill or agent-ux; present above 5-finding/1-file threshold |
 
-Each finding carries both `evidence_tier` (tier-1..5) and (optionally) `review_level` 
-(Quick/Standard/Deep/Ultra) for caller interpretation. See "Evidence Tier Model (Orthogonal to
-Review Level)" above for how both axes interact.
+**Finding fields:**
+- `evidence_tier` (integer 1-5): Verification confidence for each finding
+- `review_level` (string, optional): Analysis depth (Quick/Standard/Deep/Ultra)
+
+See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. No separate machine-readable summary is returned beyond what `ReportFindings`/dashboard already show.
 
 ## Out-of-scope items (`TODO-LEDGER.md`)
 
