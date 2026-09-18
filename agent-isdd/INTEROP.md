@@ -16,17 +16,20 @@ for both agent-isdd's own maintainers and the sibling plugins' maintainers to cr
 cached research findings, and pre-fetched file summaries, then spawns `agent-tdd` for research
 validation, task slicing, and implementation.
 
-**Design Spec** includes:
-- Full `requirements.md` (approved)
-- Full `design.md` (approved, with Research Basis section)
-- `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
-- Pre-fetched file summaries from agent-nelly cache (if available), for files *not* already
-  covered by `research/cache.md`'s own fresh `file_summaries` — see
-  `skills/spec-driven-development/SKILL.md`'s "Implementation Handoff" step 2 for why querying
-  nelly for a file `research-consolidator` just summarized would double it up in the bundle
-- `recap.md`, summarized rather than pasted in full when it has grown large — see
-  `skills/spec-driven-development/SKILL.md`'s "Implementation Handoff" step 3 (summary, known
-  risks, blockers, Goal alignment notes)
+**Design Spec** includes (validated by plugin-orchestrator):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| requirements_md | string | yes | Full approved requirements.md |
+| design_md | string | yes | Full approved design.md (with Research Basis section) |
+| research_cache | object | yes | Research findings including design_findings, task_findings, file_summaries, git_hashes |
+| recap_md | string | yes | Summarized recap of summary, known risks, blockers, and Goal alignment notes |
+
+**Optional fields** (passed through but not validated):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| file_summaries | object | no | Pre-fetched file summaries from agent-nelly cache (if available), merged into research_cache for files not already covered by fresh file_summaries — see skills/spec-driven-development/SKILL.md's "Implementation Handoff" step 2 for deduplication rationale |
 
 **Agent-tdd responsibilities** (Phase 2+3):
 1. **Research Validation** (optional re-research gaps only)
@@ -304,9 +307,11 @@ only path for `code-reviewer` altogether.
 
 ## → code-reviewer (review gate)
 
-agent-isdd never invokes `code-reviewer` directly. It is `agent-tdd`'s responsibility (per
-`agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever context is driving
-implementation after the handoff above.
+The agent-isdd workflow layer does not invoke `code-reviewer` directly. However, agent-isdd's 
+constituent skills — particularly `design-author` — invoke it at appropriate phase boundaries 
+(see Strategic Review Placement below). For implementation-phase reviews, it is `agent-tdd`'s 
+responsibility (per `agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever 
+context is driving implementation after the handoff above.
 
 ## → agent-ux (UX rendering)
 
@@ -457,56 +462,18 @@ compatibility. If agent-cache-plugin is installed and running, performance impro
 
 ---
 
-## Auto Code-Reviewer Invocation (Review Gate, High-Risk Slices)
+## Strategic Review Placement via Review Levels (Current Approach)
 
-**Corrected 2026-09-16**: this section previously described a fully-automatic pipeline —
-`high_risk_reviewer` hook shelling out to `/code-reviewer` as a subprocess, parsing JSON
-severity dimensions, auto-emitting rollback markers or auto-resuming `agent-tdd` — that was
-never implemented and, per the harness constraint documented in `agent-tdd/INTEROP.md` ("The
-harness constraint that shapes everything here": hooks are blocking subprocesses with no
-`Agent`/skill-invocation access) and `code-reviewer/INTEROP.md` ("it is a skill, not a
-Task-tool subagent" — no subprocess CLI, no machine-readable JSON output separate from its
-rendered `ReportFindings`), could not have worked as described even in principle. It also
-contradicted this same document's own "→ code-reviewer (review gate)" section above, which
-correctly states agent-isdd never invokes code-reviewer directly.
-
-**What `hooks/high_risk_reviewer.py` actually does**: on `agent-tdd`'s `SubagentStop`, it reads
-`tasks.md`, tracks which phases are high-risk (or standard-risk touching a high-risk file path)
-in `workflow-state.json`'s `code_reviewer_tracking`, and surfaces a passive checkpoint message —
-"Recommended: Run `code-reviewer` on these high-risk slices if not already done... **No automatic
-enforcement yet — this is a documented expectation.**" (the hook's own message text). Running
-code-reviewer on a flagged slice is left to whoever is driving the session, via the ordinary
-manual "Code-Review Gate" path described above — there is no severity classification, no
-auto-rollback marker, no TaskCreate/GitHub-issue follow-up, and no auto-resume.
-
-The functions implementing that fuller pipeline (`invoke_code_reviewer`, `classify_severity`,
-`construct_rollback_marker`, `create_follow_up_tasks`, `create_github_issues`, etc.) exist in
-`hooks/high_risk_reviewer.py` and have their own unit tests, but are dead code — `main()` (the
-function actually wired to `SubagentStop`) never calls them. `invoke_code_reviewer` in particular
-would always fail (`FileNotFoundError`/exit -1): it shells out to a literal `/code-reviewer`
-command, which is a conversational skill invocation, not a CLI binary on `PATH`. Anyone
-resuming this work should either wire these functions into `main()` after first replacing the
-subprocess-CLI premise with a real invocation path (main-thread skill call, not a hook), or
-remove them — see `code-reviewer/INTEROP.md`'s "What you get back" for why a machine-parseable
-severity JSON isn't something code-reviewer can hand back today.
-
-**Alternative to abandoned hook pipeline: Review levels as native pattern (2026-09-18)**
-
-The tiered review-level feature (Quick/Standard/Deep/Ultra) provides a native, native design 
-pattern for strategic review placement across ISDD phases, replacing the attempted hook-driven 
-auto-invocation. Rather than hooks shelling out to `/code-reviewer`, callers (agent-tdd, 
-spec-driven-development) now invoke `/code-reviewer` directly at the appropriate level for 
-each phase context. This is simpler, more debuggable, and respects the harness constraint that 
-hooks cannot invoke skills.
-
-### Strategic Review Placement by ISDD Phase
+The tiered review-level feature (Quick/Standard/Deep/Ultra) provides the design pattern for 
+strategic review placement across ISDD phases. Rather than hooks managing invocation, 
+callers (agent-tdd, spec-driven-development skills) invoke `/code-reviewer` directly at the 
+appropriate level for each phase context. This is simpler, debuggable, and respects the 
+harness constraint that hooks cannot invoke skills.
 
 | Phase | Review Level | Purpose | When | Invoked By |
 |-------|--------------|---------|------|-----------|
-| Requirements | Standard | Clarity check | Before approval gate | requirements-agent (optional) |
-| Design | Deep | Coherence validation | After design complete, before Tasks | design-author (mandatory) |
-| Tasks | Standard | Clarity check | After task slicing, before implementation | task-slicer |
-| Per-Slice (Red) | Quick | Test clarity | After test written, before implementation | test-author (high-risk only) |
+| Design | Deep | Coherence validation | After design complete, before Tasks | design-author (agent-isdd skill) |
+| Tasks | Standard | Clarity check | After task slicing, before implementation | task-slicer (agent-tdd internal) |
 | Per-Slice (Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
 | Coherence Review | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if >50% high-risk) |
 

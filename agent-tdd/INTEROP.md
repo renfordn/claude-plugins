@@ -32,18 +32,14 @@ required fields, and the two enums); validate against it if you're assembling th
 programmatically. The [`slice-spec`](skills/slice-spec/SKILL.md) skill in this plugin walks
 through gathering and validating these fields by hand.
 
-- **Task description** (required) — the behavior to implement, plain language.
-- **Acceptance criteria / Test Intent** (required) — the observable behavior a test must pin
-  down. If you can't state this yet, don't spawn the agent — it will stop and report the gap.
-- **Risk Tier** (optional, default `standard`) — `standard` or `high-risk`. Drives whether the
-  test-author split applies.
-- **Data Contracts And Interfaces** (optional) — type signatures, module boundaries, API shapes
-  you already know. Skip it if you don't have this; the agent will explore the codebase itself.
-- **Pre-Slice Brief** (optional) — prior project context you already gathered (e.g. from a
-  memory subagent like `agent-nelly`). Purely additive — omitting it is not an error.
-- **Review handoff mode** (optional) — leave unset for the default (mandatory pause after Green).
-  Set explicitly to "skip" only when you have deliberately decided no review step will happen
-  this session.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| Task description | string | yes | The behavior to implement, plain language |
+| Acceptance criteria / Test Intent | string | yes | The observable behavior a test must pin down. If you can't state this yet, don't spawn the agent — it will stop and report the gap |
+| Risk Tier | enum (standard \| high-risk) | no | Drives whether the test-author split applies. Default: standard |
+| Data Contracts And Interfaces | object | no | Type signatures, module boundaries, API shapes you already know. Skip if you don't have this; the agent will explore the codebase itself |
+| Pre-Slice Brief | object | no | Prior project context you already gathered (e.g. from a memory subagent like agent-nelly). Purely additive — omitting it is not an error |
+| Review handoff mode | enum (skip) | no | Leave unset for the default (mandatory pause after Green). Set explicitly to "skip" only when you have deliberately decided no review step will happen this session |
 
 ## Two-part invocation (the high-risk split)
 
@@ -198,22 +194,20 @@ fresh design decision, not something to resurrect from `git log`.
 
 ### Design Spec Input Format
 
-Pass a **Design Spec** inline in the spawn prompt:
+Pass a **Design Spec** inline in the spawn prompt (exact field names required for plugin-orchestrator validation):
 
-- **requirements.md** (full, approved) — user stories and acceptance criteria.
-- **design.md** (full, approved) — file touchpoints, interfaces, research basis section.
-- **research/cache.md** — design_findings, task_findings, file_summaries, git_hashes from prior
-  research consolidation.
-- **recap.md** (optional) — summary, known risks, blockers, Goal alignment notes. Expect this
+- **requirements_md** (string, required) — full approved requirements.md with user stories and acceptance criteria.
+- **design_md** (string, required) — full approved design.md with file touchpoints, interfaces, research basis section.
+- **research_cache** (object, required) — research findings object containing design_findings, task_findings, file_summaries (keyed by path), and git_hashes from prior research consolidation.
+- **recap_md** (string, required) — summary, known risks, blockers, Goal alignment notes. Expect this
   summarized rather than pasted in full for a long-running feature — `agent-TDD` doesn't need a
   phase-by-phase history, just enough to inform implementation.
-- **Pre-fetched file summaries** (optional) — cached context keyed by file path (from agent-nelly
-  or prior deep-reads).
+- **nelly_brief_cache** (optional) — pre-fetched cached context from agent-nelly (if available).
 
 ### Research Validation Phase
 
 Agent-tdd validates:
-- Are design.md's file touchpoints present in research/cache.md?
+- Are design.md's file touchpoints present in research_cache?
 - Are interfaces and constraints documented?
 - Any obvious gaps (a file touched but not researched)?
 
