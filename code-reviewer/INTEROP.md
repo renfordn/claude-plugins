@@ -76,6 +76,54 @@ missing):
 This pattern follows existing `agent-tdd` and `agent-ux` capability-gating practices (check once,
 degrade, notify, proceed).
 
+## Strategic Review Placement by ISDD Phase
+
+When invoked within an ISDD (Integrated Spec-Driven Development) workflow, code-reviewer is placed
+at specific points, using specific review levels, to validate different aspects of the pipeline.
+This section documents the strategic placement pattern and the reasoning behind level selection
+at each phase.
+
+**Strategic Review Placement Table:**
+
+| ISDD Phase | Review Level | Purpose | What to Review | When | Invoked By |
+|------------|--------------|---------|---|---|---|
+| **Requirements** | Standard | Clarity validation | EARS formatting, scope completeness, non-goal conflicts | After requirements draft, before approval | spec-reviewer |
+| **Design** | Deep | Coherence validation | Design patterns, file touchpoints, slice feasibility | After design complete, before Tasks | design-author |
+| **Tasks** | Standard | Clarity validation | Task phrasing, Depends-On graph, validation steps | After task slicing, before implementation | task-slicer |
+| **Impl: Per-Slice (Red)** | Quick | Test clarity | Test intent, acceptance criteria wording | After test written, before implementation | test-author (high-risk only) |
+| **Impl: Per-Slice (Green)** | Standard or Deep | Implementation check | Code correctness, design alignment (Deep for high-risk) | After slice passes tests | agent-tdd |
+| **Impl: Post-Slices (Coherence)** | Deep or Ultra | Cross-slice validation | Cross-slice interactions, duplicates, module boundaries, regressions | After all slices complete Green + Refactor | agent-tdd |
+
+**Rationale:**
+
+- **Requirements & Tasks (Standard)**: Early feedback on clarity; full depth not needed until design is complete
+- **Design (Deep)**: Design decisions have architectural impact; thorough validation prevents rework
+- **Per-Slice Red (Quick)**: Tests should be understandable before implementation; Quick level ensures intent is clear
+- **Per-Slice Green (Standard/Deep)**: Standard for normal slices; Deep for high-risk to catch edge cases early
+- **Coherence Review (Deep/Ultra)**: Ultra when majority of slices are high-risk; captures cross-slice interactions that per-slice reviews miss
+
+**Ralph Loops Integration:**
+
+Review-level findings feed into ralph loops validation:
+- **Design-phase Deep findings** → Traceability validation (are all design touchpoints covered in research?)
+- **Per-slice Standard findings** → Per-slice correctness validation
+- **Coherence Deep/Ultra findings** → Cross-slice regression detection and duplicate detection
+
+See `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops for detailed integration.
+
+**Capability Detection Note:**
+
+This INTEROP.md is parsed by `plugin-orchestrator` for capability detection. The substring
+**"Integrating Code Reviewer"** (present in this document's title and section headings) is required
+for auto-detection to succeed. See `plugin-orchestrator/tests/test_smoke_e2e.py` for verification.
+
+**Cross-references:**
+
+- **Phase-by-Phase Guidance**: `code-reviewer/SKILL.md` §ISDD Phase Context (auto-detection rules and examples)
+- **Per-Slice Strategy**: `agent-tdd/SKILL.md` §Review-Level Strategy (per-slice checkpoints)
+- **Ralph Loops Integration**: `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops
+- **Design Rationale**: `design.md` §Strategic Placement (full reasoning for phase selections)
+
 ## What you get back
 
 Findings are rendered via `ReportFindings` (always) and, above a 5-finding/1-file threshold, an
