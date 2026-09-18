@@ -181,22 +181,35 @@ class SchemaExtractor:
         """
         rows = []
         lines = table_text.strip().split('\n')
+        in_data_section = False
 
-        # Skip header row and separator line
-        for line in lines[2:]:
+        for i, line in enumerate(lines):
+            # Skip empty lines and separator lines
             if not line.strip() or line.strip().startswith('|---'):
+                in_data_section = False
                 continue
 
-            # Extract cells from | Field | Type | Required |
-            cells = [cell.strip() for cell in line.split('|')[1:-1]]
-            if len(cells) < 2:
+            # Skip header row (contains "Field" and "Type" as column names)
+            if '| Field |' in line and '| Type |' in line:
+                in_data_section = False
                 continue
 
-            field_name = cells[0]
-            type_name = cells[1]
-            required = len(cells) > 2 and cells[2].lower() in ('yes', 'true', 'required')
+            # Only start collecting data after we've seen a header and separator
+            if i > 0 and line.strip().startswith('|') and '|' in line:
+                # Extract cells from | field | type | required | ...
+                cells = [cell.strip() for cell in line.split('|')[1:-1]]
+                if len(cells) < 2:
+                    continue
 
-            rows.append((field_name, type_name, required))
+                field_name = cells[0]
+                type_name = cells[1]
+
+                # Skip if field_name looks like a header (e.g., "Field" or starts with space)
+                if field_name.lower() == 'field' or field_name.startswith(' '):
+                    continue
+
+                required = len(cells) > 2 and cells[2].lower() in ('yes', 'true', 'required')
+                rows.append((field_name, type_name, required))
 
         return rows
 
