@@ -74,27 +74,44 @@ Plugin-orchestrator provides hooks for coordinating multi-agent workflows and en
 Orchestrator routes to agent-isdd for requirements and design phases.
 
 **Handoff Fields:**
-- `workflow_state`: Full orchestrator state including error_lessons and nelly_brief_cache
-- `capability_map_snapshot`: Available plugins
-- `error_lessons`: Errors from prior phases
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| workflow_state | object | yes | Full orchestrator state including error_lessons and nelly_brief_cache |
+| capability_map_snapshot | object | yes | Available plugins |
+| error_lessons | array | yes | Errors from prior phases |
 
 ### → Agent-TDD
 
 Orchestrator routes to agent-tdd for implementation phases.
 
-**Handoff Fields:**
-- `design_spec`: Requirements + design + research cache
-- `error_lessons`: Errors to avoid based on prior phases
-- `nelly_brief_cache`: Cached project context
+**Handoff Fields (validated):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| requirements_md | string | yes | Full approved requirements.md |
+| design_md | string | yes | Full approved design.md |
+| research_cache | object | yes | Research findings (design_findings, task_findings, file_summaries, git_hashes) |
+| recap_md | string | yes | Summarized recap of known risks and blockers |
+
+**Optional Context Fields (passed through, not validated):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| error_lessons | array | no | Errors from prior phases |
+| nelly_brief_cache | object | no | Cached project context from agent-nelly |
 
 ### → Code-Reviewer
 
 Orchestrator routes to code-reviewer for quality gates.
 
 **Handoff Fields:**
-- `implementation`: Code to review
-- `error_lessons`: Implementation errors from agent-tdd
-- `high_risk_slices`: Slices marked for extra scrutiny
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| implementation | string/object | yes | Code to review |
+| error_lessons | array | no | Implementation errors from agent-tdd |
+| high_risk_slices | array | no | Slices marked for extra scrutiny |
 
 ## Error Types
 
