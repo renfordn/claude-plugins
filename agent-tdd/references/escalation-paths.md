@@ -184,13 +184,17 @@ Impact: Slice 3 implementation blocked until gap is clarified
 
 **Example handoff marker**:
 ```
-<!--AGENT-TDD-MODEL-ESCALATE:reason="complex recursive pattern needs stronger reasoning"; attempted_at_haiku=true; suggest_tier="sonnet"-->
+<!--AGENT-TDD-MODEL-ESCALATE:reason="complex recursive pattern needs stronger reasoning"; from_model="haiku"; to_model="sonnet"-->
 ```
 
 **Marker Fields**:
 - `reason`: Human-readable explanation why this tier couldn't proceed (required)
-- `attempted_at_haiku`: Boolean; indicates whether Haiku was attempted (optional, defaults to true if field omitted)
-- `suggest_tier`: Recommended escalation tier—"sonnet" or "opus" (required)
+- `from_model`: Current model tier (e.g., "haiku") — use this to indicate escalation source (required)
+- `to_model`: Recommended escalation tier—"sonnet" or "opus" (required)
+
+**Backward Compatibility** (for older markers):
+- `suggest_tier` is accepted as an alias for `to_model`
+- `attempted_at_haiku=true` is accepted as shorthand for `from_model="haiku"`
 
 **Agent-isdd Action**:
 - Detect the Model Escalation Marker in agent-tdd's handoff report via before-continue hook
