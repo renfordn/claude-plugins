@@ -1,6 +1,6 @@
 {
   "name": "agent-cache-plugin",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Token caching and management plugin for improving token efficiency via intelligent prompt caching and context deduplication",
   "author": {
     "name": "Jay Nelson"
@@ -31,13 +31,16 @@
   ],
   "commands": [
     {
-      "name": "cache-status"
+      "name": "cache-status",
+      "description": "Show current cache state, hit/miss stats, and memory usage"
     },
     {
-      "name": "cache-clear"
+      "name": "cache-clear",
+      "description": "Clear cached entries (all or by pattern)"
     },
     {
-      "name": "cache-config"
+      "name": "cache-config",
+      "description": "View or update cache configuration settings"
     }
   ]
 }
