@@ -34,21 +34,19 @@ describe('CLI Commands', () => {
     test('should handle status command', () => {
       const result = runCommand('status');
 
-      // Command should complete without error
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --detailed flag', () => {
       const result = runCommand('status --detailed');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --export option', () => {
       const result = runCommand('status --export json');
 
-      // Command should handle export option
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should handle multiple options', () => {
@@ -62,8 +60,7 @@ describe('CLI Commands', () => {
     test('should display usage when no options provided', () => {
       const result = runCommand('clear');
 
-      // Should complete without error or show usage
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --all flag with confirmation', () => {
@@ -74,26 +71,25 @@ describe('CLI Commands', () => {
       }
 
       const result = runCommand('clear --all --yes');
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --agent option', () => {
       const result = runCommand('clear --agent agent-tdd');
 
-      expect([0, 1]).toContain(result.exitCode);
-      // Should either succeed or show confirmation prompt
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --older-than option', () => {
       const result = runCommand('clear --older-than 7');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --tags option', () => {
       const result = runCommand('clear --tags stale,testing');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
   });
 
@@ -101,25 +97,25 @@ describe('CLI Commands', () => {
     test('should handle --list option', () => {
       const result = runCommand('config --list');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --set option', () => {
       const result = runCommand('config --set relevanceThreshold 80');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --reset option', () => {
       const result = runCommand('config --reset relevanceThreshold');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support --validate option', () => {
       const result = runCommand('config --validate');
 
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should support multiple config options', () => {
@@ -132,17 +128,17 @@ describe('CLI Commands', () => {
   describe('Argument parsing', () => {
     test('should handle flag-only arguments', () => {
       const result = runCommand('status --detailed');
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should handle key-value arguments', () => {
       const result = runCommand('config --set maxSize 500MB');
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should handle comma-separated values', () => {
       const result = runCommand('clear --tags tag1,tag2,tag3');
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
 
     test('should handle multiple arguments', () => {
@@ -175,8 +171,7 @@ describe('CLI Commands', () => {
     test('should handle invalid option values gracefully', () => {
       const result = runCommand('config --set invalidKey invalidValue');
 
-      // Should complete (success or validation error)
-      expect([0, 1]).toContain(result.exitCode);
+      expect(result.exitCode).toBe(0);
     });
   });
 
