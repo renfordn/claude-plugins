@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.5] - 2026-09-20
+
+- **Fix**: remove stale `injected_test_field` test artifact from Design Spec Input Format table in INTEROP.md; fix malformed `nelly_brief_cache` row (was missing description column).
+
 ## [0.2.4] - 2026-09-20
 
 - **Pre-commit hook**: wire interop drift validator to `.githooks/pre-commit` + CI `interop-drift` job.
