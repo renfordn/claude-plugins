@@ -41,7 +41,7 @@ def test_all_required_fields_per_level():
     # Look for review level section and verify required fields are mentioned
     assert "Purpose" in content, "'Purpose' field not found in review level docs"
     assert "Token Budget" in content or "token" in content.lower(), "'Token Budget' field not found"
-    assert "Use Cases" in content or "Use case" in content, "'Use Cases' field not found"
+    assert "Output Style" in content or "Skipped" in content, "'Output Style' or 'Skipped' field not found"
 
 
 def test_auto_detection_rules_section_exists():

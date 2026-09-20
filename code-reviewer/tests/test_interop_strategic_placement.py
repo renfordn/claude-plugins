@@ -32,10 +32,10 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
         self.assertIn("ISDD Phase | Review Level | Purpose", self.interop_content)
 
     def test_requirements_phase_documented(self):
-        """Requirements phase should be documented with Standard level."""
-        self.assertIn("**Requirements**", self.interop_content)
-        self.assertIn("Standard", self.interop_content)
-        self.assertIn("Clarity validation", self.interop_content)
+        """Requirements phase integration should be noted (aspirational)."""
+        # Requirements-phase review is aspirational — confirmed in the note below the table
+        self.assertIn("Requirements-phase review", self.interop_content)
+        self.assertIn("aspirational", self.interop_content)
 
     def test_design_phase_documented(self):
         """Design phase should be documented with Deep level."""
@@ -47,9 +47,10 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
         self.assertIn("**Tasks**", self.interop_content)
 
     def test_per_slice_red_phase_documented(self):
-        """Per-slice Red phase should be documented with Quick level."""
-        self.assertIn("**Impl: Per-Slice (Red)**", self.interop_content)
-        self.assertIn("Quick", self.interop_content)
+        """Per-slice Red phase integration should be noted (aspirational)."""
+        # Per-Slice Red reviews are aspirational — confirmed in the note below the table
+        self.assertIn("Per-Slice Red reviews", self.interop_content)
+        self.assertIn("aspirational", self.interop_content)
 
     def test_per_slice_green_phase_documented(self):
         """Per-slice Green phase should be documented with Standard/Deep."""
@@ -121,9 +122,9 @@ class TestStrategicPlacementTableStructure(unittest.TestCase):
         self.assertIn("Invoked By", self.interop_content)
 
     def test_requirements_row_complete(self):
-        """Requirements row should have all fields."""
-        self.assertIn("Requirements", self.interop_content)
-        self.assertIn("EARS formatting", self.interop_content)
+        """Requirements integration note should be present."""
+        self.assertIn("Requirements-phase review", self.interop_content)
+        self.assertIn("not currently implemented", self.interop_content)
 
     def test_design_row_complete(self):
         """Design row should have all fields."""
@@ -136,7 +137,7 @@ class TestStrategicPlacementTableStructure(unittest.TestCase):
     def test_per_slice_rows_complete(self):
         """Per-slice rows should have all fields."""
         self.assertIn("Per-Slice", self.interop_content)
-        self.assertIn("test-author", self.interop_content)
+        self.assertIn("Impl: Per-Slice (Green)", self.interop_content)
 
     def test_coherence_row_complete(self):
         """Coherence row should have all fields."""

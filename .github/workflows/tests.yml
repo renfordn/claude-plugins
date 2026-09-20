@@ -21,7 +21,7 @@ jobs:
         # Every plugin with test_*.py files, discovered recursively by pytest regardless of
         # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd,
         # plugin-orchestrator) or hooks/ + scripts/ (agent-nelly).
-        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-orchestrator, shared]
+        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-orchestrator, shared, agent-ux, code-reviewer]
     steps:
       - uses: actions/checkout@v4
 
@@ -72,6 +72,73 @@ jobs:
               sys.exit(1)
           print('No INTEROP drift.')
           "
+
+  smoke-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Configure git identity
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI Runner"
+
+      - name: Install Python test dependencies
+        run: pip install pytest
+
+      - name: Smoke — Python plugins (all 7)
+        run: |
+          python -m pytest \
+            agent-isdd agent-tdd agent-nelly plugin-orchestrator shared \
+            agent-ux code-reviewer \
+            -q --tb=short
+
+      - name: Smoke — agent-cache-plugin (Node.js)
+        working-directory: agent-cache-plugin
+        run: |
+          npm ci
+          npm test
+
+      - name: Smoke — plugin.json schemas valid
+        run: |
+          python - <<'EOF'
+          import json, sys
+          from pathlib import Path
+          import re
+
+          SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+          REQUIRED = ["name", "version", "description", "author", "license"]
+          plugins = [d for d in Path(".").iterdir()
+                     if d.is_dir() and (d / ".claude-plugin" / "plugin.json").exists()]
+          errors = []
+          for p in plugins:
+              pj = p / ".claude-plugin" / "plugin.json"
+              try:
+                  data = json.loads(pj.read_text())
+              except Exception as e:
+                  errors.append(f"{pj}: parse error: {e}")
+                  continue
+              for field in REQUIRED:
+                  if field not in data:
+                      errors.append(f"{pj}: missing field '{field}'")
+              if "version" in data and not SEMVER.match(str(data["version"])):
+                  errors.append(f"{pj}: version {data['version']!r} is not semver")
+              if "name" in data and data["name"] != p.name:
+                  errors.append(f"{pj}: name {data['name']!r} != dir {p.name!r}")
+          if errors:
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+          print(f"plugin.json OK for {len(plugins)} plugins")
+          EOF
 
   agent-cache-plugin:
     runs-on: ubuntu-latest
