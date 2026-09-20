@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- **Escalation re-spawn outcome logging (0.1.39).** Closes the Task 9 gap flagged when model
+  selection shipped: when agent-tdd escalates mid-slice and agent-isdd re-spawns it at a higher
+  tier, nothing recorded whether the re-spawned attempt actually succeeded. `hooks/sdd_state.py`
+  gains `write_escalation_outcome`/`read_escalation_pending`/`clear_escalation_pending`,
+  mirroring the existing `rollback_pending` pattern. `hooks/subagent_report.py` gains
+  `_has_validation_evidence` (narrative test-pass detection) and `_classify_escalation_outcome`,
+  wired into `main()` alongside (not replacing) existing rollback-marker handling — `succeeded`
+  requires both confirmed passing tests and no further escalation/blocker/rollback marker.
+  `references/artifact-templates.md` documents the new Rollback History / Escalation History
+  recap.md conventions. No changes to `before_continue.py` or `model_escalate_marker.py`. 335
+  of 336 tests pass (1 pre-existing unrelated failure).
+
+- **Model selection across plugins: escalation marker parsing (0.1.39).** Adds
+  `hooks/model_escalate_marker.py`, an isolated utility parsing the `MODEL-ESCALATE` marker
+  agent-tdd emits when it needs to escalate to a higher model tier mid-slice. Accepts both the
+  canonical `from_model`/`to_model` fields and the legacy `attempted_at_haiku`/`suggest_tier`
+  aliases. `hooks/before_continue.py` wires detection in, writing `escalation_pending` to
+  `workflow-state.json` and surfacing a re-spawn instruction to the user.
+
 - **Document the harness `Agent`-spawn-failure fallback, and route it at agent-tdd's new
   Direct Mode skill (0.1.32).** `INTEROP.md`'s "→ agent-tdd" section gains a "Fallback — Direct
   Implementation (harness `Agent`-spawn failure)" subsection: a three-condition Detection check

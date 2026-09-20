@@ -1,6 +1,18 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-20
+
+### Features
+
+- **Model Tier Selection** (`slice-spec.schema.json`): New `modelTier` field
+  (`inherit`/`haiku`/`sonnet`/`opus`) lets callers suggest a model tier per slice, defaulting to
+  `inherit` for full backward compatibility.
+- **Model Escalation Protocol** (`escalation-paths.md`): Documents the `MODEL-ESCALATE` marker
+  for mid-slice escalation when a lower model tier proves insufficient, with corrected canonical
+  field names (`from_model`/`to_model`, with `attempted_at_haiku`/`suggest_tier` retained as
+  backward-compatible aliases).
+
 ## [0.2.0] - 2026-09-18
 
 **Feature: Comprehensive Tiered Review Integration for ISDD**
