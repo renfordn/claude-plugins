@@ -118,6 +118,39 @@ def clear_rollback_pending(path):
     write_state_json(path, data)
 
 
+def read_escalation_pending(path):
+    """Return the escalation_pending dict, or None when absent (no pending escalation)."""
+    return parse_state_json(path).get("escalation_pending")
+
+
+def clear_escalation_pending(path):
+    """Remove escalation_pending from workflow-state.json. No-op if file or field is missing."""
+    data = parse_state_json(path)
+    if "escalation_pending" not in data:
+        return
+    del data["escalation_pending"]
+    write_state_json(path, data)
+
+
+def write_escalation_outcome(path, entry):
+    """Append `entry` to workflow-state.json's escalation_history list, creating the list if
+    absent, and clear escalation_pending in the same write -- mirrors write_rollback_pending's
+    tolerant-of-missing-file behavior, but appends rather than overwrites (escalation history is
+    a durable audit trail; see design.md's Data Contracts And Interfaces).
+
+    `entry` is expected to be {reason, from_model, to_model, detected_at, outcome, resolved_at}.
+    """
+    data = parse_state_json(path)
+    history = data.get("escalation_history")
+    if not isinstance(history, list):
+        history = []
+    history.append(entry)
+    data["escalation_history"] = history
+    if "escalation_pending" in data:
+        del data["escalation_pending"]
+    write_state_json(path, data)
+
+
 def is_pre_implementation(fields):
     """True when the workflow has NOT yet been approved for implementation."""
     impl = fields.get("implementation requested", "").strip().lower()

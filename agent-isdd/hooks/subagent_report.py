@@ -18,8 +18,16 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import (  # noqa: E402
     active_state_file,
+    read_escalation_pending,
+    write_escalation_outcome,
     write_rollback_pending,
 )
+from model_escalate_marker import detect_model_escalate_in_report  # noqa: E402
+
+# Marker recognizing an agent-tdd report shape, per design.md's edge case: only classify an
+# escalation outcome when the report carries agent-tdd's own phase marker -- an unrelated
+# spec-reviewer report must never be misclassified against a stale escalation_pending.
+AGENT_TDD_PHASE_MARKER = re.compile(r"<!--AGENT-TDD-PHASE:")
 
 # Markers that identify a spec-reviewer report.
 SDD_MARKERS = re.compile(
@@ -60,6 +68,66 @@ PLAN_FLAG_MARKER = re.compile(r'<!--AGENT-TDD-PLAN-FLAG:\s*reason="([^"]*)"-->')
 # was removed 2026-09-16 -- detection of high-risk slices needing test-author now happens in
 # high_risk_reviewer.py, which parses agent-TDD's slicing_complete phase marker plus tasks.md
 # already on disk (no separate marker needed; see design.md's Research Basis for this feature).
+
+
+# Narrative "confirmed passing test-suite evidence" detection for escalation-outcome
+# classification (see design.md's Data Contracts And Interfaces). Conservative: a failure or
+# ambiguous phrase must never match here, even if a passing-sounding word appears nearby -- the
+# negative lookahead/context guards below exist for exactly that reason.
+VALIDATION_MARKERS = re.compile(
+    r"(?i)("
+    r"\ball\s+tests?\s+passing\b"
+    r"|\bfull\s+regression\s+green\b"
+    r"|\b\d+\s+tests?\s+passing\b"
+    r"|\b\d+\s*/\s*\d+\s+pass(?:ing|ed)?\b"
+    r"|\bregression[^.\n]*\ball\s+pass(?:ing|ed)?\b"
+    r")"
+)
+
+# Explicit negative phrasing that must never be treated as validation evidence even though it
+# contains test-related words -- checked first so it can veto an incidental positive match.
+VALIDATION_FAILURE_MARKERS = re.compile(
+    r"(?i)(\btests?\s+failing\b|\bsuite\s+red\b|\bregression[^.\n]*\bred\b)"
+)
+
+
+def _has_validation_evidence(text):
+    """True only when `text` contains conservative, unambiguous narrative evidence of a passing
+    test suite (see VALIDATION_MARKERS above), and no explicit failure phrasing. No match, or
+    only ambiguous/failure phrasing, => False -- never assumed true."""
+    if not text:
+        return False
+    if VALIDATION_FAILURE_MARKERS.search(text):
+        return False
+    return bool(VALIDATION_MARKERS.search(text))
+
+
+def _has_further_escalation_marker(text):
+    """True when `text` carries a rollback request, plan-validity flag, or a fresh
+    MODEL-ESCALATE marker -- any of these means the re-spawned attempt did not cleanly resolve
+    the original escalation (see design.md's Success Criteria and double-escalation edge case)."""
+    return bool(
+        ROLLBACK_MARKER.search(text)
+        or PLAN_FLAG_MARKER.search(text)
+        or detect_model_escalate_in_report(text)
+    )
+
+
+def _classify_escalation_outcome(report, escalation_pending):
+    """Classify a re-spawned agent-tdd report against the recorded escalation_pending entry.
+
+    Returns "succeeded" only when _has_validation_evidence is true AND no further escalation/
+    blocker/rollback marker is present. A further marker present forces "failed" regardless of
+    validation evidence (marker presence dominates). Otherwise (no evidence, no further marker)
+    => "ambiguous". `escalation_pending` is accepted for interface symmetry/future use but not
+    currently consulted -- classification depends only on the report's own content.
+    """
+    del escalation_pending  # unused for now; kept for interface symmetry (see design.md)
+    if _has_further_escalation_marker(report):
+        return "failed"
+    if _has_validation_evidence(report):
+        return "succeeded"
+    return "ambiguous"
 
 
 def is_sdd_report(text):
@@ -168,20 +236,38 @@ def main(payload=None):
         return None
 
     feature_dir = os.path.dirname(state)
+    json_path = os.path.join(feature_dir, "workflow-state.json")
+
+    # Escalation-outcome classification: independent of the rollback-marker check below (a
+    # rollback/plan-flag marker in the SAME report is itself a "further marker" that classifies
+    # the escalation as failed -- see design.md's edge cases) -- only fires when escalation_pending
+    # is present AND the report is recognized as agent-tdd-shaped, so a stale escalation_pending
+    # is never misclassified against an unrelated report (e.g. spec-reviewer).
+    escalation_msg = None
+    escalation_pending = read_escalation_pending(json_path)
+    if escalation_pending and AGENT_TDD_PHASE_MARKER.search(report):
+        outcome = _classify_escalation_outcome(report, escalation_pending)
+        entry = dict(escalation_pending, outcome=outcome,
+                     resolved_at=datetime.datetime.now().isoformat())
+        write_escalation_outcome(json_path, entry)
+        escalation_msg = f"Escalation resolved: {outcome}"
 
     # Human-relay marker takes priority if somehow both are present in the same report --
     # it names an explicit target, which is strictly more information than the automatic
     # marker's defaulted one.
     rollback = extract_rollback_request(report) or extract_plan_validity_flag(report)
     if rollback:
-        json_path = os.path.join(feature_dir, "workflow-state.json")
         write_rollback_pending(json_path, rollback["target"], rollback["reason"], "agent-tdd")
         _append_pending_rollback_line(state, rollback["target"], rollback["reason"])
-        return (
+        rollback_msg = (
             f"SDD: a rollback request was received (target={rollback['target']}) — "
             "recorded as rollback_pending in workflow-state.json and workflow-state.md. "
             "The next /isdd-continue will route it through the Rewind Contract."
         )
+        return f"{rollback_msg} {escalation_msg}." if escalation_msg else rollback_msg
+
+    if escalation_msg:
+        return escalation_msg
 
     if not is_sdd_report(report):
         return None  # not an SDD phase-worker report — stay quiet

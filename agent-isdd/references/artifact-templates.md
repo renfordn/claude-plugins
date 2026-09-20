@@ -425,6 +425,20 @@ Repeat the same structure for each phase.
 - **[Phase 1.1]** Intent drift detected: <hash comparison: old hash vs. new hash; why it changed; how it was addressed>
 - Alignment Status: aligned | drift | unreviewed
 
+## Rollback History
+
+- <one line per resolved rollback_pending entry: target, reason, source, when it was addressed>
+- <e.g. "2026-09-18: target=Design, reason='interface wrong', source=agent-tdd — resolved by revising design.md's data contract">
+
+## Escalation History
+
+- <one line per resolved escalation_pending entry: from_model -> to_model, reason, outcome
+  (succeeded | failed | ambiguous), when it was resolved — mirrors Rollback History above, but
+  populated from workflow-state.json's escalation_history (see subagent_report.py's
+  _classify_escalation_outcome)>
+- <e.g. "2026-09-19: haiku -> sonnet, reason='context limit', outcome=succeeded, resolved 01:00">
+- "none yet" when no escalation has occurred for this feature.
+
 ## Next Task
 
 - <next concrete action>
