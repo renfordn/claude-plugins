@@ -183,3 +183,53 @@ describe('getSingleton / resetSingleton', () => {
     b.close();
   });
 });
+
+describe('Security — path sanitization', () => {
+  const origEnv = process.env.CLAUDE_PLUGIN_DATA;
+  afterEach(() => {
+    resetSingleton();
+    if (origEnv === undefined) delete process.env.CLAUDE_PLUGIN_DATA;
+    else process.env.CLAUDE_PLUGIN_DATA = origEnv;
+  });
+
+  test('getSingleton rejects a relative path traversal', () => {
+    delete process.env.CLAUDE_PLUGIN_DATA;
+    expect(() => getSingleton('../../../etc/evil')).toThrow(/outside allowed/);
+  });
+
+  test('getSingleton rejects an absolute path outside the allowed base', () => {
+    delete process.env.CLAUDE_PLUGIN_DATA;
+    expect(() => getSingleton('/tmp/attacker/cache.db')).toThrow(/outside allowed/);
+  });
+
+  test('getSingleton accepts :memory: (test sentinel)', () => {
+    expect(() => getSingleton(':memory:')).not.toThrow();
+    getSingleton(':memory:').close();
+  });
+});
+
+describe('Security — DB file permissions', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-sec-test-'));
+    resetSingleton();
+    process.env.CLAUDE_PLUGIN_DATA = tmpDir;
+  });
+  afterEach(() => {
+    resetSingleton();
+    delete process.env.CLAUDE_PLUGIN_DATA;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('DB file is created with mode 0o600', () => {
+    const cm = getSingleton();
+    cm.store(makeEntry());
+    const dbFile = path.join(tmpDir, 'cache.db');
+    const mode = fs.statSync(dbFile).mode & 0o777;
+    expect(mode).toBe(0o600);
+  });
+});

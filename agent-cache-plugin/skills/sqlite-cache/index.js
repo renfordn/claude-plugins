@@ -14,6 +14,9 @@
  *   resetSingleton()    → void          (test helper)
  */
 
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
 const Database = require('better-sqlite3');
 const { SCHEMA_SQL } = require('./schema');
 
@@ -34,6 +37,9 @@ class CacheManager {
 
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    if (dbPath !== ':memory:') {
+      try { fs.chmodSync(dbPath, 0o600); } catch { /* non-fatal on read-only FS */ }
+    }
     this._runSchema();
     this._prepareStatements();
   }
@@ -241,13 +247,27 @@ let _singleton = null;
 
 /**
  * @param {string} [dbPath] - Path to cache.db; defaults to env var or fallback.
+ *   Pass ':memory:' for in-process test use. Any other explicit path must resolve
+ *   within the plugin data directory; paths outside are rejected to prevent traversal.
  */
 function getSingleton(dbPath) {
   if (!_singleton) {
     const resolvedPath = dbPath || _resolveDbPath();
+    _assertAllowedPath(resolvedPath);
     _singleton = new CacheManager(resolvedPath);
   }
   return _singleton;
+}
+
+function _assertAllowedPath(dbPath) {
+  if (dbPath === ':memory:') return;
+  const resolved = path.resolve(dbPath);
+  const allowedBase = process.env.CLAUDE_PLUGIN_DATA
+    ? path.resolve(process.env.CLAUDE_PLUGIN_DATA)
+    : path.join(os.homedir(), '.claude', 'plugin-data');
+  if (!resolved.startsWith(allowedBase + path.sep) && resolved !== allowedBase) {
+    throw new Error(`DB path outside allowed directory: ${resolved}`);
+  }
 }
 
 function resetSingleton() {
@@ -260,17 +280,16 @@ function resetSingleton() {
 function _resolveDbPath() {
   const dataDir = process.env.CLAUDE_PLUGIN_DATA;
   if (!dataDir) {
-    const path = require('path');
-    const os = require('os');
     const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
-    require('fs').mkdirSync(fallback, { recursive: true });
+    fs.mkdirSync(fallback, { recursive: true });
     process.stderr.write(
       '[agent-cache-plugin] CLAUDE_PLUGIN_DATA unset; falling back to ' + fallback + '\n'
     );
     return path.join(fallback, 'cache.db');
   }
-  require('fs').mkdirSync(dataDir, { recursive: true });
-  return require('path').join(dataDir, 'cache.db');
+  const resolved = path.resolve(dataDir);
+  fs.mkdirSync(resolved, { recursive: true });
+  return path.join(resolved, 'cache.db');
 }
 
 module.exports = { CacheManager, getSingleton, resetSingleton };
