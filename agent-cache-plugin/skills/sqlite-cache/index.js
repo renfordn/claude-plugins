@@ -171,6 +171,54 @@ class CacheManager {
   }
 
   /**
+   * Alias for stats() — matches the interface expected by commands and orchestrator.
+   */
+  getStats() {
+    return this.stats();
+  }
+
+  /**
+   * Delete all entries. Returns { deletedCount }.
+   */
+  clear() {
+    const info = this.db.prepare('DELETE FROM cache').run();
+    return { deletedCount: info.changes };
+  }
+
+  /**
+   * Search entries by optional pattern, tags, maxAge, and limit.
+   * @param {object} [opts]
+   * @param {string}   [opts.pattern]  - Substring match against key
+   * @param {string[]} [opts.tags]     - agent_type values to include
+   * @param {number}   [opts.maxAge]   - Max age in ms (entries older than this are excluded)
+   * @param {number}   [opts.limit]    - Max rows to return
+   * @returns {object[]}
+   */
+  search(opts = {}) {
+    const { pattern, tags, maxAge, limit } = opts;
+    const conditions = ['(created_at + ttl) > ?'];
+    const params = [Date.now()];
+
+    if (pattern) {
+      conditions.push('key LIKE ?');
+      params.push(`%${pattern}%`);
+    }
+    if (tags && tags.length > 0) {
+      conditions.push(`agent_type IN (${tags.map(() => '?').join(',')})`);
+      params.push(...tags);
+    }
+    if (maxAge != null) {
+      conditions.push('created_at > ?');
+      params.push(Date.now() - maxAge);
+    }
+
+    const sql = `SELECT * FROM cache WHERE ${conditions.join(' AND ')} ORDER BY accessed_at DESC${limit ? ' LIMIT ?' : ''}`;
+    if (limit) params.push(limit);
+
+    return this.db.prepare(sql).all(...params);
+  }
+
+  /**
    * Enforce maxEntries by LRU eviction.
    */
   enforce(opts = {}) {

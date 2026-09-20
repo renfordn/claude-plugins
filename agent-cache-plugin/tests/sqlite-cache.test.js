@@ -82,6 +82,90 @@ describe('CacheManager (SQLite :memory:)', () => {
   });
 });
 
+describe('CacheManager — getStats()', () => {
+  let cm;
+  beforeEach(() => { cm = new CacheManager(':memory:'); });
+  afterEach(() => { cm.close(); });
+
+  test('getStats() returns same shape as stats()', () => {
+    cm.store(makeEntry());
+    cm.retrieve('k1');
+    const s = cm.stats();
+    const gs = cm.getStats();
+    expect(gs).toEqual(s);
+  });
+
+  test('getStats() on empty cache returns zero counts', () => {
+    const gs = cm.getStats();
+    expect(gs.totalEntries).toBe(0);
+    expect(gs.hitRate).toBe(0);
+  });
+});
+
+describe('CacheManager — clear()', () => {
+  let cm;
+  beforeEach(() => { cm = new CacheManager(':memory:'); });
+  afterEach(() => { cm.close(); });
+
+  test('clear() removes all entries and returns deletedCount', () => {
+    cm.store(makeEntry({ key: 'a' }));
+    cm.store(makeEntry({ key: 'b' }));
+    const result = cm.clear();
+    expect(result.deletedCount).toBe(2);
+    expect(cm.stats().totalEntries).toBe(0);
+  });
+
+  test('clear() on empty cache returns deletedCount 0', () => {
+    expect(cm.clear()).toEqual({ deletedCount: 0 });
+  });
+});
+
+describe('CacheManager — search()', () => {
+  let cm;
+  beforeEach(() => {
+    cm = new CacheManager(':memory:');
+    cm.store(makeEntry({ key: 'tdd:task-a', agent_type: 'agent-tdd', task_slug: 'task-a' }));
+    cm.store(makeEntry({ key: 'isdd:task-b', agent_type: 'agent-isdd', task_slug: 'task-b' }));
+    cm.store(makeEntry({ key: 'tdd:task-c', agent_type: 'agent-tdd', task_slug: 'task-c' }));
+  });
+  afterEach(() => { cm.close(); });
+
+  test('search() with no args returns all entries', () => {
+    const results = cm.search({});
+    expect(results.length).toBe(3);
+  });
+
+  test('search() with pattern filters by key prefix', () => {
+    const results = cm.search({ pattern: 'tdd' });
+    expect(results.length).toBe(2);
+    results.forEach(r => expect(r.key).toMatch('tdd'));
+  });
+
+  test('search() with tags filters by agent_type', () => {
+    const results = cm.search({ tags: ['agent-isdd'] });
+    expect(results.length).toBe(1);
+    expect(results[0].agent_type).toBe('agent-isdd');
+  });
+
+  test('search() with limit caps results', () => {
+    const results = cm.search({ limit: 2 });
+    expect(results.length).toBe(2);
+  });
+
+  test('search() with maxAge excludes old entries', () => {
+    return new Promise(r => setTimeout(r, 10)).then(() => {
+      const results = cm.search({ maxAge: 1 }); // 1ms — all entries are older
+      expect(results.length).toBe(0);
+    });
+  });
+
+  test('search() returns empty array (not null) when no matches', () => {
+    const results = cm.search({ pattern: 'no-match-xyz' });
+    expect(Array.isArray(results)).toBe(true);
+    expect(results.length).toBe(0);
+  });
+});
+
 describe('getSingleton / resetSingleton', () => {
   afterEach(() => resetSingleton());
 
