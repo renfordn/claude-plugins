@@ -45,6 +45,34 @@ jobs:
       - name: Run ${{ matrix.plugin }} tests
         run: python -m pytest ${{ matrix.plugin }} -q
 
+  interop-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # need HEAD^ to diff against
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check INTEROP.md schema drift
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, 'plugin-orchestrator')
+          from pathlib import Path
+          from orchestrator.interop_drift_validator import InteropDriftValidator
+          validator = InteropDriftValidator(repo_root=Path('.'))
+          is_valid, errors = validator.validate_drift()
+          if not is_valid:
+              print('INTEROP drift detected:', file=sys.stderr)
+              for e in errors:
+                  print(e, file=sys.stderr)
+              sys.exit(1)
+          print('No INTEROP drift.')
+          "
+
   agent-cache-plugin:
     runs-on: ubuntu-latest
     defaults:

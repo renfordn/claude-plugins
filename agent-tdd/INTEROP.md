@@ -203,7 +203,8 @@ Pass a **Design Spec** inline in the spawn prompt (exact field names required fo
 | design_md | string | yes | Full approved design.md with file touchpoints, interfaces, research basis section |
 | research_cache | object | yes | Research findings: design_findings, task_findings, file_summaries (keyed by path), git_hashes |
 | recap_md | string | yes | Summary, known risks, blockers, Goal alignment notes (summarized, not full history) |
-| nelly_brief_cache | object | no | Pre-fetched cached context from agent-nelly (if available) |
+| nelly_brief_cache | object | no |
+| injected_test_field | string | yes | test drift detection | Pre-fetched cached context from agent-nelly (if available) |
 
 **modelPreference (capability metadata, not a spawn-prompt field):** plugin-orchestrator's
 `CapabilityMap` records `{"min_tier": "haiku", "preferred_tier": "sonnet"}` against this

@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""Pre-commit hook: validate INTEROP.md schema drift against interop_parser.py."""
+import os
+import sys
+
+# .git/hooks/pre-commit → .git/hooks → .git → repo root
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(REPO_ROOT)
+sys.path.insert(0, os.path.join(REPO_ROOT, "plugin-orchestrator"))
+
+try:
+    from orchestrator.interop_drift_validator import InteropDriftValidator
+except ImportError as e:
+    print(f"[interop-drift] WARNING: could not import validator ({e}); skipping.", file=sys.stderr)
+    sys.exit(0)
+
+from pathlib import Path
+validator = InteropDriftValidator(repo_root=Path(REPO_ROOT))
+is_valid, errors = validator.validate_drift()
+
+if not is_valid:
+    print("\n[interop-drift] BLOCKED: INTEROP.md schema drift detected.\n", file=sys.stderr)
+    for error in errors:
+        print(error, file=sys.stderr)
+    print(
+        "To skip (emergency only): SDD_GATE=off git commit ...\n",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+sys.exit(0)
