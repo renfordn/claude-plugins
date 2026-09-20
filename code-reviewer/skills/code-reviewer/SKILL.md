@@ -5,24 +5,12 @@ description: Review code changes against evidence tiers and a required decision 
 
 # Code Reviewer
 
-Claude-native review skill, invoked as a plain skill (not a Task-tool subagent) so its findings
-can be rendered directly with `ReportFindings` in the same turn. Tool references use Claude-
-native tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Artifact`, and (only for the optional
-`agent-ux:ux-agent` delegation described in "Visual Review" below) `Agent`.
-
-This skill is not specific to any planning workflow or implementer agent. It has no hard
-dependency on `spec-driven-development`, `agent-tdd`, `agent-ux`, or any other plugin — anything
-that can invoke a skill and optionally supply a review-state location (and, separately, a
-`phase_state`) can use it, and it works fully standalone with none of them installed.
+Claude-native review skill. Tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location and `phase_state`.
 
 ## Use This Skill When
 
 - The user explicitly asks for a code review (`direct-review`).
-- An implementer agent (e.g. `agent-tdd`'s `agent-TDD`) reaches a mandatory pre-refactor review
-  boundary — triggered by the orchestrating skill (main thread) that spawned that agent, not by
-  the agent itself, since a subagent cannot invoke a skill from its own isolated context; the
-  agent stops at that boundary and the orchestrating skill runs this review before resuming it
-  (`review-improve`).
+- An implementer agent reaches a mandatory pre-refactor review boundary — the orchestrating skill runs this review before resuming the agent (`review-improve`).
 - A commit is about to be created and the calling workflow wants a final pass (`pre-commit`).
 
 ## Invocation Modes
@@ -38,9 +26,7 @@ location was supplied), rendered per "Visual Review" below.
 Triggered by the caller immediately after an implementer agent reports a Green test run and
 stops at its review checkpoint, before that agent is resumed into Refactor. Scope: the files
 touched to make the just-passed test go green. Output: same as `direct-review`, plus a gate
-decision the caller acts on: resume the implementer into Refactor, or first pause on the resume
-contract with the user if a finding requires detailed review. Never blocks silently — every
-invocation returns a decision.
+decision.
 
 ### `pre-commit`
 
@@ -52,15 +38,11 @@ with `workflow_action: block_commit` prevents the commit until resolved or expli
 
 ### `review_level`
 
-Controls the depth of analysis and checks performed. Optional; defaults to `Standard`.
-
-**Type**: enum (`Quick | Standard | Deep | Ultra`)  
-**Default**: `Standard`  
-**Description**: Depth of analysis and checks performed. Allows balancing comprehensiveness with token efficiency across different workflows.
+**Type**: enum (`Quick | Standard | Deep | Ultra`) — optional; defaults to `Standard`. Controls depth of analysis and checks performed.
 
 ### Review Levels
 
-Each review level defines a specific set of checks, skipped checks, token budget, use cases, and output style. Levels are ordered by scope and depth:
+Each level defines checks performed, skipped checks, and output style, ordered by scope and depth:
 
 #### **Level 1: Quick (Fact-Finding)**
 
@@ -73,11 +55,6 @@ Each review level defines a specific set of checks, skipped checks, token budget
   - Obvious logic errors (null checks, type mismatches)
   - Import/export completeness (at file level)
 - **Skipped Checks**: Impact analysis, design patterns, security implications, performance analysis, cross-file impact
-- **Token Budget**: < 50k tokens typical
-- **Use Cases**:
-  - Local development: quick understanding of a function's purpose
-  - Code exploration: getting oriented in unfamiliar code
-  - PR draft review: early feedback on implementation direction
 - **Output Style**: Minimal findings, high signal-to-noise ratio; focus on clarity and correctness issues only
 
 #### **Level 2: Standard (Impact/Research) — Default**
@@ -93,11 +70,6 @@ Each review level defines a specific set of checks, skipped checks, token budget
   - Obvious bugs and edge cases
   - Test coverage basics (are obvious test cases covered?)
 - **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, refactoring opportunities, module-wide coherence
-- **Token Budget**: 50-150k tokens typical
-- **Use Cases**:
-  - PR reviews: impact analysis and usage correctness
-  - Code ownership reviews: ensure basic quality gates
-  - Integration risk assessment: validate API contracts
 - **Output Style**: Organized by finding type (correctness, naming, design); severity-tiered; typical current behavior
 
 #### **Level 3: Deep (Coherence/Sanity)**
@@ -114,11 +86,6 @@ Each review level defines a specific set of checks, skipped checks, token budget
   - Edge case and error handling comprehensiveness
   - Refactoring suggestions (improve clarity, reduce complexity)
 - **Skipped Checks**: Security-specific vulnerabilities, performance profiling, multi-module regression analysis
-- **Token Budget**: 150-300k tokens typical
-- **Use Cases**:
-  - Design review: architecture validation before implementation
-  - Code coherence gate: class/function-level quality validation
-  - Refactoring review: validate design improvements
 - **Output Style**: Design-level findings grouped by concern (SRP, interface, patterns); refactoring suggestions included; context-rich evidence
 
 #### **Level 4: Ultra (Deep Analysis + Security)**
@@ -133,11 +100,6 @@ Each review level defines a specific set of checks, skipped checks, token budget
   - Performance implications (memory, I/O, CPU complexity)
   - Refactoring opportunities at whole-system scale
 - **Skipped Checks**: None (comprehensive)
-- **Token Budget**: 300k+ tokens (no limit; multi-agent capable)
-- **Use Cases**:
-  - Release branches: final vetting before shipping
-  - Critical paths: security-sensitive code, high-impact refactors
-  - End-of-feature validation: cross-slice coherence, whole-system impact
 - **Output Style**: Full spectrum of findings, severity-tiered; separate security findings; regression risks highlighted; performance notes included
 
 ### Auto-Detection Rules
@@ -145,12 +107,13 @@ Each review level defines a specific set of checks, skipped checks, token budget
 When `review_level` is not explicitly specified, the skill infers level from context using this priority order:
 
 1. **Explicit request** (highest priority): If caller explicitly states a level, use it
-2. **ISDD workflow phase** (if available in caller context):
-   - Requirements phase → `Standard`
-   - Design phase → `Deep`
-   - Tasks phase → `Standard`
-   - Implementation phase (per-slice) → `Deep` (if `risk_tier: high_risk`), otherwise `Standard`
-   - Implementation phase (post-slices coherence) → `Ultra` (if majority high-risk slices), otherwise `Deep`
+2. **ISDD workflow phase** (if available in caller context) — *What to review* per phase:
+   - Requirements → `Standard` (EARS formatting, scope, non-goal conflicts)
+   - Design → `Deep` (patterns, file touchpoints, slice feasibility)
+   - Tasks → `Standard` (phrasing, Depends-On graph, validation steps)
+   - Impl per-slice (Red) → `Quick` (test intent, acceptance criteria)
+   - Impl per-slice (Green) → `Standard`; `Deep` if `risk_tier: high_risk`
+   - Impl post-slices (Coherence) → `Deep`; `Ultra` if majority high-risk slices and multi-agent available
 3. **File scope** (if available):
    - Single function → `Quick`
    - Single file → `Standard`
@@ -163,69 +126,7 @@ When `review_level` is not explicitly specified, the skill infers level from con
 
 ### Graceful Degradation
 
-If a requested review level is unavailable (e.g., `Ultra` requested but multi-agent capability missing):
-
-- Degrade to the next-lower available level (e.g., `Ultra` → `Deep`)
-- Emit a notification to the caller indicating the downgrade
-- If caller requests `Deep` and multi-agent is available: still run as `Deep` (do not auto-upgrade without asking)
-- Never block or error; user always gets some review
-
-### ISDD Phase Context: Auto-Detection in Workflows
-
-When invoked during ISDD (Integrated Spec-Driven Development) workflows, `/code-reviewer` infers 
-`review_level` from phase context and risk information. This section documents the automatic 
-level selection for each ISDD phase.
-
-**ISDD Phase → Review Level Mapping:**
-
-| Phase | Context | Recommended Level | What to Review | Why |
-|-------|---------|-------------------|---|---|
-| **Requirements** | Clarity review before approval | Standard | EARS formatting, scope completeness, non-goal conflicts | Ensure requirements are unambiguous before design |
-| **Design** | Architecture validation before tasks | Deep | Design patterns, file touchpoints, slice feasibility | Catch design issues early, before implementation effort |
-| **Tasks** | Task clarity before implementation | Standard | Task phrasing, Depends-On graph, validation steps | Validate slices are implementable at TDD scale |
-| **Impl: Per-Slice (Red)** | Test clarity check | Quick | Test intent, acceptance criteria wording | Ensure tests are understandable before implementation |
-| **Impl: Per-Slice (Green)** | Implementation check | Standard (or Deep if high-risk) | Code correctness, design alignment | Standard for normal slices; Deep for risky code |
-| **Impl: Post-Slices (Coherence)** | Cross-slice validation | Deep (or Ultra if majority high-risk) | Cross-slice interactions, regressions, duplicates | Validate slices work together correctly |
-
-**Auto-Detection Priority (ISDD context):**
-
-1. **Explicit request**: Caller specifies `review_level` → use it (overrides all phase context)
-2. **Phase + Risk Context**: Current workflow phase + slice risk_tier → recommended level
-3. **File scope**: If phase unavailable, use file scope (single → Quick, module → Ultra)
-4. **Prior context**: If reviewing same code twice, escalate one level
-5. **Fallback**: `Standard` (comprehensive but not extreme)
-
-**Examples:**
-
-- **Red phase of any slice**: Auto-detect → `Quick` (test clarity only)
-- **Green phase of standard-tier slice**: Auto-detect → `Standard` (implementation correctness)
-- **Green phase of high-risk slice**: Auto-detect → `Deep` (design patterns + edge cases)
-- **Coherence review, 60% high-risk slices, multi-agent available**: Auto-detect → `Ultra`
-- **Coherence review, 60% high-risk slices, no multi-agent**: Auto-detect → `Deep`
-
-**Key Insight:**
-
-Auto-detection lives in the caller's reasoning (`agent-tdd`, `spec-driven-development`), not in 
-`/code-reviewer` itself. The skill accepts `review_level` as a parameter and respects explicit 
-requests; the caller determines phase context and passes the level. See linked INTEROP.md sections 
-for invocation details.
-
-**Cross-references:**
-- **Agent-TDD Review Strategy**: `agent-tdd/SKILL.md` §Review-Level Strategy (per-slice checkpoints)
-- **Agent-ISDD Strategic Placement**: `agent-isdd/INTEROP.md` §Strategic Review Placement (workflow-wide invocations)
-- **Auto-Detection Priority Logic**: `agent-tdd/agents/agent-TDD.md` §Auto-Detection Logic (detailed priority tree)
-- **Design Rationale**: `design.md` §Auto-Detection Rules (why each level for each phase)
-
-### Design Rationale And Cross-References
-
-The review levels, auto-detection rules, and graceful degradation strategy are documented in detail in:
-
-- **Design rationale**: `design.md` §Terminology, §Invocation Mechanism, §Auto-Detection Rules, §Graceful Degradation
-- **ISDD workflow integration**: `design.md` §ISDD Workflow Integration (strategic review placement by phase)
-- **Evidence Tier interaction**: `design.md` §Finding Structure & Evidence Tier Interaction (review level and Evidence Tier are orthogonal axes)
-- **Ralph Loops integration**: `design.md` §Ralph Loops Integration, §Success Criteria (Revised)
-
-See those sections for design reasoning, trade-offs, and integration patterns with other plugins.
+If a level is unavailable (e.g., `Ultra` without multi-agent): degrade to next-lower, notify caller. Never block or auto-upgrade. User always gets some review.
 
 ## Visual Review
 
@@ -243,21 +144,8 @@ See those sections for design reasoning, trade-offs, and integration patterns wi
   `agent-ux` mirrors it, while `doc-consistency-auditor` cites it only to explicitly opt out
   (always `ReportFindings`-only) — rather than choosing their own; if it changes here, update
   those to match.
-  - **Delegate to `agent-ux:ux-agent` when both hold**: the caller supplied a `phase_state`
-    (see `INTEROP.md`'s "How to invoke it" — only present when this pass runs inside a larger
-    workflow that has one; a standalone or pre-commit pass never supplies it), and
-    `agent-ux:ux-agent` is available this session (checked once per pass — scan the session's
-    agent-types listing for `agent-ux:ux-agent`, the same Availability Check pattern used
-    throughout this ecosystem). Construct a `review_threshold` envelope (`caller:
-    code-reviewer`, `phase_state`, `delta: {finding_count, files_touched, findings}`,
-    `artifact_path`) instead of opening the Artifact directly — see `agent-ux`'s own `INTEROP.md`
-    for the envelope contract. `findings` entries carry `{id, title, tier, severity}` only, no
-    diff hunks — `agent-ux` reads those from `artifact_path` itself once it has confirmed the
-    threshold independently, never trust a caller-pushed evidence payload.
-  - **Otherwise, open the Artifact directly**, exactly as before. This is not a degraded
-    fallback — it's the correct behavior for a genuinely standalone pass, which is most of them.
-    `code-reviewer` never blocks, delays, or changes its findings on `agent-ux`'s absence; the
-    only thing that changes is which tool renders the same dashboard content.
+  - **Delegate to `agent-ux:ux-agent`** when `phase_state` was supplied AND `agent-ux:ux-agent` is available this session: construct a `review_threshold` envelope — see INTEROP.md "→ agent-ux" for the full envelope contract and field list.
+  - **Otherwise, open the Artifact directly** — correct behavior for standalone passes; `code-reviewer` never blocks on `agent-ux`'s absence.
 - Below the threshold, `ReportFindings` alone is sufficient visual structure — do not open a
   dashboard (directly or via `agent-ux`) just for its own sake; that's exactly the token cost the
   threshold exists to avoid.
@@ -266,11 +154,7 @@ See those sections for design reasoning, trade-offs, and integration patterns wi
   itself — flag it. Only for issues you've already confirmed are real and out of scope; never for
   a low-confidence hunch. Two ways to flag, same rule for choosing between them as the dashboard
   above:
-  - **`agent-ux:ux-agent` available and a `phase_state` was supplied**: delegate via an
-    `out_of_scope_flag` envelope (`caller: code-reviewer`, `phase_state`, `delta: {title,
-    file_path, context_summary}`) rather than calling `spawn_task` yourself — see `agent-ux`'s
-    own `INTEROP.md` for the envelope contract.
-  - **Otherwise**: call `spawn_task` directly, exactly as before.
+  - **`agent-ux:ux-agent` available and `phase_state` was supplied**: delegate via `out_of_scope_flag` envelope (see INTEROP.md for contract). Otherwise call `spawn_task` directly.
   - **Either way**, if a review-state directory was supplied, append a row to that directory's
     `TODO-LEDGER.md` (`references/TODO-LEDGER.md.template`) immediately after the call returns
     its `task_id` — this is `code-reviewer`'s own record, independent of which path spawned the
@@ -280,11 +164,7 @@ See those sections for design reasoning, trade-offs, and integration patterns wi
   - If a later pass finds a ledger row's item stale, superseded, or already handled: call
     `dismiss_task` with its `task_id`, then flip that row's `Status` to `dismissed` in place
     (never delete the row).
-  - To surface the ledger as a visible dashboard (on user request, or at the end of a pass with
-    open items), and `agent-ux:ux-agent` is available: send a `todo_digest` envelope (`delta:
-    {ledger_path}`, `artifact_path` pointing at a stable dashboard file in the same review-state
-    directory). No `agent-ux`, or no review-state directory to hold a ledger: skip this — there's
-    nothing to render a dashboard from.
+  - If open items and `agent-ux:ux-agent` available: send `todo_digest` envelope (see INTEROP.md). No `agent-ux` or no review-state directory: skip.
 
 ## Evidence Tier Model
 
@@ -382,9 +262,6 @@ question** — never a list, never open-ended back-and-forth.
    `decision` and update `confidence` to `high`. Do not re-ask. If more ambiguity remains,
    downgrade tier and record a new, separate `defer`-decision finding for a future pass instead
    of extending the dialogue.
-5. If invoked from `review-improve`, the caller does not resume the implementer agent into
-   Refactor until this single question is answered; other findings in the same pass that don't
-   require pause are processed and written normally.
 
 ## Output Shape (per finding)
 
