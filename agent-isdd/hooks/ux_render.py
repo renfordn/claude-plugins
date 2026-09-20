@@ -149,40 +149,25 @@ def cache_write_via_mcp(key, value, scope, ttl_seconds=3600):
 
 
 def render_breadcrumb_only(phase_state, feature_slug):
-    """
-    Call agent-ux with minimal breadcrumb_only event (~100 tokens).
-
-    Envelope:
-    {
-        "caller": "agent-isdd",
-        "event_type": "breadcrumb_only",
-        "phase_state": "Design"
-    }
-    """
-    sys.stderr.write(f"[ux-hook] agent-ux breadcrumb_only: {phase_state}\n")
-    return {"success": True, "breadcrumb": f"Phase: {phase_state}"}
+    """Breadcrumb renders inline in the skill response; no agent-ux subagent call needed."""
+    sys.stderr.write(f"[ux-hook] breadcrumb inline: {phase_state}\n")
+    return None
 
 
 def render_phase_transition(from_phase, to_phase, feature_slug, phase_state, summary=""):
     """
-    Call agent-ux with phase_transition event (~400 tokens).
+    Return an agent-ux delegation instruction for the systemMessage.
 
-    Envelope:
-    {
-        "caller": "agent-isdd",
-        "event_type": "phase_transition",
-        "phase_state": "Design",
-        "artifact_path": "path/to/artifact.md",
-        "delta": {
-            "from_phase": "Requirements",
-            "to_phase": "Design",
-            "feature_slug": "user-auth",
-            "one_line_summary": "..."
-        }
-    }
+    The hook cannot call Agent tool directly; it outputs a structured instruction
+    that the main-thread skill picks up and acts on by calling agent-ux:ux-agent.
     """
     sys.stderr.write(f"[ux-hook] agent-ux phase_transition: {from_phase} → {to_phase}\n")
-    return {"success": True, "chapter_marked": True}
+    return (
+        f"[ux-render] Delegate to agent-ux:ux-agent with event_type=phase_transition, "
+        f"caller=agent-isdd, phase_state={phase_state}, "
+        f"delta={{from_phase: {from_phase!r}, to_phase: {to_phase!r}, feature_slug: {feature_slug!r}, "
+        f"one_line_summary: {summary!r or f'Phase transition to {to_phase}'!r}}}"
+    )
 
 
 def is_phase_change(old_phase, new_phase):
@@ -256,7 +241,7 @@ def main(payload=None):
 
         # Render full phase_transition event
         summary = workflow_state.get("phase_summary", f"Transitioned to {current_phase}")
-        render_phase_transition(
+        ux_instruction = render_phase_transition(
             from_phase=previous_phase or "Start",
             to_phase=current_phase,
             feature_slug=feature_slug,
@@ -264,7 +249,10 @@ def main(payload=None):
             summary=summary
         )
 
-        return f"UX: {previous_phase or 'Start'} → {current_phase}"
+        msg = f"UX: {previous_phase or 'Start'} → {current_phase}"
+        if ux_instruction:
+            msg += f"\n{ux_instruction}"
+        return msg
 
     # SAME PHASE: Just update breadcrumb (cheap, ~100 tokens)
     display_phase = (cached.get("value", {}).get("current_phase")

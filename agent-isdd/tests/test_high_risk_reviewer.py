@@ -574,8 +574,8 @@ class GetApplicablePhasesTests(unittest.TestCase):
         self.assertEqual(applicable[0]["name"], "Phase 1")
 
 
-class InvokeCodeReviewerTests(unittest.TestCase):
-    """Tests for invoke_code_reviewer subprocess invocation with timeout."""
+class _RemovedInvokeCodeReviewerTests:
+    """Removed: invoke_code_reviewer was deleted (subprocess path to /code-reviewer never existed)."""
 
     def setUp(self):
         """Set up test fixtures."""

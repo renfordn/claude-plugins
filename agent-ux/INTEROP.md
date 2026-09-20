@@ -16,10 +16,10 @@ rather than shipping a new major version for callers to migrate independently. A
 new optional field, a new `event_type`) don't require this — callers that don't send the new
 field/type are unaffected.
 
-Defers, not resolves, `design.md`'s Open Question ("should this be semver'd?"). Revisit once a
-second caller (`agent-tdd` or `code-reviewer`) adopts this contract — lockstep updates across
-three repos stop being tractable at that point, while `agent-isdd` is still the only caller
-today.
+Defers, not resolves, `design.md`'s Open Question ("should this be semver'd?"). Revisit once
+lockstep updates across callers become unmanageable. Current callers: `agent-isdd` (phase
+transitions, breadcrumbs), `code-reviewer` (review dashboard via `review_threshold` envelope),
+`agent-tdd` hooks (phase transitions via systemMessage delegation).
 
 ## → Every caller (event envelope contract)
 

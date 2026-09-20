@@ -36,36 +36,72 @@ def read_workflow_state(feature_dir):
 
 
 def cache_read_via_mcp(key, scope):
-    """Read from agent-cache via MCP tool."""
-    sys.stderr.write(f"[ux-hook-tdd] cache_read({key}, {scope})\n")
+    """Read from agent-cache plugin via HTTP interface."""
+    try:
+        import urllib.request
+        import urllib.error
+        req = urllib.request.Request(
+            "http://localhost:7771/cache/read",
+            data=json.dumps({"key": key, "scope": scope}).encode('utf-8'),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=1) as response:
+            if response.status == 200:
+                result = json.loads(response.read().decode('utf-8'))
+                sys.stderr.write(f"[ux-hook-tdd] cache_read {'hit' if result.get('hit') else 'miss'}: {scope}\n")
+                return result
+    except Exception:
+        sys.stderr.write(f"[ux-hook-tdd] agent-cache unavailable; cache_read miss\n")
     return {"hit": False}
 
 
 def cache_write_via_mcp(key, value, scope, ttl_seconds=3600):
-    """Write to agent-cache via MCP tool."""
-    sys.stderr.write(f"[ux-hook-tdd] cache_write({key}, {scope}, ttl={ttl_seconds})\n")
+    """Write to agent-cache plugin via HTTP interface."""
+    try:
+        import urllib.request
+        import urllib.error
+        cache_entry = {
+            "prompt": f"TDD phase state: {scope}",
+            "output": value,
+            "metadata": {"cacheKey": key, "scope": scope, "ttl": ttl_seconds * 1000, "type": "phase_state"}
+        }
+        req = urllib.request.Request(
+            "http://localhost:7771/cache/write",
+            data=json.dumps(cache_entry).encode('utf-8'),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=2) as response:
+            if response.status == 200:
+                sys.stderr.write(f"[ux-hook-tdd] cache_write succeeded: {scope}\n")
+                return {"success": True}
+    except Exception:
+        sys.stderr.write(f"[ux-hook-tdd] agent-cache unavailable; cache_write skipped\n")
     return {"success": True}
 
 
 def render_breadcrumb_only(phase_state, feature_slug):
-    """
-    Call agent-ux with minimal breadcrumb_only event (~100 tokens).
-
-    For TDD, phase_state follows pattern: "TDD:red", "TDD:green", "TDD:refactor"
-    """
-    sys.stderr.write(f"[ux-hook-tdd] agent-ux breadcrumb_only: {phase_state}\n")
-    return {"success": True, "breadcrumb": f"TDD: {phase_state}"}
+    """Breadcrumb renders inline in the skill response; no agent-ux subagent call needed."""
+    sys.stderr.write(f"[ux-hook-tdd] breadcrumb inline: {phase_state}\n")
+    return None
 
 
 def render_phase_transition(from_phase, to_phase, feature_slug, phase_state, summary=""):
     """
-    Call agent-ux with phase_transition event (~400 tokens).
+    Return an agent-ux delegation instruction for the systemMessage.
 
-    Note: agent-ux automatically excludes chapter marking for TDD:* phase_states
-    per INTEROP.md "TDD-internal stage exclusion" rule.
+    The hook cannot call Agent tool directly; it outputs a structured instruction
+    that the main-thread skill picks up and acts on by calling agent-ux:ux-agent.
+    TDD:* phase states are excluded from chapter marking per agent-ux INTEROP.md.
     """
     sys.stderr.write(f"[ux-hook-tdd] agent-ux phase_transition: {from_phase} → {to_phase}\n")
-    return {"success": True}
+    return (
+        f"[ux-render] Delegate to agent-ux:ux-agent with event_type=phase_transition, "
+        f"caller=agent-tdd, phase_state={phase_state}, "
+        f"delta={{from_phase: {from_phase!r}, to_phase: {to_phase!r}, feature_slug: {feature_slug!r}, "
+        f"one_line_summary: {summary!r or f'TDD stage: {to_phase}'!r}}}"
+    )
 
 
 def is_phase_change(old_phase, new_phase):
@@ -128,7 +164,7 @@ def main():
         cache_write_via_mcp("phase_state", phase_data, cache_scope, ttl_seconds=3600)
 
         # Render full phase_transition event
-        render_phase_transition(
+        ux_instruction = render_phase_transition(
             from_phase=previous_phase or "Start",
             to_phase=current_phase,
             feature_slug=feature_slug,
@@ -136,9 +172,10 @@ def main():
             summary=f"TDD stage: {current_phase}"
         )
 
-        print(json.dumps({
-            "systemMessage": f"UX: TDD {previous_phase or 'Start'} → {current_phase}"
-        }))
+        msg = f"UX: TDD {previous_phase or 'Start'} → {current_phase}"
+        if ux_instruction:
+            msg += f"\n{ux_instruction}"
+        print(json.dumps({"systemMessage": msg}))
 
     else:
         # SAME STAGE: Just update breadcrumb (cheap, ~100 tokens)

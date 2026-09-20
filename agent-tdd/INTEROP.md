@@ -197,13 +197,13 @@ fresh design decision, not something to resurrect from `git log`.
 
 Pass a **Design Spec** inline in the spawn prompt (exact field names required for plugin-orchestrator validation):
 
-- **requirements_md** (string, required) — full approved requirements.md with user stories and acceptance criteria.
-- **design_md** (string, required) — full approved design.md with file touchpoints, interfaces, research basis section.
-- **research_cache** (object, required) — research findings object containing design_findings, task_findings, file_summaries (keyed by path), and git_hashes from prior research consolidation.
-- **recap_md** (string, required) — summary, known risks, blockers, Goal alignment notes. Expect this
-  summarized rather than pasted in full for a long-running feature — `agent-TDD` doesn't need a
-  phase-by-phase history, just enough to inform implementation.
-- **nelly_brief_cache** (optional) — pre-fetched cached context from agent-nelly (if available).
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| requirements_md | string | yes | Full approved requirements.md with user stories and acceptance criteria |
+| design_md | string | yes | Full approved design.md with file touchpoints, interfaces, research basis section |
+| research_cache | object | yes | Research findings: design_findings, task_findings, file_summaries (keyed by path), git_hashes |
+| recap_md | string | yes | Summary, known risks, blockers, Goal alignment notes (summarized, not full history) |
+| nelly_brief_cache | object | no | Pre-fetched cached context from agent-nelly (if available) |
 
 **modelPreference (capability metadata, not a spawn-prompt field):** plugin-orchestrator's
 `CapabilityMap` records `{"min_tier": "haiku", "preferred_tier": "sonnet"}` against this

@@ -69,7 +69,7 @@ class SchemaRegistry:
         schema = self.get_schema(plugin_name, capability_name)
         if not schema:
             return {}
-        return {field.name: field.type_name for field in schema.fields.values()}
+        return {field.name: field.type_name for field in schema.fields.values() if field.required}
 
     def add_schema(self, schema: Schema):
         """Add a schema to the registry.
@@ -100,10 +100,17 @@ class SchemaExtractor:
     EXPECTED_CAPABILITIES = {
         "agent-isdd": ["design_spec_handoff"],
         "agent-tdd": ["design_spec_slicing"],
-        "code-reviewer": ["code_review"],
+        # code-reviewer INTEROP.md describes skill invocation parameters (Mode, Scope), not
+        # orchestrator handoff fields. The fallback empty consumes in interop_parser.py is correct.
         "agent-nelly": ["memory_brief"],
         "agent-cache-plugin": ["phase_state_cache"],
         "agent-ux": ["render_event"],
+    }
+
+    # Section heading substrings to scope table search per capability.
+    # When set, only tables appearing after the matching heading are considered.
+    CAPABILITY_SECTION_KEYWORDS: Dict[str, str] = {
+        "design_spec_slicing": "Design Spec Input Format",
     }
 
     def __init__(self, base_dir: Optional[Path] = None):
@@ -231,6 +238,13 @@ class SchemaExtractor:
         Returns:
             Schema object if found, None otherwise.
         """
+        # Scope search to the relevant section if a keyword hint is registered.
+        section_keyword = self.CAPABILITY_SECTION_KEYWORDS.get(capability_name)
+        if section_keyword:
+            idx = content.find(section_keyword)
+            if idx != -1:
+                content = content[idx:]
+
         # Look for a markdown table with field definitions
         # Pattern: | Field | Type | Required | followed by rows
         table_pattern = r'\| Field \| Type \| Required \|[^\|]*\|[^\|]*\|[^\|]*\|([^#]+?)(?=^##|\Z)'
