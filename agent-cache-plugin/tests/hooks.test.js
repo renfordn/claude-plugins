@@ -102,7 +102,6 @@ describe('Pre-Agent-Spawn Hook (stdin/stdout I/O)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.parsed.hookSpecificOutput.permissionDecision).toBe('allow');
-      expect(result.parsed.hookSpecificOutput.permissionDecisionReason).toBeDefined();
     });
 
     test('should still allow when sessionId missing (informational-only, never blocks)', () => {
@@ -111,7 +110,6 @@ describe('Pre-Agent-Spawn Hook (stdin/stdout I/O)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.parsed.hookSpecificOutput.permissionDecision).toBe('allow');
-      expect(result.parsed.hookSpecificOutput.permissionDecisionReason).toBeDefined();
     });
 
     test('should still allow when input object missing (informational-only, never blocks)', () => {
@@ -120,7 +118,6 @@ describe('Pre-Agent-Spawn Hook (stdin/stdout I/O)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.parsed.hookSpecificOutput.permissionDecision).toBe('allow');
-      expect(result.parsed.hookSpecificOutput.permissionDecisionReason).toBeDefined();
     });
   });
 });

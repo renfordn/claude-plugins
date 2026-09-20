@@ -12,7 +12,7 @@
  * cached output or perform fresh reasoning.
  */
 
-const cacheManagement = require('../cache-management');
+const cacheManagement = require('../sqlite-cache');
 const metricsTracker = require('../metrics-tracker');
 
 // Configuration constants (extracted for maintainability)

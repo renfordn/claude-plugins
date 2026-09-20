@@ -5,7 +5,7 @@
  * Usage: /cache-clear [--all|--id <id>|--pattern <pattern>|--agent <agent>|--age <days>|--tag <tag>]
  */
 
-const cacheManagement = require('../skills/cache-management');
+const cacheManagement = require('../skills/sqlite-cache');
 
 class CacheClearCommand {
   constructor() {

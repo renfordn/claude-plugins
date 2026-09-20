@@ -5,7 +5,7 @@
  * or perform fresh reasoning based on relevance scoring and validation.
  */
 
-const cacheManagement = require('../../skills/cache-management');
+const cacheManagement = require('../../skills/sqlite-cache');
 const metricsTracker = require('../../skills/metrics-tracker');
 
 class CacheOrchestrator {

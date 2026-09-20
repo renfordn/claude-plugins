@@ -4,7 +4,7 @@
  *
  * Verifies .claude-plugin/plugin.json conforms to the v2 architecture:
  * - Required fields: name, version, description, author, license
- * - hooks array: PostToolUse entries present; no PreToolUse entry
+ * - hooks array: PreToolUse (M1, Agent matcher) + PostToolUse entries present
  * - commands array: cache-status, cache-clear, cache-config present
  * - No legacy map-singleton fields
  */
@@ -57,9 +57,11 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
       expect(hook).toBeDefined();
     });
 
-    test('does NOT have a PreToolUse hook (M1 gate not cleared)', () => {
+    test('has a PreToolUse hook wired to pre-agent-spawn.js (M1 cleared)', () => {
       const preHook = manifest.hooks.find(h => h.event === 'PreToolUse');
-      expect(preHook).toBeUndefined();
+      expect(preHook).toBeDefined();
+      expect(preHook.script).toBe('hooks/pre-agent-spawn.js');
+      expect(preHook.matcher).toBe('Agent');
     });
   });
 

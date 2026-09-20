@@ -5,7 +5,7 @@
  * Usage: /cache-config [--get | --set <key> <value>] [--reset] [--list]
  */
 
-const cacheManagement = require('../skills/cache-management');
+const cacheManagement = require('../skills/sqlite-cache');
 const cacheOrchestrator = require('../agents/agent-cache-orchestrator');
 
 class CacheConfigCommand {
@@ -55,24 +55,24 @@ class CacheConfigCommand {
    * List all current configuration
    */
   async _listConfig() {
-    const stats = this.cache.getStats();
+    const stats = this.cache.stats ? this.cache.stats() : (this.cache.getStats ? this.cache.getStats() : {});
 
     const config = {
       cache: {
-        maxSize: this.cache.maxSize,
-        maxEntries: this.cache.maxEntries,
-        defaultTTL: this.cache.defaultTTL,
-        evictionPolicy: this.cache.evictionPolicy
+        maxSize: this.cache.maxSize || null,
+        maxEntries: this.cache.maxEntries || null,
+        defaultTTL: this.cache.defaultTTL || null,
+        evictionPolicy: this.cache.evictionPolicy || 'LRU'
       },
       orchestrator: {
-        relevanceThreshold: this.orchestrator.relevanceThreshold,
-        stalenessThreshold: this.orchestrator.stalenessThreshold
+        relevanceThreshold: (this.orchestrator && this.orchestrator.relevanceThreshold) || null,
+        stalenessThreshold: (this.orchestrator && this.orchestrator.stalenessThreshold) || null
       },
       current: {
-        totalEntries: stats.totalEntries,
-        cacheSize: stats.cacheSize,
-        utilizationPercent: stats.utilizationPercent,
-        hitRate: (stats.hitRate * 100).toFixed(1) + '%'
+        totalEntries: stats.totalEntries || 0,
+        cacheSize: stats.cacheSize || 0,
+        utilizationPercent: stats.utilizationPercent || 0,
+        hitRate: stats.hitRate != null ? (stats.hitRate * 100).toFixed(1) + '%' : '0.0%'
       }
     };
 
@@ -226,23 +226,24 @@ class CacheConfigCommand {
     const warnings = [];
 
     // Check utilization
-    const stats = this.cache.getStats();
-    if (stats.utilizationPercent > 90) {
+    const stats = this.cache.stats ? this.cache.stats() : (this.cache.getStats ? this.cache.getStats() : {});
+    if ((stats.utilizationPercent || 0) > 90) {
       warnings.push('Cache utilization high (>90%). Consider increasing maxSize or reducing TTL.');
     }
 
     // Check if entries at max
-    if (stats.totalEntries >= this.cache.maxEntries * 0.95) {
+    if ((stats.totalEntries || 0) >= (this.cache.maxEntries || Infinity) * 0.95) {
       warnings.push('Cache approaching entry limit. Consider increasing maxEntries.');
     }
 
     // Check eviction policy effectiveness
-    if (stats.hitRate < 0.1 && this.orchestrator.relevanceThreshold >= 75) {
+    const relevanceThreshold = (this.orchestrator && this.orchestrator.relevanceThreshold) || 75;
+    if ((stats.hitRate || 0) < 0.1 && relevanceThreshold >= 75) {
       warnings.push('Hit rate low. Consider lowering relevanceThreshold from 75% to 65%.');
     }
 
     // Validate threshold values
-    if (this.orchestrator.relevanceThreshold < 50 || this.orchestrator.relevanceThreshold > 95) {
+    if (relevanceThreshold < 50 || relevanceThreshold > 95) {
       issues.push('relevanceThreshold should be between 50 and 95');
     }
 

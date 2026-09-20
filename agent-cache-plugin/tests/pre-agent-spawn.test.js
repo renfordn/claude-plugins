@@ -52,11 +52,11 @@ describe('pre-agent-spawn hook (M1 re-validation)', () => {
     };
     const { stdout, status } = runHook(input, { CLAUDE_PLUGIN_DATA: tmpDir });
     expect(status).toBe(0);
-    expect(stdout.permissionDecision).toBe('allow');
-    expect(stdout.tempFilePath).toBeUndefined();
+    expect(stdout.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(stdout.hookSpecificOutput.permissionDecisionReason).toBeUndefined();
   });
 
-  test('cache hit: emits permissionDecision=allow with tempFilePath pointing to cached output', () => {
+  test('cache hit: emits permissionDecision=allow with tempFilePath in permissionDecisionReason', () => {
     const agentType = 'agent-tdd';
     const taskSlug = 'test-slug';
     const inputObj = { prompt: 'write a test' };
@@ -79,13 +79,14 @@ describe('pre-agent-spawn hook (M1 re-validation)', () => {
     const input = { toolName: agentType, input: inputObj, metadata: { taskSlug } };
     const { stdout, status } = runHook(input, { CLAUDE_PLUGIN_DATA: tmpDir });
     expect(status).toBe(0);
-    expect(stdout.permissionDecision).toBe('allow');
-    expect(stdout.tempFilePath).toBeDefined();
-    // Temp file must contain the cached output
-    const content = JSON.parse(fs.readFileSync(stdout.tempFilePath, 'utf-8'));
+    expect(stdout.hookSpecificOutput.permissionDecision).toBe('allow');
+    const reason = stdout.hookSpecificOutput.permissionDecisionReason;
+    expect(reason).toMatch(/cache-hit:/);
+    // Extract temp file path from reason and verify contents
+    const tmpFile = reason.replace('cache-hit: ', '');
+    const content = JSON.parse(fs.readFileSync(tmpFile, 'utf-8'));
     expect(content.result).toBe('cached!');
-    // Cleanup temp file
-    try { fs.unlinkSync(stdout.tempFilePath); } catch { /* ignore */ }
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
   });
 
   test('exits 0 even on DB error', () => {
@@ -94,6 +95,6 @@ describe('pre-agent-spawn hook (M1 re-validation)', () => {
       { CLAUDE_PLUGIN_DATA: '/nonexistent/totally/bad' }
     );
     expect(status).toBe(0);
-    expect(stdout.permissionDecision).toBe('allow');
+    expect(stdout.hookSpecificOutput.permissionDecision).toBe('allow');
   });
 });

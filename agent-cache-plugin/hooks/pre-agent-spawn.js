@@ -26,7 +26,9 @@ function cacheKey(agentType, taskSlug, inputDigest) {
 }
 
 function passthrough() {
-  process.stdout.write(JSON.stringify({ permissionDecision: 'allow' }) + '\n');
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' }
+  }) + '\n');
 }
 
 function resolveDbPath() {
@@ -70,8 +72,11 @@ async function main() {
     fs.writeFileSync(tmpFile, row.output_blob, 'utf8');
 
     process.stdout.write(JSON.stringify({
-      permissionDecision: 'allow',
-      tempFilePath: tmpFile
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'allow',
+        permissionDecisionReason: `cache-hit: ${tmpFile}`
+      }
     }) + '\n');
   } catch (err) {
     process.stderr.write('[agent-cache-plugin] pre-agent-spawn error: ' + err.message + '\n');
