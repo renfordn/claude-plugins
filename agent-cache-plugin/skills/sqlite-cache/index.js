@@ -1,0 +1,228 @@
+/**
+ * SQLite-backed CacheManager.
+ *
+ * Replaces the in-memory Map singleton from skills/cache-management/index.js.
+ * Uses better-sqlite3 (synchronous API) — no Promises needed at the DB layer.
+ *
+ * Public API (matches Map-based predecessor where feasible):
+ *   store(entry)        → { success, key }
+ *   retrieve(key)       → entry | null
+ *   invalidate(key)     → { success, count }
+ *   stats()             → { totalEntries, hitCount, missCount, hitRate, oldestTs, newestTs, avgTokenSaved }
+ *   enforce(opts)       → { evictedCount }
+ *   getSingleton(path)  → CacheManager  (module-level singleton)
+ *   resetSingleton()    → void          (test helper)
+ */
+
+const Database = require('better-sqlite3');
+const { SCHEMA_SQL } = require('./schema');
+
+const DEFAULT_TTL = 72 * 60 * 60 * 1000; // 72 hours in ms
+const DEFAULT_MAX_ENTRIES = 10_000;
+
+class CacheManager {
+  /**
+   * @param {string} dbPath - File path or ':memory:' for tests.
+   * @param {object} [opts]
+   * @param {number} [opts.maxEntries=10000]
+   * @param {number} [opts.defaultTTL=72h]
+   */
+  constructor(dbPath, opts = {}) {
+    this.dbPath = dbPath;
+    this.maxEntries = opts.maxEntries || DEFAULT_MAX_ENTRIES;
+    this.defaultTTL = opts.defaultTTL || DEFAULT_TTL;
+
+    this.db = new Database(dbPath);
+    this.db.pragma('journal_mode = WAL');
+    this._runSchema();
+    this._prepareStatements();
+  }
+
+  _runSchema() {
+    this.db.exec(SCHEMA_SQL);
+  }
+
+  _prepareStatements() {
+    this._stmtGet = this.db.prepare(
+      'SELECT * FROM cache WHERE key = ? AND (created_at + ttl) > ?'
+    );
+    this._stmtInsert = this.db.prepare(`
+      INSERT OR REPLACE INTO cache
+        (key, agent_type, task_slug, output_digest, output_blob, decisions, warnings, token_count, created_at, accessed_at, ttl)
+      VALUES
+        (@key, @agent_type, @task_slug, @output_digest, @output_blob, @decisions, @warnings, @token_count, @created_at, @accessed_at, @ttl)
+    `);
+    this._stmtTouch = this.db.prepare(
+      'UPDATE cache SET accessed_at = ? WHERE key = ?'
+    );
+    this._stmtDelete = this.db.prepare('DELETE FROM cache WHERE key = ?');
+    this._stmtCount = this.db.prepare('SELECT COUNT(*) AS n FROM cache');
+    this._stmtLruEvict = this.db.prepare(`
+      DELETE FROM cache WHERE key IN (
+        SELECT key FROM cache ORDER BY accessed_at ASC LIMIT ?
+      )
+    `);
+    this._stmtStats = this.db.prepare(`
+      SELECT
+        COUNT(*) AS totalEntries,
+        MIN(created_at) AS oldestTs,
+        MAX(created_at) AS newestTs
+      FROM cache
+    `);
+    this._stmtEventInsert = this.db.prepare(
+      'INSERT INTO cache_events (cache_key, event_type, token_count, ts) VALUES (?, ?, ?, ?)'
+    );
+    this._stmtHitCount = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM cache_events WHERE event_type = 'hit'"
+    );
+    this._stmtMissCount = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM cache_events WHERE event_type = 'miss'"
+    );
+    this._stmtAvgTokenSaved = this.db.prepare(
+      "SELECT AVG(token_count) AS avg FROM cache_events WHERE event_type = 'hit'"
+    );
+  }
+
+  /**
+   * Store an entry. Performs LRU eviction first if at capacity.
+   * @param {object} entry
+   * @param {string} entry.key
+   * @param {string} entry.agent_type
+   * @param {string} entry.task_slug
+   * @param {string} entry.output_blob   JSON string
+   * @param {string} [entry.output_digest]
+   * @param {string} [entry.decisions]
+   * @param {string} [entry.warnings]
+   * @param {number} [entry.token_count=0]
+   * @param {number} [entry.ttl]         ms
+   */
+  store(entry) {
+    const now = Date.now();
+    const row = {
+      key: entry.key,
+      agent_type: entry.agent_type || '',
+      task_slug: entry.task_slug || '',
+      output_digest: entry.output_digest || '',
+      output_blob: entry.output_blob,
+      decisions: entry.decisions || null,
+      warnings: entry.warnings || null,
+      token_count: entry.token_count || 0,
+      created_at: now,
+      accessed_at: now,
+      ttl: entry.ttl || this.defaultTTL
+    };
+
+    // LRU eviction before insert
+    const { n } = this._stmtCount.get();
+    if (n >= this.maxEntries) {
+      const excess = n - this.maxEntries + 1;
+      this._stmtLruEvict.run(excess);
+    }
+
+    this._stmtInsert.run(row);
+    this._stmtEventInsert.run(entry.key, 'store', row.token_count, now);
+    return { success: true, key: entry.key };
+  }
+
+  /**
+   * Retrieve a non-expired entry, updating accessed_at.
+   * @param {string} key
+   * @returns {object|null}
+   */
+  retrieve(key) {
+    const now = Date.now();
+    const row = this._stmtGet.get(key, now);
+    if (!row) {
+      this._stmtEventInsert.run(key, 'miss', 0, now);
+      return null;
+    }
+    this._stmtTouch.run(now, key);
+    this._stmtEventInsert.run(key, 'hit', row.token_count, now);
+    return row;
+  }
+
+  /**
+   * Delete an entry by key.
+   */
+  invalidate(key) {
+    const info = this._stmtDelete.run(key);
+    return { success: true, count: info.changes };
+  }
+
+  /**
+   * Return aggregate stats.
+   */
+  stats() {
+    const { totalEntries, oldestTs, newestTs } = this._stmtStats.get();
+    const { n: hitCount } = this._stmtHitCount.get();
+    const { n: missCount } = this._stmtMissCount.get();
+    const total = hitCount + missCount;
+    const hitRate = total > 0 ? hitCount / total : 0;
+    const { avg: avgTokenSaved } = this._stmtAvgTokenSaved.get();
+    return {
+      totalEntries,
+      hitCount,
+      missCount,
+      hitRate,
+      avgTokenSaved: avgTokenSaved || 0,
+      oldestTs: oldestTs || null,
+      newestTs: newestTs || null
+    };
+  }
+
+  /**
+   * Enforce maxEntries by LRU eviction.
+   */
+  enforce(opts = {}) {
+    const maxEntries = opts.maxEntries || this.maxEntries;
+    const { n } = this._stmtCount.get();
+    if (n <= maxEntries) return { evictedCount: 0 };
+    const excess = n - maxEntries;
+    const info = this._stmtLruEvict.run(excess);
+    return { evictedCount: info.changes };
+  }
+
+  /** Close the underlying DB (useful in tests). */
+  close() {
+    this.db.close();
+  }
+}
+
+// Module-level singleton
+let _singleton = null;
+
+/**
+ * @param {string} [dbPath] - Path to cache.db; defaults to env var or fallback.
+ */
+function getSingleton(dbPath) {
+  if (!_singleton) {
+    const resolvedPath = dbPath || _resolveDbPath();
+    _singleton = new CacheManager(resolvedPath);
+  }
+  return _singleton;
+}
+
+function resetSingleton() {
+  if (_singleton) {
+    try { _singleton.close(); } catch { /* ignore */ }
+    _singleton = null;
+  }
+}
+
+function _resolveDbPath() {
+  const dataDir = process.env.CLAUDE_PLUGIN_DATA;
+  if (!dataDir) {
+    const path = require('path');
+    const os = require('os');
+    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
+    require('fs').mkdirSync(fallback, { recursive: true });
+    process.stderr.write(
+      '[agent-cache-plugin] CLAUDE_PLUGIN_DATA unset; falling back to ' + fallback + '\n'
+    );
+    return path.join(fallback, 'cache.db');
+  }
+  require('fs').mkdirSync(dataDir, { recursive: true });
+  return require('path').join(dataDir, 'cache.db');
+}
+
+module.exports = { CacheManager, getSingleton, resetSingleton };

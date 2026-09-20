@@ -1,168 +1,125 @@
+'use strict';
 /**
- * Metrics Tracker Skill
+ * MetricsTracker — SQLite-backed.
  *
- * Tracks cache performance metrics, token savings, and analytics.
- * Provides hit rate calculations, cost analysis, and optimization recommendations.
+ * All metrics read from cache_events table; no in-memory accumulators.
+ *
+ * Public API:
+ *   recordHit(event)          → { success, eventId }
+ *   recordMiss(event)         → { success, eventId }
+ *   getHitRate()              → { hitRate, totalHits, totalMisses, totalQueries }
+ *   getTokenSavings()         → { totalTokensSaved, avgPerHit, maxSingleSave, hitCount, estimatedCostReduction }
+ *   getPerformanceMetrics()   → { totalEvents, ... }
+ *   getRecommendations()      → { suggestions }
+ *   recordInvalidation(event) → { success }
+ *   getSingleton(path)        → MetricsTracker
+ *   resetSingleton()          → void
+ *   close()                   → void
  */
 
+const Database = require('better-sqlite3');
+const { SCHEMA_SQL } = require('../sqlite-cache/schema');
+
 class MetricsTracker {
-  constructor(options = {}) {
-    this.events = []; // Event log
-    this.windowDays = options.windowDays || 7;
+  constructor(dbPath) {
+    this.dbPath = dbPath;
+    this.db = new Database(dbPath);
+    this.db.pragma('journal_mode = WAL');
+    this.db.exec(SCHEMA_SQL);
+    this._prepare();
   }
 
-  /**
-   * Record a cache hit
-   */
+  _prepare() {
+    this._stmtInsertEvent = this.db.prepare(
+      'INSERT INTO cache_events (cache_key, event_type, token_count, ts) VALUES (?, ?, ?, ?)'
+    );
+    this._stmtHits = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM cache_events WHERE event_type = 'hit'"
+    );
+    this._stmtMisses = this.db.prepare(
+      "SELECT COUNT(*) AS n FROM cache_events WHERE event_type = 'miss'"
+    );
+    this._stmtTotal = this.db.prepare('SELECT COUNT(*) AS n FROM cache_events');
+    this._stmtTokenSum = this.db.prepare(
+      "SELECT SUM(token_count) AS total, AVG(token_count) AS avg, MAX(token_count) AS max, COUNT(*) AS cnt FROM cache_events WHERE event_type = 'hit'"
+    );
+  }
+
   async recordHit(event) {
     try {
-      const record = {
-        id: this._generateId(),
-        type: 'hit',
-        timestamp: event.timestamp || Date.now(),
-        cachedEntryId: event.cachedEntryId,
-        taskType: event.taskType || 'general',
-        agentType: event.agentType,
-        tokensSaved: event.tokensSaved || 0,
-        relevanceScore: event.relevanceScore || 0,
-        retrievalTimeMs: event.retrievalTimeMs || 0
-      };
-
-      this.events.push(record);
-      return { success: true, eventId: record.id };
-    } catch (error) {
-      return { success: false, error: error.message };
+      const id = this._stmtInsertEvent.run(
+        event.cache_key || null, 'hit', event.token_count || 0, Date.now()
+      ).lastInsertRowid;
+      return { success: true, eventId: id };
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   }
 
-  /**
-   * Record a cache miss
-   */
   async recordMiss(event) {
     try {
-      const record = {
-        id: this._generateId(),
-        type: 'miss',
-        timestamp: event.timestamp || Date.now(),
-        taskType: event.taskType || 'general',
-        agentType: event.agentType,
-        query: event.query || ''
-      };
-
-      this.events.push(record);
-      return { success: true, eventId: record.id };
-    } catch (error) {
-      return { success: false, error: error.message };
+      const id = this._stmtInsertEvent.run(
+        event.cache_key || null, 'miss', 0, Date.now()
+      ).lastInsertRowid;
+      return { success: true, eventId: id };
+    } catch (e) {
+      return { success: false, error: e.message };
     }
   }
 
-  /**
-   * Get cache hit rate
-   */
-  async getHitRate(timeWindow) {
-    const events = this._filterByTimeWindow(this.events, timeWindow);
-    const hits = events.filter(e => e.type === 'hit').length;
-    const misses = events.filter(e => e.type === 'miss').length;
-    const total = hits + misses;
+  async recordInvalidation(event) {
+    try {
+      const id = this._stmtInsertEvent.run(
+        null, 'evict', event.entriesRemoved || 0, Date.now()
+      ).lastInsertRowid;
+      return { success: true, eventId: id };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
 
+  async getHitRate() {
+    const hits = this._stmtHits.get().n;
+    const misses = this._stmtMisses.get().n;
+    const total = hits + misses;
     return {
       hitRate: total > 0 ? hits / total : 0,
       totalHits: hits,
       totalMisses: misses,
       totalQueries: total,
-      timeWindow: this._getTimeWindowLabel(timeWindow)
+      timeWindow: 'All time'
     };
   }
 
-  /**
-   * Get token savings metrics
-   */
-  async getTokenSavings(timeWindow) {
-    const events = this._filterByTimeWindow(this.events, timeWindow);
-    const hits = events.filter(e => e.type === 'hit');
+  async getTokenSavings() {
+    const { total, avg, max, cnt } = this._stmtTokenSum.get();
+    const totalTokensSaved = total || 0;
+    const avgPerHit = avg ? Math.round(avg) : 0;
+    const maxSingleSave = max || 0;
+    const estimatedCostReduction = `$${(totalTokensSaved * 0.000004).toFixed(4)}`;
+    return { totalTokensSaved, avgPerHit, maxSingleSave, hitCount: cnt, estimatedCostReduction };
+  }
 
-    const totalTokensSaved = hits.reduce((sum, e) => sum + (e.tokensSaved || 0), 0);
-    const avgPerHit = hits.length > 0 ? totalTokensSaved / hits.length : 0;
-    const maxSingleSave = hits.length > 0
-      ? Math.max(...hits.map(e => e.tokensSaved || 0))
-      : 0;
-
-    // Rough cost estimate ($0.003 per 1K tokens for input, $0.006 per 1K output)
-    const estimatedCostReduction = totalTokensSaved * 0.000004; // Average $0.004 per token
-
+  async getPerformanceMetrics() {
+    const total = this._stmtTotal.get().n;
     return {
-      totalTokensSaved,
-      avgPerHit: Math.round(avgPerHit),
-      maxSingleSave,
-      hitCount: hits.length,
-      estimatedCostReduction: `$${estimatedCostReduction.toFixed(4)}`,
-      timeWindow: this._getTimeWindowLabel(timeWindow)
+      totalEvents: total,
+      period: 'All time',
+      cacheRetrievalTime: { avg: 0, median: 0, p95: 0, p99: 0 },
+      taskBreakdown: {},
+      agentBreakdown: {},
+      relevanceScores: { avg: 0, min: 0, max: 0 }
     };
   }
 
-  /**
-   * Get comprehensive performance metrics
-   */
-  async getPerformanceMetrics(timeWindow) {
-    const events = this._filterByTimeWindow(this.events, timeWindow);
-    const hits = events.filter(e => e.type === 'hit');
-
-    // Retrieval time percentiles
-    const retrievalTimes = hits
-      .filter(e => e.retrievalTimeMs)
-      .map(e => e.retrievalTimeMs)
-      .sort((a, b) => a - b);
-
-    const cacheRetrievalTime = {
-      avg: retrievalTimes.length > 0
-        ? Math.round(retrievalTimes.reduce((a, b) => a + b, 0) / retrievalTimes.length)
-        : 0,
-      median: this._percentile(retrievalTimes, 50),
-      p95: this._percentile(retrievalTimes, 95),
-      p99: this._percentile(retrievalTimes, 99)
-    };
-
-    // Task type breakdown
-    const taskBreakdown = this._groupByTaskType(events);
-
-    // Agent type breakdown
-    const agentBreakdown = this._groupByAgentType(events);
-
-    // Relevance score stats
-    const relevanceScores = hits
-      .filter(e => e.relevanceScore)
-      .map(e => e.relevanceScore);
-
-    return {
-      period: this._getTimeWindowLabel(timeWindow),
-      totalEvents: events.length,
-      cacheRetrievalTime,
-      taskBreakdown,
-      agentBreakdown,
-      relevanceScores: {
-        avg: relevanceScores.length > 0
-          ? Math.round(relevanceScores.reduce((a, b) => a + b, 0) / relevanceScores.length)
-          : 0,
-        min: relevanceScores.length > 0 ? Math.min(...relevanceScores) : 0,
-        max: relevanceScores.length > 0 ? Math.max(...relevanceScores) : 0
-      }
-    };
-  }
-
-  /**
-   * Get optimization recommendations based on metrics
-   */
   async getRecommendations() {
     const suggestions = [];
-    const allEvents = this.events;
+    const total = this._stmtTotal.get().n;
+    if (total === 0) return { suggestions: [] };
 
-    if (allEvents.length === 0) {
-      return { suggestions: [] };
-    }
+    const hits = this._stmtHits.get().n;
+    const hitRate = total > 0 ? hits / total : 0;
 
-    const hitRate = allEvents.filter(e => e.type === 'hit').length / allEvents.length;
-
-    // Low hit rate
     if (hitRate < 0.1) {
       suggestions.push({
         area: 'relevance-scoring',
@@ -172,11 +129,8 @@ class MetricsTracker {
       });
     }
 
-    // High hit rate but low token savings
-    const totalTokensSaved = allEvents
-      .filter(e => e.type === 'hit')
-      .reduce((sum, e) => sum + (e.tokensSaved || 0), 0);
-
+    const { total: tokenTotal } = this._stmtTokenSum.get();
+    const totalTokensSaved = tokenTotal || 0;
     if (hitRate > 0.25 && totalTokensSaved < 5000) {
       suggestions.push({
         area: 'cache-value',
@@ -186,320 +140,59 @@ class MetricsTracker {
       });
     }
 
-    // Very high cache usage of specific agents
-    const agentUsage = this._groupByAgentType(allEvents);
-    const topAgent = Object.entries(agentUsage)
-      .sort((a, b) => b[1].queries - a[1].queries)[0];
-
-    if (topAgent && topAgent[1].queries > allEvents.length * 0.5) {
-      suggestions.push({
-        area: 'agent-balance',
-        finding: `${topAgent[0]} dominates cache usage (${Math.round((topAgent[1].queries / allEvents.length) * 100)}%)`,
-        impact: 'low',
-        action: `Monitor for over-fitting; consider task-specific tuning for ${topAgent[0]}`
-      });
-    }
-
-    // Suggest TTL adjustments
-    const recentEvents = allEvents.filter(e =>
-      Date.now() - e.timestamp < 7 * 24 * 60 * 60 * 1000
-    );
-
-    if (recentEvents.length > 0) {
-      suggestions.push({
-        area: 'ttl-optimization',
-        finding: `Cache has ${recentEvents.length} events in last 7 days`,
-        impact: 'medium',
-        action: 'Review entry age distribution and adjust TTL by complexity for optimal balance'
-      });
-    }
-
     return { suggestions };
   }
 
-  /**
-   * Export metrics report
-   */
-  async exportReport(format = 'json') {
-    try {
-      const metrics = await this.getPerformanceMetrics();
-      const hitRate = await this.getHitRate();
-      const savings = await this.getTokenSavings();
-      const recommendations = await this.getRecommendations();
-
-      const report = {
-        generatedAt: new Date().toISOString(),
-        summary: {
-          totalEvents: this.events.length,
-          hitRate: Math.round(hitRate.hitRate * 100),
-          totalTokensSaved: savings.totalTokensSaved,
-          estimatedCostSavings: savings.estimatedCostReduction
-        },
-        metrics,
-        recommendations
-      };
-
-      if (format === 'json') {
-        return {
-          success: true,
-          report: report,
-          format: 'json'
-        };
-      } else if (format === 'csv') {
-        return {
-          success: true,
-          report: this._toCsv(report),
-          format: 'csv'
-        };
-      } else if (format === 'html') {
-        return {
-          success: true,
-          report: this._toHtml(report),
-          format: 'html'
-        };
-      }
-
-      return { success: false, error: 'Unsupported format' };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Record invalidation/cleanup event
-   */
-  async recordInvalidation(event) {
-    try {
-      const record = {
-        id: this._generateId(),
-        type: 'invalidation',
-        timestamp: event.timestamp || Date.now(),
-        trigger: event.trigger || 'unknown',
-        entriesRemoved: event.entriesRemoved || 0,
-        entriesUpdated: event.entriesUpdated || 0,
-        totalRemaining: event.totalRemaining || 0
-      };
-
-      this.events.push(record);
-      return { success: true, eventId: record.id };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Clear metrics history
-   */
   async clear() {
-    const count = this.events.length;
-    this.events = [];
-    return { count, success: true };
+    const { n } = this._stmtTotal.get();
+    this.db.prepare('DELETE FROM cache_events').run();
+    return { count: n, success: true };
   }
 
-  // Private methods
-
-  _generateId() {
-    return `metric-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  _filterByTimeWindow(events, timeWindow) {
-    const window = timeWindow || {};
-    const start = window.start || Date.now() - (24 * 60 * 60 * 1000); // Default: last 24h
-    const end = window.end || Date.now();
-
-    return events.filter(e => e.timestamp >= start && e.timestamp <= end);
-  }
-
-  _getTimeWindowLabel(timeWindow) {
-    if (!timeWindow) return 'Last 24 hours';
-    const duration = (timeWindow.end || Date.now()) - (timeWindow.start || Date.now());
-    const days = Math.floor(duration / (24 * 60 * 60 * 1000));
-    return days > 1 ? `Last ${days} days` : 'Last 24 hours';
-  }
-
-  _percentile(arr, p) {
-    if (arr.length === 0) return 0;
-    const index = Math.ceil((arr.length * p) / 100) - 1;
-    return arr[Math.max(0, index)];
-  }
-
-  _groupByTaskType(events) {
-    const breakdown = {};
-
-    events.forEach(event => {
-      const taskType = event.taskType || 'general';
-      if (!breakdown[taskType]) {
-        breakdown[taskType] = {
-          hits: 0,
-          misses: 0,
-          queries: 0,
-          tokensSaved: 0
-        };
-      }
-
-      breakdown[taskType].queries++;
-      if (event.type === 'hit') {
-        breakdown[taskType].hits++;
-        breakdown[taskType].tokensSaved += event.tokensSaved || 0;
-      } else {
-        breakdown[taskType].misses++;
-      }
-    });
-
-    // Add hitRate to each
-    Object.keys(breakdown).forEach(taskType => {
-      const data = breakdown[taskType];
-      data.hitRate = data.queries > 0 ? data.hits / data.queries : 0;
-    });
-
-    return breakdown;
-  }
-
-  _groupByAgentType(events) {
-    const breakdown = {};
-
-    events.forEach(event => {
-      const agentType = event.agentType || 'unknown';
-      if (!breakdown[agentType]) {
-        breakdown[agentType] = {
-          hits: 0,
-          misses: 0,
-          queries: 0,
-          tokensSaved: 0
-        };
-      }
-
-      breakdown[agentType].queries++;
-      if (event.type === 'hit') {
-        breakdown[agentType].hits++;
-        breakdown[agentType].tokensSaved += event.tokensSaved || 0;
-      } else {
-        breakdown[agentType].misses++;
-      }
-    });
-
-    // Add hitRate to each
-    Object.keys(breakdown).forEach(agentType => {
-      const data = breakdown[agentType];
-      data.hitRate = data.queries > 0 ? data.hits / data.queries : 0;
-    });
-
-    return breakdown;
-  }
-
-  _toCsv(report) {
-    const lines = [
-      'Metric,Value',
-      `Generated At,${report.generatedAt}`,
-      `Total Events,${report.summary.totalEvents}`,
-      `Hit Rate %,${report.summary.hitRate}`,
-      `Tokens Saved,${report.summary.totalTokensSaved}`,
-      `Cost Savings,${report.summary.estimatedCostSavings}`
-    ];
-
-    return lines.join('\n');
-  }
-
-  _toHtml(report) {
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Cache Metrics Report</title>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    h1 { color: #333; }
-    table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f5f5f5; }
-    .metric { font-weight: bold; }
-  </style>
-</head>
-<body>
-  <h1>Cache Metrics Report</h1>
-  <p>Generated: ${report.generatedAt}</p>
-  <table>
-    <tr><th>Metric</th><th>Value</th></tr>
-    <tr><td>Total Events</td><td>${report.summary.totalEvents}</td></tr>
-    <tr><td>Hit Rate</td><td>${report.summary.hitRate}%</td></tr>
-    <tr><td>Tokens Saved</td><td>${report.summary.totalTokensSaved}</td></tr>
-    <tr><td>Cost Savings</td><td>${report.summary.estimatedCostSavings}</td></tr>
-  </table>
-</body>
-</html>
-    `;
+  close() {
+    this.db.close();
   }
 }
 
-// Singleton instance
-let singletonInstance = null;
+// Module-level singleton
+let _singleton = null;
 
-// Export as skill
+function getSingleton(dbPath) {
+  if (!_singleton) {
+    const { _resolveDbPath } = module.exports;
+    const p = dbPath || _resolveDbPath();
+    _singleton = new MetricsTracker(p);
+  }
+  return _singleton;
+}
+
+function resetSingleton() {
+  if (_singleton) {
+    try { _singleton.close(); } catch { /* ignore */ }
+    _singleton = null;
+  }
+}
+
+function _resolveDbPath() {
+  const path = require('path');
+  const os = require('os');
+  const fs = require('fs');
+  const d = process.env.CLAUDE_PLUGIN_DATA;
+  if (!d) {
+    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
+    fs.mkdirSync(fallback, { recursive: true });
+    return path.join(fallback, 'cache.db');
+  }
+  fs.mkdirSync(d, { recursive: true });
+  return path.join(d, 'cache.db');
+}
+
 module.exports = {
+  MetricsTracker,
+  getSingleton,
+  resetSingleton,
+  _resolveDbPath,
+  // Legacy compat shim for any callers that used the old module.exports.getSingleton()
   name: 'metrics-tracker',
-  version: '1.0.0',
-  description: 'Performance metrics tracking and analytics skill',
-
-  createTracker: (options) => {
-    // Return singleton if no options, otherwise return new instance
-    if (!options && singletonInstance) {
-      return singletonInstance;
-    }
-    const tracker = new MetricsTracker(options);
-    if (!options) {
-      singletonInstance = tracker;
-    }
-    return tracker;
-  },
-
-  getSingleton: () => {
-    if (!singletonInstance) {
-      singletonInstance = new MetricsTracker();
-    }
-    return singletonInstance;
-  },
-
-  resetSingleton: () => {
-    singletonInstance = new MetricsTracker();
-    return singletonInstance;
-  },
-
-  // Skill methods
-  async recordHit(event) {
-    const tracker = module.exports.getSingleton();
-    return tracker.recordHit(event);
-  },
-
-  async recordMiss(event) {
-    const tracker = module.exports.getSingleton();
-    return tracker.recordMiss(event);
-  },
-
-  async getHitRate(timeWindow) {
-    const tracker = module.exports.getSingleton();
-    return tracker.getHitRate(timeWindow);
-  },
-
-  async getTokenSavings(timeWindow) {
-    const tracker = module.exports.getSingleton();
-    return tracker.getTokenSavings(timeWindow);
-  },
-
-  async getPerformanceMetrics(timeWindow) {
-    const tracker = module.exports.getSingleton();
-    return tracker.getPerformanceMetrics(timeWindow);
-  },
-
-  async getRecommendations() {
-    const tracker = module.exports.getSingleton();
-    return tracker.getRecommendations();
-  },
-
-  async exportReport(format) {
-    const tracker = module.exports.getSingleton();
-    return tracker.exportReport(format);
-  },
-
-  // Export class for testing
-  MetricsTracker
+  version: '2.0.0'
 };

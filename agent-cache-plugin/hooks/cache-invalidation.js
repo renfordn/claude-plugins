@@ -1,188 +1,69 @@
+'use strict';
 /**
- * Hook: cache-invalidation
+ * Hook: cache-invalidation (PostToolUse)
  *
- * CLI entry point: reads stdin JSON, outputs stdout JSON, uses exit codes.
- * Handles cache invalidation, staleness checks, and eviction policies.
- * Runs periodically and on-demand to maintain cache health.
- *
- * Input (stdin JSON): { sessionId: string, reason?: string, timestamp?: number }
- * Output (stdout JSON): { invalidated: boolean, entriesRemoved: number, metricsArchived?: boolean }
- * Exit codes: 0 = success, 1 = error
+ * stdin  → any JSON (ignored; no required fields)
+ * stdout → { invalidated, entriesRemoved }
+ * exit   → always 0
  */
 
-const cacheSkill = require('../skills/cache-management');
-const metricsSkill = require('../skills/metrics-tracker');
-const { readStdinJSON } = require('./_stdin-reader');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-/**
- * Main hook logic
- */
-async function main() {
-  try {
-    // Read and parse stdin
-    const input = await readStdinJSON();
+const MAX_ENTRIES = 10_000;
+const EVENT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    // Validate required fields
-    if (!input.sessionId || typeof input.sessionId !== 'string' || input.sessionId.trim() === '') {
-      process.stdout.write(JSON.stringify({
-        error: 'Missing or invalid required field: sessionId',
-        invalidated: false,
-        entriesRemoved: 0
-      }) + '\n');
-      process.exit(1);
-    }
-
-    // Get cache and metrics managers
-    const cache = cacheSkill.getSingleton();
-    const metrics = metricsSkill.getSingleton();
-
-    const results = {
-      invalidated: false,
-      entriesRemoved: 0,
-      metricsArchived: false
-    };
-
-    // Step 1: Check for stale entries (TTL-based invalidation)
-    const staleResult = await invalidateStaleEntries(cache);
-    results.entriesRemoved += staleResult.count;
-
-    // Step 2: Check for low-value entries (hit-rate based invalidation)
-    const lowValueResult = await invalidateLowValueEntries(cache, metrics);
-    results.entriesRemoved += lowValueResult.count;
-
-    // Step 3: Enforce size limits (LRU eviction if needed)
-    const sizeResult = await enforceSizeLimits(cache);
-    results.entriesRemoved += sizeResult.count;
-
-    // Step 4: Record invalidation event
-    if (results.entriesRemoved > 0) {
-      results.invalidated = true;
-      await metrics.recordInvalidation({
-        trigger: input.reason || 'on-demand',
-        entriesRemoved: results.entriesRemoved,
-        entriesUpdated: 0,
-        totalRemaining: 0
-      });
-      results.metricsArchived = true;
-    }
-
-    process.stdout.write(JSON.stringify(results) + '\n');
-    process.exit(0);
-
-  } catch (error) {
-    // Invalid JSON or other execution error
-    process.stdout.write(JSON.stringify({
-      error: error.message,
-      invalidated: false,
-      entriesRemoved: 0
-    }) + '\n');
-    process.exit(1);
+function resolveDbPath() {
+  const d = process.env.CLAUDE_PLUGIN_DATA;
+  if (!d) {
+    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
+    fs.mkdirSync(fallback, { recursive: true });
+    return path.join(fallback, 'cache.db');
   }
+  fs.mkdirSync(d, { recursive: true });
+  return path.join(d, 'cache.db');
 }
 
-/**
- * Invalidate entries that have exceeded their TTL
- */
-async function invalidateStaleEntries(cache) {
-  const now = Date.now();
-  const results = {
-    count: 0,
-    details: []
-  };
-
+function main() {
+  const result = { invalidated: false, entriesRemoved: 0 };
   try {
-    // Get all entries
-    const allEntries = await cache.search({
-      pattern: '*',
-      limit: 10000
-    });
+    const dbPath = resolveDbPath();
+    const Database = require('better-sqlite3');
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
 
-    const staleEntries = allEntries.filter(entry => {
-      const entryAge = now - entry.metadata.timestamp;
-      const ttl = entry.metadata.ttl || (24 * 60 * 60 * 1000); // Default 24h
-      return entryAge > ttl;
-    });
+    const now = Date.now();
 
-    // Invalidate stale entries
-    for (const entry of staleEntries) {
-      const invalidateResult = await cache.invalidate(entry.id);
-      results.count += invalidateResult.count;
-      results.details.push(`Removed stale entry: ${entry.id}`);
+    // 1. TTL expiry
+    const { changes: ttlRemoved } = db
+      .prepare('DELETE FROM cache WHERE (created_at + ttl) < ?')
+      .run(now);
+
+    // 2. LRU trim to MAX_ENTRIES
+    const { n: count } = db.prepare('SELECT COUNT(*) AS n FROM cache').get();
+    let lruRemoved = 0;
+    if (count > MAX_ENTRIES) {
+      const excess = count - MAX_ENTRIES;
+      const info = db
+        .prepare('DELETE FROM cache WHERE key IN (SELECT key FROM cache ORDER BY accessed_at ASC LIMIT ?)')
+        .run(excess);
+      lruRemoved = info.changes;
     }
 
-  } catch (error) {
-    results.details.push(`Error checking staleness: ${error.message}`);
+    // 3. Prune old cache_events
+    db.prepare('DELETE FROM cache_events WHERE ts < ?').run(now - EVENT_TTL_MS);
+
+    db.close();
+
+    result.entriesRemoved = ttlRemoved + lruRemoved;
+    result.invalidated = result.entriesRemoved > 0;
+  } catch (err) {
+    process.stderr.write('[agent-cache-plugin] cache-invalidation error: ' + err.message + '\n');
   }
 
-  return results;
+  process.stdout.write(JSON.stringify(result) + '\n');
+  process.exit(0);
 }
 
-/**
- * Invalidate low-value entries (rarely used)
- */
-async function invalidateLowValueEntries(cache, metrics) {
-  const results = {
-    count: 0,
-    details: []
-  };
-
-  try {
-    // Get metrics to identify low-hit entries
-    const perf = await metrics.getPerformanceMetrics();
-
-    // Entries with zero hits in the last 7 days are candidates
-    const hitThreshold = 0;
-    const timeWindow = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-    // In real implementation, would iterate and remove based on hit count
-    // Simplified here - would need to track per-entry hit counts in metrics
-
-    return results;
-
-  } catch (error) {
-    results.details.push(`Error evaluating entry value: ${error.message}`);
-  }
-
-  return results;
-}
-
-/**
- * Enforce cache size limits using LRU eviction
- */
-async function enforceSizeLimits(cache) {
-  const results = {
-    count: 0,
-    details: []
-  };
-
-  try {
-    const stats = await cache.stats();
-
-    // Check if over size limit (e.g., 100MB default)
-    const MAX_CACHE_SIZE = 100 * 1024 * 1024; // 100MB
-    const MAX_ENTRIES = 10000;
-
-    if (stats.cacheSize > MAX_CACHE_SIZE || stats.totalEntries > MAX_ENTRIES) {
-      // Evict least recently used entries
-      const evictionResult = await cache.enforce({
-        maxSize: MAX_CACHE_SIZE,
-        maxEntries: MAX_ENTRIES,
-        policy: 'LRU'
-      });
-
-      results.count = evictionResult.evictedCount;
-      results.details.push(
-        `Evicted ${evictionResult.evictedCount} entries due to size limits`,
-        `Cache size: ${Math.round(stats.cacheSize / 1024 / 1024)}MB / ${Math.round(MAX_CACHE_SIZE / 1024 / 1024)}MB`
-      );
-    }
-
-  } catch (error) {
-    results.details.push(`Error enforcing size limits: ${error.message}`);
-  }
-
-  return results;
-}
-
-// Run the hook
 main();

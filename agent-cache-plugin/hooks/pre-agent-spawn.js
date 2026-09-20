@@ -1,158 +1,84 @@
+'use strict';
 /**
- * Hook: pre-agent-spawn
+ * Hook: pre-agent-spawn (PreToolUse) — M1 conditional
  *
- * CLI entry point: reads stdin JSON, outputs stdout JSON, uses exit codes.
- * Checks cache for similar previous agent runs and decides whether to reuse cached context.
+ * NOTE: This hook is NOT registered in plugin.json until the PreToolUse harness
+ * schema validation bug (git-pattern-ee23cc4) is confirmed resolved in a live session.
+ * The implementation is present and tested; registration is the gate.
  *
- * Input (stdin JSON): { toolName: string, input: object, sessionId: string }
- * Output (stdout JSON): { cacheHit: boolean, cachedOutput?: object, relevance?: number, ttlRemaining?: number }
- * Exit codes: 0 = success, 1 = error
+ * stdin  → { toolName, input, metadata? }
+ * stdout → { permissionDecision: 'allow', tempFilePath? }
+ * exit   → always 0
  */
 
-const cacheSkill = require('../skills/cache-management');
-const metricsSkill = require('../skills/metrics-tracker');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { readStdinJSON } = require('./_stdin-reader');
 
-/**
- * Main hook logic
- */
+function sha256(s) {
+  return crypto.createHash('sha256').update(s).digest('hex');
+}
+
+function cacheKey(agentType, taskSlug, inputDigest) {
+  return sha256(agentType + '\x00' + taskSlug + '\x00' + inputDigest);
+}
+
+function passthrough() {
+  process.stdout.write(JSON.stringify({ permissionDecision: 'allow' }) + '\n');
+}
+
+function resolveDbPath() {
+  const d = process.env.CLAUDE_PLUGIN_DATA;
+  if (!d) {
+    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
+    fs.mkdirSync(fallback, { recursive: true });
+    return path.join(fallback, 'cache.db');
+  }
+  fs.mkdirSync(d, { recursive: true });
+  return path.join(d, 'cache.db');
+}
+
 async function main() {
+  let input;
   try {
-    // Read and parse stdin
-    const input = await readStdinJSON();
-
-    // Validate required fields
-    if (!input.toolName || typeof input.toolName !== 'string' || input.toolName.trim() === '') {
-      writeAllow('Missing or invalid required field: toolName');
-      process.exit(0);
-    }
-
-    if (!input.sessionId || typeof input.sessionId !== 'string' || input.sessionId.trim() === '') {
-      writeAllow('Missing or invalid required field: sessionId');
-      process.exit(0);
-    }
-
-    if (!input.input || typeof input.input !== 'object') {
-      writeAllow('Missing or invalid required field: input (must be object)');
-      process.exit(0);
-    }
-
-    // Get cache and metrics managers
-    const cache = cacheSkill.getSingleton();
-    const metrics = metricsSkill.getSingleton();
-
-    // Generate input string for relevance scoring
-    const inputStr = JSON.stringify(input.input);
-
-    // Search cache for similar entries
-    const cachedCandidates = await cache.search({
-      pattern: input.toolName,
-      tags: [input.toolName],
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      limit: 5
-    });
-
-    if (cachedCandidates.length === 0) {
-      // Cache miss
-      await metrics.recordMiss({
-        query: inputStr,
-        agentType: input.toolName,
-        taskType: 'general'
-      });
-
-      writeAllow();
-      process.exit(0);
-    }
-
-    // Score relevance of candidates
-    const scoredCandidates = cachedCandidates.map(candidate => ({
-      ...candidate,
-      relevanceScore: scoreRelevance(inputStr, candidate.prompt)
-    })).sort((a, b) => b.relevanceScore - a.relevanceScore);
-
-    const bestMatch = scoredCandidates[0];
-    const RELEVANCE_THRESHOLD = 75; // 75% similarity required
-
-    if (bestMatch.relevanceScore >= RELEVANCE_THRESHOLD) {
-      const tokenSavings = bestMatch.metadata.tokenCount || 0;
-      const now = Date.now();
-      const createdAt = bestMatch.metadata.timestamp || now;
-      const ttl = bestMatch.metadata.ttl || (24 * 60 * 60 * 1000);
-      const ttlRemaining = Math.max(0, ttl - (now - createdAt));
-
-      // Record cache hit
-      await metrics.recordHit({
-        cachedEntryId: bestMatch.id,
-        agentType: input.toolName,
-        taskType: 'general',
-        tokensSaved: tokenSavings,
-        relevanceScore: bestMatch.relevanceScore
-      });
-
-      writeAllow('cache hit (informational only, agent proceeds)');
-      process.exit(0);
-    }
-
-    // Cache miss (below threshold)
-    await metrics.recordMiss({
-      query: inputStr,
-      agentType: input.toolName,
-      taskType: 'general'
-    });
-
-    writeAllow();
-    process.exit(0);
-
-  } catch (error) {
-    // Invalid JSON or other execution error
-    writeAllow(error.message);
-    process.exit(0);
+    input = await readStdinJSON();
+  } catch {
+    passthrough(); process.exit(0);
   }
-}
 
-/**
- * Write a harness-recognized PreToolUse "allow" decision to stdout.
- * Never sets updatedInput: this hook is informational-only and must never
- * alter or replace the tool call's original input.
- * @param {string} [reason] Optional permissionDecisionReason for observability.
- */
-function writeAllow(reason) {
-  const hookSpecificOutput = {
-    hookEventName: 'PreToolUse',
-    permissionDecision: 'allow'
-  };
-  if (reason) {
-    hookSpecificOutput.permissionDecisionReason = reason;
-  }
-  process.stdout.write(JSON.stringify({ hookSpecificOutput }) + '\n');
-}
+  try {
+    const dbPath = resolveDbPath();
+    const { CacheManager } = require('../skills/sqlite-cache');
+    const db = new CacheManager(dbPath);
 
-/**
- * Score relevance of two prompts (0-100)
- * Simplified scoring based on keyword overlap
- */
-function scoreRelevance(prompt1, prompt2) {
-  const normalize = (text) => {
-    try {
-      const str = typeof text === 'string' ? text : JSON.stringify(text);
-      return str.toLowerCase()
-        .split(/\s+/)
-        .filter(word => word.length > 3)
-        .sort();
-    } catch {
-      return [];
+    const agentType = input.toolName || '';
+    const taskSlug = (input.metadata && input.metadata.taskSlug) || 'unknown';
+    const inputDigest = sha256(JSON.stringify(input.input || {}));
+    const key = cacheKey(agentType, taskSlug, inputDigest);
+
+    const row = db.retrieve(key);
+    db.close();
+
+    if (!row) {
+      passthrough(); process.exit(0);
     }
-  };
 
-  const words1 = new Set(normalize(prompt1));
-  const words2 = new Set(normalize(prompt2));
+    // Write cached output to a temp file
+    const tmpFile = path.join(os.tmpdir(), `cache-hit-${key.slice(0, 12)}-${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, row.output_blob, 'utf8');
 
-  // Jaccard similarity
-  const intersection = [...words1].filter(w => words2.has(w)).length;
-  const union = new Set([...words1, ...words2]).size;
+    process.stdout.write(JSON.stringify({
+      permissionDecision: 'allow',
+      tempFilePath: tmpFile
+    }) + '\n');
+  } catch (err) {
+    process.stderr.write('[agent-cache-plugin] pre-agent-spawn error: ' + err.message + '\n');
+    passthrough();
+  }
 
-  return Math.round((intersection / (union || 1)) * 100);
+  process.exit(0);
 }
 
-// Run the hook
 main();

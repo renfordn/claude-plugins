@@ -5,13 +5,18 @@
  * Usage: /cache-status [--detailed] [--export json|csv|html]
  */
 
-const cacheManagement = require('../skills/cache-management');
+const sqliteCache = require('../skills/sqlite-cache');
 const metricsTracker = require('../skills/metrics-tracker');
 
 class CacheStatusCommand {
-  constructor() {
-    this.cache = cacheManagement.getSingleton();
-    this.metrics = metricsTracker.getSingleton();
+  /**
+   * @param {object} [deps] - Optional dependency injection for testing.
+   * @param {object} [deps.cache]   - CacheManager instance.
+   * @param {object} [deps.metrics] - MetricsTracker instance.
+   */
+  constructor(deps = {}) {
+    this.cache = deps.cache || sqliteCache.getSingleton();
+    this.metrics = deps.metrics || metricsTracker.getSingleton();
   }
 
   /**
@@ -23,8 +28,17 @@ class CacheStatusCommand {
       const exportFormat = args.export || null;
       const includeRecommendations = args.recommendations !== false;
 
-      // Gather metrics
-      const stats = this.cache.getStats();
+      // Gather metrics — normalise shape from SQLite CacheManager
+      const rawStats = this.cache.stats();
+      const stats = {
+        totalEntries: rawStats.totalEntries || 0,
+        cacheSize: 0,        // not tracked at byte level in SQLite implementation
+        maxSize: 0,
+        utilizationPercent: 0,
+        oldestEntry: rawStats.oldestTs || null,
+        newestEntry: rawStats.newestTs || null,
+        topAgents: []
+      };
       const hitRate = await this.metrics.getHitRate();
       const savings = await this.metrics.getTokenSavings();
       const perfMetrics = await this.metrics.getPerformanceMetrics();
@@ -108,7 +122,7 @@ Relevance Scores:
         entries: stats.totalEntries,
         hitRate: hitRate.hitRate,
         tokensSaved: savings.totalTokensSaved,
-        cacheSize: stats.cacheSize
+        cacheSize: stats.cacheSize || 0
       }
     };
   }
