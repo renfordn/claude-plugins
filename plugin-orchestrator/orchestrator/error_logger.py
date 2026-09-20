@@ -5,7 +5,7 @@ Also includes ErrorRegistry: JSON lines format with auto-rotation at 10MB.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any
 from orchestrator.error import OrchestrationError, HookError
@@ -148,7 +148,7 @@ class ErrorRegistry:
 
             # Build error entry
             entry = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "hook": hook,
                 "agent_type": agent_type,
                 "error_type": error.error_type.value,

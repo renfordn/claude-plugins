@@ -19,6 +19,11 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 try:
+    import redis
+except ImportError:
+    redis = None  # type: ignore[assignment]
+
+try:
     import fcntl
 except ImportError:  # pragma: no cover - non-POSIX platforms
     fcntl = None
@@ -170,14 +175,11 @@ class RedisStateStore(WorkflowStateStore):
         if redis_client is not None:
             self._client = redis_client
         else:
-            try:
-                import redis
-            except ImportError as e:
+            if redis is None:
                 raise ImportError(
                     "RedisStateStore requires the 'redis' package. "
                     "Install it with: pip install redis"
-                ) from e
-
+                )
             merged_kwargs = dict(self._env_redis_kwargs())
             merged_kwargs.update(redis_kwargs)
             self._client = redis.Redis(**merged_kwargs)

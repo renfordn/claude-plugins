@@ -211,6 +211,11 @@ class TestRedisStateStoreImportGuard(unittest.TestCase):
 class TestRedisStateStoreEnvConfig(unittest.TestCase):
     """Test REDIS_* environment variable fallback for connection settings."""
 
+    def _make_mock_redis(self):
+        """Return a mock redis module with a trackable Redis constructor."""
+        mock_module = unittest.mock.MagicMock()
+        return mock_module
+
     @unittest.mock.patch.dict(os.environ, {
         "REDIS_HOST": "redis.internal",
         "REDIS_PORT": "6380",
@@ -218,11 +223,13 @@ class TestRedisStateStoreEnvConfig(unittest.TestCase):
         "REDIS_PASSWORD": "secret",
         "REDIS_KEY_PREFIX": "myapp:workflow:",
     }, clear=False)
-    @unittest.mock.patch("redis.Redis")
-    def test_env_vars_used_when_no_kwargs_passed(self, mock_redis_cls):
-        store = RedisStateStore()
+    def test_env_vars_used_when_no_kwargs_passed(self):
+        import orchestrator.state_store as ss
+        mock_redis = self._make_mock_redis()
+        with unittest.mock.patch.object(ss, "redis", mock_redis):
+            store = RedisStateStore()
 
-        mock_redis_cls.assert_called_once_with(
+        mock_redis.Redis.assert_called_once_with(
             host="redis.internal", port=6380, db=2, password="secret"
         )
         self.assertEqual(store.key_prefix, "myapp:workflow:")
@@ -231,18 +238,22 @@ class TestRedisStateStoreEnvConfig(unittest.TestCase):
         "REDIS_HOST": "redis.internal",
         "REDIS_PORT": "6380",
     }, clear=False)
-    @unittest.mock.patch("redis.Redis")
-    def test_explicit_kwargs_take_precedence_over_env(self, mock_redis_cls):
-        RedisStateStore(host="explicit-host", key_prefix="explicit:")
+    def test_explicit_kwargs_take_precedence_over_env(self):
+        import orchestrator.state_store as ss
+        mock_redis = self._make_mock_redis()
+        with unittest.mock.patch.object(ss, "redis", mock_redis):
+            RedisStateStore(host="explicit-host", key_prefix="explicit:")
 
-        mock_redis_cls.assert_called_once_with(host="explicit-host", port=6380)
+        mock_redis.Redis.assert_called_once_with(host="explicit-host", port=6380)
 
     @unittest.mock.patch.dict(os.environ, {}, clear=True)
-    @unittest.mock.patch("redis.Redis")
-    def test_defaults_used_when_no_env_and_no_kwargs(self, mock_redis_cls):
-        store = RedisStateStore()
+    def test_defaults_used_when_no_env_and_no_kwargs(self):
+        import orchestrator.state_store as ss
+        mock_redis = self._make_mock_redis()
+        with unittest.mock.patch.object(ss, "redis", mock_redis):
+            store = RedisStateStore()
 
-        mock_redis_cls.assert_called_once_with()
+        mock_redis.Redis.assert_called_once_with()
         self.assertEqual(store.key_prefix, "orchestrator:workflow:")
 
     def test_redis_client_bypasses_env_and_kwargs_entirely(self):
