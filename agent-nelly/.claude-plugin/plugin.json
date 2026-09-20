@@ -1,7 +1,7 @@
 {
   "name": "agent-nelly",
-  "version": "0.4.7",
-  "description": "A general-purpose, project-aware memory orchestration plugin for Claude Code — goal-aware briefs, cross-project promotion, staleness detection, and consolidation, independent of any other plugin.",
+  "version": "0.4.9",
+  "description": "A general-purpose, project-aware memory orchestration plugin for Claude Code \u2014 goal-aware briefs, cross-project promotion, staleness detection, and consolidation, independent of any other plugin.",
   "author": {
     "name": "Renford Nelson"
   },

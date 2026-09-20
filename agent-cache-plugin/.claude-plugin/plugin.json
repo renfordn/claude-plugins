@@ -1,6 +1,6 @@
 {
   "name": "agent-cache-plugin",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "description": "Token caching and management plugin for improving token efficiency via intelligent prompt caching and context deduplication",
   "author": {
     "name": "Jay Nelson"
@@ -15,13 +15,29 @@
     "optimization"
   ],
   "hooks": [
-    { "event": "PreToolUse",  "script": "hooks/pre-agent-spawn.js",       "matcher": "Agent" },
-    { "event": "PostToolUse", "script": "hooks/post-agent-completion.js" },
-    { "event": "PostToolUse", "script": "hooks/cache-invalidation.js" }
+    {
+      "event": "PreToolUse",
+      "script": "hooks/pre-agent-spawn.js",
+      "matcher": "Agent"
+    },
+    {
+      "event": "PostToolUse",
+      "script": "hooks/post-agent-completion.js"
+    },
+    {
+      "event": "PostToolUse",
+      "script": "hooks/cache-invalidation.js"
+    }
   ],
   "commands": [
-    { "name": "cache-status" },
-    { "name": "cache-clear" },
-    { "name": "cache-config" }
+    {
+      "name": "cache-status"
+    },
+    {
+      "name": "cache-clear"
+    },
+    {
+      "name": "cache-config"
+    }
   ]
 }
