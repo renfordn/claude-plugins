@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Consistency pass**: update INTEROP.md to remove stale "only caller" claim; list all current callers (agent-isdd, code-reviewer, agent-tdd hooks).
+
 ## [0.1.1] - 2026-08-16
 
 - Doc-and-model-accuracy pass, cross-checked directly against `agent-tdd`'s and `code-reviewer`'s

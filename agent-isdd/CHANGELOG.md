@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.40] - 2026-09-20
+
+- **Consistency pass**: remove dead `invoke_code_reviewer` subprocess (binary never existed); wire `render_phase_transition` hook to emit structured agent-ux delegation instruction in systemMessage; `render_breadcrumb_only` now correctly no-op per skill spec (inline rendering); delete stale proposals/ planning docs.
+
+## [0.1.39] - 2026-09-20
+
 - **Escalation re-spawn outcome logging (0.1.39).** Closes the Task 9 gap flagged when model
   selection shipped: when agent-tdd escalates mid-slice and agent-isdd re-spawns it at a higher
   tier, nothing recorded whether the re-spawned attempt actually succeeded. `hooks/sdd_state.py`

@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-20
+
+- **Consistency pass**: wire `ux_render` hook cache stubs to real HTTP calls (localhost:7771); `render_phase_transition` now emits structured agent-ux delegation instruction in systemMessage; convert Design Spec Input Format bullet list in INTEROP.md to proper markdown table so schema extractor finds the correct fields.
+
 ## [0.2.2] - 2026-09-20
 
 ### Features
