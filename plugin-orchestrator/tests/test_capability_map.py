@@ -26,12 +26,12 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_capability_map_initialization(self):
         """Test CapabilityMap can be initialized with plugin directory."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
         self.assertIsNotNone(cap_map)
 
     def test_get_plugin_agent_isdd(self):
         """Test retrieving agent-isdd plugin info."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
         plugin = cap_map.get_plugin("agent-isdd")
 
         self.assertIsNotNone(plugin)
@@ -43,7 +43,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_get_plugin_agent_tdd(self):
         """Test retrieving agent-tdd plugin info."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
         plugin = cap_map.get_plugin("agent-tdd")
 
         self.assertIsNotNone(plugin)
@@ -51,14 +51,14 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_get_plugin_nonexistent(self):
         """Test getting nonexistent plugin returns None."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
         plugin = cap_map.get_plugin("nonexistent-plugin")
 
         self.assertIsNone(plugin)
 
     def test_find_capability(self):
         """Test finding specific capability by plugin and ID."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # agent-isdd should have a capability to hand off to agent-tdd
         capability = cap_map.find_capability("agent-isdd", "design_spec_handoff")
@@ -69,14 +69,14 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_find_capability_nonexistent(self):
         """Test finding nonexistent capability returns None."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
         capability = cap_map.find_capability("agent-isdd", "nonexistent_capability")
 
         self.assertIsNone(capability)
 
     def test_validate_input_design_spec_format(self):
         """Test input validation for design spec format."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # Valid design spec input
         valid_input = {
@@ -97,7 +97,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_validate_input_invalid_format(self):
         """Test input validation rejects invalid format."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # Missing required fields
         invalid_input = {"foo": "bar"}
@@ -113,7 +113,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_validate_input_enforce_types_type_mismatch(self):
         """Test enforce_types=True rejects a field whose type doesn't match consumes."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         invalid_input = {
             "requirements_md": "content",
@@ -134,7 +134,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_validate_input_enforce_types_type_match(self):
         """Test enforce_types=True accepts input matching declared types."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         valid_input = {
             "requirements_md": "content",
@@ -155,7 +155,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_validate_input_default_ignores_types(self):
         """Test default (enforce_types=False) only checks field presence, not type."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         input_with_wrong_type = {
             "requirements_md": "content",
@@ -175,7 +175,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_is_soft_dependency_agent_nelly(self):
         """Test agent-nelly is recognized as soft dependency."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         is_soft = cap_map.is_soft_dependency("agent-nelly")
 
@@ -183,7 +183,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_is_soft_dependency_agent_tdd(self):
         """Test agent-tdd is not a soft dependency."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         is_soft = cap_map.is_soft_dependency("agent-tdd")
 
@@ -191,7 +191,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_route_to_next_plugin_from_isdd(self):
         """Test routing from agent-isdd to next capable plugin."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # Simulate agent-isdd handoff output
         output = {
@@ -208,7 +208,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_cache_save_and_retrieve(self):
         """Test caching capability map to workflow-state.json."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # Save to cache
         cap_map.save_to_cache(self.temp_workflow_state.name)
@@ -240,7 +240,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_invalidate_on_interop_change(self):
         """Test cache invalidation when INTEROP.md changes."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         # Get current hashes
         current_hashes = cap_map.get_interop_hashes()
@@ -258,7 +258,7 @@ class TestCapabilityMapParsing(unittest.TestCase):
 
     def test_all_plugins_parsed(self):
         """Test that all 6 plugins are parsed."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         expected_plugins = {
             "agent-isdd",
@@ -362,7 +362,7 @@ class TestCapabilityMapRefactoring(unittest.TestCase):
 
     def test_soft_dependency_detection(self):
         """Test soft dependency flags are correctly set."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         agent_nelly = cap_map.get_plugin("agent-nelly")
         agent_tdd = cap_map.get_plugin("agent-tdd")
@@ -375,7 +375,7 @@ class TestCapabilityMapRefactoring(unittest.TestCase):
 
     def test_handoff_target_extraction(self):
         """Test that handoff targets are correctly extracted."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         agent_isdd = cap_map.get_plugin("agent-isdd")
 
@@ -390,7 +390,7 @@ class TestCapabilityMapRefactoring(unittest.TestCase):
 
     def test_capability_consumes_contract(self):
         """Test that consumes contract is properly captured."""
-        cap_map = CapabilityMap(str(self.plugin_dir))
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
 
         design_spec_cap = cap_map.find_capability(
             "agent-tdd",
@@ -512,6 +512,85 @@ class TestCapabilityMapFromPlugins(unittest.TestCase):
 
         # Should not raise; old capabilities work without modelPreference
         self.assertIsNone(capability.modelPreference)
+
+    def test_extract_capabilities_parses_model_preference_from_fallback_schema(self):
+        """Slice 5: _extract_capabilities assigns modelPreference metadata to
+        capabilities that declare it (agent-tdd's design_spec_slicing)."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = cap_map._extract_capabilities(
+            "agent-tdd", "Design Spec handoff content"
+        )
+        design_spec_slicing = next(
+            c for c in capability if c.id == "design_spec_slicing"
+        )
+        self.assertIsNotNone(design_spec_slicing.modelPreference)
+        self.assertEqual(
+            design_spec_slicing.modelPreference["min_tier"], "haiku"
+        )
+        self.assertEqual(
+            design_spec_slicing.modelPreference["preferred_tier"], "sonnet"
+        )
+
+    def test_get_available_models_returns_tier_list_from_min_tier(self):
+        """Slice 5: get_available_models(capability) returns the list of
+        model tiers usable for a capability, respecting its min_tier floor."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = Capability(
+            plugin="test-plugin",
+            id="test_capability",
+            modelPreference={"min_tier": "sonnet", "preferred_tier": "opus"},
+        )
+
+        models = cap_map.get_available_models(capability)
+
+        self.assertEqual(models, ["sonnet", "opus"])
+
+    def test_get_available_models_returns_all_tiers_when_no_preference(self):
+        """Slice 5: capabilities without modelPreference allow any tier."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = Capability(plugin="test-plugin", id="test_capability")
+
+        models = cap_map.get_available_models(capability)
+
+        self.assertEqual(models, ["haiku", "sonnet", "opus"])
+
+    def test_resolve_model_tier_prefers_requested_tier_when_allowed(self):
+        """Slice 5: fallback chain resolver returns the requested tier when
+        it meets the capability's min_tier floor."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = Capability(
+            plugin="test-plugin",
+            id="test_capability",
+            modelPreference={"min_tier": "haiku", "preferred_tier": "sonnet"},
+        )
+
+        self.assertEqual(
+            cap_map.resolve_model_tier(capability, "opus"), "opus"
+        )
+
+    def test_resolve_model_tier_falls_back_to_preferred_when_requested_too_low(self):
+        """Slice 5: resolver falls back to preferred_tier when the requested
+        tier is below the capability's min_tier."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = Capability(
+            plugin="test-plugin",
+            id="test_capability",
+            modelPreference={"min_tier": "sonnet", "preferred_tier": "opus"},
+        )
+
+        self.assertEqual(
+            cap_map.resolve_model_tier(capability, "haiku"), "opus"
+        )
+
+    def test_resolve_model_tier_defaults_to_inherit_without_preference(self):
+        """Slice 5: resolver defaults to 'inherit' for capabilities with no
+        modelPreference metadata at all."""
+        cap_map = CapabilityMap(str(Path(__file__).parent / "fixtures"))
+        capability = Capability(plugin="test-plugin", id="test_capability")
+
+        self.assertEqual(
+            cap_map.resolve_model_tier(capability, "inherit"), "inherit"
+        )
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ handoff point it uses for the mandatory review pause and raises a **Research Gap
   in exactly one call to `EmailService.send_welcome` with the newly created user. If sending
   raises, signup itself still succeeds (the user is created either way) but the error is logged.
 - **Risk Tier**: `standard`
+- **Model Tier**: `sonnet` (medium complexity, requires error handling logic)
 - **Data Contracts And Interfaces**: `EmailService.send_welcome(user: User) -> None`, defined in
   `notifications/email_service.py`. `SignupFlow.complete(user_data: dict) -> User`, defined in
   `accounts/signup.py`, currently only creates the `User` record.

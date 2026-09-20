@@ -332,6 +332,10 @@ class CapabilityMap:
                         "design_md": "string",
                         "research_cache": "object",
                         "recap_md": "string"
+                    },
+                    "modelPreference": {
+                        "min_tier": "haiku",
+                        "preferred_tier": "sonnet"
                     }
                 }
             },
@@ -408,6 +412,7 @@ class CapabilityMap:
                 consumes = cap_data.get("consumes", {})
 
             produces = cap_data.get("produces", {})
+            model_preference = cap_data.get("modelPreference")
 
             # Create capability with schemas
             capability = Capability(
@@ -415,11 +420,70 @@ class CapabilityMap:
                 id=cap_id,
                 description=description,
                 consumes=consumes,
-                produces=produces
+                produces=produces,
+                modelPreference=model_preference
             )
             capabilities.append(capability)
 
         return capabilities
+
+    # Model tiers in ascending order of capability/cost. Used to resolve a
+    # capability's modelPreference (min_tier / preferred_tier) into a
+    # concrete tier for a caller's requested tier.
+    MODEL_TIERS = ["haiku", "sonnet", "opus"]
+
+    def get_available_models(self, capability: Capability) -> List[str]:
+        """
+        Return the list of model tiers usable for a capability.
+
+        Capabilities without modelPreference metadata allow any tier. When
+        modelPreference declares a min_tier, tiers below it are excluded.
+
+        Args:
+            capability: Capability to check
+
+        Returns:
+            List of model tier names, in ascending capability order.
+        """
+        if not capability.modelPreference:
+            return list(self.MODEL_TIERS)
+
+        min_tier = capability.modelPreference.get("min_tier")
+        if min_tier not in self.MODEL_TIERS:
+            return list(self.MODEL_TIERS)
+
+        min_index = self.MODEL_TIERS.index(min_tier)
+        return self.MODEL_TIERS[min_index:]
+
+    def resolve_model_tier(self, capability: Capability, requested_tier: str) -> str:
+        """
+        Resolve a requested model tier against a capability's modelPreference,
+        implementing the fallback chain: use the requested tier if it meets
+        the capability's min_tier floor, otherwise fall back to the
+        capability's preferred_tier. Capabilities with no modelPreference (or
+        a requested tier of "inherit") pass the requested tier through
+        unchanged.
+
+        Args:
+            capability: Capability being resolved against
+            requested_tier: The caller's requested/suggested model tier
+                (e.g. "inherit", "haiku", "sonnet", "opus")
+
+        Returns:
+            The resolved model tier name.
+        """
+        if not capability.modelPreference or requested_tier not in self.MODEL_TIERS:
+            return requested_tier
+
+        available = self.get_available_models(capability)
+        if requested_tier in available:
+            return requested_tier
+
+        preferred_tier = capability.modelPreference.get("preferred_tier")
+        if preferred_tier in available:
+            return preferred_tier
+
+        return available[0]
 
     def get_plugin(self, plugin_name: str) -> Optional[PluginInfo]:
         """

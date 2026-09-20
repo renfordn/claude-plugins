@@ -22,6 +22,7 @@ Refactor → Validate in a single pass, with no pause and no second resume messa
   whitespace are left untouched. A title that is entirely whitespace still saves as an empty
   string, not `None` — existing "empty title allowed" behavior is unchanged.
 - **Risk Tier**: `standard`
+- **Model Tier**: `haiku` (simple string manipulation, use lightweight model)
 - **Data Contracts And Interfaces**: `Note.save(self) -> None`, defined in `notes/models.py`; sets
   `self.title` in place before writing to the store. No existing whitespace handling.
 - **Pre-Slice Brief**: (none — no prior project memory available for this illustrative scenario)

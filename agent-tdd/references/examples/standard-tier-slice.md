@@ -16,6 +16,7 @@ Slice Spec and Handoff report definitions in [`agent-TDD.md`](../../agents/agent
   `quantity <= 0` raises `ValueError` with a message naming the offending value; it does not
   create or return a line item. Existing behavior for `quantity >= 1` is unchanged.
 - **Risk Tier**: `standard`
+- **Model Tier**: `inherit` (default; use `haiku` for simple slices, `sonnet` for medium complexity, `opus` for complex tasks)
 - **Data Contracts And Interfaces**: `OrderLineItem.create(sku: str, quantity: int) ->
   OrderLineItem`, defined in `orders/line_item.py`. No existing validation on `quantity`.
 - **Pre-Slice Brief**: (none — no prior project memory available for this illustrative scenario)

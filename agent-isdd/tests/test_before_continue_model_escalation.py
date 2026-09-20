@@ -364,6 +364,40 @@ class BeforeContinueModelEscalationTests(unittest.TestCase):
             self.assertIn("Haiku", result)
             self.assertIn("Sonnet", result)
 
+    def test_escalation_message_instructs_get_spawn_context_respawn(self):
+        """
+        Test: systemMessage explicitly instructs calling get_spawn_context and
+        re-spawning agent-TDD at the escalated tier (Task 8 AC: hook surfaces
+        the concrete re-spawn action since it cannot invoke MCP tools or the
+        Agent tool itself).
+        """
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="Feature", workflow_status="Implementing")
+
+            state_path = self._state_json_path(feature_dir)
+            with open(state_path, "w", encoding="utf-8") as fh:
+                json.dump({"current_phase": "Implementation", "executor_model": "Haiku"}, fh)
+
+            transcript = os.path.join(home, "transcript.jsonl")
+            with open(transcript, "w", encoding="utf-8") as fh:
+                fh.write(_assistant_line(
+                    '<!--AGENT-TDD-MODEL-ESCALATE: reason="Complex concurrency patterns" '
+                    'from_model="Haiku" to_model="Sonnet"-->\n'
+                    "Escalating for better analysis."
+                ) + "\n")
+
+            result, rc = h.run_hook_message(
+                "before_continue.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(result)
+            self.assertIn("get_spawn_context", result)
+            self.assertIn("agent-TDD", result)
+
     def test_escalation_includes_reason_in_workflow_state(self):
         """
         Test: Escalation reason is preserved in workflow-state.json.

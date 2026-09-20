@@ -37,6 +37,7 @@ through gathering and validating these fields by hand.
 | Task description | string | yes | The behavior to implement, plain language |
 | Acceptance criteria / Test Intent | string | yes | The observable behavior a test must pin down. If you can't state this yet, don't spawn the agent — it will stop and report the gap |
 | Risk Tier | enum (standard \| high-risk) | no | Drives whether the test-author split applies. Default: standard |
+| Model Tier | enum (inherit \| haiku \| sonnet \| opus) | no | Suggested model tier for this slice based on complexity. 'inherit' uses the caller's default model. Default: inherit |
 | Data Contracts And Interfaces | object | no | Type signatures, module boundaries, API shapes you already know. Skip if you don't have this; the agent will explore the codebase itself |
 | Pre-Slice Brief | object | no | Prior project context you already gathered (e.g. from a memory subagent like agent-nelly). Purely additive — omitting it is not an error |
 | Review handoff mode | enum (skip) | no | Leave unset for the default (mandatory pause after Green). Set explicitly to "skip" only when you have deliberately decided no review step will happen this session |
@@ -203,6 +204,15 @@ Pass a **Design Spec** inline in the spawn prompt (exact field names required fo
   summarized rather than pasted in full for a long-running feature — `agent-TDD` doesn't need a
   phase-by-phase history, just enough to inform implementation.
 - **nelly_brief_cache** (optional) — pre-fetched cached context from agent-nelly (if available).
+
+**modelPreference (capability metadata, not a spawn-prompt field):** plugin-orchestrator's
+`CapabilityMap` records `{"min_tier": "haiku", "preferred_tier": "sonnet"}` against this
+capability (`agent-tdd`'s `design_spec_slicing`) — task slicing and Ralph Loop validation are
+judgment-heavy enough to warrant at least `haiku`, with `sonnet` preferred. This is advisory
+metadata `plugin-orchestrator` uses to resolve a suggested model tier (via
+`CapabilityMap.get_available_models()` / `resolve_model_tier()`), not something a caller sets
+when spawning `agent-TDD` directly — see the Slice Spec's `modelTier` field above for the
+per-slice caller-facing equivalent.
 
 ### Research Validation Phase
 

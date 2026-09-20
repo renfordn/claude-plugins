@@ -14,16 +14,18 @@ This hook runs at workflow resume (on /isdd-continue) and surfaces pending actio
 """
 import json
 import os
-import re
 import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import active_state_file, parse_state, parse_state_json  # noqa: E402
+from subagent_report import extract_last_assistant_text  # noqa: E402
+from model_escalate_marker import detect_model_escalate_in_report  # noqa: E402
 
 
 def _detect_model_escalate_marker(transcript_path):
-    """Parse MODEL-ESCALATE marker from transcript if present.
+    """Detect a MODEL-ESCALATE marker in the transcript's last assistant
+    message, using Task 7's isolated parsing utility (model_escalate_marker.py).
 
     Marker format: <!--AGENT-TDD-MODEL-ESCALATE: reason="..." from_model="..." to_model="..."-->
 
@@ -32,29 +34,17 @@ def _detect_model_escalate_marker(transcript_path):
     if not transcript_path or not os.path.exists(transcript_path):
         return None
 
-    try:
-        with open(transcript_path, 'r') as f:
-            content = f.read()
-    except Exception:
+    report_text = extract_last_assistant_text(transcript_path)
+    parsed = detect_model_escalate_in_report(report_text)
+    if not parsed:
         return None
 
-    # Look for MODEL-ESCALATE marker in transcript
-    # Marker format: <!--AGENT-TDD-MODEL-ESCALATE: reason="..." from_model="..." to_model="..."-->
-    pattern = r'<!--AGENT-TDD-MODEL-ESCALATE:\s*([^-]*)-->'
-    match = re.search(pattern, content)
-    if not match:
-        return None
-
-    marker_content = match.group(1)
-    result = {"detected_at": datetime.now().isoformat()}
-
-    # Parse key="value" pairs from marker content
-    fields = re.findall(r'(\w+)="([^"]*)"', marker_content)
-    for key, value in fields:
-        result[key] = value
-
-    # Escalation must have a reason to be valid
-    return result if result.get("reason") else None
+    return {
+        "reason": parsed["reason"],
+        "from_model": parsed.get("from_model"),
+        "to_model": parsed["to_model"],
+        "detected_at": datetime.now().isoformat(),
+    }
 
 
 def _detect_stalled_phase(state_fields, feature_dir):
@@ -128,10 +118,9 @@ def main():
     # Check for model escalation (highest priority remaining)
     escalation = _detect_model_escalate_marker(transcript_path)
     if escalation:
-        # Record escalation in workflow state
-        if "orchestration" not in state_json:
-            state_json["orchestration"] = {}
-        state_json["orchestration"]["escalation_pending"] = escalation
+        # Record escalation in workflow state (top-level key; agent-tdd's
+        # rollback_pending is also top-level, so this mirrors that contract)
+        state_json["escalation_pending"] = escalation
 
         # Write updated state
         try:
@@ -147,9 +136,11 @@ def main():
         message = (
             f"🚀 **Model Escalation Detected**\n\n"
             f"**Issue:** {reason}\n\n"
-            f"**Action:** Re-spawning executor agent at **{to_model}** tier "
-            f"(escalating from {from_model}) for stronger reasoning.\n\n"
-            f"Accumulated context from prior attempts will be cached and reused.\n"
+            f"**Action:** Call the `get_spawn_context` MCP tool "
+            f"(agent_type=\"agent-tdd\", cwd=this project) to pull accumulated context "
+            f"from the {from_model}-tier attempt, then re-spawn `agent-TDD` at "
+            f"**{to_model}** tier with that context so it can continue from where "
+            f"the lower tier left off.\n"
         )
 
         print(json.dumps({"systemMessage": message}))

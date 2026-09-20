@@ -395,6 +395,25 @@ Hooks communicate with external agents via JSON over stdin/stdout, enabling:
 claude plugin install @claude/agent-cache-plugin@latest
 ```
 
+**Model-Dimension Migration (existing cache entries):**
+
+Cache entries created before the model/modelTier conflict-detection dimension was
+added (see `CRITICAL_PARAMS` in `skills/cache-orchestration/index.js`) have no
+`model`/`modelTier` field recorded. No manual migration step is required — this is
+handled automatically at read time:
+
+- If the **current** request context includes `model`/`modelTier` but a **candidate
+  cache entry** does not, that entry is treated as a miss (`fresh_reasoning`), not a
+  hit. This prevents a pre-model-tier cache entry from silently satisfying a request
+  that now expects model-aware behavior (e.g. reusing a Haiku-tier result for a
+  Sonnet-tier request after escalation).
+- Legacy entries are never force-invalidated or deleted; they simply age out
+  naturally as newer, model-aware entries replace them through normal cache
+  eviction/expiry.
+- No mismatch is flagged when *both* sides lack a model dimension (old cache,
+  old-style request) — that comparison is a pass, preserving pre-existing behavior
+  for callers who haven't adopted model tiers at all.
+
 **Verification:**
 ```bash
 npm test  # Run all 80+ tests

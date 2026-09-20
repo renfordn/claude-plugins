@@ -21,7 +21,7 @@ mirrors lives in [`INTEROP.md`](../../INTEROP.md); the machine-checkable version
 
 ## What to gather
 
-Six fields, two required:
+Seven fields, two required:
 
 1. **Task description** (required) — the behavior to implement, in plain language. Ask "what
    should change, in observable terms?" if this isn't already stated.
@@ -31,14 +31,18 @@ Six fields, two required:
 3. **Risk Tier** (optional, default `standard`) — set `high-risk` only when the slice traces to a
    named risk in the caller's own design/risk documentation, or is a high-risk migration (e.g.
    money handling, auth, data migrations touching production data). Most slices stay `standard`.
-4. **Data Contracts And Interfaces** (optional) — type signatures, module boundaries, or API
+4. **Model Tier** (optional, default `inherit`) — suggest a model tier for this slice based on
+   complexity. Use `haiku` for simple, low-risk slices; `sonnet` for medium-complexity slices
+   requiring reasoning; `opus` for complex or novel tasks. `inherit` uses the caller's default
+   model tier. This field is guidance only — the calling context determines the actual model tier.
+5. **Data Contracts And Interfaces** (optional) — type signatures, module boundaries, or API
    shapes already known. Skip this field entirely rather than guessing — a stale or invented
    value here is worse than omitting it, since `agent-TDD` will trust what's given and only
    raises a Research Gap Flag when it actively contradicts the real code (see
    [`references/examples/research-gap-flag-slice.md`](../../references/examples/research-gap-flag-slice.md)).
-5. **Pre-Slice Brief** (optional) — prior project context already gathered (e.g. from a memory
+6. **Pre-Slice Brief** (optional) — prior project context already gathered (e.g. from a memory
    subagent). Purely additive.
-6. **Review handoff mode** (optional, default pause) — leave unset unless there is deliberately no
+7. **Review handoff mode** (optional, default pause) — leave unset unless there is deliberately no
    reviewer available this session; only then set it to `skip` explicitly (see
    [`references/examples/review-skip-slice.md`](../../references/examples/review-skip-slice.md)).
    Never set `skip` as a shortcut to avoid review — that defeats the property the pause exists to
@@ -51,6 +55,7 @@ Check the assembled spec against
 
 - `taskDescription` and `acceptanceCriteria` are both non-empty strings — required.
 - `riskTier`, if set, is exactly `standard` or `high-risk`.
+- `modelTier`, if set, is exactly `inherit`, `haiku`, `sonnet`, or `opus`.
 - `reviewHandoffMode`, if set, is exactly `pause` or `skip`.
 - No other field names — the schema sets `additionalProperties: false`, so a typo'd field name
   (e.g. `riskTeir`) would silently be ignored by a human reader but should be caught here instead.
@@ -64,6 +69,7 @@ Emit the spec as a spawn-prompt-ready block, matching the field names and phrasi
 - **Task description**: <plain-language behavior to implement>
 - **Acceptance criteria / Test Intent**: <observable behavior a test must pin down>
 - **Risk Tier**: `standard` | `high-risk` (<why, if high-risk>)
+- **Model Tier**: `inherit` | `haiku` | `sonnet` | `opus` (optional; default `inherit`)
 - **Data Contracts And Interfaces**: <known signatures/boundaries, or "(none — agent-TDD will explore the codebase itself)">
 - **Pre-Slice Brief**: <prior context, or "(none)">
 - **Review handoff mode**: unset (default pause) | `skip` (<why>)

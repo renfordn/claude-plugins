@@ -58,6 +58,22 @@ class TestEscalationPathsDocumentation(unittest.TestCase):
         self.assertIn("AGENT-TDD-PLAN-FLAG", content)
         self.assertIn("Plan Validity Flag", content)
 
+    def test_documents_model_escalate_marker(self):
+        """Verify MODEL-ESCALATE marker format and fields are documented."""
+        content = self.escalation_doc.read_text()
+
+        self.assertIn("AGENT-TDD-MODEL-ESCALATE", content)
+        self.assertIn("reason", content)
+        self.assertIn("suggest_tier", content)
+
+    def test_documents_model_escalate_detection_logic(self):
+        """Verify agent-isdd's before-continue hook detection of the
+        MODEL-ESCALATE marker is documented."""
+        content = self.escalation_doc.read_text()
+
+        self.assertIn("Model Escalation", content)
+        self.assertIn("before-continue", content)
+
     def test_documents_resume_mechanism(self):
         """Verify Resume mechanism is documented."""
         content = self.escalation_doc.read_text()

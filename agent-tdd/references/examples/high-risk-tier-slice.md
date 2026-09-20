@@ -37,6 +37,7 @@ conditional test-author split rather than letting a single agent write and satis
   "10.00")`. The return type is `decimal.Decimal`, not `float`.
 - **Risk Tier**: `high-risk` (traced to the caller's risk documentation on
   `payments/refunds.py`, flagged after a prior float-rounding incident)
+- **Model Tier**: `inherit` (default; high-risk slices may need `sonnet` or `opus` for complex logic)
 - **Data Contracts And Interfaces**: `Refund.compute_amount(unit_price: float, quantity: int,
   discount_pct: float) -> float`, defined in `payments/refunds.py`. Existing tests live in
   `tests/payments/test_refunds.py`.
