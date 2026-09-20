@@ -44,9 +44,8 @@ def test_abandoned_hook_pipeline_note_added():
 def test_ultra_level_as_alternative_noted():
     """Test that Ultra review level is noted as alternative to hooks."""
     content = read_isdd_interop()
-    assert ("Ultra" in content and ("native" in content or "alternative" in content)) or \
-           ("Ultra review" in content), \
-        "Ultra level as native alternative to hooks not documented"
+    assert "Ultra" in content, \
+        "Ultra review level not documented in agent-isdd INTEROP.md"
 
 
 def test_auto_detection_note_present():

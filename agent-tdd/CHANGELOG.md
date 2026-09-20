@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.7] - 2026-09-20
+
+- **Release**: bump version for plugin collection public release (Phase 9).
+
+## [0.2.6] - 2026-09-20
+
+- **CI**: added to python-tests CI matrix; Phase 8 CI expansion.
+
 ## [0.2.5] - 2026-09-20
 
 - **Fix**: remove stale `injected_test_field` test artifact from Design Spec Input Format table in INTEROP.md; fix malformed `nelly_brief_cache` row (was missing description column).

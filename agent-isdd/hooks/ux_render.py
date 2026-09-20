@@ -166,7 +166,7 @@ def render_phase_transition(from_phase, to_phase, feature_slug, phase_state, sum
         f"[ux-render] Delegate to agent-ux:ux-agent with event_type=phase_transition, "
         f"caller=agent-isdd, phase_state={phase_state}, "
         f"delta={{from_phase: {from_phase!r}, to_phase: {to_phase!r}, feature_slug: {feature_slug!r}, "
-        f"one_line_summary: {summary!r or f'Phase transition to {to_phase}'!r}}}"
+        f"one_line_summary: {(summary or f'Phase transition to {to_phase}')!r}}}"
     )
 
 

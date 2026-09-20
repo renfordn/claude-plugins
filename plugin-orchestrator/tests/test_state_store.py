@@ -194,15 +194,10 @@ class TestFileStateStore(unittest.TestCase):
 
 class TestRedisStateStoreImportGuard(unittest.TestCase):
     def test_missing_redis_package_raises_clear_import_error(self):
-        import builtins
-        real_import = builtins.__import__
-
-        def blocking_import(name, *args, **kwargs):
-            if name == "redis":
-                raise ImportError("No module named 'redis'")
-            return real_import(name, *args, **kwargs)
-
-        with unittest.mock.patch("builtins.__import__", side_effect=blocking_import):
+        # redis is already imported at module level via try/except; patch the
+        # module-level name to None to simulate the package being absent.
+        import orchestrator.state_store as ss
+        with unittest.mock.patch.object(ss, "redis", None):
             with self.assertRaises(ImportError) as ctx:
                 RedisStateStore(host="localhost", port=6379)
         self.assertIn("pip install redis", str(ctx.exception))
