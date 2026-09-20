@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-20
+
+- **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.1.8] entry.
+
+## [0.1.8] - 2026-09-20
+
+- **Release**: bump version for public release pass.
+
 ## [0.1.1] - 2026-08-16
 
 - Re-added `agent-ux:ux-agent` delegation for the review-dashboard, this time genuinely optional

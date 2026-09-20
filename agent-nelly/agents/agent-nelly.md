@@ -2,6 +2,7 @@
 name: agent-nelly
 description: Primary entry point for Agent Nelly's independent memory store (~/.claude/agent-nelly-memory/<project-slug>/ and .../global/). Assembles condensed memory briefs, records new facts and error lessons, checks stored Intent against a caller's current task, and judges cross-project promotion. For bulk import, staleness pruning, or consolidation (/nelly-memory import|prune|consolidate), see the sibling agent nelly-maintenance instead. Never returns raw entry-file contents; never invents an Intent; never marks anything resolved.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: inherit
 ---
 
 # Agent Nelly

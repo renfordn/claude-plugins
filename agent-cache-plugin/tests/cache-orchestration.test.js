@@ -306,6 +306,78 @@ describe('CacheOrchestration Skill', () => {
         expect(result.reason).toMatch(/[Cc]onflict/);
       });
 
+      test('should treat tier mismatch as conflict (current-gen: haiku-4-5 vs sonnet-5)', async () => {
+        const cachedHaiku = mockCachedEntry({
+          prompt: 'Write a comprehensive unit test',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'testing',
+              model: 'claude-haiku-4-5-20251001',
+              modelTier: 'haiku'
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: cachedHaiku });
+
+        const result = await orchestration.validateCachedContext(
+          cachedHaiku.id,
+          buildContext({
+            prompt: 'Write a comprehensive unit test',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'testing',
+              model: 'claude-sonnet-5',
+              modelTier: 'sonnet'
+            }
+          })
+        );
+
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+        expect(result.reason).toMatch(/[Cc]onflict/);
+      });
+
+      test('should treat model name mismatch as conflict (current-gen: haiku-4-5 vs sonnet-5)', async () => {
+        const cachedEntry = mockCachedEntry({
+          prompt: 'Analyze code quality',
+          metadata: {
+            timestamp: Date.now(),
+            tags: [DEFAULTS.AGENT_TYPE],
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'analysis',
+              model: 'claude-haiku-4-5-20251001'
+            }
+          }
+        });
+
+        mockCache.retrieve.mockResolvedValue({ found: true, entry: cachedEntry });
+
+        const result = await orchestration.validateCachedContext(
+          cachedEntry.id,
+          buildContext({
+            prompt: 'Analyze code quality',
+            parameters: {
+              userId: 'user-1',
+              projectId: 'proj-1',
+              domain: 'analysis',
+              model: 'claude-sonnet-5'
+            }
+          })
+        );
+
+        expect(result.isValid).toBe(false);
+        expect(result.recommendation).toBe('discard');
+        expect(result.reason).toMatch(/[Cc]onflict/);
+      });
+
       test('should accept cache when model and modelTier match exactly', async () => {
         const cachedEntry = mockCachedEntry({
           prompt: 'Review test coverage',

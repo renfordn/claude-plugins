@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [1.2.9] - 2026-09-20
+
+- **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [1.2.8] entry.
+
+## [1.2.8] - 2026-09-20
+
+- **Release**: bump version for public release pass.
+
 ## [1.2.5] - 2026-09-20
 
 - **Pre-commit hook**: wire `InteropDriftValidator` to `.githooks/pre-commit` (tracked) + `scripts/setup-hooks.sh` for new-checkout setup; add `interop-drift` CI job to `.github/workflows/tests.yml`.

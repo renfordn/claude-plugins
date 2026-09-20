@@ -1,6 +1,13 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.11] - 2026-09-20
+
+- **Chore**: add `model:` frontmatter to all four agent definitions (inherit for agent-nelly and nelly-maintenance; haiku for nelly-planning-agent and nelly-research-agent).
+- **Docs**: promote Unreleased CHANGELOG entries to versioned [0.4.10] entry.
+
+## [0.4.10] - 2026-09-20
+
 - **Critical: fix a packaging bug breaking every fresh install (0.4.6).** `hooks/nelly_memory.py`
   imported `path_resolution` from a monorepo-relative `shared/` directory — only resolves
   inside the dev checkout, never in a marketplace-installed package, which bundles only this

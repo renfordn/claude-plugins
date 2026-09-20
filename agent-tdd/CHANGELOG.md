@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.9] - 2026-09-20
+
+- **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.2.8] entry.
+
+## [0.2.8] - 2026-09-20
+
+- **Release**: bump version for public release pass (commands fix, best-practice alignment).
+
 ## [0.2.7] - 2026-09-20
 
 - **Release**: bump version for plugin collection public release (Phase 9).

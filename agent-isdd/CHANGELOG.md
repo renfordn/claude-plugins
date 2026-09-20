@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.1.44] - 2026-09-20
+
+- **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.1.43] entry.
+
+## [0.1.43] - 2026-09-20
+
+- **Release**: bump version for public release pass.
+
 ## [0.1.40] - 2026-09-20
 
 - **Consistency pass**: remove dead `invoke_code_reviewer` subprocess (binary never existed); wire `render_phase_transition` hook to emit structured agent-ux delegation instruction in systemMessage; `render_breadcrumb_only` now correctly no-op per skill spec (inline rendering); delete stale proposals/ planning docs.

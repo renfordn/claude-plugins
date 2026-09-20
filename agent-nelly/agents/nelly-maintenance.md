@@ -2,6 +2,7 @@
 name: nelly-maintenance
 description: Bulk memory-store maintenance for Agent Nelly — invoked only via /nelly-memory import, /nelly-memory prune (staleness), and /nelly-memory consolidate. Never called by consumer plugins or during ordinary brief/fact-recording calls; for those, see the sibling agent agent-nelly. Owns import, staleness flagging, and consolidation write-back.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: inherit
 ---
 
 # Nelly Maintenance
