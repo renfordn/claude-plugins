@@ -1,6 +1,6 @@
 ---
 name: plugin-validator
-description: Validates Claude Code plugin structure, manifest correctness, and component files (commands, agents, skills, hooks, MCP config) before publishing. Trigger on "validate my plugin", "check plugin structure", "verify plugin is correct", "validate plugin.json", "check plugin files", or any mention of plugin validation — and proactively right after the user creates or modifies a plugin component (a new command, agent, skill, hook, or an edit to plugin.json), even if they don't explicitly ask for validation.
+description: Validates Claude Code plugin structure, manifest correctness, and component files (commands, agents, skills, hooks, MCP config) before publishing. Trigger on "validate my plugin" or any mention of plugin validation, and proactively right after a plugin component is created or modified.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---

@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-21
+
+- **Trim**: shortened the `plugin-validator` agent's frontmatter `description` from ~600 to ~290 chars so it doesn't get truncated in plugin/agent pickers; full trigger phrasing stays in the "When this triggers" body section.
+
 ## [0.1.0] - 2026-09-21
 
 - **Initial release**: extracted the `plugin-validator` agent from a standalone `~/.claude/skills/plugin-validator.md` file into a first-class plugin in this marketplace.
