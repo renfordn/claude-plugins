@@ -4,8 +4,8 @@
  *
  * Verifies .claude-plugin/plugin.json conforms to the v2 architecture:
  * - Required fields: name, version, description, author, license
- * - hooks array: PreToolUse (M1, Agent matcher) + PostToolUse entries present
- * - commands array: cache-status, cache-clear, cache-config present
+ * - hooks array: PreToolUse (Agent matcher) + PostToolUse (Agent matcher) + SessionEnd
+ * - No commands array (unsupported by marketplace schema)
  * - No legacy map-singleton fields
  */
 
@@ -43,16 +43,17 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
       expect(Array.isArray(manifest.hooks)).toBe(true);
     });
 
-    test('has PostToolUse hook for post-agent-completion', () => {
+    test('has PostToolUse hook for post-agent-completion scoped to Agent', () => {
       const hook = manifest.hooks.find(
         h => h.event === 'PostToolUse' && h.script.includes('post-agent-completion')
       );
       expect(hook).toBeDefined();
+      expect(hook.matcher).toBe('Agent');
     });
 
-    test('has PostToolUse hook for cache-invalidation', () => {
+    test('has SessionEnd hook for cache-invalidation', () => {
       const hook = manifest.hooks.find(
-        h => h.event === 'PostToolUse' && h.script.includes('cache-invalidation')
+        h => h.event === 'SessionEnd' && h.script.includes('cache-invalidation')
       );
       expect(hook).toBeDefined();
     });
@@ -66,20 +67,8 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
   });
 
   describe('Commands', () => {
-    test('commands array exists', () => {
-      expect(Array.isArray(manifest.commands)).toBe(true);
-    });
-
-    test('includes cache-status', () => {
-      expect(manifest.commands.some(c => c.name === 'cache-status')).toBe(true);
-    });
-
-    test('includes cache-clear', () => {
-      expect(manifest.commands.some(c => c.name === 'cache-clear')).toBe(true);
-    });
-
-    test('includes cache-config', () => {
-      expect(manifest.commands.some(c => c.name === 'cache-config')).toBe(true);
+    test('commands array is absent (unsupported by marketplace schema)', () => {
+      expect(manifest.commands).toBeUndefined();
     });
   });
 
