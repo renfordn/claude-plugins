@@ -4,7 +4,8 @@
  *
  * Verifies .claude-plugin/plugin.json conforms to the v2 architecture:
  * - Required fields: name, version, description, author, license
- * - hooks array: PreToolUse (Agent matcher) + PostToolUse (Agent matcher) + SessionEnd
+ * - No inline "hooks" array (Claude Code never reads one there -- see
+ *   hooks/hooks.json and hook-wiring.test.js for the real, F-03-fixed config)
  * - No commands array (unsupported by marketplace schema)
  * - No legacy map-singleton fields
  */
@@ -14,12 +15,14 @@ const path = require('path');
 
 const manifestPath = path.resolve(__dirname, '..', '.claude-plugin', 'plugin.json');
 const packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+const hooksJsonPath = path.resolve(__dirname, '..', 'hooks', 'hooks.json');
 
-let manifest, pkg;
+let manifest, pkg, hooksConfig;
 
 beforeAll(() => {
   manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
   pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  hooksConfig = JSON.parse(fs.readFileSync(hooksJsonPath, 'utf-8')).hooks;
 });
 
 describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
@@ -39,30 +42,30 @@ describe('Plugin Manifest (.claude-plugin/plugin.json)', () => {
   });
 
   describe('Hooks (v2 architecture)', () => {
-    test('hooks array exists', () => {
-      expect(Array.isArray(manifest.hooks)).toBe(true);
+    // Claude Code auto-loads a plugin's hook config from hooks/hooks.json (in
+    // Claude Code's record format, {"hooks": {"<Event>": [...]}}) -- it never
+    // reads an inline "hooks" array from plugin.json itself (that shape is
+    // silently ignored at runtime; see hook-wiring.test.js's "No Competing
+    // Hook Config" suite and F-03 in the 2026-09-21 GTM review).
+    test('plugin.json does not declare its own inline hooks array', () => {
+      expect(manifest.hooks).toBeUndefined();
     });
 
     test('has PostToolUse hook for post-agent-completion scoped to Agent', () => {
-      const hook = manifest.hooks.find(
-        h => h.event === 'PostToolUse' && h.script.includes('post-agent-completion')
-      );
-      expect(hook).toBeDefined();
-      expect(hook.matcher).toBe('Agent');
+      const commands = hooksConfig.PostToolUse.flatMap(e => e.hooks.map(h => h.command));
+      expect(commands.some(c => c.includes('post-agent-completion'))).toBe(true);
+      expect(hooksConfig.PostToolUse[0].matcher).toBe('Agent');
     });
 
     test('has SessionEnd hook for cache-invalidation', () => {
-      const hook = manifest.hooks.find(
-        h => h.event === 'SessionEnd' && h.script.includes('cache-invalidation')
-      );
-      expect(hook).toBeDefined();
+      const commands = hooksConfig.SessionEnd.flatMap(e => e.hooks.map(h => h.command));
+      expect(commands.some(c => c.includes('cache-invalidation'))).toBe(true);
     });
 
-    test('has a PreToolUse hook wired to pre-agent-spawn.js (M1 cleared)', () => {
-      const preHook = manifest.hooks.find(h => h.event === 'PreToolUse');
-      expect(preHook).toBeDefined();
-      expect(preHook.script).toBe('hooks/pre-agent-spawn.js');
-      expect(preHook.matcher).toBe('Agent');
+    test('has a PreToolUse hook wired to pre-agent-spawn.js scoped to Agent', () => {
+      const commands = hooksConfig.PreToolUse.flatMap(e => e.hooks.map(h => h.command));
+      expect(commands.some(c => c.includes('pre-agent-spawn.js'))).toBe(true);
+      expect(hooksConfig.PreToolUse[0].matcher).toBe('Agent');
     });
   });
 

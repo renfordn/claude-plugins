@@ -2,13 +2,16 @@
  * Test Suite: Hook Wiring Configuration (hooks.json)
  * Tests that hooks.json properly maps Claude Code hook events to hook scripts.
  *
- * Rewritten 2026-09-15: the previous version of this suite tested a file at
- * `hooks/hooks.json` (which has never existed in this plugin) against a flat
- * `{PreToolUse: {script, description}}` schema that Claude Code has never used.
- * The real config lives at `.claude-plugin/hooks.json` in Claude Code's actual
- * record format: `{"hooks": {"<Event>": [{"matcher"?, "hooks": [{"type","command"}]}]}}`.
- * Every test below was failing (or would have, the moment it ran) against the
- * real file; this rewrite validates the file that actually exists.
+ * Rewritten 2026-09-21 (F-03): the 2026-09-15 rewrite asserted `.claude-plugin/hooks.json`
+ * as canonical, but Claude Code only auto-loads a plugin's hook config from `hooks/hooks.json`
+ * (or a path/object under `plugin.json`'s own `hooks` key) -- it never reads
+ * `.claude-plugin/hooks.json`. Combined with `plugin.json`'s now-removed inline `hooks` array
+ * (a shape `claude plugin validate` flagged as "unknown hook event; entry ignored at runtime"),
+ * this meant none of this plugin's hooks were ever wired up in a real install, while this
+ * suite stayed green because it validated the wrong file. The record-format config itself was
+ * already correct; only its location (and plugin.json's competing array) were wrong. See
+ * STRUCTURE.md and https://github.com/renfordn/claude-plugins -- agent-isdd, agent-tdd, and
+ * plugin-orchestrator all use the same `hooks/hooks.json` convention this now matches.
  */
 
 const fs = require('fs');
@@ -16,8 +19,21 @@ const path = require('path');
 
 describe('Hook Wiring Configuration', () => {
   const pluginRoot = path.join(__dirname, '..');
-  const hooksJsonPath = path.join(pluginRoot, '.claude-plugin/hooks.json');
+  const hooksJsonPath = path.join(pluginRoot, 'hooks/hooks.json');
   let hooksConfig;
+
+  describe('No Competing Hook Config', () => {
+    test('.claude-plugin/hooks.json should not exist (Claude Code never reads it)', () => {
+      expect(fs.existsSync(path.join(pluginRoot, '.claude-plugin/hooks.json'))).toBe(false);
+    });
+
+    test('plugin.json should not declare its own inline "hooks" array', () => {
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(pluginRoot, '.claude-plugin/plugin.json'), 'utf8')
+      );
+      expect(manifest.hooks).toBeUndefined();
+    });
+  });
 
   describe('File and JSON Validity', () => {
     test('.claude-plugin/hooks.json file should exist', () => {
