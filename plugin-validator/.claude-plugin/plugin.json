@@ -1,0 +1,16 @@
+{
+  "name": "plugin-validator",
+  "version": "0.1.0",
+  "description": "Comprehensive validator for Claude Code plugin structure, manifests, and components (commands, agents, skills, hooks, MCP config) — catches malformed YAML frontmatter, naming-convention violations, and security anti-patterns before a plugin is published.",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "homepage": "https://github.com/renfordn/plugin-validator",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "plugin-validation",
+    "validator",
+    "claude-code",
+    "quality"
+  ]
+}

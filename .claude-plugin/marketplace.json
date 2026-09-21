@@ -11,6 +11,7 @@
     { "name": "agent-tdd", "source": "./agent-tdd" },
     { "name": "agent-ux", "source": "./agent-ux" },
     { "name": "code-reviewer", "source": "./code-reviewer" },
-    { "name": "plugin-orchestrator", "source": "./plugin-orchestrator" }
+    { "name": "plugin-orchestrator", "source": "./plugin-orchestrator" },
+    { "name": "plugin-validator", "source": "./plugin-validator" }
   ]
 }
