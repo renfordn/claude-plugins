@@ -96,11 +96,12 @@ def render_phase_transition(from_phase, to_phase, feature_slug, phase_state, sum
     TDD:* phase states are excluded from chapter marking per agent-ux INTEROP.md.
     """
     sys.stderr.write(f"[ux-hook-tdd] agent-ux phase_transition: {from_phase} → {to_phase}\n")
+    one_line_summary = summary or f"TDD stage: {to_phase}"
     return (
         f"[ux-render] Delegate to agent-ux:ux-agent with event_type=phase_transition, "
         f"caller=agent-tdd, phase_state={phase_state}, "
         f"delta={{from_phase: {from_phase!r}, to_phase: {to_phase!r}, feature_slug: {feature_slug!r}, "
-        f"one_line_summary: {summary!r or f'TDD stage: {to_phase}'!r}}}"
+        f"one_line_summary: {one_line_summary!r}}}"
     )
 
 

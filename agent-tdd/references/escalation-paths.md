@@ -198,7 +198,10 @@ Impact: Slice 3 implementation blocked until gap is clarified
 
 **Agent-isdd Action**:
 - Detect the Model Escalation Marker in agent-tdd's handoff report via before-continue hook
-- Invoke `get_spawn_context` MCP tool to retrieve accumulated context (prior test attempts, error messages, code so far)
+- Invoke the `get_spawn_context` tool from plugin-orchestrator's bundled `spawn-context` MCP
+  server to retrieve accumulated context (prior test attempts, error messages, code so far) —
+  its exact callable name is harness-prefixed, not the bare string `get_spawn_context`; use
+  ToolSearch with query "get_spawn_context" to find and load it if it isn't already visible
 - Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with cached context
 - Pass context to continue where lower-tier agent left off
 - agent-cache-plugin detects escalation marker in prompt context, adds model-aware cache invalidation

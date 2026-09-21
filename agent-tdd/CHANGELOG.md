@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.11] - 2026-09-21
+
+- **Fix**: `hooks/ux_render.py`'s `render_phase_transition` had a SyntaxError (invalid f-string) that made every SubagentStop hook invocation exit 1 with a traceback — no test imported this module, so it shipped broken. Fixed and added direct test coverage (`tests/test_ux_render.py`) plus a compile-all-hooks guard in `test_agent_tdd_hooks_json.py`.
+- **Fix**: `INTEROP.md` was missing the `## → code-reviewer` handoff-target header, so `plugin-orchestrator`'s `CapabilityMap` resolved `agent-tdd`'s `handoff_targets` to an empty list against the real repo and its routing-table validation warned that `routing_table.json`'s real `(agent-tdd, red_green_refactor_complete) -> code-reviewer` route had no matching declared target.
+- **Fix**: `references/escalation-paths.md` told `agent-isdd` to "Invoke `get_spawn_context` MCP tool" as if that bare string were the tool's directly-callable name; Claude Code exposes a plugin-bundled MCP server's tools harness-prefixed, so this now names the `spawn-context` server and points at `ToolSearch` to find the real name.
+
 ## [0.2.10] - 2026-09-21
 
 - **Test**: rename test_hooks_json.py → test_agent_tdd_hooks_json.py to resolve pytest basename collision with agent-isdd.

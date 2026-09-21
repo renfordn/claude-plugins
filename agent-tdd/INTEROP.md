@@ -364,3 +364,16 @@ This is a fallback path, invoked only when the Detection conditions in `agent-is
 are confirmed, not a second supported way to run Design Spec Mode day-to-day. See that skill
 file for the full mode contract, the caller-owned loop it expects, and what isolation guarantees
 are genuinely lost (not just relocated) versus a real `agent-TDD`/`test-author` spawn.
+
+## → code-reviewer
+
+Unlike the isdd → agent-tdd handoff above (one spawn, one big handoff report), agent-tdd's
+relationship with `code-reviewer` is synchronous and per-slice, not a single end-of-phase
+handoff: `agent-TDD.md`'s "Automatic Code-Reviewer Invocation" section invokes `/code-reviewer`
+after each slice's Red (Quick), Green (Standard or Deep for high-risk), and Refactor-intent
+(Quick) steps, plus once more for Deep/Ultra post-slices coherence review after
+`all_slices_complete`. `plugin-orchestrator`'s `orchestrator/routing_table.json` models the
+net effect of that whole per-slice loop as the single phase transition
+`(agent-tdd, red_green_refactor_complete) -> code-reviewer` for its own routing-table validation
+— this section exists so that route has a real handoff target to validate against, matching
+what `agent-TDD.md` actually does rather than introducing a second, competing handoff shape.

@@ -179,6 +179,44 @@ class TestInteropDocumentsEscalations(unittest.TestCase):
 
         self.assertIn("one-directional", content.lower())
 
+    def test_interop_documents_code_reviewer_handoff_target(self):
+        """Regression test (F-06, 2026-09-21 GTM review): INTEROP.md must
+        declare a `## → code-reviewer` handoff-target header. Without it,
+        plugin-orchestrator's CapabilityMap._extract_handoff_targets() (regex
+        `## → ([a-z\\-]+)`) resolves agent-tdd's handoff_targets to an empty
+        list against the real repo, and PluginRouter's routing-table
+        validation then warns that routing_table.json's real
+        `(agent-tdd, red_green_refactor_complete) -> code-reviewer` route
+        has no matching declared target.
+        """
+        content = self.interop_file.read_text()
+
+        self.assertIn("## → code-reviewer", content)
+
+
+class TestEscalationPathsDoesNotClaimBareMcpToolName(unittest.TestCase):
+    """Regression test (2026-09-21 GTM review): escalation-paths.md must not
+    tell agent-isdd to "Invoke `get_spawn_context` MCP tool" as if that bare
+    string is the tool's directly-callable name -- Claude Code exposes a
+    plugin-bundled MCP server's tools harness-prefixed (e.g.
+    mcp__<server>__<tool>), never under their raw protocol-level name alone.
+    """
+
+    def setUp(self):
+        self.escalation_doc = (
+            Path(__file__).parent.parent / "references" / "escalation-paths.md"
+        )
+
+    def test_does_not_claim_bare_tool_name_is_directly_callable(self):
+        content = self.escalation_doc.read_text()
+
+        self.assertNotIn(
+            "Invoke `get_spawn_context` MCP tool", content,
+            "must not claim the bare string is the directly-callable tool name",
+        )
+        self.assertIn("spawn-context", content, "must name the MCP server")
+        self.assertIn("ToolSearch", content, "must point to a discovery fallback")
+
 
 if __name__ == "__main__":
     unittest.main()

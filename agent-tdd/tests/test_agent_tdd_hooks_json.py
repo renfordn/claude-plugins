@@ -1,6 +1,8 @@
 """Structural tests for agent-tdd/hooks/hooks.json."""
+import glob
 import json
 import os
+import py_compile
 import unittest
 
 HOOKS_JSON = os.path.join(os.path.dirname(__file__), "..", "hooks", "hooks.json")
@@ -60,6 +62,24 @@ class HooksJsonTests(unittest.TestCase):
                 os.path.isfile(full),
                 f"Script {script!r} referenced in hooks.json does not exist at {full}",
             )
+
+
+class HooksCompileCleanlyTests(unittest.TestCase):
+    """F-04 regression: hooks/ux_render.py shipped with a SyntaxError (an
+    invalid f-string) that no test caught, because no test imported or
+    otherwise compiled it -- it's reached only via a SubagentStop hook chain,
+    not directly from hooks.json's own command strings. py_compile every
+    hooks/*.py file directly so a syntax error anywhere in hooks/ fails CI
+    regardless of whether hooks.json references it as a top-level command.
+    """
+
+    def test_every_hook_script_compiles(self):
+        for path in sorted(glob.glob(os.path.join(HOOKS_DIR, "*.py"))):
+            with self.subTest(path=path):
+                try:
+                    py_compile.compile(path, doraise=True)
+                except py_compile.PyCompileError as e:
+                    self.fail(f"{path} failed to compile: {e}")
 
 
 if __name__ == "__main__":
