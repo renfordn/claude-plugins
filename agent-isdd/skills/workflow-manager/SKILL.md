@@ -128,10 +128,12 @@ On `start`, create the per-feature structure; on later phases, update files in p
 ```
 
 Rules: one feature folder per feature, named with local start date plus slug; use the exact
-template bodies from `references/artifact-templates.md` and
-`references/workflow-state.template.json`; preserve section order so later agents can rely on
-stable parsing; `workflow-state.json` is scaffolded together with `workflow-state.md` every time
-the latter is created or updated (field schema in `references/workflow-state.template.json`).
+template bodies from `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md` (search for
+`references/artifact-templates.md` if that path does not resolve) and
+`${CLAUDE_PLUGIN_ROOT}/references/workflow-state.template.json`; preserve section order so later
+agents can rely on stable parsing; `workflow-state.json` is scaffolded together with
+`workflow-state.md` every time the latter is created or updated (field schema in
+`${CLAUDE_PLUGIN_ROOT}/references/workflow-state.template.json`).
 The `tasks/` folder itself can still be created up front alongside the others (cheap, keeps
 scaffolding uniform); only `tasks.md` inside it is conditional on `Track`.
 
@@ -142,7 +144,7 @@ For every invocation, determine: active feature folder, requested action (`start
 any, next action — see "Action Rules" below for how each is chosen.
 
 Evaluate `Requirements`/`Design`/`Tasks` completion against the explicit pass/fail checklists in
-`references/artifact-templates.md`, not broad narrative judgment (see "Phase Pass/Fail Rules"
+`${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`, not broad narrative judgment (see "Phase Pass/Fail Rules"
 below for the per-phase criteria). A phase passes only when every required item is satisfied,
 fails when any required item is unchecked, contradicted, or blocked, and is `blocked` when
 completion depends on user confirmation, missing information, or unresolved contradictions.

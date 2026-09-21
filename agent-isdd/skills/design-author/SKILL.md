@@ -34,7 +34,7 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    convention and its three re-fetch triggers) instead of re-delegating for the same touchpoints.
    
    Record `design_findings` in the `Research Basis` section of `design.md` (see
-   `references/artifact-templates.md`) so a later reader can see the design is grounded, not
+   `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`) so a later reader can see the design is grounded, not
    guessed. Pass the caller's brief (including its `Relevant entries` section, which the
    orchestrator fetches with `surface relevant memory: true` before routing into this skill —
    see `spec-driven-development/SKILL.md`'s Goal-Aware Memory section) to `research-consolidator`
@@ -163,7 +163,7 @@ and implementation, reducing rework during Red-Green-Refactor cycles. See
 - **[Phase 2+3]** file_summaries ready for agent-nelly persistence (type: "file_summary")
 
 When writing or updating `design.md`, use the canonical template from
-`references/artifact-templates.md`.
+`${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`.
 
 ## Guardrails
 

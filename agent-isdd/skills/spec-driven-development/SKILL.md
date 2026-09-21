@@ -311,7 +311,7 @@ central SDD memory directory (`~/.claude/sdd-memory/<project-slug>/`), not the r
 ```
 
 `workflow-manager` owns scaffolding this structure and keeping it stable across phases. Use the
-canonical templates in `references/artifact-templates.md`; keep the same section order unless
+canonical templates in `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`; keep the same section order unless
 the user explicitly asks to change it.
 
 ## Writing Style

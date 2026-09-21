@@ -109,7 +109,7 @@ always-available fallback regardless of Artifact availability.
 - whether the phase is blocked or approved
 
 When writing or updating `requirements.md`, use the canonical template from
-`references/artifact-templates.md`.
+`${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`.
 
 ## Stop Condition
 
