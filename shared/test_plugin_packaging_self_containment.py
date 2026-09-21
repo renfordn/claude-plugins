@@ -28,7 +28,7 @@ PLUGIN_HOOKS_DIRS = [
     "agent-isdd/hooks",
     "agent-tdd/hooks",
     "agent-nelly/hooks",
-    "plugin-orchestrator/hooks",
+    "plugin-harness/hooks",
 ]
 
 

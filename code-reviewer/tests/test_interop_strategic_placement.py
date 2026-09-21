@@ -79,7 +79,7 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
     def test_capability_detection_note_present(self):
         """Capability Detection Note section should be present."""
         self.assertIn("Capability Detection Note:", self.interop_content)
-        self.assertIn("plugin-orchestrator", self.interop_content)
+        self.assertIn("plugin-harness", self.interop_content)
 
     def test_cross_references_section_present(self):
         """Cross-references to other documentation should be present."""
@@ -97,9 +97,9 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
         """design.md should be referenced."""
         self.assertIn("design.md", self.interop_content)
 
-    def test_plugin_orchestrator_test_referenced(self):
-        """plugin-orchestrator test should be referenced."""
-        self.assertIn("plugin-orchestrator/tests/test_smoke_e2e.py", self.interop_content)
+    def test_plugin_harness_test_referenced(self):
+        """plugin-harness test should be referenced."""
+        self.assertIn("plugin-harness/tests/test_smoke_e2e.py", self.interop_content)
 
 
 class TestStrategicPlacementTableStructure(unittest.TestCase):

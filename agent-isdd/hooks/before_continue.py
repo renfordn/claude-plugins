@@ -136,7 +136,7 @@ def main():
         message = (
             f"🚀 **Model Escalation Detected**\n\n"
             f"**Issue:** {reason}\n\n"
-            f"**Action:** Call the `get_spawn_context` tool from plugin-orchestrator's bundled "
+            f"**Action:** Call the `get_spawn_context` tool from plugin-harness's bundled "
             f"`spawn-context` MCP server (args: agent_type=\"agent-tdd\", cwd=this project) to "
             f"pull accumulated context from the {from_model}-tier attempt, then re-spawn "
             f"`agent-TDD` at **{to_model}** tier with that context so it can continue from where "

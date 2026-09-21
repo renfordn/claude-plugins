@@ -11,7 +11,7 @@
  * suite stayed green because it validated the wrong file. The record-format config itself was
  * already correct; only its location (and plugin.json's competing array) were wrong. See
  * STRUCTURE.md and https://github.com/renfordn/claude-plugins -- agent-isdd, agent-tdd, and
- * plugin-orchestrator all use the same `hooks/hooks.json` convention this now matches.
+ * plugin-harness all use the same `hooks/hooks.json` convention this now matches.
  */
 
 const fs = require('fs');

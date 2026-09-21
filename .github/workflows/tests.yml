@@ -20,8 +20,8 @@ jobs:
       matrix:
         # Every plugin with test_*.py files, discovered recursively by pytest regardless of
         # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd,
-        # plugin-orchestrator) or hooks/ + scripts/ (agent-nelly).
-        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-orchestrator, shared, agent-ux, code-reviewer]
+        # plugin-harness) or hooks/ + scripts/ (agent-nelly).
+        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-harness, shared, agent-ux, code-reviewer]
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +60,7 @@ jobs:
         run: |
           python -c "
           import sys, os
-          sys.path.insert(0, 'plugin-orchestrator')
+          sys.path.insert(0, 'plugin-harness')
           from pathlib import Path
           from orchestrator.interop_drift_validator import InteropDriftValidator
           validator = InteropDriftValidator(repo_root=Path('.'))
@@ -97,7 +97,7 @@ jobs:
       - name: Smoke — Python plugins (all 7)
         run: |
           python -m pytest \
-            agent-isdd agent-tdd agent-nelly plugin-orchestrator shared \
+            agent-isdd agent-tdd agent-nelly plugin-harness shared \
             agent-ux code-reviewer \
             -q --tb=short
 

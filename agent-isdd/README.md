@@ -63,7 +63,7 @@ ${CLAUDE_PLUGIN_DATA}/sdd-memory/
             └── recap/                  # Summary, risks, handoff
 ```
 
-**Note:** sdd-memory is shared between agent-isdd and plugin-orchestrator via symlink coordination for workflow state access.
+**Note:** sdd-memory is shared between agent-isdd and plugin-harness via symlink coordination for workflow state access.
 
 Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-isdd/` when running in Claude Code.
 

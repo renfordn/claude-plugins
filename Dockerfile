@@ -23,4 +23,4 @@ RUN git config --global user.email "test@example.com" \
 RUN cd agent-cache-plugin && npm ci --ignore-scripts
 
 # Default: run all Python tests then Node tests
-CMD bash -c "python -m pytest agent-isdd agent-tdd agent-nelly plugin-orchestrator shared agent-ux code-reviewer -q && cd agent-cache-plugin && npm test"
+CMD bash -c "python -m pytest agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer -q && cd agent-cache-plugin && npm test"

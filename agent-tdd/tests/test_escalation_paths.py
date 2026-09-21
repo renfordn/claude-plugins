@@ -182,7 +182,7 @@ class TestInteropDocumentsEscalations(unittest.TestCase):
     def test_interop_documents_code_reviewer_handoff_target(self):
         """Regression test (F-06, 2026-09-21 GTM review): INTEROP.md must
         declare a `## → code-reviewer` handoff-target header. Without it,
-        plugin-orchestrator's CapabilityMap._extract_handoff_targets() (regex
+        plugin-harness's CapabilityMap._extract_handoff_targets() (regex
         `## → ([a-z\\-]+)`) resolves agent-tdd's handoff_targets to an empty
         list against the real repo, and PluginRouter's routing-table
         validation then warns that routing_table.json's real

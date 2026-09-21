@@ -1,0 +1,61 @@
+"""
+Pins the Slice 2 rename requirement: the mechanical text-only reference
+sweep (plugin-orchestrator -> plugin-harness) across the monorepo's
+documentation, INTEROP contracts, and non-structural code/test files.
+
+This test is expected to FAIL until the mechanical sweep is performed. It
+intentionally excludes:
+  - historical CHANGELOG.md entries (explicit carve-out, per requirements.md's
+    EARS Event-driven line and design.md's Rename Plan)
+  - files that are gitignored / not tracked by git (e.g. .claude/settings.local.json)
+  - Slice 1's already-completed structural files (covered by
+    test_plugin_harness_rename.py)
+"""
+import subprocess
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+# Deliberate, permanent-for-one-release exception (not a rename gap): the
+# PLUGIN_ORCHESTRATOR_TELEMETRY env var name is intentionally still honored
+# as a fallback for one release (Slice 6), per design.md's Rename Plan, so
+# these two files legitimately retain the old literal string -- one as the
+# fallback constant + deprecation-notice text, the other as the tests
+# exercising that exact fallback behavior. This is the one deliberate
+# compatibility exception design.md calls out beyond the CHANGELOG.md
+# carve-out; tracked for removal in a subsequent release (see CHANGELOG.md's
+# Best-Practice Note).
+ENV_VAR_FALLBACK_EXCEPTION_FILES = {
+    "plugin-harness/orchestrator/hook_telemetry.py",
+    "plugin-harness/tests/test_hook_telemetry.py",
+}
+
+
+def _tracked_files_with_old_name():
+    """Return tracked (git ls-files) paths containing the old plugin name,
+    excluding CHANGELOG.md files anywhere in the repo and the one deliberate
+    env-var-fallback exception (see ENV_VAR_FALLBACK_EXCEPTION_FILES)."""
+    result = subprocess.run(
+        ["git", "grep", "-l", "-i", "-e", "plugin-orchestrator", "-e", "plugin_orchestrator"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"git grep failed: {result.stderr}")
+    files = [line for line in result.stdout.splitlines() if line]
+    return [
+        f
+        for f in files
+        if Path(f).name != "CHANGELOG.md" and f not in ENV_VAR_FALLBACK_EXCEPTION_FILES
+    ]
+
+
+def test_no_tracked_non_changelog_file_references_old_plugin_name():
+    remaining = _tracked_files_with_old_name()
+    assert remaining == [], (
+        "Expected zero tracked files (excluding CHANGELOG.md) to reference "
+        f"the old 'plugin-orchestrator'/'plugin_orchestrator' name after the "
+        f"mechanical sweep. Remaining: {remaining}"
+    )

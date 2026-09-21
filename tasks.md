@@ -4,7 +4,7 @@
 
 **Risk Tier:** standard  
 **Depends On:** (none)  
-**Files:** agent-isdd/INTEROP.md, agent-tdd/INTEROP.md, code-reviewer/INTEROP.md, plugin-orchestrator/INTEROP.md, agent-nelly/INTEROP.md, agent-cache-plugin/STRUCTURE.md  
+**Files:** agent-isdd/INTEROP.md, agent-tdd/INTEROP.md, code-reviewer/INTEROP.md, plugin-harness/INTEROP.md, agent-nelly/INTEROP.md, agent-cache-plugin/STRUCTURE.md  
 
 ### Test Intent
 Normalize all 6 INTEROP.md files from mixed formats (prose bullets, tables, mixed prose) into a consistent markdown table format (| Field | Type | Required |) for machine parsing; validate via doc-consistency-auditor before commit (no schema changes, only format refactoring).
@@ -26,7 +26,7 @@ Normalize all 6 INTEROP.md files from mixed formats (prose bullets, tables, mixe
 
 3. Normalize **agent-tdd/INTEROP.md**: Convert mixed prose to table format; preserve sub-schema details (research_cache internal fields documented as nested structure within table cell or as separate subsection).
 
-4. Normalize **code-reviewer/INTEROP.md**, **plugin-orchestrator/INTEROP.md**, **agent-nelly/INTEROP.md**: Standardize to same table format.
+4. Normalize **code-reviewer/INTEROP.md**, **plugin-harness/INTEROP.md**, **agent-nelly/INTEROP.md**: Standardize to same table format.
 
 5. Normalize **agent-cache-plugin/STRUCTURE.md**: Apply same table format (non-standard filename but same contract).
 
@@ -44,14 +44,14 @@ Normalize all 6 INTEROP.md files from mixed formats (prose bullets, tables, mixe
 
 **Risk Tier:** standard  
 **Depends On:** Slice 1  
-**Files:** plugin-orchestrator/orchestrator/schema_extractor.py  
+**Files:** plugin-harness/orchestrator/schema_extractor.py  
 
 ### Test Intent
 Parse normalized INTEROP.md files (all 6 plugins) into a queryable schema registry; extract field names and types from markdown tables; handle edge cases (missing types, unknown type names); performance: all 6 files parsed in <100ms.
 
 ### Validation Target
 ```bash
-python3 -m unittest plugin_orchestrator.tests.test_schema_extractor -v
+python3 -m unittest plugin_harness.tests.test_schema_extractor -v
 ```
 (New test file testing extraction from real + synthetic normalized INTEROP.md examples)
 
@@ -68,7 +68,7 @@ python3 -m unittest plugin_orchestrator.tests.test_schema_extractor -v
    - Graceful fallback on parse failure (log warning, return empty schema with empty fields dict)
    
 3. Implement `extract_all_plugins(base_dir: str) -> Dict[str, Dict[str, Schema]]` registry builder:
-   - Scan known plugin directories: agent-isdd, agent-tdd, code-reviewer, agent-nelly, agent-cache-plugin, plugin-orchestrator
+   - Scan known plugin directories: agent-isdd, agent-tdd, code-reviewer, agent-nelly, agent-cache-plugin, plugin-harness
    - For each plugin's INTEROP.md (or STRUCTURE.md), parse all "consumes" and "produces" sections
    - Return nested dict: {plugin_name: {capability_name: Schema}}
    
@@ -86,14 +86,14 @@ python3 -m unittest plugin_orchestrator.tests.test_schema_extractor -v
 
 **Risk Tier:** high-risk  
 **Depends On:** Slice 2 (schema extraction must be complete)  
-**Files:** plugin-orchestrator/orchestrator/interop_parser.py, plugin-orchestrator/tests/test_capability_map.py  
+**Files:** plugin-harness/orchestrator/interop_parser.py, plugin-harness/tests/test_capability_map.py  
 
 ### Test Intent
 Replace hardcoded plugin schemas in `_extract_capabilities()` (lines 313–327, 336–340, etc. per research cache.md) with runtime lookups from SchemaRegistry (Slice 2); all 30 existing capability tests must pass unchanged; `Capability.consumes` shape (Dict[str, str]) unchanged for backwards compatibility.
 
 ### Validation Target
 ```bash
-python3 -m unittest plugin_orchestrator.tests.test_capability_map -v
+python3 -m unittest plugin_harness.tests.test_capability_map -v
 ```
 (30 existing tests, all must pass; no regressions)
 
@@ -125,14 +125,14 @@ python3 -m unittest plugin_orchestrator.tests.test_capability_map -v
 
 **Risk Tier:** high-risk  
 **Depends On:** Slice 3 (refactored interop_parser.py must be in place)  
-**Files:** plugin-orchestrator/orchestrator/interop_drift_validator.py, plugin-orchestrator/tests/test_interop_drift_validator.py  
+**Files:** plugin-harness/orchestrator/interop_drift_validator.py, plugin-harness/tests/test_interop_drift_validator.py  
 
 ### Test Intent
 Detect when staged INTEROP.md changes are not reflected in corresponding validation code (interop_parser.py); block commits if drift detected; allow SDD_GATE=off override; execute in <500ms (leaves 500ms budget for doc-consistency-auditor in same pre-commit gate).
 
 ### Validation Target
 ```bash
-python3 -m unittest plugin_orchestrator.tests.test_interop_drift_validator -v
+python3 -m unittest plugin_harness.tests.test_interop_drift_validator -v
 ```
 (Test scenarios: no drift, intentional drift, SDD_GATE=off override, code already in sync)
 
@@ -180,7 +180,7 @@ python3 -m unittest plugin_orchestrator.tests.test_interop_drift_validator -v
 
 **Risk Tier:** standard  
 **Depends On:** Slice 2 (schema extraction must work)  
-**Files:** plugin-orchestrator/orchestrator/schema_extractor.py (add --check flag)  
+**Files:** plugin-harness/orchestrator/schema_extractor.py (add --check flag)  
 
 ### Test Intent
 Developers can run `python orchestrator/schema_extractor.py --check` locally to validate all schemas before committing (informational, not blocking); output indicates which INTEROP.md files have issues and suggests fixes.
@@ -219,7 +219,7 @@ python3 orchestrator/schema_extractor.py --check
 
 **Risk Tier:** standard  
 **Depends On:** Slice 4 (drift validator hook must exist)  
-**Files:** plugin-orchestrator/orchestrator/interop_drift_validator.py (enhance error formatting)  
+**Files:** plugin-harness/orchestrator/interop_drift_validator.py (enhance error formatting)  
 
 ### Test Intent
 Drift validator (Slice 4) produces actionable error messages: side-by-side schema comparison, field-by-field diffs, suggested code changes with line numbers.
@@ -262,14 +262,14 @@ Drift validator (Slice 4) produces actionable error messages: side-by-side schem
 
 **Risk Tier:** standard  
 **Depends On:** Slice 1, Slice 2, Slice 3, Slice 4, Slice 5, Slice 6  
-**Files:** plugin-orchestrator/tests/test_interop_drift_integration.py  
+**Files:** plugin-harness/tests/test_interop_drift_integration.py  
 
 ### Test Intent
 End-to-end: normalized INTEROP.md files → extract schemas (Slice 2) → validate against interop_parser.py (Slice 3) → trigger drift validator on intentional changes (Slice 4) → verify error messages (Slice 6) → confirm hook response and latency <1s.
 
 ### Validation Target
 ```bash
-python3 -m unittest plugin_orchestrator.tests.test_interop_drift_integration -v
+python3 -m unittest plugin_harness.tests.test_interop_drift_integration -v
 ```
 
 ### Ordered Steps

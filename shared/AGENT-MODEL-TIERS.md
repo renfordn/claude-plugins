@@ -25,7 +25,7 @@ Opus-tier session; a `model: opus` agent runs at Opus even inside an otherwise H
 This is a *static, per-agent* declaration, not a suggestion the caller can override from outside.
 
 This is distinct from the *per-slice* `modelTier` field in agent-TDD's Slice Spec (see
-[`agent-tdd/INTEROP.md`](../agent-tdd/INTEROP.md)) and from `plugin-orchestrator`'s
+[`agent-tdd/INTEROP.md`](../agent-tdd/INTEROP.md)) and from `plugin-harness`'s
 `modelPreference` capability metadata (`min_tier`/`preferred_tier`) — those are advisory,
 per-invocation signals a caller or orchestrator can use to pick a tier at spawn time. The
 frontmatter `model:` field, by contrast, is the agent definition's own fixed declaration and takes

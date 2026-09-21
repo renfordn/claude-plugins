@@ -426,8 +426,8 @@ node scripts/cache-command.js cache-config --set maxSize 1073741824
 
 ## Capabilities
 
-Consumed by plugin-orchestrator's `CapabilityMap` (see
-`plugin-orchestrator/orchestrator/interop_parser.py`) to register this plugin's
+Consumed by plugin-harness's `CapabilityMap` (see
+`plugin-harness/orchestrator/interop_parser.py`) to register this plugin's
 contract. Soft dependency — every integration below degrades gracefully to
 "no cache" if this plugin is unavailable.
 

@@ -1,5 +1,5 @@
 {
   "enabledPlugins": {
-    "plugin-orchestrator@renfordn-plugins": true
+    "plugin-harness@renfordn-plugins": true
   }
 }

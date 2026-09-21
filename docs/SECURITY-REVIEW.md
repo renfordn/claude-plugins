@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-20  
 **Scope:** All 7 plugins — agent-isdd, agent-nelly, agent-tdd, agent-ux, code-reviewer,
-plugin-orchestrator, agent-cache-plugin  
+plugin-harness, agent-cache-plugin  
 **Reviewer:** Claude Sonnet 4.6 (automated review) + renfordn  
 **Status:** ✅ SIGNED OFF — no open blockers
 
@@ -19,12 +19,12 @@ plugin-orchestrator, agent-cache-plugin
 | agent-tdd | Python (hooks) | None | `~/.claude/agent-tdd-state/` read/write | None (stdlib only) |
 | agent-ux | None (skills only) | None | None | None |
 | code-reviewer | Python (hooks) | None | Project files read-only | None (stdlib only) |
-| plugin-orchestrator | Python (hooks) + MCP server | None (stdio MCP) | `~/.claude/.../sdd-memory/` read/write | `redis` (dev/optional), `mcp<2` (MCP server only) |
+| plugin-harness | Python (hooks) + MCP server | None (stdio MCP) | `~/.claude/.../sdd-memory/` read/write | `redis` (dev/optional), `mcp<2` (MCP server only) |
 | agent-cache-plugin | Node.js | None | `~/.claude/plugin-data/` read/write | `better-sqlite3` (production) |
 
 **No plugin opens an inbound network listener.** All external communication is either:
 - Outbound only, initiated by the Claude Code host (never by the plugins themselves), or
-- Stdio IPC (plugin-orchestrator MCP server), which is OS-level process isolation.
+- Stdio IPC (plugin-harness MCP server), which is OS-level process isolation.
 
 ### 1.2 Trust Boundaries
 
@@ -34,7 +34,7 @@ Claude Code host (trusted)
   ├─ Hook subprocesses (Python/Node) — spawned with the user's own OS privileges
   │    └─ Read/write confined to ~/.claude/ plugin-data and project dirs
   │
-  ├─ plugin-orchestrator MCP server — stdio pipe, no TCP/UDP socket
+  ├─ plugin-harness MCP server — stdio pipe, no TCP/UDP socket
   │    └─ Read-only access to workflow-state.json
   │
   └─ agent-cache-plugin CLI commands — Node.js, path-validated DB writes
@@ -45,10 +45,10 @@ Claude Code host (trusted)
 
 | Vector | Applicable plugins | Finding |
 |---|---|---|
-| Path traversal via user-supplied paths | agent-cache-plugin, plugin-orchestrator | Both mitigated (see §2) |
+| Path traversal via user-supplied paths | agent-cache-plugin, plugin-harness | Both mitigated (see §2) |
 | DB file world-readable | agent-cache-plugin | Mitigated — chmod 0600 on create (see §2) |
-| MCP server binding to public interface | plugin-orchestrator | N/A — stdio transport only |
-| Unauthenticated MCP endpoints | plugin-orchestrator | N/A — stdio transport only |
+| MCP server binding to public interface | plugin-harness | N/A — stdio transport only |
+| Unauthenticated MCP endpoints | plugin-harness | N/A — stdio transport only |
 | Dependency CVE in production code | agent-cache-plugin | Mitigated — `npm audit fix` applied 2026-09-20 |
 | Dependency CVE in dev/test code | agent-cache-plugin | Mitigated — `npm audit fix` applied 2026-09-20 |
 | Hook code injection via workflow-state.json | All hooks | Low risk — state is deserialized as data, never eval'd |
@@ -84,20 +84,20 @@ degradation.
 **Verification:** `agent-cache-plugin/tests/sqlite-cache.test.js` — "Security — DB file
 permissions" describe block, 1 test asserting mode === 0o600.
 
-### 2.3 MCP Server Network Binding — plugin-orchestrator ✅ CONFIRMED CLEAN
+### 2.3 MCP Server Network Binding — plugin-harness ✅ CONFIRMED CLEAN
 
 **Finding (commit 6899052):** Audited `mcp_server/server.py` for TCP/UDP socket binding.
 
-**Result:** `FastMCP("plugin-orchestrator").run()` uses stdio transport by default. No
+**Result:** `FastMCP("plugin-harness").run()` uses stdio transport by default. No
 `host=` or `port=` argument is passed. No HTTP server library is imported. The server is
 unreachable from any network interface.
 
-**Verification:** `plugin-orchestrator/tests/test_mcp_server_security.py` — 8 tests passing
+**Verification:** `plugin-harness/tests/test_mcp_server_security.py` — 8 tests passing
 (2 skip cleanly when `mcp` package not installed).
 
-**Detail:** See `plugin-orchestrator/SECURITY.md` for full audit narrative.
+**Detail:** See `plugin-harness/SECURITY.md` for full audit narrative.
 
-### 2.4 MCP Server `cwd` Parameter — plugin-orchestrator ✅ CONFIRMED CLEAN
+### 2.4 MCP Server `cwd` Parameter — plugin-harness ✅ CONFIRMED CLEAN
 
 **Finding:** The `get_spawn_context(agent_type, cwd)` tool accepts a caller-supplied `cwd`.
 
@@ -135,7 +135,7 @@ never loaded when the plugin is installed by an end user.
 |---|---|---|---|
 | better-sqlite3 | 13.0.3 | SQLite driver | None known |
 
-### 3.2 pip — plugin-orchestrator
+### 3.2 pip — plugin-harness
 
 **Audit date:** 2026-09-20  
 **Tool:** Manual CVE check (pip-audit unavailable in environment)  
@@ -191,7 +191,7 @@ Dependency surface: **zero**.
 - **File I/O:** Reads project files for review analysis. No writes outside project dir.
 - **Verdict:** ✅ Clean
 
-### plugin-orchestrator
+### plugin-harness
 
 - **MCP server:** stdio transport, no network binding, read-only, cwd-parameter traversal
   mitigated. See §2.3–2.4 and `SECURITY.md`.

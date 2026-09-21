@@ -1,7 +1,7 @@
 # claude-plugins
 
 Monorepo for Renford Nelson's personal Claude Code plugins, used together by
-[plugin-orchestrator](https://github.com/renfordn/plugin-orchestrator):
+[plugin-harness](https://github.com/renfordn/plugin-harness):
 
 - `agent-isdd/` — spec-driven design agent (hard dependency)
 - `agent-tdd/` — test-driven implementation agent (hard dependency)
@@ -22,7 +22,7 @@ to the migration lives in the original per-plugin repos:
 
 ## Why one repo
 
-plugin-orchestrator's `CapabilityMap` reads all 6 plugins from a single base
+plugin-harness's `CapabilityMap` reads all 6 plugins from a single base
 directory (`CLAUDE_PLUGINS_DIR`, one subdirectory per plugin). In a fresh
 Claude Code cloud session, getting a private repo's content requires an
 explicit `add_repo` approval per repo — six separate repos meant six

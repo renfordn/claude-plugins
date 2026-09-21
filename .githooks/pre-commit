@@ -6,7 +6,7 @@ import sys
 # .githooks/pre-commit → .githooks → repo root
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(REPO_ROOT)
-sys.path.insert(0, os.path.join(REPO_ROOT, "plugin-orchestrator"))
+sys.path.insert(0, os.path.join(REPO_ROOT, "plugin-harness"))
 
 try:
     from orchestrator.interop_drift_validator import InteropDriftValidator

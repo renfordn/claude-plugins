@@ -1,6 +1,6 @@
 {
   "name": "renfordn-plugins",
-  "description": "Renford Nelson's marketplace aggregating all plugins in this repository, for use as a dependency by plugin-orchestrator.",
+  "description": "Renford Nelson's marketplace aggregating all plugins in this repository, for use as a dependency by plugin-harness.",
   "owner": {
     "name": "Renford Nelson"
   },
@@ -11,6 +11,6 @@
     { "name": "agent-tdd", "source": "./agent-tdd" },
     { "name": "agent-ux", "source": "./agent-ux" },
     { "name": "code-reviewer", "source": "./code-reviewer" },
-    { "name": "plugin-orchestrator", "source": "./plugin-orchestrator" }
+    { "name": "plugin-harness", "source": "./plugin-harness" }
   ]
 }

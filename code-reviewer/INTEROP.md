@@ -101,9 +101,9 @@ See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
 
 **Capability Detection Note:**
 
-This INTEROP.md is parsed by `plugin-orchestrator` for capability detection. The substring
+This INTEROP.md is parsed by `plugin-harness` for capability detection. The substring
 **"Integrating Code Reviewer"** (present in this document's title and section headings) is required
-for auto-detection to succeed. See `plugin-orchestrator/tests/test_smoke_e2e.py` for verification.
+for auto-detection to succeed. See `plugin-harness/tests/test_smoke_e2e.py` for verification.
 
 **Cross-references:**
 

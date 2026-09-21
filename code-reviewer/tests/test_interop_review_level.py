@@ -20,7 +20,7 @@ def test_review_level_parameter_in_contract():
 def test_capability_detection_substring_preserved():
     """Test that capability-detection substring is preserved."""
     content = read_interop_md()
-    # Must have at least one of these substrings for plugin-orchestrator detection
+    # Must have at least one of these substrings for plugin-harness detection
     has_substring = ("Integrating Code Reviewer" in content) or ("code-reviewer INTEROP" in content)
     assert has_substring, "Capability-detection substring ('Integrating Code Reviewer' or 'code-reviewer INTEROP') not found in INTEROP.md"
 

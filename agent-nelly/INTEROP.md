@@ -204,7 +204,7 @@ Everything above assumes your consumer can invoke the `agent-nelly` subagent (vi
 `SubagentStop`, etc.) is a blocking subprocess with no `Agent`-tool access, so code running
 inside one can never call `agent-nelly` directly, no matter how it's invoked.
 
-`plugin-orchestrator` hits exactly this — its `ErrorHandler.nelly_workaround_lookup` (inside the
+`plugin-harness` hits exactly this — its `ErrorHandler.nelly_workaround_lookup` (inside the
 `SubagentStop` hook) needs a known-issue workaround from Agent Nelly's memory, but can't ask for
 one itself. Its resolution pattern, for any other hook-bound consumer in the same situation:
 
@@ -214,7 +214,7 @@ one itself. Its resolution pattern, for any other hook-bound consumer in the sam
 2. The **main session** — which does have `Agent`-tool access — notices the surfaced request,
    calls `agent-nelly` for a real answer (exactly as described above), and writes the
    result back into the consumer's own state via whatever mechanism the consumer provides (for
-   `plugin-orchestrator`, `hooks/resolve_nelly_request.py`).
+   `plugin-harness`, `hooks/resolve_nelly_request.py`).
 3. The consumer's *next* hook invocation reads the now-resolved result from its own state.
 
 Agent Nelly's part of this is unchanged — it still only ever answers `agent-nelly` calls
