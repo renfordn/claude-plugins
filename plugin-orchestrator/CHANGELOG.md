@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-21
+
+- **Fix**: `hooks/bootstrap-plugins.sh` (SessionStart) treated `agent-isdd`/`agent-tdd`/`code-reviewer` as hard dependencies and called `exit 1` if the `claude-plugins` clone/update failed or any of those three directories were missing, aborting the whole SessionStart hook. Now warns and continues for hard and soft dependencies alike, matching this plugin's own soft-dependency design intent; only a missing `python3` prerequisite still hard-fails. Updated `.claude/CLAUDE.md`'s "Cloud Session Bootstrap" section to match.
+
 ## [1.3.0] - 2026-09-21
 
 - **Fix**: `CheckpointManager.create_checkpoint` deep-copied the whole `workflow_state`, including its own `orchestration.checkpoints` array, so each checkpoint's snapshot recursively embedded every prior checkpoint's snapshot — `workflow-state.json` doubled in size on every `Agent` spawn (one real project's file had grown to 389 MB). Snapshots now exclude the prior checkpoints array, and `prune_old_checkpoints` now runs automatically after every append (default cap: 10).

@@ -32,23 +32,17 @@ else
   echo "  ⬇️  Cloning claude-plugins..."
   mkdir -p "$(dirname "$PLUGINS_DIR")"
   if ! git clone "$PLUGINS_REPO_URL" "$PLUGINS_DIR" --quiet 2>/dev/null; then
-    echo "  ❌ Failed to clone claude-plugins"
+    echo "  ⚠️  Failed to clone claude-plugins (continuing)"
     echo "     On a fresh cloud session this repo may need to be attached via"
     echo "     add_repo (owner renfordn, repo claude-plugins) before a plain"
     echo "     git clone can succeed here."
-    echo "❌ Failed to set up hard dependencies: ${HARD_DEPS[*]}"
-    exit 1
+    echo "  ⚠️  Hard-dependency plugins unavailable this session: ${HARD_DEPS[*]}"
   fi
 fi
 
-MISSING_HARD=()
 for plugin_name in "${HARD_DEPS[@]}"; do
-  [ -d "$PLUGINS_DIR/$plugin_name" ] || MISSING_HARD+=("$plugin_name")
+  [ -d "$PLUGINS_DIR/$plugin_name" ] || echo "  ⚠️  Hard-dependency plugin missing: $plugin_name (continuing)"
 done
-if [ ${#MISSING_HARD[@]} -gt 0 ]; then
-  echo "❌ Missing hard-dependency plugin directories: ${MISSING_HARD[*]}"
-  exit 1
-fi
 
 for plugin_name in "${SOFT_DEPS[@]}"; do
   [ -d "$PLUGINS_DIR/$plugin_name" ] || echo "  ⚠️  Soft-dependency plugin missing: $plugin_name (continuing)"

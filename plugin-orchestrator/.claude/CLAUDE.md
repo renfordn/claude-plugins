@@ -235,9 +235,13 @@ persistent whitelist, so it must be called again in *every* fresh session, not j
 git-proxy access, so this one clone covers all 5 plugins, and a subsequent hook-issued `git
 clone`/`pull` to that path will also succeed for the rest of that same session.
 
-Either way, treat a failed clone as blocking (it takes out all 3 hard dependencies —
-`agent-isdd`, `agent-tdd`, `code-reviewer` — plus the soft ones, `agent-nelly` and `agent-ux`);
-there's no partial-success case since it's one repo.
+Either way, a failed clone no longer aborts the session: `bootstrap-plugins.sh` warns and
+continues for all 5 plugins, hard or soft (only a missing `python3` still hard-fails the hook).
+It still takes out all 3 hard dependencies — `agent-isdd`, `agent-tdd`, `code-reviewer` — plus
+the soft ones, `agent-nelly` and `agent-ux`, for the rest of that session, since there's no
+partial-success case with one repo; `PluginRouter`/`Subagent_Stop` still enforce hard-dependency
+blocking at handoff time (see "Dependency Analysis" and "Validation Order" below), so a missing
+hard dependency surfaces there instead of at bootstrap.
 
 The former per-plugin repos (`renfordn/agent-isdd`, `agent-tdd`, `code-reviewer`, `agent-nelly`,
 `agent-ux`) are archived and no longer updated — do not add_repo or clone those individually.
