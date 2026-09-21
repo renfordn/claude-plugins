@@ -7,7 +7,7 @@ Red Test — verify that Standard review invocation is documented.
 
 def read_task_slicer_skill():
     """Read the task-slicer SKILL.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-tdd/agents/task-slicer/SKILL.md", "r") as f:
+    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-tdd/skills/task-slicer/SKILL.md", "r") as f:
         return f.read()
 
 
