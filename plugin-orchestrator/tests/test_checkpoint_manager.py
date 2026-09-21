@@ -105,6 +105,35 @@ class TestCheckpointManagerCreate(unittest.TestCase):
         self.assertEqual(checkpoints[0]["checkpoint_id"], id1)
         self.assertEqual(checkpoints[1]["checkpoint_id"], id2)
 
+    def test_snapshot_does_not_nest_prior_checkpoints(self):
+        """Regression test: a checkpoint's state_snapshot must not carry a copy
+        of workflow_state["orchestration"]["checkpoints"] as it stood before
+        this checkpoint was appended -- otherwise checkpoint N's snapshot embeds
+        checkpoint N-1's full snapshot (which embeds N-2's, ...), and
+        workflow_state serializes to an exponentially larger payload with every
+        checkpoint. The snapshot's own "checkpoints" list must be empty.
+        """
+        self.manager.create_checkpoint(self.workflow_state, "first")
+        self.manager.create_checkpoint(self.workflow_state, "second")
+
+        second_snapshot = self.workflow_state["orchestration"]["checkpoints"][1]["state_snapshot"]
+        self.assertEqual(second_snapshot["orchestration"]["checkpoints"], [])
+
+    def test_state_size_grows_linearly_not_exponentially(self):
+        """Regression test for unbounded growth: serialized workflow_state size
+        must stay roughly proportional to the number of checkpoints, not blow
+        up because each snapshot recursively embeds all prior snapshots.
+        """
+        sizes = []
+        for i in range(12):
+            self.manager.create_checkpoint(self.workflow_state, f"checkpoint_{i}")
+            sizes.append(len(json.dumps(self.workflow_state)))
+
+        # A doubling-per-checkpoint bug multiplies size by roughly 2x each
+        # step; bound growth well below that (allow generous headroom for the
+        # label/timestamp/id overhead added by each new checkpoint).
+        self.assertLess(sizes[-1], sizes[0] * 20)
+
 
 class TestCheckpointManagerRestore(unittest.TestCase):
     """Test restore_checkpoint() for rollback functionality."""
@@ -303,7 +332,14 @@ class TestCheckpointManagerPruning(unittest.TestCase):
         }
 
     def test_prune_old_checkpoints_keeps_recent(self):
-        """Test that pruning keeps only N most recent checkpoints."""
+        """Test that pruning keeps only N most recent checkpoints.
+
+        create_checkpoint() now auto-prunes to the default of 10 after every
+        append (see checkpoint.py), so the array never exceeds 10 even before
+        this test's explicit prune_old_checkpoints() call below -- that call
+        is exercised directly here for the smaller, explicit max_checkpoints=10
+        case, not to catch growth create_checkpoint already prevents.
+        """
         # Create 15 checkpoints
         for i in range(15):
             self.manager.create_checkpoint(
@@ -313,10 +349,10 @@ class TestCheckpointManagerPruning(unittest.TestCase):
 
         self.assertEqual(
             len(self.workflow_state["orchestration"]["checkpoints"]),
-            15
+            10
         )
 
-        # Prune to 10
+        # Prune to 10 again (no-op, already at 10 from auto-pruning above)
         self.manager.prune_old_checkpoints(self.workflow_state, max_checkpoints=10)
 
         self.assertEqual(

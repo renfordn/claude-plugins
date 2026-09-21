@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-21
+
+- **Fix**: `CheckpointManager.create_checkpoint` deep-copied the whole `workflow_state`, including its own `orchestration.checkpoints` array, so each checkpoint's snapshot recursively embedded every prior checkpoint's snapshot — `workflow-state.json` doubled in size on every `Agent` spawn (one real project's file had grown to 389 MB). Snapshots now exclude the prior checkpoints array, and `prune_old_checkpoints` now runs automatically after every append (default cap: 10).
+- **Fix**: `hooks/hook_state.py`'s `_ensure_sdd_memory_coordination` resolved `agent-isdd`'s data directory via `get_plugin_data_dir("agent-isdd")`, which ignores its argument whenever `${CLAUDE_PLUGIN_DATA}` is set and returns *this plugin's own* directory instead — in every real marketplace install, plugin-orchestrator's hooks were silently reading/writing their own empty `sdd-memory/` rather than agent-isdd's, so `before_continue`/`subagent_stop` always saw "no active SDD workflow." Added `path_resolution.py`'s `get_sibling_plugin_data_dir()` to resolve a sibling plugin's real directory instead.
+- **New**: `CapabilityMap` no longer depends solely on the separately-maintained `~/.claude/plugins/claude-plugins` git clone (which `hooks/bootstrap-plugins.sh` can leave silently stale — a failed `git pull` there is swallowed) — it now discovers each sibling plugin's actual installed root from `${CLAUDE_PLUGIN_ROOT}` (`_discover_sibling_plugin_roots`), which is always exactly the version currently running, and prefers it over the flat clone-based lookup.
+
 ## [1.2.9] - 2026-09-20
 
 - **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [1.2.8] entry.

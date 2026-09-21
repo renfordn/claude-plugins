@@ -118,6 +118,16 @@ class CapabilityMap:
                 else:
                     plugin_dir_base = Path(__file__).parent.parent / "tests" / "fixtures"
 
+            # Only attempt sibling-plugin discovery (below) when the caller didn't
+            # pass an explicit plugin_dir_base -- that's the "real production hook"
+            # path; every test/fixture construction passes plugin_dir_base
+            # explicitly and must stay fully isolated from ${CLAUDE_PLUGIN_ROOT},
+            # which could otherwise leak in from whatever shell/session runs the
+            # test suite.
+            self._sibling_plugin_roots = self._discover_sibling_plugin_roots()
+        else:
+            self._sibling_plugin_roots: Dict[str, Path] = {}
+
         self.plugin_dir_base = Path(plugin_dir_base)
         self.plugins: Dict[str, PluginInfo] = {}
         self.interop_hashes: Dict[str, str] = {}
@@ -165,7 +175,108 @@ class CapabilityMap:
         instance.interop_hashes = {}
         instance.error_registry_base_path = None
         instance.project_slug = None
+        # Never discover real installed siblings for an in-memory test double --
+        # a from_plugins() instance is explicitly meant to be isolated from disk.
+        instance._sibling_plugin_roots = {}
         return instance
+
+    def _discover_sibling_plugin_roots(self) -> Dict[str, Path]:
+        """Discover sibling plugins' actual installed root directories from this
+        plugin's own ${CLAUDE_PLUGIN_ROOT}, instead of relying solely on a
+        separately maintained git clone of the monorepo.
+
+        Why this exists (F-13, 2026-09-21 GTM review): `hooks/bootstrap-plugins.sh`
+        clones/pulls `renfordn/claude-plugins` into `~/.claude/plugins/claude-plugins`
+        and `plugin_dir_base` (above) reads INTEROP.md from that clone. A failed
+        `git pull` there is swallowed ("using existing checkout") and the stale
+        clone kept, so that clone's INTEROP.md content can silently diverge from
+        the plugin versions actually installed and running -- `.exists()` alone
+        can't detect staleness, since the file is still there, just outdated.
+
+        This discovers each sibling's *actual* installed root instead, which is
+        always exactly the version currently running (there's no way to run a
+        plugin's hooks without Claude Code having already installed that exact
+        version somewhere on disk). Claude Code installs sibling plugins from
+        the same marketplace as directory siblings of this plugin's own root,
+        but the nesting depth differs by install surface -- observed so far:
+          - CLI marketplace cache: <cache-root>/<marketplace>/<plugin>/<version>/
+          - Desktop app plugin snapshots: <session-root>/plugin_<random-id>/
+        Rather than assume either shape (and the desktop-app one doesn't even
+        name the directory after the plugin), this scans one and two levels up
+        from ${CLAUDE_PLUGIN_ROOT} for any child/grandchild directory carrying
+        `.claude-plugin/plugin.json`, and identifies each by that file's own
+        declared "name" field. The first candidate depth that yields at least
+        one known sibling name wins (so a bare marketplace-cache root -- whose
+        immediate children are plugin-name dirs containing only version
+        subdirs, not INTEROP.md itself -- doesn't win over the correct,
+        one-level-deeper candidate). When a plugin has multiple version
+        subdirectories, the lexicographically-highest ("latest") one is used.
+
+        Returns:
+            Dict mapping plugin name -> its resolved root directory (the one
+            directly containing INTEROP.md/STRUCTURE.md), for every sibling
+            plugin discoverable this way. Empty dict if ${CLAUDE_PLUGIN_ROOT}
+            is unset, or if nothing was discoverable -- callers must fall back
+            to the legacy plugin_dir_base lookup in that case (see
+            _resolve_interop_path).
+        """
+        own_root_env = os.environ.get("CLAUDE_PLUGIN_ROOT")
+        if not own_root_env:
+            return {}
+
+        try:
+            own_root = Path(os.path.expanduser(os.path.expandvars(own_root_env)))
+        except (TypeError, ValueError):
+            return {}
+
+        candidates = [own_root.parent, own_root.parent.parent]
+
+        for siblings_root in candidates:
+            if not siblings_root or not siblings_root.is_dir():
+                continue
+
+            found_here: Dict[str, List[Path]] = {}
+            manifests = list(siblings_root.glob("*/.claude-plugin/plugin.json"))
+            manifests += list(siblings_root.glob("*/*/.claude-plugin/plugin.json"))
+
+            for manifest in manifests:
+                try:
+                    data = json.loads(manifest.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+                name = data.get("name")
+                if not name or name not in self.PLUGIN_PATHS:
+                    continue
+                plugin_root = manifest.parent.parent  # .claude-plugin/plugin.json -> plugin root
+                found_here.setdefault(name, []).append(plugin_root)
+
+            if found_here:
+                discovered: Dict[str, Path] = {}
+                for name, roots in found_here.items():
+                    roots.sort(key=lambda p: p.name)
+                    discovered[name] = roots[-1]
+                return discovered
+
+        return {}
+
+    def _resolve_interop_path(self, plugin_name: str, rel_path: str) -> Path:
+        """Resolve the actual file to read for a plugin's INTEROP.md/STRUCTURE.md.
+
+        Prefers the plugin's real installed sibling root (see
+        _discover_sibling_plugin_roots) when one was discovered and the file
+        exists there -- that's always in sync with what's actually running.
+        Falls back to the legacy `plugin_dir_base / rel_path` lookup (the git
+        clone in production, or a fixtures/dev-checkout directory in tests)
+        otherwise.
+        """
+        sibling_root = self._sibling_plugin_roots.get(plugin_name)
+        if sibling_root is not None:
+            filename = rel_path.rsplit("/", 1)[-1]
+            sibling_path = sibling_root / filename
+            if sibling_path.exists():
+                return sibling_path
+
+        return self.plugin_dir_base / rel_path
 
     def _parse_all_plugins(self) -> None:
         """Parse all INTEROP.md files and build registry.
@@ -199,7 +310,7 @@ class CapabilityMap:
         Returns:
             PluginInfo object (empty if file not found or parsing fails)
         """
-        interop_path = self.plugin_dir_base / rel_path
+        interop_path = self._resolve_interop_path(plugin_name, rel_path)
 
         try:
             if interop_path.exists():

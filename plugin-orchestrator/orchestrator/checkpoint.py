@@ -190,6 +190,18 @@ class CheckpointManager:
         are deep copies, so modifications to original state after checkpoint
         creation do not affect the stored snapshot.
 
+        The snapshot excludes the existing `orchestration.checkpoints` array itself
+        -- otherwise every checkpoint would carry a deep copy of every prior
+        checkpoint's own snapshot (which in turn carries all of *its* prior
+        checkpoints), making workflow-state.json grow exponentially with each
+        handoff. `restore_checkpoint()` never needed that nested history: it
+        restores exactly one snapshot and adds a fresh `rollback_pending` marker.
+        Every other field of workflow_state (including other `orchestration`
+        keys, like `handoff_history`) is preserved as before.
+
+        After appending, old checkpoints are pruned to the last 10 (see
+        `prune_old_checkpoints`) so the array itself stays bounded too.
+
         Args:
             workflow_state: The workflow state dict to snapshot
             checkpoint_label: Label describing the checkpoint
@@ -209,14 +221,26 @@ class CheckpointManager:
         checkpoint_id = str(uuid4())
         timestamp = self._get_iso_timestamp()
 
+        # Shallow-copy workflow_state and its "orchestration" sub-dict so we can
+        # blank out "checkpoints" before the (expensive, otherwise-recursive)
+        # deepcopy, rather than deep-copying the whole prior checkpoint history
+        # and then discarding it.
+        state_for_snapshot = dict(workflow_state)
+        orch = state_for_snapshot.get("orchestration")
+        if isinstance(orch, dict) and "checkpoints" in orch:
+            orch_for_snapshot = dict(orch)
+            orch_for_snapshot["checkpoints"] = []
+            state_for_snapshot["orchestration"] = orch_for_snapshot
+
         checkpoint = {
             "checkpoint_id": checkpoint_id,
             "label": checkpoint_label,
             "timestamp": timestamp,
-            "state_snapshot": copy.deepcopy(workflow_state)
+            "state_snapshot": copy.deepcopy(state_for_snapshot)
         }
 
         workflow_state["orchestration"]["checkpoints"].append(checkpoint)
+        self.prune_old_checkpoints(workflow_state)
         return checkpoint_id
 
     def restore_checkpoint(

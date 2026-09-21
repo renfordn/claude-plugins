@@ -20,7 +20,9 @@ from orchestrator.state_store import FileStateStore  # noqa: E402
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
-from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+from path_resolution import (  # noqa: E402
+    get_plugin_data_dir, get_legacy_subdir_path, get_sibling_plugin_data_dir,
+)
 
 # Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
 _plugin_data_dir = get_plugin_data_dir("plugin-orchestrator")
@@ -35,6 +37,16 @@ def _ensure_sdd_memory_coordination():
     1. Checks if plugin-orchestrator's sdd-memory path exists
     2. If not, tries to create a symlink to agent-isdd's sdd-memory
     3. If symlink fails, creates a registry file with path metadata
+
+    Resolving agent-isdd's directory here MUST go through
+    get_sibling_plugin_data_dir(), not get_plugin_data_dir("agent-isdd") -- the
+    latter ignores the name argument whenever ${CLAUDE_PLUGIN_DATA} is set and
+    just returns *this plugin's own* data dir, so every real (marketplace)
+    install was symlinking (or registering) plugin-orchestrator's own empty
+    directory back onto itself instead of pointing at agent-isdd's actual
+    sdd-memory. Only the env-var-unset dev/test fallback ever exercised the
+    correct path, which is why this went unnoticed by the test suite. See
+    path_resolution.py's get_sibling_plugin_data_dir() docstring for the fix.
 
     Returns:
         The actual sdd-memory path (or None if coordination fails completely).
@@ -51,7 +63,7 @@ def _ensure_sdd_memory_coordination():
 
     # Neither symlink nor directory exists; try to create symlink to agent-isdd's
     try:
-        isdd_plugin_data = get_plugin_data_dir("agent-isdd")
+        isdd_plugin_data = get_sibling_plugin_data_dir("plugin-orchestrator", "agent-isdd")
         isdd_sdd_memory = get_legacy_subdir_path(isdd_plugin_data, "sdd-memory")
 
         # Only create symlink if agent-isdd's sdd-memory exists
@@ -71,7 +83,7 @@ def _ensure_sdd_memory_coordination():
 
         # Only write registry if it doesn't already exist
         if not os.path.exists(registry_path):
-            isdd_plugin_data = get_plugin_data_dir("agent-isdd")
+            isdd_plugin_data = get_sibling_plugin_data_dir("plugin-orchestrator", "agent-isdd")
             isdd_sdd_memory = get_legacy_subdir_path(isdd_plugin_data, "sdd-memory")
 
             registry = {
