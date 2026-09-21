@@ -136,11 +136,13 @@ def main():
         message = (
             f"🚀 **Model Escalation Detected**\n\n"
             f"**Issue:** {reason}\n\n"
-            f"**Action:** Call the `get_spawn_context` MCP tool "
-            f"(agent_type=\"agent-tdd\", cwd=this project) to pull accumulated context "
-            f"from the {from_model}-tier attempt, then re-spawn `agent-TDD` at "
-            f"**{to_model}** tier with that context so it can continue from where "
-            f"the lower tier left off.\n"
+            f"**Action:** Call the `get_spawn_context` tool from plugin-orchestrator's bundled "
+            f"`spawn-context` MCP server (args: agent_type=\"agent-tdd\", cwd=this project) to "
+            f"pull accumulated context from the {from_model}-tier attempt, then re-spawn "
+            f"`agent-TDD` at **{to_model}** tier with that context so it can continue from where "
+            f"the lower tier left off. The tool's exact callable name is harness-prefixed (not "
+            f"the bare string `get_spawn_context`) — if it isn't already visible, use ToolSearch "
+            f"with query \"get_spawn_context\" to find and load it before calling it.\n"
         )
 
         print(json.dumps({"systemMessage": message}))

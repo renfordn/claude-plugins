@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.1.45] - 2026-09-21
+
+- **Fix**: `hooks/before_continue.py`'s model-escalation systemMessage told the model to "Call the `get_spawn_context` MCP tool" as if that bare string were the tool's directly-callable name; Claude Code exposes a plugin-bundled MCP server's tools harness-prefixed, so this now names `plugin-orchestrator`'s `spawn-context` server and points at `ToolSearch` to find the real name.
+
 ## [0.1.44] - 2026-09-20
 
 - **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.1.43] entry.

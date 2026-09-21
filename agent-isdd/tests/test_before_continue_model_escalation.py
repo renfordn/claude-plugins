@@ -398,6 +398,48 @@ class BeforeContinueModelEscalationTests(unittest.TestCase):
             self.assertIn("get_spawn_context", result)
             self.assertIn("agent-TDD", result)
 
+    def test_escalation_message_does_not_claim_bare_tool_name_is_directly_callable(self):
+        """Regression test: the message must not tell the model to "call the
+        `get_spawn_context` MCP tool" as if that bare string is the tool's
+        actual callable name -- Claude Code exposes a plugin-bundled MCP
+        server's tools harness-prefixed (e.g. mcp__<server>__<tool>), never
+        under their raw protocol-level name alone, so that phrasing sent a
+        model looking for a tool that doesn't exist under that exact string.
+        The message must instead name the server ("spawn-context") and point
+        the model at ToolSearch (or equivalent discovery) to find the real
+        name, since the exact prefix isn't something this hook can predict.
+        """
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="Feature", workflow_status="Implementing")
+
+            state_path = self._state_json_path(feature_dir)
+            with open(state_path, "w", encoding="utf-8") as fh:
+                json.dump({"current_phase": "Implementation", "executor_model": "Haiku"}, fh)
+
+            transcript = os.path.join(home, "transcript.jsonl")
+            with open(transcript, "w", encoding="utf-8") as fh:
+                fh.write(_assistant_line(
+                    '<!--AGENT-TDD-MODEL-ESCALATE: reason="Complex concurrency patterns" '
+                    'from_model="Haiku" to_model="Sonnet"-->\n'
+                    "Escalating for better analysis."
+                ) + "\n")
+
+            result, rc = h.run_hook_message(
+                "before_continue.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(result)
+            self.assertNotIn(
+                "Call the `get_spawn_context` MCP tool", result,
+                "message must not claim the bare string is the directly-callable tool name",
+            )
+            self.assertIn("spawn-context", result, "message must name the MCP server")
+            self.assertIn("ToolSearch", result, "message must point to a discovery fallback")
+
     def test_escalation_includes_reason_in_workflow_state(self):
         """
         Test: Escalation reason is preserved in workflow-state.json.
