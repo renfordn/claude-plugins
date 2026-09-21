@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.10] - 2026-09-21
+
+- **Test**: rename test_hooks_json.py → test_agent_tdd_hooks_json.py to resolve pytest basename collision with agent-isdd.
+
 ## [0.2.9] - 2026-09-20
 
 - **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.2.8] entry.
