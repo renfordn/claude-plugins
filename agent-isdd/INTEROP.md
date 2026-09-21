@@ -29,7 +29,7 @@ validation, task slicing, and implementation.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| file_summaries | object | no | Pre-fetched file summaries from agent-nelly cache (if available), merged into research_cache for files not already covered by fresh file_summaries — see skills/spec-driven-development/SKILL.md's "Implementation Handoff" step 2 for deduplication rationale |
+| file_summaries | object | no | Pre-fetched file summaries from agent-nelly cache (if available), merged into research_cache for files not already covered by fresh file_summaries — see skills/spec-driven-development/references/implementation-handoff.md's Standard step 2 for deduplication rationale |
 
 **Agent-tdd responsibilities** (Phase 2+3):
 1. **Research Validation** (optional re-research gaps only)
@@ -59,8 +59,9 @@ the `slicing_complete` checkpoint. When `tasks.md` contains at least one `high-r
 `agent-TDD` stops there and hands back a report naming them (its **High-Risk Slices** field —
 see `agent-tdd`'s own `agents/agent-TDD.md`). `hooks/high_risk_reviewer.py` (on `SubagentStop`)
 detects this and writes `test_author_pending` to `workflow-state.json`, structurally parallel to
-this file's existing `rollback_pending` field. `skills/spec-driven-development/SKILL.md`'s
-Implementation Handoff step 6 reads it, spawns `agent-tdd:test-author` once per named slice,
+this file's existing `rollback_pending` field.
+`skills/spec-driven-development/references/implementation-handoff.md`'s Standard step 6 reads it,
+spawns `agent-tdd:test-author` once per named slice,
 bundles the results, and resumes the same `agent-TDD` instance via `SendMessage` — the *only*
 point this skill ever resumes `agent-tdd`. Zero high-risk slices means zero behavior change:
 `agent-TDD` proceeds straight through exactly as before this exception existed. This closes a

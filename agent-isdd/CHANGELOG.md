@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.1.46] - 2026-09-21
+
+- **Docs**: apply progressive disclosure to `spec-driven-development/SKILL.md` (4,987 → 2,669 words) and `workflow-manager/SKILL.md` (4,128 → 3,234 words), moving deep/rare-path detail into new `references/*.md` files; rewrite `plan-reviewer/SKILL.md`'s description for concision (568 → 490 chars). Fixes the 3 genuine `plugin-validate` Per-Skill Quality findings against this plugin; fixes 2 stale `INTEROP.md` cross-references into content that moved.
+
 ## [0.1.45] - 2026-09-21
 
 - **Fix**: `hooks/before_continue.py`'s model-escalation systemMessage told the model to "Call the `get_spawn_context` MCP tool" as if that bare string were the tool's directly-callable name; Claude Code exposes a plugin-bundled MCP server's tools harness-prefixed, so this now names `plugin-orchestrator`'s `spawn-context` server and points at `ToolSearch` to find the real name.

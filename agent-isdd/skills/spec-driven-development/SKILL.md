@@ -42,72 +42,22 @@ Phase-driven, always in this order: `Requirements` → `Design` → `Tasks` → 
 `Recap` is maintained throughout as ongoing memory and handoff context. `workflow-state.md` is
 the source of truth for current phase and continuation state. `Implementation` here means "the
 handoff to `agent-tdd` has been made" (a Design Spec, or — for `Track: Fast` — a Slice Spec; see
-"Fast Track" below) — this skill's own responsibility ends there.
+`references/fast-track.md`) — this skill's own responsibility ends there.
 
 Do not skip forward across phases unless the current phase is complete and not blocked.
 
 ## Review Level Guidance per Phase
 
-Each ISDD phase uses specific `/code-reviewer` review levels to validate artifacts at appropriate 
-depth. Review levels balance comprehensiveness with token efficiency and are tailored to each 
-phase's concerns.
-
-| Phase | Review Level | Purpose | When | Invoked By |
-|-------|--------------|---------|------|-----------|
-| Requirements | Standard | Clarity check | After requirements draft, before approval | requirements-agent (optional) |
-| Design | Deep | Coherence validation | After design complete, before Tasks | design-author (mandatory) |
-| Tasks | Standard | Clarity check | After tasks.md generation, before implementation | task-slicer |
-| Implementation (per-slice, Red) | Quick | Test clarity | After test written, before implementation | test-author (high-risk only) |
-| Implementation (per-slice, Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
-| Implementation (post-slices coherence) | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if majority high-risk) |
-
-**Review Level Definitions** (see `code-reviewer/SKILL.md` for full details):
-
-- **Quick**: Minimal checks, fact-finding, test clarity — < 50k tokens
-- **Standard**: Comprehensive checks, impact analysis — 50-150k tokens (default)
-- **Deep**: Thorough design validation, coherence checks — 150-300k tokens
-- **Ultra**: Comprehensive + security/regression/duplicates — 300k+ tokens (multi-agent capable)
-
-**How findings guide each phase**:
-
-- **Requirements review findings** → update requirements doc, clarify scope before Design
-- **Design review findings** → resolve design contradictions or document as task follow-ups
-- **Tasks review findings** → inform ralph loops Dependency Correctness validation
-- **Per-slice review findings** → guide implementation focus and refactoring priorities
-- **Coherence review findings** → validate cross-slice interactions, regressions
-
-See `design.md` §ISDD Workflow Integration for design rationale and `agent-tdd/SKILL.md` 
-§Review-Level Strategy for implementation-phase details.
+Each ISDD phase uses specific `/code-reviewer` review levels to validate artifacts at appropriate
+depth, tailored to each phase's concerns. See `references/review-levels.md` for the full
+per-phase table, review-level definitions, and how findings feed back into each phase.
 
 ## Fast Track
 
-`Track: Fast | Standard` (`workflow-state.md`'s Status section, `"track"` in
-`workflow-state.json`; absent/unset means `Standard` — no migration needed for in-flight
-features) is set once at Start (see Start Protocol step 6) for a small, well-defined change,
-and never changed automatically once Design begins. It changes exactly two things, both
-described in full where they apply:
-
-- `requirements-agent` runs its Fast Track entry mode instead of interviewing from scratch
-  (see `requirements-agent/SKILL.md`) — Requirements and Design are otherwise identical to
-  `Track: Standard`; Design still runs `design-author` + `research-consolidator` in full,
-  just against a smaller scope.
-- The Implementation Handoff (below) sends a single Slice Spec instead of a Design Spec, with
-  `Review handoff mode: skip` — no `tasks.md` is ever produced. The **inline status line** this
-  skill renders itself (see "Visible Progress" above) omits the `Tasks` segment for `Track:
-  Fast` (`Requirements [✓] → Design [✓] → Implementation [▶]`) rather than showing it as
-  permanently pending. The `agent-ux:ux-agent`-rendered phase-transition breadcrumb is a
-  separate contract owned by `agent-ux` (fixed 4-segment order, see its own `agents/ux-agent.md`)
-  and is unchanged by this feature — a known cosmetic mismatch (`Tasks` shows as pending, not
-  skipped, on that path) left for a future cross-plugin update rather than modified here.
-
-**Escape hatch**: if `requirements-agent` or `design-author` discovers mid-flight that the
-change is bigger than the initial classification assumed (real interface/architecture
-decisions, multiple subsystems touched), it says so plainly instead of forcing a thin
-requirement or design onto something that needs real interviewing. Flip `Track` to `Standard`
-at that point, tell the user why in one line, and continue via the Standard path from wherever
-the artifact currently stands (re-running Requirements' interview from what Fast Track already
-drafted, not from a blank slate). This is the mitigation for the accepted risk of
-auto-classification — it costs one course-correction, never a silent bad fit.
+`Track: Fast | Standard` is set once at Start for a small, well-defined change and changes how
+`requirements-agent` enters and how the Implementation Handoff is shaped (Slice Spec instead of
+Design Spec, no `tasks.md`). See `references/fast-track.md` for the full contract, including the
+escape hatch back to `Track: Standard`.
 
 ## Visible Progress (every phase-transition or status response)
 
@@ -144,65 +94,13 @@ extraction — only where it's documented moved).
 
 Before starting or continuing meaningful phase work, when agent-nelly is available (per the
 Availability Check defined in `workflow-manager/SKILL.md`), delegate to
-`agent-nelly:agent-nelly` for a holistic brief (nelly's four output sections: Intent,
-Relevant entries, Intent alignment, Written) instead of reading `~/.claude/sdd-memory/` files
-directly. If it flags an Intent-alignment concern, surface it to the user before proceeding —
-don't silently continue past a stated drift.
-
-**[Phase 1.2] Brief caching:** On workflow resume (`before-continue`), check if a cached nelly
-brief exists in `workflow-state.json`'s `nelly_brief_cache` field:
-- If cached brief is valid (Intent Hash matches + timestamp < 24h old): reuse cached brief, no fetch
-- If cached brief is invalid (Intent Hash mismatch OR timestamp stale): fetch fresh brief, update cache
-- If no cached brief: fetch fresh brief, cache it
-
-When the next phase is **Design**, include `surface relevant memory: true` in the nelly call so
-the brief's `Relevant entries` section is populated. `design-author` passes those entries to
-`research-consolidator` in place of the former separate pre-sweep nelly call — no second nelly
-spawn needed. For other phases, `surface relevant memory` is not required unless you have a
-specific reason to request it.
-
-This skill is the single fetch/delegation point, per continuous stretch of phase work, for the
-nelly brief **and** for `research-consolidator`/`spec-reviewer` findings still valid from earlier
-in that same stretch (e.g. a `research-consolidator` finding produced during Design). When a
-brief or finding has already been fetched this session and is still visible in context, reuse it
-rather than re-calling `agent-nelly:agent-nelly`/`research-consolidator`/`spec-reviewer`
-again for the same content. Re-fetch only when one of these triggers applies — identical rule,
-same three triggers, now scoped to a wider set of cached content, not a new or looser rule:
-
-1. No prior brief or finding is visible in context (a new session, or context was compacted
-   since the last fetch) **and** no persistent cache exists in `workflow-state.json`. If persistent
-   cache exists and is valid, reuse it instead of fetching. Applies identically to a
-   `research-consolidator`/`spec-reviewer` finding: if it isn't visible in context and no
-   persistent cache is valid, it isn't reusable.
-2. A rewind (Rewind Contract) or a Mid-Phase Change Classification happened since the cached
-   brief/finding was fetched — both live in `workflow-manager`'s `SKILL.md`. A rewind or
-   mid-phase change can invalidate a cached codebase finding exactly as it can invalidate a
-   brief, since either can change what "the current design/task" even means. **[Phase 1.2]** Also
-   invalidates persistent cache; clear `nelly_brief_cache` from `workflow-state.json`.
-3. `workflow-manager`'s `before-continue` Intent-alignment check flagged a divergence since the
-   cached brief/finding was fetched. When this fires, treat every cached item (brief and any
-   `research-consolidator`/`spec-reviewer` finding alike) as invalidated, not only the brief — an
-   Intent-level divergence is a signal about the whole stretch of work, not brief-specific.
-   **[Phase 1.2]** Clear persistent cache on Intent drift.
-
-None of the three triggers assumed brief-specific semantics that fail to hold for a
-`research-consolidator`/`spec-reviewer` finding — re-verified as part of extending this rule's
-scope, per design.md's mitigation for the correctness risk this generalization raises.
-
-When delegating into `workflow-manager` or `design-author`, pass along the
-already-fetched brief and any still-valid finding explicitly rather than letting any of them
-re-derive or re-fetch on their own; `design-author` checks for a still-valid
-cached finding before re-delegating to `research-consolidator`, mirroring how it already checks for a
-reusable agent-nelly brief. `workflow-manager`'s own `start`-time Goal-seeding call is a distinct-purpose, always-fresh
-call outside this dedup pool — see its Goal Field Contract section; it is never satisfied by
-reusing a cached brief. The `before-continue` Intent-alignment check no longer spawns a nelly
-subagent — it runs inline against the Intent already in session context (see
-`workflow-manager/SKILL.md`'s Goal Field Contract).
-
-**Memory write-back at phase boundaries**: at each `after-*` hook, this skill performs the
-nelly write-back call directly, following the contract defined in `workflow-manager`'s Lifecycle
-Hooks section (which owns the rule, not the call itself — see its ownership note). The
-criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agent-nelly" section.
+`agent-nelly:agent-nelly` for a holistic brief (Intent, Relevant entries, Intent alignment,
+Written) instead of reading `~/.claude/sdd-memory/` files directly. If it flags an
+Intent-alignment concern, surface it to the user before proceeding — don't silently continue
+past a stated drift. Reuse an already-fetched brief or subagent finding within the same
+continuous stretch of phase work rather than re-fetching. See `references/goal-aware-memory.md`
+for the full reuse/re-fetch trigger rules, brief-caching mechanics, and the memory write-back
+contract at phase boundaries.
 
 ## Start Protocol
 
@@ -221,15 +119,15 @@ criterion and graceful-degradation rules are defined in `INTEROP.md`'s "→ agen
    - `Intent Hash: <anchor>`
    - `Intent Alignment Status: unreviewed`
 5. Initialize `workflow-state.md` with `Current Phase: Requirements` and `recap.md` to match.
-6. **Fast Track classification** (see "Fast Track" below for the full contract): judge whether
-   this request is a small, well-defined change — a single behavior change, no new external
-   interface, no data migration, no cross-plugin `INTEROP.md` contract change, testable in one
-   sentence. This is a judgment call, the same kind already made in `workflow-manager`'s
-   Mid-Phase Change Classification, never a keyword regex. Skip this judgment and honor the
-   user's own words directly if they explicitly asked for the full workflow or explicitly asked
-   to fast-track. Set `Track: Fast` or `Track: Standard` in `workflow-state.md` accordingly. When
-   `Track: Fast`, tell the user in one line: "Fast-tracking this as a small change — say 'full
-   workflow' if you'd rather go through the full Requirements interview and task slicing."
+6. **Fast Track classification** (see `references/fast-track.md` for the full contract): judge
+   whether this request is a small, well-defined change — a single behavior change, no new
+   external interface, no data migration, no cross-plugin `INTEROP.md` contract change, testable
+   in one sentence. This is a judgment call, never a keyword regex. Skip this judgment and honor
+   the user's own words directly if they explicitly asked for the full workflow or explicitly
+   asked to fast-track. Set `Track: Fast` or `Track: Standard` in `workflow-state.md`
+   accordingly. When `Track: Fast`, tell the user in one line: "Fast-tracking this as a small
+   change — say 'full workflow' if you'd rather go through the full Requirements interview and
+   task slicing."
 7. Route into `requirements-agent`: it interviews from scratch when the input is vague, or
    reviews-and-rewrites when the user hands over an existing ticket/PRD/draft, or — when
    `Track: Fast` — drafts and self-approves a minimal requirement directly (its own Fast Track
@@ -337,156 +235,25 @@ Delegation rules:
 
 ## Implementation Handoff (Phase 2+3 revised)
 
-**[Phase 2+3]** Once Design is approved and implementation is requested, this skill's job is to
-hand off to `agent-tdd` for implementation — a single, one-directional handoff, not an
-orchestrated multi-stage loop. `Track: Standard` sends a **Design Spec** (steps below); `Track:
-Fast` sends a single **Slice Spec** instead — see "Fast Track: Slice Spec handoff" right after
-these steps for that branch in full. Both are one-directional handoffs with no orchestrated multi-stage
-loop; only the spec shape and `agent-tdd` mode differ.
-
-### Standard: Design Spec handoff
-
-See `INTEROP.md` at the repo root for the exact Design Spec contract (requirements.md,
-design.md, research/cache.md, pre-fetched file summaries, recap.md).
-
-1. Extract file list from `design.md` + `research/cache.md` (all files mentioned in Research Basis
-   and task_findings sections).
-2. **Subtract, then query.** `research/cache.md`'s own `file_summaries` field (produced fresh by
-   `research-consolidator` earlier in this same Design phase — see `design-author/SKILL.md`'s
-   Research First section) already covers every file that pass touched. Querying
-   `agent-nelly:agent-nelly` for those same files again would bundle the same summary into the
-   Design Spec twice — once fresh from this session's research, once again from nelly's cache.
-   Remove those files from the extracted list before querying, so the nelly call only asks about
-   files research-consolidator's pass didn't cover (files named in requirements/design but never
-   deep-read, or adjacent files worth knowing about from earlier features). If the resulting list
-   is empty, skip the nelly query entirely — there's nothing left to ask about.
-   - Pass the reduced file list to agent-nelly (if available)
-   - Receive cache hits (with git_hash validation) + cache misses
-   - Bundle cache hits into Design Spec handoff
-3. Construct **Design Spec** with:
-   - Full `requirements.md` (approved)
-   - Full `design.md` (approved, with Research Basis)
-   - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
-   - Pre-fetched file summaries from agent-nelly (if available)
-   - `recap.md`, **summarized, not pasted in full** — unlike the other fields above, `recap.md`
-     grows unbounded across a long-running feature's phases, and `agent-TDD` only needs enough of
-     it to inform implementation, not a full phase-by-phase history. Extract just: the current
-     summary, any open risks or blockers, and the Goal-alignment note — a few sentences, not the
-     whole file. If `recap.md` is already short (a new feature, few phases so far), passing it in
-     full is fine; the summarization step exists for the case where it's grown large, not as a
-     blanket rule to always compress it.
-4. Before spawning, check the session's `<system-reminder>` agent-types block for
-   `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
-   is not installed in this session — install it before requesting implementation") rather than
-   attempting the work internally.
-5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool). If this spawn
-   fails at the tool-call layer itself (a `PreToolUse` schema-validation error on the `Agent`
-   call, not an error from the spawned agent) and reproduces identically on retry and for an
-   unrelated agent type in the same session, this is the harness `Agent`-spawn bug, not an
-   installation or Design Spec problem — see `INTEROP.md`'s "Fallback — Direct Implementation
-   (harness `Agent`-spawn failure)" section for the Detection conditions (confirm all of them
-   before falling back — never on a single failure) and the fallback loop: invoke
-   `agent-tdd:design-spec-direct` via the `Skill` tool (never `Agent` — that skill exists
-   because `Skill` calls aren't subject to this bug), driving its `plan` → per-slice
-   `test-author`/`slice`/review/`refactor` → `summary` loop yourself instead of trusting an
-   isolated `agent-TDD` spawn to run it unsupervised.
-6. **[Added 2026-09-16] Test-author pause check** — after the spawn returns, check
-   `workflow-state.json` for `test_author_pending` (written by `hooks/high_risk_reviewer.py`
-   when `agent-TDD`'s report is at `slicing_complete` with one or more high-risk slices — see
-   its **High-Risk Slices** field, and `agent-tdd/INTEROP.md`'s "Design Spec Mode" section for
-   the full contract). If set:
-   - Spawn `agent-tdd:test-author` once per slice named in `test_author_pending.slices`,
-     passing that slice's Task description/Test Intent/Data Contracts (per
-     `agent-tdd/INTEROP.md`'s existing test-author field-subset rule — Task description, Test
-     Intent, Data Contracts And Interfaces only).
-   - Bundle every returned test into one resume message.
-   - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results.
-   - Clear `test_author_pending` from `workflow-state.json` (mirrors `clear_rollback_pending`'s
-     existing pattern in `hooks/sdd_state.py`).
-   - This is the **one** scoped exception to step 7 below — resuming here, for this specific
-     reason, is expected. Nothing else about the one-directional handoff changes: this skill
-     still never resumes `agent-TDD` for an ordinary per-slice Green→Refactor review pause, only
-     for this single upfront test-author gate before per-slice implementation begins.
-7. Take its returned handoff report (the resumed one, if step 6 applied; the original one
-   otherwise):
-   - If report indicates research validation escalation: pause and surface reason (user re-enters
-     to address, then agent-isdd continues via before-continue hook)
-   - If report indicates slicing blockers: pause with specific blocker
-   - If report indicates implementation started: log handoff in `recap.md`, set
-     `Workflow Status: Complete`
-8. Do not resume, monitor, or drive `agent-TDD` past step 6's single test-author pause —
-   anything after that (its own per-slice review pauses, or implementation) is outside this
-   skill's scope, same as before this change.
-9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
-   `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
-   batch. One call only — no re-fetch of the brief needed.
-
-### Fast Track: Slice Spec handoff
-
-`Track: Fast` replaces the Design Spec steps above entirely — no task-slicing, no test-author
-gate (that gate exists specifically for a Design Spec's high-risk multi-slice case), no
-mandatory post-Green review pause:
-
-1. Use the `agent-tdd:slice-spec` skill to assemble a single Slice Spec straight from the
-   approved `design.md` (and `requirements.md`) — this skill already exists for exactly this:
-   gathering and validating the fields a Slice Spec needs and emitting a correctly formatted
-   spawn prompt block. No `tasks.md` is created; the Design checklist's "Ready to move to
-   Tasks" item is satisfied instead as "ready for direct Slice Spec handoff" (see
-   `design-author/SKILL.md`).
-2. In that Slice Spec, explicitly set **Review handoff mode: skip** — `Track: Fast`'s whole
-   point is momentum, so the mandatory pause after Green does not apply here. (A caller can
-   still re-review afterward via the standalone `code-reviewer` skill if it wants to; this just
-   means `agent-TDD` doesn't block on it.)
-3. Same session/availability check as step 4 above: confirm `agent-tdd:agent-TDD` is in the
-   session's agent-types listing before spawning; same harness-bug fallback as step 5 above if
-   the spawn itself fails at the tool-call layer.
-4. **If the Slice Spec's Risk Tier is `high-risk`**: this is a *caller-driven upfront* split,
-   not the Standard path's hook-driven mid-flight resume (that pattern —
-   `hooks/high_risk_reviewer.py` setting `test_author_pending` after `agent-TDD`'s own
-   slicing-complete report — belongs to Design Spec Mode's task-slicer path and never fires for
-   a Slice Spec Mode spawn). Per `agent-tdd/INTEROP.md`'s "Two-part invocation" section: spawn
-   `agent-tdd:test-author` first, passing only Task description/Test Intent/Data Contracts And
-   Interfaces from the Slice Spec, take its returned test file(s) and failure confirmation, and
-   fold that into the Slice Spec (telling `agent-TDD` not to write its own test for that
-   behavior) before spawning it. For `standard` Risk Tier, skip straight to the next step.
-5. Spawn `agent-tdd:agent-TDD` with the Slice Spec (Slice Spec Mode, single invocation).
-6. Take its returned handoff report: pause and surface a research-gap flag if raised (same as
-   Standard step 7's first bullet); otherwise log the handoff in `recap.md` and set
-   `Workflow Status: Complete`. No step 6/8 equivalent from the Standard path applies here —
-   step 4 already handled the one high-risk case upfront, so there's no post-hoc
-   test-author-pause-then-resume cycle to manage.
-7. Same as Standard step 9: forward non-empty Handoff Facts to `agent-nelly:agent-nelly` if
-   available.
+Once Design is approved and implementation is requested, this skill's job is to hand off to
+`agent-tdd` for implementation — a single, one-directional handoff, not an orchestrated
+multi-stage loop. `Track: Standard` sends a **Design Spec**; `Track: Fast` sends a single
+**Slice Spec** instead, with `Review handoff mode: skip`. Both are one-directional handoffs with
+no orchestrated multi-stage loop; only the spec shape and `agent-tdd` mode differ. See
+`references/implementation-handoff.md` for the full contract: Design Spec construction (file
+list extraction, the `agent-nelly` subtract-then-query step, the recap summarization rule),
+Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
+fallback, the test-author pause/resume steps, and the Handoff Facts write-back.
 
 ## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
 
-**Corrected 2026-09-16**: this section previously described an automatic invoke-classify-advance
-pipeline that was never implemented — see `INTEROP.md`'s "Auto Code-Reviewer Invocation" section
-for the full correction. What actually exists:
-
 After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a Risk Tier
 (`standard` or `high-risk`). On each `agent-tdd` `SubagentStop`, the `high_risk_reviewer` hook
-tracks high-risk phases (and standard phases touching a high-risk file path) in
-`workflow-state.json`'s `code_reviewer_tracking`, and surfaces a passive reminder listing which
-high-risk phases haven't been marked reviewed yet — no severity classification, no automatic
-invocation, no auto-resume. Running code-reviewer on those phases, resolving findings, and
-resuming `agent-tdd` all go through the ordinary manual review pause (see "The mandatory review
-pause" in `agent-tdd/INTEROP.md` and the "Code-Review Gate" section in this plugin's own
-`INTEROP.md`) — this checkpoint only helps you not forget a high-risk slice, it doesn't drive
-the review itself.
-
-**Configuration** (workflow-state.json):
-```json
-{
-  "code_reviewer_tracking": {
-    "high_risk_phases": ["Phase 1", "Phase 2", ...],
-    "reviewed_phases": [...]
-  }
-}
-```
-
-See `INTEROP.md`'s "Auto Code-Reviewer Invocation" section for the full correction and the
-dead-code inventory it points to.
+tracks high-risk phases (and standard phases touching a high-risk file path) and surfaces a
+passive reminder — no automatic invocation or auto-resume. See
+`references/code-reviewer-checkpoint.md` for the full contract, the tracking config shape, and
+`INTEROP.md`'s "Auto Code-Reviewer Invocation" section for the historical correction this
+supersedes.
 
 ## Requirements Gate
 

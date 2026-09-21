@@ -58,7 +58,7 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
   3. If hashes match: `Intent Alignment Status = aligned`, no pause
   4. If hashes differ: `Intent Alignment Status = drift`, pause with reason "Intent has changed; review and confirm direction"
   5. If no Intent available: skip check (graceful degradation)
-  
+
   If a clear divergence is detected, it is pause-worthy (see `pause` in Action Rules), not
   something to note and continue past.
 - `workflow-state.md`'s `Goal` field is authoritative for this feature once seeded — the
@@ -77,20 +77,11 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
 
 ### Track Field Contract
 
-- Source of truth: `workflow-state.md`'s `Track` field (`Fast | Standard`), mirrored to
-  `workflow-state.json`'s `track`. Absent/unset means `Standard` — no migration needed for
-  features started before this field existed.
-- Set once, at Start, by `spec-driven-development`'s Fast Track classification (see its own
-  SKILL.md) — `workflow-manager` never sets or classifies `Track` itself, only scaffolds and
-  persists whatever `spec-driven-development` decided, same division of responsibility as the
-  `Goal` field above.
-- Can flip `Fast` → `Standard` mid-flight via the Fast Track escape hatch (`requirements-agent`
-  or `design-author` reporting the change is bigger than assumed); never the reverse — a
-  workflow that started `Standard` stays `Standard`.
-- `Track: Fast` means no `tasks/tasks.md` is ever scaffolded or written for this feature (see
-  Scaffolding below) and the Implementation Handoff sends a Slice Spec, not a Design Spec — this
-  changes what `spec-driven-development` does at handoff, not anything `workflow-manager` itself
-  evaluates in Phase Pass/Fail Rules (Requirements and Design gates are identical either way).
+`Track: Fast | Standard` is set once at Start by `spec-driven-development`'s Fast Track
+classification and never set or classified by this skill itself — only scaffolded and persisted.
+`Track: Fast` means no `tasks/tasks.md` is ever produced and the Implementation Handoff sends a
+Slice Spec instead of a Design Spec. See `references/track-and-availability-details.md` for the
+full contract, including the mid-flight escape hatch back to `Standard`.
 
 ### Availability Check
 
@@ -102,42 +93,16 @@ route to `before-requirements` (see "Action Rules" and "Start Protocol").
 - If unavailable, surface one plain notice to the user and continue without the Intent-alignment
   check — graceful degradation, never a blocking condition.
 
-**Self-healing on a stale cache (2026-09-16).** The listing above is a point-in-time snapshot
-captured at session start — it can be stale relative to the actual installed plugin (a plugin
-updated or removed after this session began still shows its old state). A hook cannot backstop
-this: `agent-nelly:agent-nelly` failing to spawn because the type doesn't actually resolve is a
-routing failure that occurs before the model's tool call is even considered an invocation
-attempt, so no `PreToolUse`/`PostToolUse`/`PostToolUseFailure` hook ever fires for it (confirmed
-against Claude Code's own hooks documentation and live-tested — see the removed
-`hooks/nelly_spawn_failure.py`, which was built as exactly this backstop and never once fired).
-The only place that genuinely sees this failure is the calling skill itself, in the same turn it
-attempted the spawn — the tool call returns an "Agent type not found" error directly into this
-skill's own context. When that happens for `agent-nelly:agent-nelly` specifically, immediately
-correct `agent_nelly_available` to `false` in `workflow-state.json` before proceeding, rather
-than leaving the stale cached `true` for a later step to trust and fail against again.
+See `references/track-and-availability-details.md` for the self-healing rule that corrects a
+stale cached `true` when a spawn attempt reveals `agent-nelly:agent-nelly` no longer actually
+resolves.
 
 ### `workflow-state.md` Vs `workflow-state.json` — Write Responsibilities
 
-`workflow-state.md` is the model-written file for all phase state. `workflow-state.json` has two
-tiers of fields with different owners:
-
-- **Mirrored fields** (`current_phase`, `phase_state`, `pause_reason`,
-  `implementation_requested`): written exclusively by `hooks/post_write_check.py` after every
-  `workflow-state.md` write — never by the model directly. `workflow-state.md` is always
-  authoritative when they disagree.
-- **JSON-only fields** (`agent_nelly_available`, `hook_history`, `rollback_pending`,
-  `recap_path`, `blocked_fields`, …): written directly by the model or by whichever hook owns
-  them (e.g. `subagent_report.py` for `rollback_pending`). The mirror hook never touches these.
-
-On `start`, create both files from the canonical templates; after that, only `workflow-state.md`
-needs updating for phase-state changes — the hook handles the rest.
-
-`hooks/post_write_check.py` also mirrors the same four fields into a lightweight
-`.sdd-state.json` at the project root on every `workflow-state.md` write, so other tools can
-cheaply check current phase without parsing markdown or resolving
-`~/.claude/sdd-memory/<project-slug>/`. Plain field mirror, no `hook_history` of its own; the
-memory-dir `workflow-state.json` stays the authoritative, audited copy. Entirely hook-owned —
-nothing here needs to write it directly.
+`workflow-state.md` is the model-written file for all phase state; `workflow-state.json` splits
+into mirrored fields (written only by `hooks/post_write_check.py`) and JSON-only fields (written
+directly by the model or their owning hook). See `references/state-write-responsibilities.md`
+for the full field-by-field breakdown.
 
 ## Scaffolding (folded from the former `artifact-scaffolder` skill)
 
@@ -216,7 +181,7 @@ write-back already covers (do not duplicate).
 
 | Hook | Evaluates / does | Notes |
 |---|---|---|
-| `before-continue` | Attempt to resolve the active feature folder and read `workflow-state.md`. If no existing workflow state is found, route to `start` (via `before-requirements`). If state exists: check for pending rollback request first (see "Rollback Request Intake" — takes priority over everything else here), **[Phase 1.1]** perform the inline Intent-alignment check (Goal Field Contract; no nelly spawn; compare Intent Hash from session context against workflow-state.md's stored hash for drift), **[Phase 1.2]** check cached nelly brief validity (Intent Hash match + timestamp < 24h; if invalid, clear cache), detect/repair stale or contradictory artifacts, decide the next action. | No nelly write-back at this hook — read-only w.r.t. phase decisions. **[Phase 1.1]** Update `Intent Alignment Status` to `aligned` or `drift` based on hash check. **[Phase 1.2]** Clear `nelly_brief_cache` if Intent drift detected or timestamp stale. |
+| `before-continue` | Attempt to resolve the active feature folder and read `workflow-state.md`. If no existing workflow state is found, route to `start` (via `before-requirements`). If state exists: check for pending rollback request first (see `references/rewind-and-rollback.md`'s "Rollback Request Intake" — takes priority over everything else here), **[Phase 1.1]** perform the inline Intent-alignment check (Goal Field Contract; no nelly spawn; compare Intent Hash from session context against workflow-state.md's stored hash for drift), **[Phase 1.2]** check cached nelly brief validity (Intent Hash match + timestamp < 24h; if invalid, clear cache), detect/repair stale or contradictory artifacts (see `references/state-repair.md`), decide the next action. | No nelly write-back at this hook — read-only w.r.t. phase decisions. **[Phase 1.1]** Update `Intent Alignment Status` to `aligned` or `drift` based on hash check. **[Phase 1.2]** Clear `nelly_brief_cache` if Intent drift detected or timestamp stale. |
 | `before-requirements` | Ensure artifacts exist (scaffold if not), initialize/repair `workflow-state.md` incl. its `Goal` field (seeded via `agent-nelly:agent-nelly` if available), decide `requirements-agent`'s entry mode (author vs. review), confirm no invalid earlier phase is skipped. | — |
 | `after-requirements` | Evaluate the `Requirements` checklist, decide advance-to-Design vs. pause. | Facts worth persisting: interface assumptions confirmed/denied during the interview, constraint conflicts found, non-goals that turned out load-bearing. |
 | `before-design` | Confirm Requirements approved, no blocking gap remains, no confirmation checkpoint open, enter native plan mode (see "Native Plan Mode Gate"). | — |
@@ -278,77 +243,19 @@ confirmation:
 
 ## State Repair Rules
 
-Treat `workflow-state.md` as stale when: a later phase file has a newer `Last Updated` with an
-approved state, the recorded current phase is earlier than the newest approved phase, the stored
-pause reason doesn't match the actual blocker, or the stored next action doesn't match the
-earliest incomplete phase. When repairing: prefer the newest internally consistent artifacts,
-update `workflow-state.md`, note the repair in `recap.md`, never silently discard unresolved
-contradictions, keep phase pass/fail status aligned with the repaired state.
+Treat `workflow-state.md` as stale when a later phase file or the stored pause reason/next action
+disagrees with the newest internally consistent artifacts — see `references/state-repair.md` for
+the full staleness heuristics and repair procedure.
 
-A `workflow-state.json` missing the `agent_nelly_available` field (an in-flight feature whose
-file predates it) is not a staleness/error condition — treat it as "not yet checked" and let the
-next `before-continue` hook populate it via the Availability Check.
+## Rewind Contract, Rollback Request Intake, Mid-Phase Change Classification
 
-## Rewind Contract
-
-`commands/isdd-rewind.md` delegates all rewind state-mutation logic to this contract.
-
-A rewind request names a target phase (`Requirements`, `Design`, or `Tasks`) earlier than or
-equal to the current `Current Phase`. On a valid rewind:
-
-- Set `Current Phase` (both files) backward to the target phase.
-- Set `Workflow Status`/`phase_state` for re-entry (typically `In Progress`); clear
-  `Pause Reason`/`pause_reason` only if the pause was specific to the phase being left.
-- Do not clear, reset, or overwrite the `Status`/blocked fields of any later phase — rewinding
-  only moves the *current* pointer, never retroactively resolves later-phase state.
-- Log the rewind (from, to, actor, timestamp) in `recap.md` and as a `hook_history` entry.
-- If the target is later than `Current Phase` or doesn't exist, refuse and pause with a concrete
-  reason.
-
-## Rollback Request Intake
-
-Part of `before-continue` (see above) — checked first, before anything else in that hook.
-
-A rollback request reaches agent-isdd two ways, per `INTEROP.md`'s "← agent-tdd / code-reviewer
-(rollback request)" section: automatically, via `rollback_pending` in `workflow-state.json`
-(written by `hooks/subagent_report.py` when it recognizes the marker on `agent-tdd`'s initial
-spawn report), or via human-relay, when the marker text appears directly in the user's message
-re-entering agent-isdd.
-
-On either form:
-
-- Determine the target phase from the request. If it doesn't clearly map to what changed, default
-  to the more conservative (earlier) phase rather than guessing narrowly.
-- Invoke the existing Rewind Contract at that target phase — the only mutation path; don't
-  duplicate its state-mutation logic here.
-- Clear `rollback_pending` (via `sdd_state.clear_rollback_pending`) once the rewind is applied.
-- Log the event in `recap.md` distinctly from a routine rewind — e.g. "Rollback
-  (mid-implementation): <from> → <to>, reason: <reason>" rather than the Rewind Contract's plain
-  "Rewind: <from> → <to>" phrasing — so a later reader can tell a rollback (triggered by an
-  implementation-side finding) apart from a routine user-initiated rewind.
-- Applies even when `Workflow Status` is `Complete` — `before-continue` is the standard re-entry
-  point regardless of prior status, so a rollback request reopens the workflow at the target phase
-  rather than requiring manual state repair.
-- **Loop prevention**: if the same target phase is requested twice in a row, pause and surface the
-  repetition to the user rather than rewinding again automatically.
-
-## Mid-Phase Change Classification
-
-When the user raises a new idea or a differing task while Design or Tasks is the active phase,
-classify the change before reacting, reusing the Rewind Contract for its only mutation path:
-
-- Does satisfying the change require editing an **already-approved earlier phase's own
-  artifact** — a `requirements.md` EARS/constraint/non-goal for a Design-phase idea, or a
-  `design.md` Architecture/Data-Contracts-And-Interfaces section for a Tasks-phase idea? →
-  **earlier-phase invalidation** → invoke the Rewind Contract to that phase.
-- Does it only require editing the **current phase's own artifact**, staying inside what that
-  phase already owns? → **current-phase refinement** → redo the current phase in place; no
-  `Current Phase` change.
-- If ambiguous, ask exactly one narrow question: "Does this change *what* we're building (would
-  require editing `requirements.md`) or *how* we're building it (stays inside
-  `design.md`/`tasks.md`)?"
-- Always record the classification, its reasoning, and the branch taken in `recap.md`, so a later
-  reader can see why a mid-phase change did or didn't trigger a rewind.
+`commands/isdd-rewind.md` delegates all rewind state-mutation logic here. A rewind request names
+a target phase (`Requirements`, `Design`, or `Tasks`) at or before the current phase; a rollback
+request (from `agent-tdd`/`code-reviewer`, or human-relayed) reopens a `Complete` workflow at a
+target phase; a mid-phase idea gets classified as either an earlier-phase invalidation (rewind)
+or a current-phase refinement (no phase change) before reacting. See
+`references/rewind-and-rollback.md` for the full contract, including loop prevention and the
+distinct `recap.md` logging conventions for a rollback vs. a routine rewind.
 
 ## Task Tracker Sync
 

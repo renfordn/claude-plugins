@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: Fast, token-efficient independent verification of a design/plan document before implementation — a scoped, tiered alternative to the built-in Plan subagent. Use when a design doc's claims need checking against the actual codebase before committing to it. Trigger on "verify this design", "sanity-check my plan", "review this design doc", "poke holes in this design", or when about to write design.md/tasks.md and wanting independent grounding first. NOT for open-ended "help me design X from scratch" — this only verifies claims in an already-written doc against code.
+description: Fast, token-efficient verification of a design/plan doc before implementation — a scoped, tiered alternative to the built-in Plan subagent. Use to check a doc's claims against the actual codebase before committing to it. Trigger on "verify this design", "sanity-check my plan", "review this design doc", "poke holes in this design", or before writing design.md/tasks.md for independent grounding. NOT for open-ended "help me design X from scratch" — only verifies claims in an existing doc.
 ---
 
 # Plan Reviewer
