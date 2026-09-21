@@ -1,6 +1,6 @@
 {
   "name": "agent-cache-plugin",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "Token caching and management plugin for improving token efficiency via intelligent prompt caching and context deduplication",
   "author": {
     "name": "Jay Nelson"
