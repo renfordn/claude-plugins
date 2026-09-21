@@ -13,21 +13,5 @@
     "agent",
     "claude-code",
     "optimization"
-  ],
-  "hooks": [
-    {
-      "event": "PreToolUse",
-      "script": "hooks/pre-agent-spawn.js",
-      "matcher": "Agent"
-    },
-    {
-      "event": "PostToolUse",
-      "script": "hooks/post-agent-completion.js",
-      "matcher": "Agent"
-    },
-    {
-      "event": "SessionEnd",
-      "script": "hooks/cache-invalidation.js"
-    }
   ]
 }

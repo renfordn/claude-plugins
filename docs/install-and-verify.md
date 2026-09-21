@@ -13,6 +13,17 @@ standalone or in any combination.
 
 ---
 
+## Add the Marketplace
+
+All 7 plugins are published from one marketplace, `renfordn-plugins`, backed by the
+`renfordn/claude-plugins` GitHub repo. Add it once, before any `claude plugin install`
+below — every `@renfordn-plugins` install fails with an unknown-marketplace error until
+this step has run:
+
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+```
+
 ## Install All 7 Plugins
 
 Install in dependency order (the first five are independent; `agent-cache-plugin` and
@@ -68,7 +79,7 @@ confirmation (or exits 0) if the plugin is wired up properly.
 ### agent-nelly
 
 ```bash
-claude --print "Use agent-nelly:nelly-orchestrator to fetch the project Intent. Just print the Intent line."
+claude --print "Use the agent-nelly:agent-nelly subagent to fetch the project Intent. Just print the Intent line."
 ```
 
 Expected: a short response mentioning the project Intent (may be "not yet captured" on a
@@ -76,40 +87,64 @@ fresh machine — that is correct).
 
 ### agent-ux
 
+`agent-ux` has no slash command or skill of its own — it's a subagent (`agent-ux:ux-agent`)
+that other plugins delegate rendering to. Confirm it installed correctly instead:
+
 ```bash
-claude --print "/ux-agent help"
+claude plugin details agent-ux@renfordn-plugins
 ```
 
-Expected: a brief description of the agent-ux skill.
+Expected: a component inventory listing the `ux-agent` agent.
 
 ### agent-tdd
 
+`agent-tdd` is a subagent (`agent-tdd:agent-TDD`) plus two skills (`design-spec-direct`,
+`slice-spec`), not a top-level slash command:
+
 ```bash
-claude --print "/tdd help"
+claude plugin details agent-tdd@renfordn-plugins
 ```
 
-Expected: a brief description of the TDD workflow.
+Expected: a component inventory listing the `agent-TDD` and `test-author` agents and the
+`design-spec-direct` / `slice-spec` skills.
 
 ### agent-isdd
 
 ```bash
-claude --print "/isdd help"
+claude --print "/isdd-status"
 ```
 
-Expected: a brief description of the ISDD / spec-driven-development workflow.
+Expected: a short report of any active spec-driven-development workflow in the current
+project (or a message that none is active — that is correct on a fresh project). This is
+read-only and won't start a new workflow; use `/isdd <feature description>` for that once
+you're ready.
 
 ### code-reviewer
 
 ```bash
-claude --print "/code-review help"
+claude --print "Use the code-reviewer skill to list its four evidence tiers."
 ```
 
-Expected: a brief description of the code-reviewer skill with the four review levels.
+Expected: a brief description naming tier-1 through tier-5 evidence tiers. (Claude Code's
+own built-in `/code-review` command is a separate thing — this plugin's skill is
+`code-reviewer:code-reviewer`, invoked by name or by asking for a code review.)
 
 ### agent-cache-plugin
 
+`claude plugin install` does not run `npm install` for you, and `agent-cache-plugin` needs
+its native `better-sqlite3` dependency built before its hooks or CLI can do anything other
+than fail safe. Do this once, right after installing:
+
 ```bash
-claude plugin exec agent-cache-plugin -- status
+CACHE_PLUGIN_DIR=$(find ~/.claude/plugins/cache/renfordn-plugins/agent-cache-plugin \
+  -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+cd "$CACHE_PLUGIN_DIR" && npm install
+```
+
+Then smoke-test it:
+
+```bash
+node "$CACHE_PLUGIN_DIR/scripts/cache-command.js" status
 ```
 
 Expected: exit code 0 and a status summary (cache may be empty on first run — that is
@@ -178,10 +213,8 @@ sudo apt-get install -y build-essential python3
 ```
 Then re-install the plugin.
 
-**Verify the build succeeded:**
-```bash
-claude plugin exec agent-cache-plugin -- status
-```
+**Verify the build succeeded:** re-run the `npm install` and `cache-status` steps in the
+[agent-cache-plugin smoke test](#agent-cache-plugin) above.
 
 If the build still fails, check that your Node.js version is ≥ 18 (`node --version`) and
 that npm can reach the internet to download `better-sqlite3` binaries for your platform.
@@ -232,11 +265,13 @@ The install command is idempotent — re-running it replaces a broken install cl
 
 Run this checklist on a clean machine before marking the release complete:
 
+- [ ] `claude plugin marketplace add renfordn/claude-plugins` succeeds
 - [ ] All 7 plugins install without errors
 - [ ] `claude plugin list` shows all 7 with `Status: ✔ enabled`
 - [ ] `agent-nelly` smoke test returns a response (even "not yet captured")
-- [ ] `code-reviewer` smoke test returns level descriptions
-- [ ] `agent-cache-plugin` status exits 0
+- [ ] `agent-ux` and `agent-tdd` `claude plugin details` calls list their agents/skills
+- [ ] `code-reviewer` smoke test returns tier descriptions
+- [ ] `agent-cache-plugin`'s `npm install` succeeds and `cache-status` exits 0
 - [ ] `plugin-orchestrator` appears in `claude mcp list`
+- [ ] `/isdd-status` responds (no active workflow, on a fresh project)
 - [ ] `/isdd Your feature` starts an ISDD workflow
-- [ ] `/tdd` and `/code-review` respond with help text
