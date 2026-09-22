@@ -458,17 +458,20 @@ class CapabilityMap:
                 }
             },
             "agent-cache-plugin": {
-                "phase_state_cache": {
-                    "description": "Cache workflow phase state and render token-optimized breadcrumbs",
-                    "pattern": "Phase Transition Caching",
+                # Automatic PreToolUse/PostToolUse hooks on the Agent tool; consumes Claude
+                # Code's own hook payload, never a sibling-plugin handoff. Replaced the
+                # never-implemented phase_state_cache HTTP contract (2026-09-22).
+                "agent_output_cache": {
+                    "description": "Automatically cache Agent tool outputs via PostToolUse hook",
+                    "pattern": "Automatic Agent Output Caching",
                     "consumes": {
-                        "prompt": "string",
+                        "toolName": "string",
+                        "input": "object",
                         "output": "object",
-                        "metadata": "object"
+                        "sessionId": "string"
                     },
                     "produces": {
-                        "cache_hit": "boolean",
-                        "cached_state": "object"
+                        "additionalContext": "string"
                     }
                 }
             },

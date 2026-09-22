@@ -1,6 +1,33 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-22
+
+- **Feat**: `/cache-config --set` now actually works and persists. `CacheManager` gained a
+  `config` table with `getConfig()` / `configure()` / `resetConfig()` for the four real settings
+  (`maxEntries`, `defaultTTL`, `relevanceThreshold`, `stalenessThreshold`); `maxEntries` and
+  `defaultTTL` apply to the live instance, and `agent-cache-orchestrator` reads the two
+  thresholds from the persisted config at construction. Retired the never-implemented `maxSize`
+  and `evictionPolicy` keys (the SQLite backend is LRU-by-count and does not track bytes).
+- **Fix**: `/cache-config --set KEY VALUE` was unreachable — the CLI parsed it as an array the
+  command never read. `--reset [KEY]`, `--get KEY`, and combined `--list --validate` now work.
+- **Fix**: `/cache-clear` called Map-era APIs (`entry.id`, `entry.metadata.timestamp`,
+  `clear().count`, `cacheSize`) that don't exist on the SQLite backend, so every filtered clear
+  either deleted nothing or reported NaN. Rewritten on a new `CacheManager.invalidateWhere()`
+  (bulk delete sharing `search()`'s filters, which gained `taskSlug`, `olderThan`, `before`,
+  `includeExpired`). Supports `--agent`, `--task`, `--older-than`, `--before`, `--pattern`,
+  `--id`, `--tags`, and `--all --yes`; `--all` alone asks for confirmation instead of deleting.
+- **Fix**: `scripts/cache-command.js` printed `result.output` (never set) and treated
+  `status: 'error'` as success — errors now go to stderr with exit 1 and reports print.
+- **Tests**: `tests/command-integration.test.js` runs against a temp `CLAUDE_PLUGIN_DATA` (it
+  previously ran `clear --all --yes` against the developer's real cache) and asserts real DB
+  mutations; new `sqlite-cache` unit tests for config persistence and `invalidateWhere()`.
+- **Docs**: `STRUCTURE.md` → "Capabilities" now advertises the plugin's one real cross-plugin
+  capability, `agent_output_cache` (the automatic `Agent`-tool hooks), instead of the
+  never-built `phase_state_cache` HTTP contract; `commands/cache-config.md` and
+  `cache-clear.md` rewritten to match what the commands do; `docs/ROADMAP.md` gained the
+  sibling-plugin key/value transport idea.
+
 ## [2.0.10] - 2026-09-22
 
 - **Docs**: `STRUCTURE.md`'s `## Capabilities` section extended with this plugin's full real

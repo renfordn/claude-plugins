@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS cache (
 CREATE INDEX IF NOT EXISTS idx_cache_accessed ON cache(accessed_at);
 CREATE INDEX IF NOT EXISTS idx_cache_created  ON cache(created_at);
 
+CREATE TABLE IF NOT EXISTS config (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS cache_events (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   cache_key   TEXT,

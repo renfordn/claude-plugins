@@ -202,7 +202,7 @@ class InteropDriftValidator:
                 "agent-tdd": "design_spec_slicing",
                 "code-reviewer": "code_review",
                 "agent-nelly": "memory_brief",
-                "agent-cache-plugin": "phase_state_cache",
+                "agent-cache-plugin": "agent_output_cache",
                 "agent-ux": "render_event"
             }
 
@@ -241,8 +241,10 @@ class InteropDriftValidator:
                     for field_name, old_type, new_type in mismatches:
                         error_msg += f"    - {field_name}: {old_type} → {new_type}\n"
 
-                # Check if interop_parser.py is also being updated
-                if "interop_parser.py" not in staged_files:
+                # Check if interop_parser.py is also being updated. Staged paths are
+                # repo-relative (plugin-harness/orchestrator/interop_parser.py), so match on
+                # basename rather than exact list membership.
+                if not any(os.path.basename(f) == "interop_parser.py" for f in staged_files):
                     error_msg += (
                         f"\n  ACTION: Validation code (interop_parser.py) not staged.\n"
                         f"  Update interop_parser.py to reflect these schema changes.\n"

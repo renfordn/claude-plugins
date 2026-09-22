@@ -1,294 +1,205 @@
 /**
  * Command: /cache-config
  *
- * Configure cache settings and parameters.
- * Usage: /cache-config [--get | --set <key> <value>] [--reset] [--list]
+ * View and change the four persisted cache settings (see sqlite-cache CONFIG_KEYS).
+ * Usage: /cache-config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
+ *
+ * Settings live in the cache DB's `config` table, so a change made here is picked up by the
+ * next hook or CLI process. There is no maxSize/evictionPolicy: the SQLite backend is
+ * LRU-by-maxEntries only and does not track bytes.
  */
 
-const cacheManagement = require('../skills/sqlite-cache');
-const cacheOrchestrator = require('../agents/agent-cache-orchestrator');
+const sqliteCache = require('../skills/sqlite-cache');
+const metricsTracker = require('../skills/metrics-tracker');
+
+const { CONFIG_KEYS } = sqliteCache;
+const VALID_KEYS = Object.keys(CONFIG_KEYS);
+
+const DURATION_KEYS = new Set(['defaultTTL', 'stalenessThreshold']);
+const PERCENT_KEYS = new Set(['relevanceThreshold']);
 
 class CacheConfigCommand {
-  constructor() {
-    this.cache = cacheManagement.getSingleton();
-    this.orchestrator = cacheOrchestrator.create({
-      cache: this.cache,
-      metrics: require('../skills/metrics-tracker').getSingleton()
-    });
+  /**
+   * @param {object} [deps] - Optional dependency injection for testing.
+   * @param {object} [deps.cache]   - CacheManager instance.
+   * @param {object} [deps.metrics] - MetricsTracker instance.
+   */
+  constructor(deps = {}) {
+    this.cache = deps.cache || sqliteCache.getSingleton();
+    this.metrics = deps.metrics || metricsTracker.getSingleton();
   }
 
   /**
-   * Execute the cache-config command
+   * Execute the cache-config command. `--list --validate` may be combined; otherwise the
+   * first matching action wins.
    */
   async execute(args = {}) {
     try {
-      if (args.list || Object.keys(args).length === 0) {
-        return this._listConfig();
+      if (args.set !== undefined) {
+        const [key, value] = this._setArgs(args);
+        if (key === undefined || value === undefined) {
+          return this._error('Usage: --set KEY VALUE', { validKeys: VALID_KEYS });
+        }
+        return this._setConfig(key, value);
       }
 
-      if (args.get) {
-        return this._getConfig(args.get);
+      if (args.reset !== undefined) {
+        return this._resetConfig(args.reset === true ? null : String(args.reset));
       }
 
-      if (args.set && args.value !== undefined) {
-        return this._setConfig(args.key, args.value);
+      if (args.get !== undefined) {
+        return this._getConfig(String(args.get));
       }
 
-      if (args.reset) {
-        return this._resetConfig();
+      const wantList = args.list || (!args.validate && Object.keys(args).length === 0);
+      const wantValidate = !!args.validate;
+      if (!wantList && !wantValidate) {
+        return this._error('Invalid command. Use --list, --get KEY, --set KEY VALUE, --reset [KEY], or --validate');
       }
 
-      if (args.validate) {
-        return this._validateConfig();
+      const parts = [];
+      let out = { status: 'success' };
+      if (wantList) {
+        const listed = await this._listConfig();
+        out = { ...out, ...listed };
+        parts.push(listed.report);
       }
-
-      return {
-        status: 'error',
-        message: 'Invalid command. Use --list, --get <key>, --set <key> <value>, --reset, or --validate'
-      };
+      if (wantValidate) {
+        const validated = await this._validateConfig();
+        out = { ...out, validation: validated.validation };
+        parts.push(validated.report);
+      }
+      out.report = parts.join('\n\n');
+      return out;
     } catch (error) {
-      return this._errorResponse(error);
+      return this._error(error.message);
     }
   }
 
-  /**
-   * List all current configuration
-   */
+  /** `--set KEY VALUE` arrives as set:[KEY,VALUE]; also accept --set KEY --value VALUE. */
+  _setArgs(args) {
+    if (Array.isArray(args.set)) return [args.set[0], args.set.slice(1).join(' ')];
+    if (typeof args.set === 'string') return [args.set, args.value !== undefined ? String(args.value) : undefined];
+    return [args.key, args.value];
+  }
+
   async _listConfig() {
-    const stats = this.cache.stats ? this.cache.stats() : (this.cache.getStats ? this.cache.getStats() : {});
-
-    const config = {
-      cache: {
-        maxSize: this.cache.maxSize || null,
-        maxEntries: this.cache.maxEntries || null,
-        defaultTTL: this.cache.defaultTTL || null,
-        evictionPolicy: this.cache.evictionPolicy || 'LRU'
-      },
-      orchestrator: {
-        relevanceThreshold: (this.orchestrator && this.orchestrator.relevanceThreshold) || null,
-        stalenessThreshold: (this.orchestrator && this.orchestrator.stalenessThreshold) || null
-      },
-      current: {
-        totalEntries: stats.totalEntries || 0,
-        cacheSize: stats.cacheSize || 0,
-        utilizationPercent: stats.utilizationPercent || 0,
-        hitRate: stats.hitRate != null ? (stats.hitRate * 100).toFixed(1) + '%' : '0.0%'
-      }
+    const config = this.cache.getConfig();
+    const stats = this.cache.stats();
+    const hitRate = await this.metrics.getHitRate();
+    const current = {
+      totalEntries: stats.totalEntries || 0,
+      hitRate: hitRate && hitRate.hitRate != null ? hitRate.hitRate : 0
     };
-
-    const report = this._formatConfigReport(config);
-
     return {
-      status: 'success',
-      config: config,
-      report: report
+      config,
+      current,
+      report: this._formatConfigReport(config, current)
     };
   }
 
-  /**
-   * Get specific configuration value
-   */
   async _getConfig(key) {
-    const validKeys = [
-      'maxSize', 'maxEntries', 'defaultTTL', 'evictionPolicy',
-      'relevanceThreshold', 'stalenessThreshold'
-    ];
-
-    if (!validKeys.includes(key)) {
-      return {
-        status: 'error',
-        message: `Unknown config key: ${key}`,
-        validKeys: validKeys
-      };
+    if (!VALID_KEYS.includes(key)) {
+      return this._error(`Unknown config key: ${key}`, { validKeys: VALID_KEYS });
     }
-
-    let value;
-    if (key === 'relevanceThreshold' || key === 'stalenessThreshold') {
-      value = this.orchestrator[key];
-    } else {
-      value = this.cache[key];
-    }
-
-    return {
-      status: 'success',
-      key: key,
-      value: value,
-      formatted: this._formatValue(key, value)
-    };
+    const value = this.cache.getConfig()[key];
+    const formatted = this._formatValue(key, value);
+    return { status: 'success', key, value, formatted, report: `${key} = ${formatted}` };
   }
 
-  /**
-   * Set configuration value
-   */
   async _setConfig(key, value) {
-    const validKeys = [
-      'maxSize', 'maxEntries', 'defaultTTL', 'evictionPolicy',
-      'relevanceThreshold', 'stalenessThreshold'
-    ];
-
-    if (!validKeys.includes(key)) {
-      return {
-        status: 'error',
-        message: `Unknown config key: ${key}`,
-        validKeys: validKeys
-      };
+    if (!VALID_KEYS.includes(key)) {
+      return this._error(`Unknown config key: ${key}`, { validKeys: VALID_KEYS });
     }
-
-    // Validate value type and range
     const validation = this._validateValue(key, value);
     if (!validation.valid) {
-      return {
-        status: 'error',
-        key: key,
-        message: validation.error,
-        hint: validation.hint
-      };
+      return this._error(validation.error, { key, hint: validation.hint });
     }
 
-    // Apply configuration
-    try {
-      if (key === 'evictionPolicy') {
-        const result = await this.cache.configure({
-          [key]: validation.parsedValue
-        });
-        if (!result.success) {
-          return { status: 'error', message: result.error };
-        }
-      } else if (key === 'relevanceThreshold' || key === 'stalenessThreshold') {
-        await this.orchestrator.configure({
-          [key]: validation.parsedValue
-        });
-      } else {
-        const result = await this.cache.configure({
-          [key]: validation.parsedValue
-        });
-        if (!result.success) {
-          return { status: 'error', message: result.error };
-        }
-      }
-
-      return {
-        status: 'success',
-        key: key,
-        oldValue: key === 'evictionPolicy' ? this.cache.evictionPolicy : (
-          key === 'relevanceThreshold' ? this.orchestrator.relevanceThreshold :
-          this.cache[key]
-        ),
-        newValue: validation.parsedValue,
-        message: `${key} updated successfully`
-      };
-    } catch (error) {
-      return this._errorResponse(error);
+    const oldValue = this.cache.getConfig()[key];
+    const result = this.cache.configure({ [key]: validation.parsedValue });
+    if (!result.success) {
+      return this._error(result.error, { key });
     }
-  }
-
-  /**
-   * Reset to default configuration
-   */
-  async _resetConfig() {
-    const defaults = {
-      maxSize: 100 * 1024 * 1024, // 100 MB
-      maxEntries: 10000,
-      defaultTTL: 3 * 24 * 60 * 60 * 1000, // 3 days
-      evictionPolicy: 'LRU',
-      relevanceThreshold: 75,
-      stalenessThreshold: 24 * 60 * 60 * 1000 // 24 hours
+    const newValue = result.config[key];
+    return {
+      status: 'success',
+      key,
+      oldValue,
+      newValue,
+      report: `Updated: ${key} = ${this._formatValue(key, newValue)} (was ${this._formatValue(key, oldValue)})`
     };
-
-    try {
-      await this.cache.configure({
-        maxSize: defaults.maxSize,
-        maxEntries: defaults.maxEntries,
-        defaultTTL: defaults.defaultTTL,
-        evictionPolicy: defaults.evictionPolicy
-      });
-
-      await this.orchestrator.configure({
-        relevanceThreshold: defaults.relevanceThreshold,
-        stalenessThreshold: defaults.stalenessThreshold
-      });
-
-      return {
-        status: 'success',
-        message: 'Configuration reset to defaults',
-        defaults: defaults
-      };
-    } catch (error) {
-      return this._errorResponse(error);
-    }
   }
 
-  /**
-   * Validate current configuration
-   */
+  async _resetConfig(key) {
+    if (key !== null && !VALID_KEYS.includes(key)) {
+      return this._error(`Unknown config key: ${key}`, { validKeys: VALID_KEYS });
+    }
+    const result = key === null
+      ? this.cache.resetConfig()
+      : this.cache.configure({ [key]: null });
+    if (!result.success) {
+      return this._error(result.error);
+    }
+    const keys = key === null ? VALID_KEYS : [key];
+    const lines = keys.map(k => `Reset: ${k} = ${this._formatValue(k, result.config[k])} (default)`);
+    return {
+      status: 'success',
+      reset: keys,
+      config: result.config,
+      report: lines.join('\n')
+    };
+  }
+
   async _validateConfig() {
+    const config = this.cache.getConfig();
+    const stats = this.cache.stats();
+    const hitRate = await this.metrics.getHitRate();
     const issues = [];
     const warnings = [];
 
-    // Check utilization
-    const stats = this.cache.stats ? this.cache.stats() : (this.cache.getStats ? this.cache.getStats() : {});
-    if ((stats.utilizationPercent || 0) > 90) {
-      warnings.push('Cache utilization high (>90%). Consider increasing maxSize or reducing TTL.');
+    for (const key of VALID_KEYS) {
+      const spec = CONFIG_KEYS[key];
+      const v = config[key];
+      if (spec.min != null && v < spec.min) issues.push(`${key} (${v}) is below minimum ${spec.min}`);
+      if (spec.max != null && v > spec.max) issues.push(`${key} (${v}) is above maximum ${spec.max}`);
     }
 
-    // Check if entries at max
-    if ((stats.totalEntries || 0) >= (this.cache.maxEntries || Infinity) * 0.95) {
-      warnings.push('Cache approaching entry limit. Consider increasing maxEntries.');
+    const total = stats.totalEntries || 0;
+    if (total >= config.maxEntries * 0.95) {
+      warnings.push(`Cache at ${total}/${config.maxEntries} entries; LRU eviction is imminent. Consider raising maxEntries.`);
+    }
+    const rate = hitRate && hitRate.hitRate != null ? hitRate.hitRate : 0;
+    const sampled = hitRate && (hitRate.hits || 0) + (hitRate.misses || 0) >= 20;
+    if (sampled && rate < 0.1 && config.relevanceThreshold >= 75) {
+      warnings.push(`Hit rate ${(rate * 100).toFixed(1)}% with relevanceThreshold ${config.relevanceThreshold}. Consider lowering to 65.`);
+    }
+    if (config.stalenessThreshold > config.defaultTTL) {
+      warnings.push('stalenessThreshold exceeds defaultTTL; entries expire before they are ever considered stale.');
     }
 
-    // Check eviction policy effectiveness
-    const relevanceThreshold = (this.orchestrator && this.orchestrator.relevanceThreshold) || 75;
-    if ((stats.hitRate || 0) < 0.1 && relevanceThreshold >= 75) {
-      warnings.push('Hit rate low. Consider lowering relevanceThreshold from 75% to 65%.');
-    }
-
-    // Validate threshold values
-    if (relevanceThreshold < 50 || relevanceThreshold > 95) {
-      issues.push('relevanceThreshold should be between 50 and 95');
-    }
-
-    if (this.cache.defaultTTL < 60 * 1000) {
-      issues.push('defaultTTL should be at least 1 minute');
-    }
-
-    const report = {
-      valid: issues.length === 0,
-      issues: issues,
-      warnings: warnings,
-      timestamp: new Date().toISOString()
-    };
-
-    return {
-      status: 'success',
-      validation: report,
-      report: this._formatValidationReport(report)
-    };
+    const validation = { valid: issues.length === 0, issues, warnings, timestamp: new Date().toISOString() };
+    return { validation, report: this._formatValidationReport(validation) };
   }
 
-  // Private methods
+  // Formatting / parsing
 
-  _formatConfigReport(config) {
+  _formatConfigReport(config, current) {
     return `Cache Configuration Report
 ═══════════════════════════════════════════
 
-CACHE SETTINGS
-──────────────
-Max Size:              ${this._formatBytes(config.cache.maxSize)}
-Max Entries:           ${config.cache.maxEntries.toLocaleString()}
-Default TTL:           ${this._formatDuration(config.cache.defaultTTL)}
-Eviction Policy:       ${config.cache.evictionPolicy}
-
-ORCHESTRATOR SETTINGS
-─────────────────────
-Relevance Threshold:   ${config.orchestrator.relevanceThreshold}%
-Staleness Threshold:   ${this._formatDuration(config.orchestrator.stalenessThreshold)}
+SETTINGS (persisted in cache.db)
+────────────────────────────────
+Max Entries:           ${config.maxEntries.toLocaleString()}
+Default TTL:           ${this._formatDuration(config.defaultTTL)}
+Relevance Threshold:   ${config.relevanceThreshold}%
+Staleness Threshold:   ${this._formatDuration(config.stalenessThreshold)}
+Eviction:              LRU by entry count (bytes are not tracked)
 
 CURRENT STATUS
 ──────────────
-Total Entries:         ${config.current.totalEntries.toLocaleString()}
-Cache Size:            ${this._formatBytes(config.current.cacheSize)} / ${this._formatBytes(config.cache.maxSize)}
-Utilization:           ${config.current.utilizationPercent}%
-Hit Rate:              ${config.current.hitRate}
+Total Entries:         ${current.totalEntries.toLocaleString()} / ${config.maxEntries.toLocaleString()}
+Hit Rate:              ${(current.hitRate * 100).toFixed(1)}%
 
 ═══════════════════════════════════════════`;
   }
@@ -297,142 +208,69 @@ Hit Rate:              ${config.current.hitRate}
     let report = 'Configuration Validation Report\n';
     report += '═══════════════════════════════════════════\n\n';
     report += `Status: ${validation.valid ? '✓ VALID' : '✗ INVALID'}\n\n`;
-
     if (validation.issues.length > 0) {
       report += 'ISSUES\n──────\n';
-      validation.issues.forEach((issue, idx) => {
-        report += `${idx + 1}. ${issue}\n`;
-      });
+      validation.issues.forEach((issue, idx) => { report += `${idx + 1}. ${issue}\n`; });
       report += '\n';
     }
-
     if (validation.warnings.length > 0) {
       report += 'WARNINGS\n────────\n';
-      validation.warnings.forEach((warning, idx) => {
-        report += `${idx + 1}. ${warning}\n`;
-      });
+      validation.warnings.forEach((w, idx) => { report += `${idx + 1}. ${w}\n`; });
       report += '\n';
     }
-
     if (validation.issues.length === 0 && validation.warnings.length === 0) {
       report += 'No issues or warnings found.\n';
     }
-
     report += '═══════════════════════════════════════════';
     return report;
   }
 
   _validateValue(key, value) {
     try {
-      switch (key) {
-        case 'maxSize': {
-          const sizeBytes = this._parseBytes(value);
-          if (sizeBytes < 1024 * 1024) { // Min 1 MB
-            return { valid: false, error: 'maxSize must be at least 1 MB', hint: 'Use units: 100MB, 1GB, etc.' };
-          }
-          return { valid: true, parsedValue: sizeBytes };
-        }
-
-        case 'maxEntries': {
-          const entries = parseInt(value);
-          if (isNaN(entries) || entries < 100) {
-            return { valid: false, error: 'maxEntries must be at least 100', hint: 'Example: 10000' };
-          }
-          return { valid: true, parsedValue: entries };
-        }
-
-        case 'defaultTTL': {
-          const ttl = this._parseDuration(value);
-          if (ttl < 60 * 1000) { // Min 1 minute
-            return { valid: false, error: 'defaultTTL must be at least 1 minute', hint: 'Use: 1h, 7d, 1d, etc.' };
-          }
-          return { valid: true, parsedValue: ttl };
-        }
-
-        case 'evictionPolicy': {
-          const policy = String(value).toUpperCase();
-          if (!['LRU', 'LFU', 'FIFO'].includes(policy)) {
-            return { valid: false, error: 'evictionPolicy must be LRU, LFU, or FIFO', hint: 'Example: LRU' };
-          }
-          return { valid: true, parsedValue: policy };
-        }
-
-        case 'relevanceThreshold': {
-          const threshold = parseInt(value);
-          if (isNaN(threshold) || threshold < 50 || threshold > 95) {
-            return { valid: false, error: 'relevanceThreshold must be between 50 and 95', hint: 'Example: 75' };
-          }
-          return { valid: true, parsedValue: threshold };
-        }
-
-        case 'stalenessThreshold': {
-          const stale = this._parseDuration(value);
-          if (stale < 60 * 1000) { // Min 1 minute
-            return { valid: false, error: 'stalenessThreshold must be at least 1 minute', hint: 'Use: 1h, 7d, etc.' };
-          }
-          return { valid: true, parsedValue: stale };
-        }
-
-        default:
-          return { valid: false, error: `Unknown key: ${key}` };
+      if (DURATION_KEYS.has(key)) {
+        return { valid: true, parsedValue: this._parseDuration(value) };
       }
+      const n = parseInt(value, 10);
+      if (Number.isNaN(n)) {
+        return { valid: false, error: `${key} must be an integer`, hint: PERCENT_KEYS.has(key) ? 'Example: 75' : 'Example: 10000' };
+      }
+      return { valid: true, parsedValue: n };
     } catch (error) {
-      return { valid: false, error: error.message };
+      return { valid: false, error: error.message, hint: 'Use: 1h, 7d, 30m, 90s' };
     }
-  }
-
-  _parseBytes(value) {
-    const units = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 };
-    const match = String(value).match(/^([\d.]+)\s*(B|KB|MB|GB|TB)?$/i);
-    if (!match) throw new Error('Invalid size format');
-    return Math.round(parseFloat(match[1]) * (units[match[2]?.toUpperCase()] || 1));
   }
 
   _parseDuration(value) {
-    const units = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
-    const match = String(value).match(/^([\d.]+)\s*(s|m|h|d)?$/i);
-    if (!match) throw new Error('Invalid duration format');
-    return Math.round(parseFloat(match[1]) * (units[match[2]?.toLowerCase()] || 1));
-  }
-
-  _formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i];
+    const units = { ms: 1, s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+    const match = String(value).trim().match(/^([\d.]+)\s*(ms|s|m|h|d)?$/i);
+    if (!match) throw new Error(`Invalid duration: ${value}`);
+    const unit = match[2] ? match[2].toLowerCase() : 'ms';
+    return Math.round(parseFloat(match[1]) * units[unit]);
   }
 
   _formatDuration(ms) {
-    if (ms < 60 * 1000) return Math.floor(ms / 1000) + 's';
-    if (ms < 60 * 60 * 1000) return Math.floor(ms / (60 * 1000)) + 'm';
-    if (ms < 24 * 60 * 60 * 1000) return Math.floor(ms / (60 * 60 * 1000)) + 'h';
-    return Math.floor(ms / (24 * 60 * 60 * 1000)) + 'd';
+    if (ms % (24 * 60 * 60 * 1000) === 0) return ms / (24 * 60 * 60 * 1000) + 'd';
+    if (ms % (60 * 60 * 1000) === 0) return ms / (60 * 60 * 1000) + 'h';
+    if (ms % (60 * 1000) === 0) return ms / (60 * 1000) + 'm';
+    if (ms % 1000 === 0) return ms / 1000 + 's';
+    return ms + 'ms';
   }
 
   _formatValue(key, value) {
-    if (key === 'maxSize') {
-      return this._formatBytes(value);
-    } else if (key === 'defaultTTL' || key === 'stalenessThreshold') {
-      return this._formatDuration(value);
-    } else if (key === 'relevanceThreshold') {
-      return value + '%';
-    }
-    return value;
+    if (DURATION_KEYS.has(key)) return this._formatDuration(value);
+    if (PERCENT_KEYS.has(key)) return value + '%';
+    return String(value);
   }
 
-  _errorResponse(error) {
-    return {
-      status: 'error',
-      error: error.message
-    };
+  _error(message, extra = {}) {
+    return { status: 'error', error: message, report: `Error: ${message}`, ...extra };
   }
 }
 
 module.exports = {
   name: 'cache-config',
-  description: 'Configure cache settings and parameters',
-  usage: '/cache-config [--list | --get <key> | --set <key> <value> | --reset | --validate]',
+  description: 'View and change persisted cache settings',
+  usage: '/cache-config [--list | --get KEY | --set KEY VALUE | --reset [KEY] | --validate]',
 
   execute: async (args) => {
     const cmd = new CacheConfigCommand();

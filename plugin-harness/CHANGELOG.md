@@ -1,6 +1,21 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.2] - 2026-09-22
+
+- **Fix**: the hard-coded `agent-cache-plugin` capability in `interop_parser.py`,
+  `schema_extractor.py`, and `interop_drift_validator.py` was `phase_state_cache`, an HTTP
+  write/invalidate/read contract that was never implemented on either side (no server ever ran
+  on the assumed port; agent-isdd 0.1.49/0.1.50 removed its half). Replaced with
+  `agent_output_cache`, the plugin's real automatic `Agent`-tool hook contract as now documented
+  in `agent-cache-plugin/STRUCTURE.md` 2.1.0. `test_smoke_e2e.py` asserts the new capability's
+  schema and that the old one is no longer advertised.
+- **Fix**: `interop_drift_validator.py`'s "is `interop_parser.py` also staged?" check tested
+  exact list membership against `git diff --cached --name-only` output, which is repo-relative
+  (`plugin-harness/orchestrator/interop_parser.py`), so it could never pass and every genuine
+  schema change was blocked even when the parser was updated in the same commit. Now matches on
+  basename. Regression test added.
+
 ## [2.1.1] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section at the top of `README.md` (install one-liner +

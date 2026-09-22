@@ -25,6 +25,10 @@ for what's actually landed.
 - **Additional eviction policies** — ARC, W-TinyLFU, time-decay, or cost-aware eviction beyond
   the current LRU/LFU/FIFO set.
 - **External monitoring integration** — Datadog/New Relic/CloudWatch/Prometheus metrics export.
-- **GraphQL API** — alternative to the current REST/CLI surface.
+- **Sibling-plugin key/value transport** — a local socket or `store`/`retrieve` verbs on
+  `scripts/cache-command.js` so non-Node callers (e.g. agent-isdd's Python hooks) could cache
+  scoped state. The `phase_state_cache` contract that assumed an HTTP server on
+  `localhost:7771` was retired 2026-09-22 because that server never existed.
+- **GraphQL API** — alternative to the current CLI surface (there is no REST surface).
 
 None of these are committed or scheduled; this is an idea list, not a plan of record.

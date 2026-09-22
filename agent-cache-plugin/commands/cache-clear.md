@@ -1,76 +1,56 @@
 ---
 description: Clear cache entries with flexible filtering options
 keywords: [clear, invalidate, filtering, cleanup]
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Command: /cache-clear
 
-Clear cache entries, with granular control over what gets removed.
+Delete cache entries by filter, or everything.
 
 ## Usage
 ```
-/cache-clear [--all] [--agent AGENT] [--task TASK] [--older-than DAYS] [--before DATE]
+/cache-clear [--all --yes] [--agent AGENT] [--task TASK] [--older-than DAYS] [--before DATE]
+             [--pattern SUBSTR] [--id KEY] [--tags A,B]
 ```
 
 ## Options
-- `--all` - Clear entire cache (requires confirmation)
-- `--agent AGENT` - Clear entries for specific agent type (e.g., agent-tdd)
-- `--task TASK` - Clear entries for specific task type (e.g., implementation, testing)
-- `--older-than DAYS` - Clear entries older than N days
-- `--before DATE` - Clear entries created before ISO 8601 date (e.g., 2026-08-20)
-- `--tags TAG1,TAG2` - Clear entries matching any of these tags
-- `--yes` - Skip confirmation prompt
+- `--all --yes` - Delete every entry. `--all` alone only reports the count and asks for `--yes`.
+- `--agent AGENT` - Entries whose `agent_type` matches (comma-separate for several)
+- `--task TASK` - Entries whose `task_slug` matches
+- `--older-than DAYS` - Entries created more than N days ago
+- `--before DATE` - Entries created before an ISO 8601 date (e.g. `2026-08-20`)
+- `--pattern SUBSTR` - Entries whose key contains the substring
+- `--id KEY` - One exact key
+- `--tags A,B` - Alias for `--agent A,B` (`agent_type` is the only tag-like column)
+
+Filters combine with AND. With no filter, nothing is deleted and the usage examples are shown.
 
 ## Examples
 
-### Clear by agent type
 ```
-/cache-clear --agent agent-tdd
-Clearing cache for agent-tdd... Done.
-Removed: 234 entries (15.2 MB)
-```
-
-### Clear old entries
-```
+/cache-clear --agent agent-tdd:agent-TDD
 /cache-clear --older-than 7
-Clearing entries older than 7 days... Done.
-Removed: 89 entries (5.8 MB)
-```
-
-### Clear everything (with confirmation)
-```
-/cache-clear --all
-⚠️  This will delete ALL cache entries (2,456 entries, 156 MB).
-Continue? (yes/no): yes
-Clearing entire cache... Done.
-Removed: 2,456 entries (156 MB)
-```
-
-### Clear with tags
-```
-/cache-clear --tags "stale,testing"
-Clearing entries with tags: stale, testing... Done.
-Removed: 145 entries (9.3 MB)
+/cache-clear --task my-feature --older-than 1
+/cache-clear --all --yes
 ```
 
 ## Output
-Returns summary:
-- Number of entries removed
-- Total size freed
-- Estimated time to recalculate now missing from cache
+```
+Cache Clear Report
+═══════════════════════════════════════════
+
+Operation: Cleared entries: agent in [agent-tdd:agent-TDD] AND older than 7 days
+
+Entries Removed:   89
+Before:            412 entries
+After:             323 entries
+
+═══════════════════════════════════════════
+```
+
+Bytes freed are not reported; the SQLite backend does not track entry size.
 
 ## Related Commands
 - `/cache-status` - View cache statistics
 - `/cache-config` - Configure cache settings
-- `/cache-search` - Search cache entries
-
-## Safety
-- Always shows what will be deleted before proceeding
-- Requires confirmation for `--all` unless `--yes` flag provided
-- Deletion is permanent; consider export before clearing large volumes
-
-## Notes
-- When clearing by criteria, provides count and size impact before confirmation
-- Freed space is reclaimed immediately from in-memory storage
-- For persistent backends, freed entries are marked deleted but storage may remain until compaction

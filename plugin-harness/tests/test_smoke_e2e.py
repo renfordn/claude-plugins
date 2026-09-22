@@ -174,11 +174,22 @@ class TestSoftDependencyCapabilities(unittest.TestCase):
         capability = self.capability_map.find_capability("agent-ux", "render_event")
         self.assertIsNotNone(capability)
 
-    def test_agent_cache_plugin_phase_state_cache_capability_exists(self):
+    def test_agent_cache_plugin_agent_output_cache_capability_exists(self):
         capability = self.capability_map.find_capability(
-            "agent-cache-plugin", "phase_state_cache"
+            "agent-cache-plugin", "agent_output_cache"
         )
         self.assertIsNotNone(capability)
+        # Schema comes from STRUCTURE.md's Consumes table (required rows only).
+        self.assertEqual(
+            set(capability.consumes), {"toolName", "input", "output", "sessionId"}
+        )
+
+    def test_agent_cache_plugin_phase_state_cache_is_gone(self):
+        """The HTTP-based phase_state_cache contract was never implemented on either side and
+        was retired 2026-09-22; the router must not advertise it."""
+        self.assertIsNone(
+            self.capability_map.find_capability("agent-cache-plugin", "phase_state_cache")
+        )
 
 
 if __name__ == "__main__":

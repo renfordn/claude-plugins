@@ -103,7 +103,7 @@ class SchemaExtractor:
         # code-reviewer INTEROP.md describes skill invocation parameters (Mode, Scope), not
         # orchestrator handoff fields. The fallback empty consumes in interop_parser.py is correct.
         "agent-nelly": ["memory_brief"],
-        "agent-cache-plugin": ["phase_state_cache"],
+        "agent-cache-plugin": ["agent_output_cache"],
         "agent-ux": ["render_event"],
     }
 

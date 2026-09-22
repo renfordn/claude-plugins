@@ -122,6 +122,29 @@ class TestInteropDriftValidator(unittest.TestCase):
         self.assertIn("phase_md", message)
         self.assertIn("ACTION REQUIRED", message)
 
+    def test_drift_allowed_when_parser_staged_at_repo_relative_path(self):
+        """git diff --cached --name-only yields repo-relative paths; the parser check must
+        match plugin-harness/orchestrator/interop_parser.py, not just a bare basename."""
+        from unittest.mock import patch
+        before = "| Field | Type | Required |\n|---|---|---|\n| prompt | string | yes |\n"
+        after = "| Field | Type | Required |\n|---|---|---|\n| toolName | string | yes |\n"
+        staged = [
+            "agent-cache-plugin/STRUCTURE.md",
+            "plugin-harness/orchestrator/interop_parser.py",
+        ]
+        with patch.object(self.validator, "get_staged_files", return_value=staged), \
+             patch.object(self.validator, "get_file_content_before", return_value=before), \
+             patch.object(self.validator, "get_file_content_staged", return_value=after):
+            is_valid, errors = self.validator.validate_drift()
+        self.assertTrue(is_valid, errors)
+
+        with patch.object(self.validator, "get_staged_files", return_value=staged[:1]), \
+             patch.object(self.validator, "get_file_content_before", return_value=before), \
+             patch.object(self.validator, "get_file_content_staged", return_value=after):
+            is_valid, errors = self.validator.validate_drift()
+        self.assertFalse(is_valid)
+        self.assertIn("interop_parser.py", errors[0])
+
     def test_sdd_gate_off_escape_hatch(self):
         """Test that SDD_GATE=off bypasses validation."""
         os.environ["SDD_GATE"] = "off"

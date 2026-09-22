@@ -431,59 +431,57 @@ Consumed by plugin-harness's `CapabilityMap` (see
 contract. Soft dependency — every integration below degrades gracefully to
 "no cache" if this plugin is unavailable.
 
-### phase_state_cache
+### agent_output_cache
 
-Cache workflow phase state and render token-optimized breadcrumbs for
-agent-isdd (see `agent-isdd/INTEROP.md` → "agent-cache-plugin (phase state
-caching — optional)" for the consumer-side contract this mirrors).
+**Automatic Agent Output Caching** — the plugin's one real cross-plugin capability. It needs
+nothing from the caller: `hooks/hooks.json` registers `pre-agent-spawn.js` (`PreToolUse`,
+matcher `Agent`), `post-agent-completion.js` (`PostToolUse`, matcher `Agent`) and
+`cache-invalidation.js` (`SessionEnd`), which fire on Claude Code's own event bus for every
+`Agent` tool call in the session — including spawns made by `agent-isdd`, `agent-tdd`,
+`agent-nelly`, and others. Entries are keyed by
+`sha256(agentType + taskSlug + sha256(input))` and stored in `${CLAUDE_PLUGIN_DATA}/cache.db`
+(SQLite) with a 72h TTL; a human-readable `CACHE.md` ledger is appended alongside.
 
-**Phase Transition Caching**:
-- Write: `{prompt, output, metadata}` — `output` carries `{current_phase, phase_state, workflow_status, last_updated}`
-- Invalidate: `{scope}` on rollback/rewind
-- Cache scope: `agent-isdd:<feature-slug>`; TTL: 3600s
+The schema below is what `post-agent-completion.js` reads from the `PostToolUse` hook payload
+(this is Claude Code's payload, not something a sibling plugin constructs).
 
 **Consumes:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| prompt | string | yes | Description of cached content |
-| output | object | yes | Carries current_phase, phase_state, workflow_status, last_updated |
-| metadata | object | yes | Cache metadata including scope, ttl, type |
+| toolName | string | yes | Agent type that ran (e.g. `agent-isdd:planning-agent`) |
+| input | object | yes | The Agent tool's input; its digest forms part of the cache key |
+| output | object | yes | The subagent's result; sanitized and stored as the cache value |
+| sessionId | string | yes | Session the spawn belonged to |
+| metadata | object | no | Optional `taskSlug`, `parameters` (`noCache`, `taskType`, ...), token counts |
 
 **Produces:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| cache_hit | boolean | yes | Whether cache entry was found and valid |
-| cached_state | object | no | Retrieved cached state if cache_hit is true |
+| additionalContext | string | no | `cache: stored (tokensSaved=N, cacheKey=...)` surfaced via `hookSpecificOutput` |
 
-> **Known gap (2026-09-22):** the write/invalidate/read contract above is designed but
-> **not implemented on either side**. This plugin has never run an HTTP server (no `bin`
-> entry, no listener in `hooks/`, `skills/`, or `commands/`), and as of agent-isdd 0.1.49
-> its `hooks/cache_hook.py` / `hooks/ux_render.py` no longer attempt the
-> `localhost:7771` calls (they were dead code that always failed silently) — see
-> `agent-isdd/INTEROP.md` → "agent-cache-plugin". `phase_state_cache` has never worked
-> end-to-end. To make it real, this plugin must expose a transport a Python hook process can
-> reach (local socket, or a `store`/`retrieve` verb on `scripts/cache-command.js`); the entry
-> shape above remains the target contract. See `docs/ROADMAP.md`.
+> **History:** until 2026-09-22 this section advertised a `phase_state_cache` capability — an
+> HTTP write/invalidate/read contract on `localhost:7771` that `agent-isdd/hooks/cache_hook.py`
+> called. No server ever existed on this side, so it never worked; agent-isdd 0.1.49/0.1.50
+> removed its half and this section now documents only what actually runs. If a scoped
+> key/value store for sibling plugins is ever wanted, it needs a transport a Python hook process
+> can reach (local socket, or `store`/`retrieve` verbs on `scripts/cache-command.js`) — see
+> `docs/ROADMAP.md`.
 
 ### Other integration points (no network service exists)
 
-Beyond `phase_state_cache`, a sibling plugin can integrate with this one three other ways — all
+Beyond the automatic hooks, a sibling plugin can integrate with this one three other ways — all
 in-process or subagent-based, never over the network:
 
-1. **Automatic — its own hooks** (no caller action needed): `hooks/hooks.json` registers
-   `pre-agent-spawn.js` (`PreToolUse`, matcher `Agent`), `post-agent-completion.js`
-   (`PostToolUse`, matcher `Agent`), and `cache-invalidation.js` (`SessionEnd`) — these fire on
-   Claude Code's own event bus for every `Agent` tool call in the session, including spawns made
-   by `agent-isdd`, `agent-tdd`, and others, with zero explicit invocation required.
-2. **Explicit — its two subagents**: `agent-cache-plugin:agent-cache-orchestrator` (decide cache
+1. **Explicit — its two subagents**: `agent-cache-plugin:agent-cache-orchestrator` (decide cache
    reuse vs. fresh reasoning; score relevance) and `agent-cache-plugin:cache-validator` (validate
    cache entries). Invoked via the `Agent` tool the same way as `agent-nelly:nelly-orchestrator`,
    gated by an Availability Check against the session's agent-types listing.
-3. **Explicit — CLI commands** (via `Bash`): `node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" cache-status|cache-clear|cache-config`.
-4. **In-process — skills' JS API** (Node callers only): `require('<path>/skills/cache-management')`
-   exposes `store()`/`retrieve()`/etc. — only usable by a caller that is itself Node/JS code.
+2. **Explicit — CLI commands** (via `Bash`): `node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" cache-status|cache-clear|cache-config`.
+3. **In-process — skills' JS API** (Node callers only): `require('<path>/skills/sqlite-cache')`
+   exposes `CacheManager` (`store()`/`retrieve()`/`configure()`/etc.) — only usable by a caller
+   that is itself Node/JS code.
 
 Every integration point is optional; a caller should treat this plugin's absence, or a
 subagent-not-found error, as non-fatal and continue without caching (the same soft-dependency

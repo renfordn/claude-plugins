@@ -12,8 +12,11 @@ class CacheOrchestrator {
   constructor(options = {}) {
     this.cache = options.cache || cacheManagement.getSingleton();
     this.metrics = options.metrics || metricsTracker.getSingleton();
-    this.relevanceThreshold = options.relevanceThreshold || 75;
-    this.stalenessThreshold = options.stalenessThreshold || 24 * 60 * 60 * 1000; // 24h
+    // Thresholds persist in the cache DB's config table (set via /cache-config); explicit
+    // options override per instance.
+    const persisted = typeof this.cache.getConfig === 'function' ? this.cache.getConfig() : {};
+    this.relevanceThreshold = options.relevanceThreshold || persisted.relevanceThreshold || 75;
+    this.stalenessThreshold = options.stalenessThreshold || persisted.stalenessThreshold || 24 * 60 * 60 * 1000; // 24h
   }
 
   /**
@@ -195,15 +198,19 @@ class CacheOrchestrator {
    * Configure cache and orchestrator settings
    */
   async configure(options) {
-    if (options.relevanceThreshold !== undefined) {
-      this.relevanceThreshold = options.relevanceThreshold;
-    }
+    const thresholds = {};
+    if (options.relevanceThreshold !== undefined) thresholds.relevanceThreshold = options.relevanceThreshold;
+    if (options.stalenessThreshold !== undefined) thresholds.stalenessThreshold = options.stalenessThreshold;
 
-    if (options.stalenessThreshold !== undefined) {
-      this.stalenessThreshold = options.stalenessThreshold;
+    let cacheConfig = { success: true };
+    if (typeof this.cache.configure === 'function') {
+      cacheConfig = this.cache.configure({ ...(options.cache || {}), ...thresholds });
+      if (!cacheConfig.success) return cacheConfig;
+      this.relevanceThreshold = cacheConfig.config.relevanceThreshold;
+      this.stalenessThreshold = cacheConfig.config.stalenessThreshold;
+    } else {
+      Object.assign(this, thresholds);
     }
-
-    const cacheConfig = await this.cache.configure(options.cache || {});
 
     return {
       success: true,

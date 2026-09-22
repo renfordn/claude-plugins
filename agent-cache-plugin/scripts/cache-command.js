@@ -8,8 +8,8 @@
  *
  * Usage:
  *   node scripts/cache-command.js status [--detailed] [--export FORMAT]
- *   node scripts/cache-command.js clear [--all] [--agent AGENT] [--task TASK]
- *   node scripts/cache-command.js config [--list] [--set KEY VALUE]
+ *   node scripts/cache-command.js clear [--all --yes] [--agent AGENT] [--task TASK] [--older-than DAYS]
+ *   node scripts/cache-command.js config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
  */
 
 const fs = require('fs');
@@ -89,19 +89,15 @@ async function main() {
     // Call the command handler with parsed arguments
     const result = await commands[command].execute(args);
 
-    if (result && result.success !== false) {
-      // Output result
-      if (result.output) {
-        console.log(result.output);
-      }
-      process.exit(0);
-    } else {
-      // Error case
-      if (result && result.error) {
-        console.error(`Error: ${result.error}`);
-      }
+    // Commands return { status: 'success'|'error'|'requires_confirmation', report, ... }
+    const failed = !result || result.status === 'error' || result.success === false;
+    const text = result && (result.report || result.output);
+    if (failed) {
+      console.error(text || `Error: ${(result && result.error) || 'command failed'}`);
       process.exit(1);
     }
+    if (text) console.log(text);
+    process.exit(0);
   } catch (error) {
     console.error(`Error executing command '${command}':`, error.message);
     if (process.env.DEBUG) {
@@ -125,11 +121,13 @@ Commands:
   status     Display cache statistics and health metrics
              Usage: cache-command.js status [--detailed] [--export FORMAT]
 
-  clear      Clear cache entries by criteria
-             Usage: cache-command.js clear [--all] [--agent AGENT] [--task TASK] [--older-than DAYS]
+  clear      Delete cache entries by filter (filters AND together)
+             Usage: cache-command.js clear [--all --yes] [--agent AGENT] [--task TASK]
+                    [--older-than DAYS] [--before DATE] [--pattern SUBSTR] [--id KEY] [--tags A,B]
 
-  config     Configure cache behavior and thresholds
-             Usage: cache-command.js config [--list] [--set KEY VALUE] [--validate]
+  config     View/change persisted settings: maxEntries, defaultTTL,
+             relevanceThreshold, stalenessThreshold
+             Usage: cache-command.js config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
 
 Options:
   --help     Show this help message
@@ -141,6 +139,9 @@ Examples:
 
   # Clear old entries
   cache-command.js clear --older-than 7
+
+  # Clear everything
+  cache-command.js clear --all --yes
 
   # Show configuration
   cache-command.js config --list
