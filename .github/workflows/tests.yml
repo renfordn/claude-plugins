@@ -95,11 +95,17 @@ jobs:
         run: pip install pytest
 
       - name: Smoke — Python plugins (all 7)
+        # One pytest invocation per plugin, not a single combined run: several plugins
+        # ship their own private, same-named hooks/path_resolution.py (bare top-level
+        # module, not a package). A single process's sys.modules cache is keyed by that
+        # bare name, so whichever plugin's copy imports first wins for every plugin
+        # collected afterward -- harmless while the copies are identical, but a hard
+        # ImportError the moment two diverge (as agent-isdd's and plugin-harness's did).
+        # Matches python-tests' per-plugin matrix, which never combines processes either.
         run: |
-          python -m pytest \
-            agent-isdd agent-tdd agent-nelly plugin-harness shared \
-            agent-ux code-reviewer \
-            -q --tb=short
+          for plugin in agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer; do
+            python -m pytest "$plugin" -q --tb=short
+          done
 
       - name: Smoke — agent-cache-plugin (Node.js)
         working-directory: agent-cache-plugin
