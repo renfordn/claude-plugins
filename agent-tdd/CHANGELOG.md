@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.13] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
+  marketplace" placeholder (the `renfordn-plugins` marketplace already exists and is documented in
+  `docs/install-and-verify.md`); explains it's spawned via `agent-tdd:agent-TDD` from an
+  orchestrator (no standalone command) and how to verify the install.
+- **Chore**: `.claude-plugin/plugin.json` now declares `commands` absent via
+  `first_class.declared_absent` — this plugin has no slash command of its own, per its own README.
+
 ## [0.2.12] - 2026-09-22
 
 - **Fix**: `tests/test_skill_review_strategy.py` and `tests/test_task_slicer_standard_review.py` hardcoded an absolute `/Users/jay.nelson/...` path to read `SKILL.md`/`task-slicer/SKILL.md`, so both failed with `FileNotFoundError` on any other machine — confirmed breaking on GitHub Actions' CI runner. Made both paths relative to `Path(__file__)`. Test-only, no source/behavior change.
