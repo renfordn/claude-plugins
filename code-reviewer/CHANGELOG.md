@@ -1,6 +1,17 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.11] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
+  marketplace" placeholder (the `renfordn-plugins` marketplace already exists and is documented in
+  `docs/install-and-verify.md`); clarifies this plugin's skill is distinct from Claude Code's own
+  built-in `/code-review` command.
+- **Chore**: `.claude-plugin/plugin.json`'s `first_class.declared_absent` extended to include
+  `commands` and `agents` (was just `hooks`) — this plugin is deliberately a skill, not an agent
+  (see README's "Why this is a skill, not an agent"), and adding its own slash command would
+  collide with Claude Code's built-in `/code-review`.
+
 ## [0.1.10] - 2026-09-22
 
 - **Fix**: `tests/test_interop_review_level.py` and `tests/test_skill_review_levels.py` hardcoded an absolute `/Users/jay.nelson/...` path to read `INTEROP.md`/`SKILL.md`, so both failed with `FileNotFoundError` on any other machine — confirmed breaking on GitHub Actions' CI runner. Made both paths relative to `Path(__file__)`.
