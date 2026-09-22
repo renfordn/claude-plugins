@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [0.1.48] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section (install one-liner + first `/isdd` command + pointer
+  to `docs/install-and-verify.md`).
+- **Chore**: removed `tasks.md`, a stray SDD leftover artifact from an already-shipped feature,
+  not meant to ship with the plugin.
+
 ## [0.1.47] - 2026-09-22
 
 - **Fix**: `workflow-manager`/`design-author`/`requirements-agent`/`spec-driven-development` `SKILL.md` files referenced `references/artifact-templates.md` and `references/workflow-state.template.json` as bare relative paths, ambiguous since those files live in the plugin-root `references/` dir, not each skill's own — now use `${CLAUDE_PLUGIN_ROOT}/references/...`, matching the convention already in `agents/spec-reviewer.md`.
