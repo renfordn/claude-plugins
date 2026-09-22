@@ -5,7 +5,8 @@ Red Test — verify review_level support and tier validation per level.
 """
 
 import sys
-sys.path.insert(0, "/Users/jay.nelson/Codebase/Claude-Plugins/shared")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from findings_validator import validate_finding, validate_findings, validate_report_input
 

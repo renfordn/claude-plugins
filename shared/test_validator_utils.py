@@ -1,7 +1,8 @@
 """Test utility functions in findings_validator.py"""
 
 import sys
-sys.path.insert(0, "/Users/jay.nelson/Codebase/Claude-Plugins/shared")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from findings_validator import get_tier_expectations, validate_report_input
 

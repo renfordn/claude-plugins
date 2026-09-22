@@ -4,11 +4,14 @@ Test: agent-isdd INTEROP.md documents Strategic Review Placement.
 Red Test — verify that Strategic Review Placement table and Ralph Loops integration are documented.
 """
 
+from pathlib import Path
+
+_INTEROP_PATH = Path(__file__).resolve().parent.parent / "INTEROP.md"
+
 
 def read_isdd_interop():
     """Read the agent-isdd INTEROP.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-isdd/INTEROP.md", "r") as f:
-        return f.read()
+    return _INTEROP_PATH.read_text()
 
 
 def test_strategic_review_placement_section_exists():

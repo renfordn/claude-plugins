@@ -4,11 +4,14 @@ Test: design-author SKILL.md documents Deep review gate before Tasks phase.
 Red Test — verify that Deep review invocation is documented in design-author.
 """
 
+from pathlib import Path
+
+_SKILL_PATH = Path(__file__).resolve().parent.parent / "skills" / "design-author" / "SKILL.md"
+
 
 def read_design_author_skill():
     """Read the current design-author SKILL.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-isdd/skills/design-author/SKILL.md", "r") as f:
-        return f.read()
+    return _SKILL_PATH.read_text()
 
 
 def test_deep_review_gate_documented():

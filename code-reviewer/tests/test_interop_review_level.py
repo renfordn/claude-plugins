@@ -4,11 +4,14 @@ Test: INTEROP.md documents review_level parameter correctly.
 Red Test — verify that review_level contract is documented in INTEROP.md.
 """
 
+from pathlib import Path
+
+_INTEROP_PATH = Path(__file__).resolve().parent.parent / "INTEROP.md"
+
 
 def read_interop_md():
     """Read the current INTEROP.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/code-reviewer/INTEROP.md", "r") as f:
-        return f.read()
+    return _INTEROP_PATH.read_text()
 
 
 def test_review_level_parameter_in_contract():

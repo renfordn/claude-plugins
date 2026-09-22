@@ -4,11 +4,14 @@ Test: agent-tdd SKILL.md documents Review-Level Strategy.
 Red Test — verify that Review-Level Strategy section is comprehensive.
 """
 
+from pathlib import Path
+
+_SKILL_PATH = Path(__file__).resolve().parent.parent / "SKILL.md"
+
 
 def read_agent_tdd_skill():
     """Read the agent-tdd SKILL.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-tdd/SKILL.md", "r") as f:
-        return f.read()
+    return _SKILL_PATH.read_text()
 
 
 def test_review_level_strategy_section_exists():

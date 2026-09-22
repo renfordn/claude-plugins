@@ -4,11 +4,14 @@ Test: task-slicer SKILL.md documents Standard review on tasks.md.
 Red Test — verify that Standard review invocation is documented.
 """
 
+from pathlib import Path
+
+_SKILL_PATH = Path(__file__).resolve().parent.parent / "skills" / "task-slicer" / "SKILL.md"
+
 
 def read_task_slicer_skill():
     """Read the task-slicer SKILL.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-tdd/skills/task-slicer/SKILL.md", "r") as f:
-        return f.read()
+    return _SKILL_PATH.read_text()
 
 
 def test_standard_review_documented():
