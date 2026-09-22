@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-22
+
 - **Breaking**: renamed `plugin-orchestrator` to `plugin-harness` across the entire monorepo
   (directory, `.claude-plugin/plugin.json` id/name, marketplace listing, and every reference in
   sibling plugins' `INTEROP.md`/`CHANGELOG.md`, root `README.md`/`marketplace.json`, CI, and
@@ -27,6 +29,8 @@
   `plugin-harness/.claude-plugin/marketplace.json` (kept vs. removed) is still an open question
   — it was renamed along with everything else, but whether it's still actively used separately
   from the root marketplace is unconfirmed.
+- **Fix**: `orchestrator/hooks/subagent_stop.py`'s `validate_in_order` referenced `HookErrorType` (from `orchestrator.error`) in its return-type annotation and two return statements, but never imported it — a `NameError` the instant the module loads. Invisible on Python 3.14 (PEP 649 makes annotations lazy there) but fatal on Python 3.11 (this repo's CI runner), confirmed breaking the actual GitHub Actions run. Added the missing import.
+- **Fix**: `tests/test_mcp_spawn_context_server.py`'s `test_no_active_workflow_returns_plain_message` asserted the stale `"No active SDD workflow"` string; `_build_standalone_response` intentionally returns the same `"No spawn context cached yet"` message as the workflow-exists-but-empty case when standalone mode has no cache either. Updated the assertion to match.
 
 ## [1.3.1] - 2026-09-21
 
