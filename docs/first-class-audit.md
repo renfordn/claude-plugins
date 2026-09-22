@@ -41,7 +41,7 @@ Evidence paths below are relative to the repo root.
 | \<collection\> | COLL-01 | PASS | marketplace.json matches on-disk plugin directories 1:1 |
 | \<collection\> | COLL-02 | FAIL | missing from CI matrix: ['agent-cache-plugin'] |
 | \<collection\> | COLL-03 | FAIL | README.md does not list: ['plugin-harness'] |
-| \<collection\> | CONS-08 | FAIL | LICENSE content diverges across 3 distinct contents: `{'20dc2b4d': ['agent-cache-plugin'], 'ca1aee33': ['agent-isdd', 'agent-nelly', 'agent-tdd', 'agent-ux', 'code-reviewer'], '6abb45d4': ['plugin-harness']}` |
+| \<collection\> | CONS-08 | PASS | LICENSE content is byte-identical across all 7 plugins as of 2026-09-22 (backlog item 3 closed — was 3 distinct contents: proprietary all-rights-reserved on 5 plugins, MIT on plugin-harness, a differently-worded MIT on agent-cache-plugin; user chose all-rights-reserved for all 7) |
 | \<collection\> | ONBOARD-01 | PASS | README.md links install-and-verify.md |
 | \<collection\> | ONBOARD-02 | PASS | install command present for every marketplace plugin |
 | agent-cache-plugin | CI-01 | FAIL | missing from tests.yml matrix.plugin |

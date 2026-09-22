@@ -215,4 +215,4 @@ When modifying cache behavior:
 
 ## License
 
-MIT
+See [LICENSE](LICENSE).
