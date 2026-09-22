@@ -3,6 +3,7 @@
 Monorepo for Renford Nelson's personal Claude Code plugins, used together by
 [plugin-harness](./plugin-harness):
 
+- `plugin-harness/` — caching-first workflow router that coordinates the rest
 - `agent-isdd/` — spec-driven design agent (hard dependency)
 - `agent-tdd/` — test-driven implementation agent (hard dependency)
 - `code-reviewer/` — code review skill (hard dependency)
