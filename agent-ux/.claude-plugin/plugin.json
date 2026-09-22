@@ -13,5 +13,8 @@
     "artifact",
     "agent",
     "claude-code"
-  ]
+  ],
+  "first_class": {
+    "declared_absent": ["hooks", "commands"]
+  }
 }
