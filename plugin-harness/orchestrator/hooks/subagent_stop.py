@@ -21,7 +21,7 @@ from typing import Optional, Dict, Tuple, List, Union
 from orchestrator.error_handler import ErrorHandler
 from orchestrator.checkpoint import CheckpointManager
 from orchestrator.interop_parser import CapabilityMap
-from orchestrator.error import OrchestrationError, HookError
+from orchestrator.error import OrchestrationError, HookError, HookErrorType
 from orchestrator.error_logger import persist_best_effort, ErrorRegistry
 from orchestrator.core import PluginRouter, HARD_DEPENDENCY_PLUGINS
 
