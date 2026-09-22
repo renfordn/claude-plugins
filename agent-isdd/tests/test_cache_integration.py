@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Tests for agent-cache-plugin HTTP integration.
+Tests for the (former) agent-cache-plugin integration in cache_hook.py and ux_render.py.
 
-Tests cache_hook.py and ux_render.py's HTTP-based cache operations with graceful
-degradation when agent-cache-plugin is unavailable.
+agent-cache-plugin exposes no transport a Python hook can reach (no HTTP server, no CLI
+store/retrieve, JS-only in-process API), so both hooks must be free of network calls:
+cache_hook.py is a documented no-op, ux_render.py renders the breadcrumb straight from
+workflow-state.json. These tests pin that -- a regression that reintroduces urllib calls
+against localhost:7771 would silently "gracefully degrade" forever, as the original did.
 """
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'hooks'))
 
@@ -18,202 +22,100 @@ import cache_hook
 import ux_render
 
 
-class CacheWriteTests(unittest.TestCase):
-    """Tests for cache_write_via_mcp in both hooks."""
-
-    def test_cache_write_success_via_http(self):
-        """Successful cache write returns True."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-
-            result = cache_hook.cache_write_via_mcp(
-                "phase_state",
-                {"current_phase": "Design"},
-                "agent-isdd:test-feature",
-                ttl_seconds=3600
-            )
-
-            self.assertTrue(result)
-            mock_urlopen.assert_called_once()
-
-    def test_cache_write_unavailable_graceful_degradation(self):
-        """Cache write gracefully degrades when agent-cache-plugin unavailable."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            import urllib.error
-            mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
-
-            result = cache_hook.cache_write_via_mcp(
-                "phase_state",
-                {"current_phase": "Design"},
-                "agent-isdd:test-feature"
-            )
-
-            # Should return True (graceful degradation, not failure)
-            self.assertTrue(result)
-
-    def test_cache_write_timeout_graceful_degradation(self):
-        """Cache write gracefully handles timeout."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.side_effect = TimeoutError("Request timeout")
-
-            result = cache_hook.cache_write_via_mcp(
-                "phase_state",
-                {"current_phase": "Design"},
-                "agent-isdd:test-feature"
-            )
-
-            self.assertTrue(result)
-
-    def test_cache_write_sends_correct_payload(self):
-        """Cache write sends correct JSON payload to endpoint."""
-        with patch('urllib.request.Request') as mock_request_class:
-            with patch('urllib.request.urlopen'):
-                cache_hook.cache_write_via_mcp(
-                    "phase_state",
-                    {"current_phase": "Design", "phase_state": "In Progress"},
-                    "agent-isdd:test-feature",
-                    ttl_seconds=3600
-                )
-
-                # Verify Request was called with correct endpoint
-                call_args = mock_request_class.call_args
-                self.assertEqual(
-                    call_args[0][0],
-                    "http://localhost:7771/cache/write"
-                )
+def _write_state(feature_dir, **fields):
+    path = os.path.join(feature_dir, "workflow-state.json")
+    with open(path, "w") as f:
+        json.dump(fields, f)
+    return path
 
 
-class CacheReadTests(unittest.TestCase):
-    """Tests for cache_read_via_mcp in ux_render."""
+class NoNetworkTests(unittest.TestCase):
+    """Neither hook may attempt a network call -- there is no server to talk to."""
 
-    def test_cache_read_hit(self):
-        """Cache read returns hit result."""
-        cache_value = {"current_phase": "Design", "phase_state": "In Progress"}
+    def test_no_http_endpoints_referenced(self):
+        for module in (cache_hook, ux_render):
+            with open(module.__file__) as f:
+                src = f.read()
+            self.assertNotIn("urllib", src, f"{module.__name__} must not use urllib")
+            self.assertNotIn("urlopen", src, f"{module.__name__} must not open URLs")
+            self.assertNotIn("Request(", src, f"{module.__name__} must not build HTTP requests")
 
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.read.return_value = json.dumps({
-                "hit": True,
-                "value": cache_value
-            }).encode('utf-8')
-            mock_urlopen.return_value.__enter__.return_value = mock_response
+    def test_dead_mcp_helpers_removed(self):
+        for name in ("cache_write_via_mcp", "cache_invalidate_via_mcp", "cache_read_via_mcp"):
+            self.assertFalse(hasattr(cache_hook, name), f"cache_hook.{name} should be gone")
+            self.assertFalse(hasattr(ux_render, name), f"ux_render.{name} should be gone")
 
-            result = ux_render.cache_read_via_mcp("phase_state", "agent-isdd:test-feature")
-
-            self.assertTrue(result.get("hit"))
-            self.assertEqual(result.get("value"), cache_value)
-
-    def test_cache_read_miss(self):
-        """Cache read returns miss result."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.read.return_value = json.dumps({"hit": False}).encode('utf-8')
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-
-            result = ux_render.cache_read_via_mcp("phase_state", "agent-isdd:test-feature")
-
-            self.assertFalse(result.get("hit"))
-
-    def test_cache_read_unavailable_graceful_degradation(self):
-        """Cache read gracefully returns miss when agent-cache-plugin unavailable."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            import urllib.error
-            mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
-
-            result = ux_render.cache_read_via_mcp("phase_state", "agent-isdd:test-feature")
-
-            # Should return cache miss (graceful degradation)
-            self.assertFalse(result.get("hit"))
-
-    def test_cache_read_timeout_graceful_degradation(self):
-        """Cache read gracefully handles timeout."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_urlopen.side_effect = TimeoutError("Request timeout")
-
-            result = ux_render.cache_read_via_mcp("phase_state", "agent-isdd:test-feature")
-
-            self.assertFalse(result.get("hit"))
-
-    def test_cache_read_malformed_json_graceful_degradation(self):
-        """Cache read gracefully handles malformed JSON response."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.read.return_value = b"invalid json {{{{"
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-
-            result = ux_render.cache_read_via_mcp("phase_state", "agent-isdd:test-feature")
-
-            # Should return cache miss (graceful degradation)
-            self.assertFalse(result.get("hit"))
+    def test_hooks_never_open_a_socket(self):
+        with tempfile.TemporaryDirectory() as d:
+            state_path = _write_state(d, current_phase="Design", rollback_pending=True)
+            with patch("socket.socket", side_effect=AssertionError("network call attempted")):
+                cache_hook.main({"cwd": d})
+                ux_render.main({"state_path": state_path})
 
 
-class CacheInvalidateTests(unittest.TestCase):
-    """Tests for cache_invalidate_via_mcp in cache_hook."""
+class CacheHookNoOpTests(unittest.TestCase):
+    """cache_hook.main() is a documented no-op with the dispatcher-compatible signature."""
 
-    def test_cache_invalidate_success(self):
-        """Successful cache invalidate returns True."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_urlopen.return_value.__enter__.return_value = mock_response
+    def test_returns_none_with_payload(self):
+        self.assertIsNone(cache_hook.main({"cwd": "/nonexistent"}))
 
-            result = cache_hook.cache_invalidate_via_mcp("agent-isdd:test-feature")
+    def test_returns_none_on_rollback_and_phase_states(self):
+        with tempfile.TemporaryDirectory() as d:
+            _write_state(d, current_phase="Design")
+            self.assertIsNone(cache_hook.main({"cwd": d}))
+            _write_state(d, current_phase="Design", rollback_pending=True)
+            self.assertIsNone(cache_hook.main({"cwd": d}))
 
-            self.assertTrue(result)
+    def test_standalone_reads_stdin_and_returns_none(self):
+        with patch("sys.stdin", io.StringIO(json.dumps({"cwd": "/x"}))):
+            self.assertIsNone(cache_hook.main())
+        with patch("sys.stdin", io.StringIO("not json")):
+            self.assertIsNone(cache_hook.main())
 
-    def test_cache_invalidate_unavailable_graceful_degradation(self):
-        """Cache invalidate gracefully degrades when unavailable."""
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            import urllib.error
-            mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
-
-            result = cache_hook.cache_invalidate_via_mcp("agent-isdd:test-feature")
-
-            # Should return True (graceful degradation)
-            self.assertTrue(result)
-
-    def test_cache_invalidate_sends_scope(self):
-        """Cache invalidate sends correct scope in payload."""
-        with patch('urllib.request.Request') as mock_request_class:
-            with patch('urllib.request.urlopen'):
-                cache_hook.cache_invalidate_via_mcp("agent-isdd:test-feature")
-
-                call_args = mock_request_class.call_args
-                self.assertEqual(
-                    call_args[0][0],
-                    "http://localhost:7771/cache/invalidate"
-                )
+    def test_docstring_explains_the_gap(self):
+        doc = cache_hook.__doc__
+        self.assertIn("localhost:7771", doc)
+        self.assertIn("STRUCTURE.md", doc)
+        self.assertIn("workflow-state.json", doc)
 
 
-class UxRenderBreadcrumbLogicTests(unittest.TestCase):
-    """Tests for breadcrumb rendering logic with cache."""
+class UxRenderBreadcrumbTests(unittest.TestCase):
+    """ux_render renders the breadcrumb from workflow-state.json alone."""
 
-    def test_phase_change_detected(self):
-        """Phase change is correctly detected."""
-        self.assertTrue(ux_render.is_phase_change("Requirements", "Design"))
-        self.assertFalse(ux_render.is_phase_change(None, "Design"))  # No prior phase
-        self.assertFalse(ux_render.is_phase_change("Design", "Design"))
-        self.assertFalse(ux_render.is_phase_change(None, None))
+    def test_no_state_path_returns_none(self):
+        self.assertIsNone(ux_render.main({}))
 
-    def test_cache_hit_on_same_phase(self):
-        """Same phase with cache hit uses cached value."""
-        # This is more of an integration test of the main() logic,
-        # but we can verify the decision tree
-        old_phase = "Design"
-        new_phase = "Design"
-        is_changed = ux_render.is_phase_change(old_phase, new_phase)
-        self.assertFalse(is_changed)  # Should not render full transition
+    def test_missing_state_file_returns_none(self):
+        self.assertIsNone(ux_render.main({"state_path": "/nonexistent/workflow-state.json"}))
 
-    def test_cache_miss_renders_full_breadcrumb(self):
-        """Cache miss forces full breadcrumb render."""
-        cache_miss = {"hit": False}
-        is_hit = cache_miss.get("hit")
-        self.assertFalse(is_hit)  # Should render full breadcrumb
+    def test_no_current_phase_returns_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            state_path = _write_state(d, workflow_status="active")
+            self.assertIsNone(ux_render.main({"state_path": state_path}))
+
+    def test_breadcrumb_message_from_current_phase(self):
+        with tempfile.TemporaryDirectory() as d:
+            state_path = _write_state(d, current_phase="Design", phase_state="In Progress")
+            self.assertEqual(ux_render.main({"state_path": state_path}),
+                             "UX: breadcrumb update (Design)")
+
+    def test_repeat_calls_stay_breadcrumb_only(self):
+        """Phase transitions are the skill's job; the hook never emits a phase_transition
+        delegation, even when the phase changes between calls."""
+        with tempfile.TemporaryDirectory() as d:
+            state_path = _write_state(d, current_phase="Requirements")
+            ux_render.main({"state_path": state_path})
+            _write_state(d, current_phase="Design")
+            msg = ux_render.main({"state_path": state_path})
+            self.assertEqual(msg, "UX: breadcrumb update (Design)")
+            self.assertNotIn("phase_transition", msg)
+
+    def test_feature_slug_extraction(self):
+        self.assertEqual(ux_render.get_feature_slug("/x/sdd-memory/my-feat/workflow-state.json"),
+                         "my-feat")
+        self.assertEqual(ux_render.get_feature_slug("/x/tdd-memory/other/workflow-state.json"),
+                         "other")
+        self.assertEqual(ux_render.get_feature_slug("/plain/dir/workflow-state.json"), "dir")
 
 
 if __name__ == "__main__":

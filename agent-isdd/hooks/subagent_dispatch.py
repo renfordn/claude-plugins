@@ -10,8 +10,9 @@ thing that changed, plus each module's main() now optionally accepts an already-
 payload instead of always reading stdin, so this dispatcher can read stdin once and hand
 the same payload to each in turn). Execution order is preserved exactly as it was in
 hooks.json: subagent_report, cache_hook, high_risk_reviewer, ux_render. This order is not
-arbitrary -- cache_hook.py reads workflow-state.json's rollback_pending field, which
-subagent_report.py may have just written; reordering them would change behaviour.
+arbitrary -- cache_hook.py (currently a documented no-op, see its docstring) is the slot for
+a future invalidate-on-rollback that must read workflow-state.json's rollback_pending field
+after subagent_report.py writes it and before ux_render.py renders; keep the order.
 
 Each module's systemMessage (if any) is combined into a single systemMessage, separated by
 blank lines, since only one JSON object can be emitted per hook invocation.

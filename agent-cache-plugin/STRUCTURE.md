@@ -457,17 +457,15 @@ caching — optional)" for the consumer-side contract this mirrors).
 | cache_hit | boolean | yes | Whether cache entry was found and valid |
 | cached_state | object | no | Retrieved cached state if cache_hit is true |
 
-> **Known gap (2026-09-22):** the write/invalidate/read contract above is fully
-> designed on both sides — `agent-isdd/hooks/cache_hook.py` already POSTs to
-> `localhost:7771/cache/write` and `/cache/invalidate` expecting exactly this
-> shape — but this plugin has never actually run an HTTP server on that port
-> or any other (no `bin` entry, no listener anywhere in `hooks/`, `skills/`,
-> or `commands/`). Every such request fails with a connection error, already
-> caught as graceful degradation by `cache_hook.py`, so nothing is
-> user-visibly broken — but `phase_state_cache` has never actually worked
-> end-to-end. See `docs/ROADMAP.md` and the tracked follow-up to either build
-> the HTTP surface or move `agent-isdd`'s side onto a real transport (option
-> 2/4 below).
+> **Known gap (2026-09-22):** the write/invalidate/read contract above is designed but
+> **not implemented on either side**. This plugin has never run an HTTP server (no `bin`
+> entry, no listener in `hooks/`, `skills/`, or `commands/`), and as of agent-isdd 0.1.49
+> its `hooks/cache_hook.py` / `hooks/ux_render.py` no longer attempt the
+> `localhost:7771` calls (they were dead code that always failed silently) — see
+> `agent-isdd/INTEROP.md` → "agent-cache-plugin". `phase_state_cache` has never worked
+> end-to-end. To make it real, this plugin must expose a transport a Python hook process can
+> reach (local socket, or a `store`/`retrieve` verb on `scripts/cache-command.js`); the entry
+> shape above remains the target contract. See `docs/ROADMAP.md`.
 
 ### Other integration points (no network service exists)
 

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [0.1.49] - 2026-09-22
+
+- **Fix**: removed the dead agent-cache-plugin HTTP integration from `hooks/cache_hook.py`
+  (`/cache/write`, `/cache/invalidate`) and `hooks/ux_render.py` (`/cache/read`). No server
+  ever listened on `localhost:7771`; every call failed and was swallowed, so phase-state
+  caching never worked and `ux_render`'s phase-transition branch never fired. `cache_hook.py`
+  is now a documented no-op explaining the gap (agent-cache-plugin exposes no transport a
+  Python hook can reach); `ux_render.py` renders the breadcrumb straight from
+  `workflow-state.json`. `tests/test_cache_integration.py` now pins the no-network contract
+  instead of testing graceful degradation of a call that could never succeed. `INTEROP.md`'s
+  agent-cache-plugin section rewritten to match.
+
 ## [0.1.48] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section (install one-liner + first `/isdd` command + pointer
