@@ -1,6 +1,24 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-22
+
+- **Feat**: `/cache-dashboard` — `commands/cache-dashboard.js` is now routed through
+  `scripts/cache-command.js` (`cache-command.js dashboard [--output FILE]`) and has a
+  `commands/cache-dashboard.md` slash-command doc, like `status`/`clear`/`config`. Its hit-rate
+  trend, tokens-saved accumulation, and request-volume charts are computed from real
+  `cache_events` data via a new `MetricsTracker.getHourlyBreakdown(hours)`, instead of the old
+  `_generateChartData()`'s `Math.random()` output. The "Recommendations" panel now shows
+  `MetricsTracker.getRecommendations()`'s real suggestions (or "No issues detected") instead of
+  a hardcoded always-green summary, and the "Cached Entries" progress bar reflects real
+  utilization against the configured `maxEntries`. Retrieval latency is not instrumented
+  anywhere in this plugin, so the latency stat cards now show "Not tracked" rather than the
+  fixed `2.5ms`/`25ms`/`45ms` placeholders they used to; see `docs/ROADMAP.md` for the
+  follow-up to add real latency instrumentation.
+- **Docs**: `STRUCTURE.md` no longer describes `commands/cache-dashboard.js` as an unfinished,
+  unrouted module. `skills/cache-validation/DASHBOARD.md`'s constructor/API reference and
+  latency section were corrected to match.
+
 ## [2.1.1] - 2026-09-22
 
 - **Fix**: running `npm test` wrote to the developer's **real** cache

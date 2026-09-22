@@ -1,84 +1,101 @@
 /**
  * Cache Dashboard Command
  *
- * Generates an interactive HTML dashboard showing real-time cache metrics
- * including hit rates, token savings, latency, and entry lifecycle.
+ * Generates an interactive HTML dashboard showing cache metrics — hit rate,
+ * token savings, request volume, and recommendations — computed from the
+ * `cache_events` table via CacheManager/MetricsTracker, the same sources
+ * `/cache-status` reads. Retrieval latency is not instrumented anywhere in
+ * this plugin yet, so latency figures are shown as "Not tracked" rather
+ * than invented.
  */
 
 const fs = require('fs');
-const path = require('path');
+const sqliteCache = require('../skills/sqlite-cache');
+const metricsTracker = require('../skills/metrics-tracker');
+const cacheValidation = require('../skills/cache-validation');
 
 class CacheDashboard {
-  constructor(cacheManager, validator, embeddingScorer) {
-    this.cacheManager = cacheManager;
-    this.validator = validator;
-    this.embeddingScorer = embeddingScorer;
-    this.metrics = {
-      hits: [],
-      misses: [],
-      latencies: [],
-      tokensSaved: [],
-      evictions: [],
-      timestamps: []
-    };
+  /**
+   * @param {object} [deps] - Optional dependency injection for testing.
+   * @param {object} [deps.cache]     - CacheManager instance.
+   * @param {object} [deps.metrics]   - MetricsTracker instance.
+   * @param {object} [deps.validator] - CacheValidator instance (embedding stats).
+   */
+  constructor(deps = {}) {
+    this.cache = deps.cache || sqliteCache.getSingleton();
+    this.metrics = deps.metrics || metricsTracker.getSingleton();
+    this.validator = deps.validator || cacheValidation.getSingleton();
   }
 
   /**
    * Generate HTML dashboard
    */
   async generateHTML() {
-    let stats = {};
-    let validatorStats = {};
+    let rawStats = {};
+    let config = {};
+    let statusOk = true;
 
     try {
-      if (this.cacheManager) {
-        stats = await this.cacheManager.stats();
+      if (this.cache) {
+        rawStats = this.cache.stats();
+        if (typeof this.cache.getConfig === 'function') config = this.cache.getConfig();
       }
     } catch (err) {
+      statusOk = false;
       console.warn('[CacheDashboard] Failed to fetch cache stats:', err.message);
     }
 
+    let hitRate = { hitRate: 0, totalHits: 0, totalMisses: 0, totalQueries: 0 };
+    let savings = { totalTokensSaved: 0, avgPerHit: 0 };
+    let perf = { cacheRetrievalTime: { avg: 0, median: 0, p95: 0, p99: 0 } };
+    let recommendations = { suggestions: [] };
+    let hourly = [];
+
     try {
-      if (this.validator) {
-        validatorStats = this.validator.getEmbeddingStats();
+      if (this.metrics) {
+        hitRate = await this.metrics.getHitRate();
+        savings = await this.metrics.getTokenSavings();
+        perf = await this.metrics.getPerformanceMetrics();
+        recommendations = await this.metrics.getRecommendations();
+        hourly = await this.metrics.getHourlyBreakdown(24);
       }
+    } catch (err) {
+      statusOk = false;
+      console.warn('[CacheDashboard] Failed to fetch metrics:', err.message);
+    }
+
+    let validatorStats = {};
+    try {
+      if (this.validator) validatorStats = this.validator.getEmbeddingStats();
     } catch (err) {
       console.warn('[CacheDashboard] Failed to fetch embedding stats:', err.message);
     }
 
-    const cacheInfo = this._buildCacheInfo(stats);
+    const cacheInfo = this._buildCacheInfo(rawStats, hitRate, savings, config);
 
-    return this._buildHTMLPage(stats, validatorStats, cacheInfo);
+    return this._buildHTMLPage(cacheInfo, perf, recommendations, validatorStats || {}, hourly, statusOk);
   }
 
   /**
-   * Build cache info from stats
+   * Build cache info from real stats/hitRate/savings.
    */
-  _buildCacheInfo(stats) {
-    if (!stats || Object.keys(stats).length === 0) {
-      return {
-        totalEntries: 0,
-        totalHits: 0,
-        totalMisses: 0,
-        hitRate: 'N/A',
-        avgTokensSaved: 0,
-        avgLatency: 'N/A',
-        p95Latency: 'N/A',
-        p99Latency: 'N/A'
-      };
-    }
+  _buildCacheInfo(rawStats, hitRate, savings, config) {
+    const totalEntries = (rawStats && rawStats.totalEntries) || 0;
+    const totalHits = (hitRate && hitRate.totalHits) || 0;
+    const totalMisses = (hitRate && hitRate.totalMisses) || 0;
+    const totalQueries = (hitRate && hitRate.totalQueries) || 0;
+    const maxEntries = (config && config.maxEntries) || 0;
 
     return {
-      totalEntries: stats.totalEntries || 0,
-      totalHits: stats.totalHits || 0,
-      totalMisses: stats.totalMisses || 0,
-      hitRate: stats.totalHits && stats.totalMisses
-        ? (stats.totalHits / (stats.totalHits + stats.totalMisses) * 100).toFixed(1)
-        : 'N/A',
-      avgTokensSaved: stats.avgTokensSaved || 0,
-      avgLatency: '2.5ms',
-      p95Latency: '25ms',
-      p99Latency: '45ms'
+      totalEntries,
+      totalHits,
+      totalMisses,
+      totalQueries,
+      hitRate: totalQueries > 0 ? (hitRate.hitRate * 100).toFixed(1) : 'N/A',
+      avgTokensSaved: (savings && savings.avgPerHit) || 0,
+      totalTokensSaved: (savings && savings.totalTokensSaved) || 0,
+      maxEntries,
+      utilizationPercent: maxEntries > 0 ? Math.min(100, Math.round((totalEntries / maxEntries) * 100)) : 0
     };
   }
 
@@ -87,24 +104,77 @@ class CacheDashboard {
    */
   async getCacheInfo() {
     try {
-      const stats = await this.cacheManager.stats();
-      return this._buildCacheInfo(stats);
+      const rawStats = this.cache.stats();
+      const config = typeof this.cache.getConfig === 'function' ? this.cache.getConfig() : {};
+      const hitRate = await this.metrics.getHitRate();
+      const savings = await this.metrics.getTokenSavings();
+      return this._buildCacheInfo(rawStats, hitRate, savings, config);
     } catch (err) {
-      return this._buildCacheInfo({});
+      return this._buildCacheInfo({}, { totalHits: 0, totalMisses: 0, totalQueries: 0 }, {}, {});
     }
+  }
+
+  _latencyBadge(ms) {
+    if (!ms || ms <= 0) return { cls: 'badge-info', text: 'Not tracked' };
+    if (ms < 5) return { cls: 'badge-success', text: 'Excellent' };
+    if (ms < 25) return { cls: 'badge-success', text: 'Good' };
+    if (ms < 50) return { cls: 'badge-warning', text: 'Acceptable' };
+    return { cls: 'badge-warning', text: 'Slow' };
+  }
+
+  /**
+   * Turn hourly cache_events buckets into Chart.js-ready series.
+   */
+  _buildChartSeries(hourly) {
+    const labels = hourly.map((h) => {
+      const d = new Date(h.hourStart);
+      return `${String(d.getHours()).padStart(2, '0')}:00`;
+    });
+    const hitRateSeries = hourly.map((h) => {
+      const total = h.hits + h.misses;
+      return total > 0 ? Number(((h.hits / total) * 100).toFixed(1)) : null;
+    });
+    let cumulative = 0;
+    const tokensCumulative = hourly.map((h) => (cumulative += h.tokensSaved));
+    return {
+      labels,
+      hitRateSeries,
+      tokensCumulative,
+      hitsSeries: hourly.map((h) => h.hits),
+      missesSeries: hourly.map((h) => h.misses)
+    };
   }
 
   /**
    * Build HTML page with dashboard
    */
-  _buildHTMLPage(stats, validatorStats, cacheInfo) {
-    const chartData = this._generateChartData();
+  _buildHTMLPage(cacheInfo, perf, recommendations, validatorStats, hourly, statusOk) {
     const embeddingStatus = validatorStats || {};
+    const chart = this._buildChartSeries(hourly);
+    const latency = perf && perf.cacheRetrievalTime ? perf.cacheRetrievalTime : { avg: 0, p95: 0, p99: 0 };
+    const p50Badge = this._latencyBadge(latency.avg);
+    const p95Badge = this._latencyBadge(latency.p95);
+    const p99Badge = this._latencyBadge(latency.p99);
+    const statusBadge = statusOk
+      ? { cls: 'badge-success', text: 'Healthy' }
+      : { cls: 'badge-warning', text: 'Degraded' };
 
     // Format numbers for display
     const formatNumber = (num) => {
       return Math.round(num).toLocaleString('en-US');
     };
+
+    const recommendationItems = recommendations.suggestions && recommendations.suggestions.length > 0
+      ? recommendations.suggestions.map((s) => `
+                <div class="detail-item">
+                    <span class="detail-label">${s.area}</span>
+                    <span class="badge ${s.impact === 'high' ? 'badge-warning' : 'badge-info'}">${s.impact}</span>
+                </div>`).join('')
+      : `
+                <div class="detail-item">
+                    <span class="detail-label">Status</span>
+                    <span class="badge badge-success">No issues detected</span>
+                </div>`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -186,12 +256,6 @@ class CacheDashboard {
         .stat-unit {
             font-size: 12px;
             color: #999;
-        }
-
-        .stat-change {
-            font-size: 12px;
-            color: #10b981;
-            margin-top: 4px;
         }
 
         .charts-grid {
@@ -337,51 +401,49 @@ class CacheDashboard {
     <div class="container">
         <div class="header">
             <h1>📊 Cache Metrics Dashboard</h1>
-            <p>Real-time performance analytics and cache health monitoring</p>
+            <p>Cache health, computed from cache_events</p>
         </div>
 
         <!-- Key Metrics -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Cache Hit Rate</div>
-                <div class="stat-value">${cacheInfo.hitRate}%</div>
-                <div class="stat-unit">Last 30 days</div>
-                <div class="stat-change">↑ 5.2% from last week</div>
+                <div class="stat-value">${cacheInfo.hitRate}${cacheInfo.hitRate === 'N/A' ? '' : '%'}</div>
+                <div class="stat-unit">${formatNumber(cacheInfo.totalQueries)} queries recorded</div>
             </div>
 
             <div class="stat-card">
                 <div class="stat-label">Cached Entries</div>
                 <div class="stat-value">${formatNumber(cacheInfo.totalEntries)}</div>
-                <div class="stat-unit">Active entries</div>
-                <div class="progress-bar"><div class="progress-fill" style="width: 65%"></div></div>
+                <div class="stat-unit">${cacheInfo.maxEntries ? `of ${formatNumber(cacheInfo.maxEntries)} max` : 'no configured max'}</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${cacheInfo.utilizationPercent}%"></div></div>
             </div>
 
             <div class="stat-card">
                 <div class="stat-label">Avg Tokens Saved</div>
                 <div class="stat-value">${formatNumber(cacheInfo.avgTokensSaved)}</div>
-                <div class="stat-unit">Per cache hit</div>
-                <div class="stat-change">↑ 12 tokens</div>
+                <div class="stat-unit">Per cache hit — ${formatNumber(cacheInfo.totalTokensSaved)} total</div>
             </div>
 
             <div class="stat-card">
-                <div class="stat-label">Latency (p50)</div>
-                <div class="stat-value">${cacheInfo.avgLatency}</div>
+                <div class="stat-label">Latency (avg)</div>
+                <div class="stat-value">${latency.avg}ms</div>
                 <div class="stat-unit">Retrieval time</div>
-                <span class="badge badge-success">Excellent</span>
+                <span class="badge ${p50Badge.cls}">${p50Badge.text}</span>
             </div>
 
             <div class="stat-card">
                 <div class="stat-label">Latency (p95)</div>
-                <div class="stat-value">${cacheInfo.p95Latency}</div>
+                <div class="stat-value">${latency.p95}ms</div>
                 <div class="stat-unit">95th percentile</div>
-                <div class="stat-change">Varies with DB</div>
+                <span class="badge ${p95Badge.cls}">${p95Badge.text}</span>
             </div>
 
             <div class="stat-card">
                 <div class="stat-label">Latency (p99)</div>
-                <div class="stat-value">${cacheInfo.p99Latency}</div>
+                <div class="stat-value">${latency.p99}ms</div>
                 <div class="stat-unit">99th percentile</div>
-                <span class="badge badge-info">Acceptable</span>
+                <span class="badge ${p99Badge.cls}">${p99Badge.text}</span>
             </div>
         </div>
 
@@ -395,7 +457,7 @@ class CacheDashboard {
             </div>
 
             <div class="chart-container">
-                <div class="chart-title">Tokens Saved Accumulation</div>
+                <div class="chart-title">Tokens Saved Accumulation (24h)</div>
                 <div class="chart">
                     <canvas id="tokensSavedChart"></canvas>
                 </div>
@@ -405,13 +467,6 @@ class CacheDashboard {
                 <div class="chart-title">Request Volume (by hour)</div>
                 <div class="chart">
                     <canvas id="volumeChart"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-container">
-                <div class="chart-title">Latency Distribution</div>
-                <div class="chart">
-                    <canvas id="latencyChart"></canvas>
                 </div>
             </div>
         </div>
@@ -434,7 +489,7 @@ class CacheDashboard {
                 </div>
                 <div class="detail-item">
                     <span class="detail-label">Cache Status</span>
-                    <span class="badge badge-success">Healthy</span>
+                    <span class="badge ${statusBadge.cls}">${statusBadge.text}</span>
                 </div>
             </div>
 
@@ -459,29 +514,13 @@ class CacheDashboard {
             </div>
 
             <div class="details-panel">
-                <div class="panel-title">Recommendations</div>
-                <div class="detail-item">
-                    <span class="detail-label">Hit Rate Target</span>
-                    <span class="badge badge-success">On Track (75-90%)</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Cache Eviction</span>
-                    <span class="badge badge-info">Low (2%)</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Memory Usage</span>
-                    <span class="badge badge-success">Optimal (65%)</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Action Required</span>
-                    <span class="detail-value" style="color: #10b981;">None</span>
-                </div>
+                <div class="panel-title">Recommendations</div>${recommendationItems}
             </div>
         </div>
 
         <div class="timestamp">
             Last updated: <span id="timestamp">${new Date().toLocaleString()}</span> |
-            Dashboard v1.0 | Agent Cache Plugin
+            Dashboard v2.0 | Agent Cache Plugin
         </div>
     </div>
 
@@ -495,21 +534,24 @@ class CacheDashboard {
             danger: '#ef4444'
         };
 
+        const labels = ${JSON.stringify(chart.labels)};
+
         // Hit Rate Trend Chart
         const hitRateCtx = document.getElementById('hitRateChart').getContext('2d');
         new Chart(hitRateCtx, {
             type: 'line',
             data: {
-                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
+                labels: labels,
                 datasets: [{
                     label: 'Hit Rate (%)',
-                    data: [68, 71, 75, 78, 80, 82, 85],
+                    data: ${JSON.stringify(chart.hitRateSeries)},
+                    spanGaps: true,
                     borderColor: colors.primary,
                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
-                    pointRadius: 6,
+                    pointRadius: 4,
                     pointBackgroundColor: colors.primary,
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
@@ -541,17 +583,12 @@ class CacheDashboard {
         new Chart(tokensSavedCtx, {
             type: 'bar',
             data: {
-                labels: ['6h ago', '4h ago', '2h ago', 'Now'],
+                labels: labels,
                 datasets: [{
-                    label: 'Tokens Saved',
-                    data: [2400, 3200, 4100, 5200],
-                    backgroundColor: [
-                        colors.primary,
-                        colors.primary,
-                        colors.primary,
-                        colors.secondary
-                    ],
-                    borderRadius: 8,
+                    label: 'Cumulative Tokens Saved',
+                    data: ${JSON.stringify(chart.tokensCumulative)},
+                    backgroundColor: colors.primary,
+                    borderRadius: 4,
                     borderSkipped: false
                 }]
             },
@@ -577,17 +614,17 @@ class CacheDashboard {
         new Chart(volumeCtx, {
             type: 'bar',
             data: {
-                labels: ['00', '04', '08', '12', '16', '20', '24'],
+                labels: labels,
                 datasets: [
                     {
                         label: 'Hits',
-                        data: [150, 120, 280, 450, 520, 390, 200],
+                        data: ${JSON.stringify(chart.hitsSeries)},
                         backgroundColor: colors.success,
                         borderRadius: 4
                     },
                     {
                         label: 'Misses',
-                        data: [50, 40, 80, 120, 110, 90, 60],
+                        data: ${JSON.stringify(chart.missesSeries)},
                         backgroundColor: colors.warning,
                         borderRadius: 4
                     }
@@ -617,34 +654,6 @@ class CacheDashboard {
             }
         });
 
-        // Latency Distribution Chart
-        const latencyCtx = document.getElementById('latencyChart').getContext('2d');
-        new Chart(latencyCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['<5ms', '5-25ms', '25-50ms', '>50ms'],
-                datasets: [{
-                    data: [72, 20, 6, 2],
-                    backgroundColor: [
-                        colors.success,
-                        colors.primary,
-                        colors.warning,
-                        colors.danger
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { color: '#666', font: { size: 11 }, padding: 15 }
-                    }
-                }
-            }
-        });
-
         // Update timestamp
         setInterval(() => {
             document.getElementById('timestamp').textContent = new Date().toLocaleString();
@@ -653,26 +662,43 @@ class CacheDashboard {
 </body>
 </html>`;
   }
+}
 
-  /**
-   * Generate mock chart data
-   */
-  _generateChartData() {
-    return {
-      hitRate: Array.from({ length: 24 }, (_, i) => Math.round(60 + Math.random() * 30)),
-      tokensSaved: Array.from({ length: 24 }, (_, i) => Math.round(100 + Math.random() * 200)),
-      volume: Array.from({ length: 24 }, (_, i) => Math.round(200 + Math.random() * 500))
-    };
+/**
+ * Generate the dashboard and write it to disk.
+ * @param {object} [args]
+ * @param {string} [args.output] - Destination file (default: cache-dashboard.html).
+ */
+async function execute(args = {}) {
+  const outputFile = args.output || args.o || 'cache-dashboard.html';
+  try {
+    const dashboard = new CacheDashboard();
+    const html = await dashboard.generateHTML();
+    fs.writeFileSync(outputFile, html);
+    return { status: 'success', report: `Dashboard written to ${outputFile}`, format: 'html', data: html };
+  } catch (err) {
+    return { status: 'error', error: err.message, report: `Failed to generate dashboard: ${err.message}` };
   }
 }
 
-// Export for CLI usage
+// CLI usage
 if (require.main === module) {
-  console.log('Cache Dashboard Generator');
-  console.log('Usage: node cache-dashboard.js [options]');
-  console.log('Options:');
-  console.log('  --output, -o <file>  Save dashboard to file');
-  console.log('  --open                Open in browser');
+  const argv = process.argv.slice(2);
+  const outputIdx = Math.max(argv.indexOf('--output'), argv.indexOf('-o'));
+  const outputFile = outputIdx >= 0 ? argv[outputIdx + 1] : undefined;
+
+  execute({ output: outputFile }).then((result) => {
+    console.log(result.report);
+    if (result.status === 'error') process.exit(1);
+  });
 }
 
-module.exports = CacheDashboard;
+module.exports = {
+  name: 'cache-dashboard',
+  description: 'Generate an HTML dashboard of cache hit rate, token savings, and request volume',
+  usage: 'cache-command.js dashboard [--output FILE]',
+
+  execute,
+
+  CacheDashboard
+};

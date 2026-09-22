@@ -10,6 +10,7 @@
  *   node scripts/cache-command.js status [--detailed] [--export FORMAT]
  *   node scripts/cache-command.js clear [--all --yes] [--agent AGENT] [--task TASK] [--older-than DAYS]
  *   node scripts/cache-command.js config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
+ *   node scripts/cache-command.js dashboard [--output FILE]
  */
 
 const fs = require('fs');
@@ -19,7 +20,8 @@ const path = require('path');
 const commands = {
   status: require('../commands/cache-status'),
   clear: require('../commands/cache-clear'),
-  config: require('../commands/cache-config')
+  config: require('../commands/cache-config'),
+  dashboard: require('../commands/cache-dashboard')
 };
 
 /**
@@ -129,6 +131,9 @@ Commands:
              relevanceThreshold, stalenessThreshold
              Usage: cache-command.js config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
 
+  dashboard  Generate an HTML dashboard of hit rate, token savings, and request volume
+             Usage: cache-command.js dashboard [--output FILE]
+
 Options:
   --help     Show this help message
   --version  Show version information
@@ -148,6 +153,9 @@ Examples:
 
   # Set configuration
   cache-command.js config --set relevanceThreshold 85
+
+  # Generate a dashboard
+  cache-command.js dashboard --output dashboard.html
   `);
 }
 
