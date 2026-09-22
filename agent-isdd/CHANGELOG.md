@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.47] - 2026-09-22
+
+- **Fix**: `workflow-manager`/`design-author`/`requirements-agent`/`spec-driven-development` `SKILL.md` files referenced `references/artifact-templates.md` and `references/workflow-state.template.json` as bare relative paths, ambiguous since those files live in the plugin-root `references/` dir, not each skill's own — now use `${CLAUDE_PLUGIN_ROOT}/references/...`, matching the convention already in `agents/spec-reviewer.md`.
+- **Fix**: `tests/test_sdd_review_guidance.py` hardcoded an absolute `/Users/jay.nelson/...` path (would fail on any other machine, including CI) and only read `SKILL.md`, missing the "Deep"/"Ultra" review-level detail the v0.1.46 progressive-disclosure split moved into `references/review-levels.md`. Made the path relative and read both files.
+- **Fix**: `tests/test_design_author_deep_review.py` and `tests/test_isdd_interop_review_placement.py` hardcoded the same absolute-path pattern; made both relative to `Path(__file__)`.
+
 ## [0.1.46] - 2026-09-21
 
 - **Docs**: apply progressive disclosure to `spec-driven-development/SKILL.md` (4,987 → 2,669 words) and `workflow-manager/SKILL.md` (4,128 → 3,234 words), moving deep/rare-path detail into new `references/*.md` files; rewrite `plan-reviewer/SKILL.md`'s description for concision (568 → 490 chars). Fixes the 3 genuine `plugin-validate` Per-Skill Quality findings against this plugin; fixes 2 stale `INTEROP.md` cross-references into content that moved.
