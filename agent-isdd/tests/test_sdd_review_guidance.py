@@ -4,11 +4,20 @@ Test: spec-driven-development SKILL.md documents review level guidance per phase
 Red Test — verify that phase-level review guidance is documented.
 """
 
+from pathlib import Path
+
+_SKILL_DIR = Path(__file__).resolve().parent.parent / "skills" / "spec-driven-development"
+
 
 def read_sdd_skill():
-    """Read the spec-driven-development SKILL.md file."""
-    with open("/Users/jay.nelson/Codebase/Claude-Plugins/agent-isdd/skills/spec-driven-development/SKILL.md", "r") as f:
-        return f.read()
+    """Read the spec-driven-development SKILL.md file, plus references/review-levels.md
+    (where the v0.1.46 progressive-disclosure split moved the per-level detail -- see
+    CHANGELOG.md's [0.1.46] entry), since guidance now spans both files."""
+    content = (_SKILL_DIR / "SKILL.md").read_text()
+    review_levels_path = _SKILL_DIR / "references" / "review-levels.md"
+    if review_levels_path.exists():
+        content += "\n" + review_levels_path.read_text()
+    return content
 
 
 def test_review_level_guidance_section_exists():
