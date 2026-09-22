@@ -405,33 +405,29 @@ agent-nelly:agent-nelly supports:
 This is documented here as the contract both plugins can cross-check; agent-nelly's own `INTEROP.md`
 is authoritative for its side of the contract.
 
-## → agent-cache-plugin (phase state caching — not wired; documented gap)
+## → agent-cache-plugin (no direct integration)
 
-agent-isdd does **not** currently exchange any data with agent-cache-plugin, and never has.
+agent-isdd does **not** exchange any data with agent-cache-plugin directly, and never has.
 
-`hooks/cache_hook.py` and `hooks/ux_render.py` were originally written to POST phase state to
-an agent-cache-plugin HTTP server on `localhost:7771` (`/cache/write`, `/cache/invalidate`,
-`/cache/read`). That server has never existed — agent-cache-plugin has no `bin` entry and no
-listener anywhere — so every request failed and was swallowed as "graceful degradation". As of
-0.1.49 the dead HTTP code is removed:
+Until 0.1.48, `hooks/cache_hook.py` and `hooks/ux_render.py` POSTed phase state to an
+agent-cache-plugin HTTP server on `localhost:7771`. That server never existed — agent-cache-plugin
+has no `bin` entry and no listener anywhere — so every request failed and was swallowed as
+"graceful degradation". 0.1.49 removed the HTTP code; 0.1.50 removed `cache_hook.py` entirely.
+`ux_render.py` now renders the breadcrumb straight from `workflow-state.json` (the source of
+truth for phase state) and never emits a `phase_transition` delegation — the
+`spec-driven-development` skill does that itself at every phase change.
 
-- `cache_hook.py` is a documented no-op kept in `subagent_dispatch.MODULES` (before
-  `ux_render`) as the wiring point should a reachable transport ever appear.
-- `ux_render.py` renders the breadcrumb directly from `workflow-state.json` (the source of
-  truth for phase state). It never emits a `phase_transition` delegation — the
-  `spec-driven-development` skill already does that itself at every phase change.
+**What agent-cache-plugin does for agent-isdd anyway**: its automatic `PreToolUse`/`PostToolUse`
+hooks on the `Agent` tool cache every subagent output in the session (including agent-isdd's
+`planning-agent`, `research-consolidator`, `spec-reviewer` spawns) with no caller action — see
+agent-cache-plugin's `STRUCTURE.md` → "Capabilities" → `agent_output_cache`. That is the only
+integration surface, and it needs nothing from this plugin.
 
-**Why no replacement**: agent-cache-plugin's real surface (its `STRUCTURE.md` →
-"Capabilities") is automatic `PreToolUse`/`PostToolUse` hooks on the `Agent` tool (caching
-Agent outputs, not arbitrary scoped state), two subagents reachable only via the `Agent` tool,
-CLI commands with no store/retrieve verb, and a Node-only in-process JS API. None of these is
-callable from a Python hook process, and the automatic layer does not cover scoped phase-state
-storage. The prior "70–85% breadcrumb token savings" claim was never realised.
-
-**If wiring it later**: agent-cache-plugin would need to expose a transport a hook process can
-reach (local socket, or `cache-command.js store|retrieve`). Its `STRUCTURE.md`
-`phase_state_cache` capability still documents the intended entry shape
-(`{prompt, output, metadata}`, scope `agent-isdd:<feature-slug>`, TTL 3600s).
+**Why no explicit integration**: agent-cache-plugin's other surfaces — two subagents reachable
+only via the `Agent` tool, CLI commands with no store/retrieve verb, and a Node-only in-process
+JS API — are not callable from a Python hook process. If a reachable transport ever appears,
+wire it as a new module in `hooks/subagent_dispatch.MODULES` between `subagent_report` and
+`ux_render`.
 
 ---
 

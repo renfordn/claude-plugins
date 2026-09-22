@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [0.1.50] - 2026-09-22
+
+- **Chore**: deleted `hooks/cache_hook.py` (a pure no-op since 0.1.49) and dropped it from
+  `subagent_dispatch.MODULES`; `INTEROP.md`'s agent-cache-plugin section now points at the
+  plugin's real (automatic) `agent_output_cache` capability instead of the never-built
+  `phase_state_cache`.
+- **Fix**: `hooks/ux_render.py` resolved the feature only from a `state_path` payload field
+  that the real SubagentStop payload never carries, so it silently returned nothing. It now
+  resolves the active feature from `cwd` via `sdd_state.active_state_file` like its sibling
+  hooks (an explicit `state_path` still overrides, for tests).
+- **Tests**: `tests/test_cache_integration.py` → `tests/test_ux_render.py`; pins no-network,
+  cwd-based resolution, and dispatcher module order.
+
 ## [0.1.49] - 2026-09-22
 
 - **Fix**: removed the dead agent-cache-plugin HTTP integration from `hooks/cache_hook.py`

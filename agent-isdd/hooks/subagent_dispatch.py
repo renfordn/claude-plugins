@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""SubagentStop hook: single entry-point combining the four previously separate hooks
-(subagent_report.py, cache_hook.py, high_risk_reviewer.py, ux_render.py) that all fired on
-every SubagentStop event. Running one Python process instead of four cuts subprocess
-startup overhead the same way post_write_check.py already does for PostToolUse.
+"""SubagentStop hook: single entry-point combining the previously separate hooks
+(subagent_report.py, high_risk_reviewer.py, ux_render.py) that all fired on every
+SubagentStop event. Running one Python process instead of several cuts subprocess startup
+overhead the same way post_write_check.py already does for PostToolUse.
 
-Behaviour is unchanged from the four originals: each module's logic still lives in its own
-file (and is still independently invocable -- hooks.json's SubagentStop entry is the only
-thing that changed, plus each module's main() now optionally accepts an already-parsed
-payload instead of always reading stdin, so this dispatcher can read stdin once and hand
-the same payload to each in turn). Execution order is preserved exactly as it was in
-hooks.json: subagent_report, cache_hook, high_risk_reviewer, ux_render. This order is not
-arbitrary -- cache_hook.py (currently a documented no-op, see its docstring) is the slot for
-a future invalidate-on-rollback that must read workflow-state.json's rollback_pending field
-after subagent_report.py writes it and before ux_render.py renders; keep the order.
+Each module's logic still lives in its own file (and is still independently invocable --
+each module's main() optionally accepts an already-parsed payload instead of always reading
+stdin, so this dispatcher can read stdin once and hand the same payload to each in turn).
+Execution order: subagent_report (may write workflow-state.json), high_risk_reviewer,
+ux_render (reads workflow-state.json to render the breadcrumb) -- keep report before render.
+
+A fourth module, cache_hook.py, used to sit between subagent_report and high_risk_reviewer;
+it was removed in 0.1.50 after its agent-cache-plugin HTTP integration turned out to have
+never had a server to talk to (see INTEROP.md -> "agent-cache-plugin").
 
 Each module's systemMessage (if any) is combined into a single systemMessage, separated by
 blank lines, since only one JSON object can be emitted per hook invocation.
@@ -23,12 +23,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import subagent_report  # noqa: E402
-import cache_hook  # noqa: E402
 import high_risk_reviewer  # noqa: E402
 import ux_render  # noqa: E402
 
 # Order matters -- see module docstring.
-MODULES = (subagent_report, cache_hook, high_risk_reviewer, ux_render)
+MODULES = (subagent_report, high_risk_reviewer, ux_render)
 
 
 def main():

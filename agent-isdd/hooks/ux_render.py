@@ -8,8 +8,9 @@ spec-driven-development skill delegates the `phase_transition` envelope to agent
 itself at every phase change, so this hook only ever needs the same-phase path.
 
 Note: an earlier version tried to read/write a "previous phase" via agent-cache-plugin over
-HTTP (localhost:7771) to detect transitions. That server never existed (see cache_hook.py),
-so the read always missed and the transition branch never fired; it was removed as dead code.
+HTTP (localhost:7771) to detect transitions. That server never existed (see INTEROP.md ->
+"agent-cache-plugin"), so the read always missed and the transition branch never fired; it
+was removed as dead code in 0.1.49.
 """
 import json
 import os
@@ -17,6 +18,12 @@ import sys
 import re
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    from sdd_state import active_state_file
+except ImportError:
+    def active_state_file(cwd):
+        return None
 
 
 def get_feature_slug(state_path):
@@ -48,8 +55,13 @@ def main(payload=None):
     """
     Hook: Runs after SubagentStop (phase state finalized).
 
-    Reads current_phase from workflow-state.json and returns a breadcrumb-refresh
-    systemMessage (or None when there is no active feature / phase).
+    Reads current_phase from the active feature's workflow-state.json and returns a
+    breadcrumb-refresh systemMessage (or None when there is no active feature / phase).
+
+    The active feature is resolved from the hook payload's `cwd` via sdd_state.active_state_file,
+    the same way the sibling SubagentStop hooks do; an explicit `state_path` in the payload
+    overrides it (used by tests). Earlier versions read only `state_path`, which the real
+    SubagentStop payload never carries, so the hook silently did nothing.
 
     Returns the systemMessage text (or None) rather than printing it directly, so the
     subagent_dispatch.py dispatcher can run this alongside the other SubagentStop hooks in one
@@ -62,7 +74,7 @@ def main(payload=None):
         except (json.JSONDecodeError, ValueError):
             payload = {}
 
-    state_path = payload.get("state_path")
+    state_path = payload.get("state_path") or active_state_file(payload.get("cwd") or os.getcwd())
     if not state_path:
         return None
 
