@@ -5,8 +5,10 @@
 The Cache Metrics Dashboard provides real-time visualization of cache performance metrics and health indicators. It displays hit rates, token savings, latency distribution, and recommendations in an interactive web interface.
 
 **Target Audience**: Operators, DevOps engineers, and developers monitoring cache performance  
-**Update Frequency**: Auto-updates every 60 seconds  
-**Data Source**: Live cache manager and embedding scorer statistics
+**Update Frequency**: Regenerated on demand via `/cache-dashboard`; the on-page timestamp
+re-renders every 60 seconds but the underlying data is a snapshot from generation time.  
+**Data Source**: `cache_events` (via `CacheManager`/`MetricsTracker`, the same tables
+`/cache-status` reads) and, if configured, the embedding scorer's own stats
 
 ## Key Metrics
 
@@ -37,6 +39,10 @@ The Cache Metrics Dashboard provides real-time visualization of cache performanc
 - **Example**: If a query normally costs 300 tokens and cache saves 250, value is 250
 
 ### 4. Latency Metrics
+**Not currently instrumented.** Nothing in `CacheManager`/`MetricsTracker` times a `retrieve()`
+call yet, so `getPerformanceMetrics().cacheRetrievalTime` always returns zero and the dashboard
+shows "Not tracked" rather than a number. See `docs/ROADMAP.md` for the follow-up to add real
+latency instrumentation. The targets below are the intended thresholds once it exists:
 - **p50 (Median)**: 50% of queries complete faster than this
   - Target: <5ms for memory, <50ms for SQLite
 - **p95**: 95% of queries complete faster than this
@@ -67,9 +73,9 @@ Six cards showing key metrics at a glance:
   - Flat or declining trend may indicate cache stale entries
   - Daily patterns show peak usage times
 
-#### Tokens Saved Accumulation
+#### Tokens Saved Accumulation (24h)
 - **Chart Type**: Bar chart
-- **X-Axis**: Time intervals (6h ago, 4h ago, 2h ago, Now)
+- **X-Axis**: Hour of day, last 24 hours
 - **Y-Axis**: Cumulative tokens saved
 - **Interpretation**:
   - Steep growth indicates high cache effectiveness
@@ -77,7 +83,7 @@ Six cards showing key metrics at a glance:
 
 #### Request Volume (by hour)
 - **Chart Type**: Stacked bar chart
-- **X-Axis**: Hour of day (00-24)
+- **X-Axis**: Hour of day, last 24 hours
 - **Y-Axis**: Request count
 - **Datasets**:
   - Hits (green) - successful cache retrievals
@@ -86,16 +92,8 @@ Six cards showing key metrics at a glance:
   - Shows traffic patterns and when cache is most effective
   - Wide gap between hits/misses = low hit rate
 
-#### Latency Distribution
-- **Chart Type**: Doughnut chart
-- **Categories**:
-  - `<5ms` (green) - Excellent
-  - `5-25ms` (blue) - Good
-  - `25-50ms` (amber) - Acceptable
-  - `>50ms` (red) - Poor
-- **Interpretation**:
-  - Mostly green = cache is fast
-  - Mostly red = consider backend optimization
+There is no Latency Distribution chart — retrieval latency isn't instrumented (see
+**Latency Metrics** above), so there's no per-request data to bucket.
 
 ### Detail Panels (Bottom Section)
 
@@ -117,46 +115,40 @@ Semantic relevance scoring metrics (Phase v1.2):
 **Note**: Embedding scorer is optional. If disabled, falling back to keyword-only scoring.
 
 #### Recommendations
-Actionable insights and alerts:
-- **Hit Rate Target**: On/Below/Above target range
-- **Cache Eviction**: Eviction rate (<5% good, >10% concerning)
-- **Memory Usage**: Cache size as % of max capacity
-- **Action Required**: Immediate actions needed (if any)
+Pulled straight from `MetricsTracker.getRecommendations()` — the same suggestions engine
+`/cache-status` uses. It currently has two rules; "No issues detected" shows when neither fires:
 
-### Common Recommendations
-
-| Finding | Recommendation | Action |
+| Finding | Trigger | Suggested Action |
 |---------|---|---|
-| Hit Rate <50% | Review TTL settings | Increase TTL or review cache keys |
-| Hit Rate >90% | Consider larger cache | Increase cache size or entry lifetime |
-| High Eviction (>10%) | Cache too small | Increase max cache size |
-| Memory >95% | Reaching capacity | Monitor and increase if needed |
-| Latency p99 >100ms | Backend slow | Check database/API performance |
-| Low Token Savings | Small queries | Review query patterns |
+| Hit rate below 10% | `hitRate < 0.1` | Lower the relevance threshold, or implement embedding-based scoring |
+| Good hit rate, low savings | `hitRate > 0.25` and total tokens saved `< 5000` | Focus caching on complex tasks (research, design) with longer outputs |
 
 ## Using the Dashboard
 
 ### Generating the Dashboard
 
+#### Via the slash command / CLI
+```
+/cache-dashboard --output dashboard.html
+```
+or, outside a Claude Code session:
+```bash
+node scripts/cache-command.js dashboard --output dashboard.html
+```
+Both default `--output` to `cache-dashboard.html` in the current directory when omitted.
+
 #### Via Code
 ```javascript
-const CacheDashboard = require('./commands/cache-dashboard');
-const dashboard = new CacheDashboard(cacheManager, validator, embeddingScorer);
+const { CacheDashboard } = require('./commands/cache-dashboard');
+// With no deps, it reads the plugin's real singletons (same cache.db as /cache-status).
+const dashboard = new CacheDashboard();
 
 // Generate HTML
 const html = await dashboard.generateHTML();
-console.log(html);
 
 // Or save to file
 const fs = require('fs');
 fs.writeFileSync('dashboard.html', html);
-```
-
-#### Via CLI
-```bash
-node commands/cache-dashboard.js --output dashboard.html
-# Opens in browser with --open flag
-node commands/cache-dashboard.js --open
 ```
 
 ### Viewing the Dashboard
@@ -205,10 +197,11 @@ node commands/cache-dashboard.js --open
 
 ### Export to JSON
 ```javascript
-const stats = dashboard.cacheManager.stats();
+const stats = dashboard.cache.stats();
 const json = JSON.stringify(stats);
 // Send to monitoring system
 ```
+`/cache-status --export json` is the supported way to get this as a command; see `commands/cache-status.md`.
 
 ### Integration Points
 - **Grafana**: Custom JSON data source
@@ -309,7 +302,7 @@ class ExtendedDashboard extends CacheDashboard {
 Implement WebSocket for live updates:
 ```javascript
 // Server
-ws.send(JSON.stringify(await dashboard.cacheManager.stats()));
+ws.send(JSON.stringify(await dashboard.cache.stats()));
 
 // Client
 ws.onmessage = (event) => {
@@ -321,7 +314,7 @@ ws.onmessage = (event) => {
 ### Alerts & Notifications
 Configure alerts for specific conditions:
 ```javascript
-const stats = await dashboard.cacheManager.stats();
+const stats = await dashboard.cache.stats();
 if (stats.hitRate < 0.50) {
   // Send Slack/email alert
   notifyOps('Low cache hit rate: ' + stats.hitRate);
@@ -332,20 +325,23 @@ if (stats.hitRate < 0.50) {
 
 ### CacheDashboard Constructor
 ```javascript
-new CacheDashboard(cacheManager, validator, embeddingScorer)
+new CacheDashboard(deps)
+// deps.cache     - CacheManager instance (default: skills/sqlite-cache's singleton)
+// deps.metrics   - MetricsTracker instance (default: skills/metrics-tracker's singleton)
+// deps.validator - CacheValidator instance (default: skills/cache-validation's singleton)
 ```
+Matches the `deps = {}` dependency-injection convention used by `CacheStatusCommand` et al.
 
 ### Methods
 - `async generateHTML()` - Generate complete HTML dashboard
 - `async getCacheInfo()` - Get formatted cache statistics
-- `_buildCacheInfo(stats)` - Build cache info from raw stats
-- `_generateChartData()` - Generate mock chart data for demo
+- `_buildCacheInfo(rawStats, hitRate, savings, config)` - Build cache info from real stats
+- `_buildChartSeries(hourly)` - Turn `MetricsTracker.getHourlyBreakdown()` output into Chart.js series
 
 ### Properties
-- `cacheManager` - Reference to cache manager
-- `validator` - Reference to cache validator
-- `embeddingScorer` - Reference to embedding scorer
-- `metrics` - Accumulated metrics data
+- `cache` - Reference to the CacheManager
+- `metrics` - Reference to the MetricsTracker
+- `validator` - Reference to the CacheValidator
 
 ## Performance Considerations
 

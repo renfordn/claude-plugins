@@ -47,6 +47,34 @@ describe('MetricsTracker (SQLite :memory:)', () => {
     const p = await mt.getPerformanceMetrics();
     expect(p.totalEvents).toBeGreaterThanOrEqual(1);
   });
+
+  test('getHourlyBreakdown returns `hours` buckets, oldest first, current hour last', async () => {
+    const buckets = await mt.getHourlyBreakdown(24);
+    expect(buckets).toHaveLength(24);
+    expect(buckets[0].hourStart).toBeLessThan(buckets[23].hourStart);
+    const currentHourStart = Math.floor(Date.now() / 3600000) * 3600000;
+    expect(buckets[23].hourStart).toBe(currentHourStart);
+  });
+
+  test('getHourlyBreakdown places events recorded now in the last bucket', async () => {
+    await mt.recordHit({ cache_key: 'k1', token_count: 100 });
+    await mt.recordHit({ cache_key: 'k2', token_count: 50 });
+    await mt.recordMiss({ cache_key: 'k3' });
+    const buckets = await mt.getHourlyBreakdown(24);
+    const last = buckets[buckets.length - 1];
+    expect(last.hits).toBe(2);
+    expect(last.misses).toBe(1);
+    expect(last.tokensSaved).toBe(150);
+  });
+
+  test('getHourlyBreakdown zero-fills buckets with no events', async () => {
+    const buckets = await mt.getHourlyBreakdown(24);
+    for (const b of buckets) {
+      expect(b.hits).toBe(0);
+      expect(b.misses).toBe(0);
+      expect(b.tokensSaved).toBe(0);
+    }
+  });
 });
 
 describe('MetricsTracker singleton', () => {

@@ -18,10 +18,11 @@ for what's actually landed.
   rewrite and document settings and behaviour that no longer exist (`maxSize`,
   `evictionPolicy`, `backend`, `persistenceEnabled`, …). `CONFIGURATION.md` carries an accuracy
   warning pointing at `commands/cache-config.md` until it is rewritten.
-- **Finish `commands/cache-dashboard.js`** — it exports a bare class, is not routed in
-  `scripts/cache-command.js`, and its `_generateChartData()` returns `Math.random()` values, so
-  it is deliberately not exposed as a `/cache-dashboard` command. Either give it real
-  time-series data from `cache_events` and wire it into the CLI router, or delete it.
+- **Retrieval latency instrumentation** — `/cache-dashboard` and `/cache-status` both read
+  `metrics.getPerformanceMetrics().cacheRetrievalTime`, which is real plumbing but always
+  returns zero because nothing in `CacheManager`/`MetricsTracker` times a `retrieve()` call yet.
+  Record per-call latency into `cache_events` (or a new column) and compute avg/median/p95/p99
+  from it so the dashboard's latency stat cards show real numbers instead of "Not tracked".
 - **Advanced reporting & analytics** — hit-rate-by-dimension reports, token-savings ROI
   analysis, anomaly detection; `metrics-tracker` covers basic stats only.
 - **Further retrieval performance work** — bloom filters for miss detection, batch

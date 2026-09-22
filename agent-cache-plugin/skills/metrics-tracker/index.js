@@ -10,6 +10,7 @@
  *   getHitRate()              → { hitRate, totalHits, totalMisses, totalQueries }
  *   getTokenSavings()         → { totalTokensSaved, avgPerHit, maxSingleSave, hitCount, estimatedCostReduction }
  *   getPerformanceMetrics()   → { totalEvents, ... }
+ *   getHourlyBreakdown(hours) → [{ hourStart, hits, misses, tokensSaved }, ...]
  *   getRecommendations()      → { suggestions }
  *   recordInvalidation(event) → { success }
  *   getSingleton(path)        → MetricsTracker
@@ -43,6 +44,16 @@ class MetricsTracker {
     this._stmtTokenSum = this.db.prepare(
       "SELECT SUM(token_count) AS total, AVG(token_count) AS avg, MAX(token_count) AS max, COUNT(*) AS cnt FROM cache_events WHERE event_type = 'hit'"
     );
+    this._stmtHourlyBuckets = this.db.prepare(`
+      SELECT
+        CAST(ts / ? AS INTEGER) AS bucket,
+        SUM(CASE WHEN event_type = 'hit' THEN 1 ELSE 0 END) AS hits,
+        SUM(CASE WHEN event_type = 'miss' THEN 1 ELSE 0 END) AS misses,
+        SUM(CASE WHEN event_type = 'hit' THEN token_count ELSE 0 END) AS tokensSaved
+      FROM cache_events
+      WHERE ts >= ?
+      GROUP BY bucket
+    `);
   }
 
   async recordHit(event) {
@@ -110,6 +121,31 @@ class MetricsTracker {
       agentBreakdown: {},
       relevanceScores: { avg: 0, min: 0, max: 0 }
     };
+  }
+
+  /**
+   * Hit/miss/token-savings counts bucketed by hour, oldest first, for the
+   * last `hours` hours (default 24) up to and including the current hour.
+   * Buckets with no events come back zeroed rather than omitted.
+   */
+  async getHourlyBreakdown(hours = 24) {
+    const bucketMs = 3600000;
+    const currentBucket = Math.floor(Date.now() / bucketMs);
+    const startBucket = currentBucket - hours + 1;
+    const rows = this._stmtHourlyBuckets.all(bucketMs, startBucket * bucketMs);
+    const byBucket = new Map(rows.map((r) => [r.bucket, r]));
+
+    const buckets = [];
+    for (let b = startBucket; b <= currentBucket; b++) {
+      const row = byBucket.get(b);
+      buckets.push({
+        hourStart: b * bucketMs,
+        hits: row ? row.hits : 0,
+        misses: row ? row.misses : 0,
+        tokensSaved: row ? row.tokensSaved : 0
+      });
+    }
+    return buckets;
   }
 
   async getRecommendations() {
