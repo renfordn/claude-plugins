@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.12] - 2026-09-22
+
+- **Fix**: `tests/test_skill_review_strategy.py` and `tests/test_task_slicer_standard_review.py` hardcoded an absolute `/Users/jay.nelson/...` path to read `SKILL.md`/`task-slicer/SKILL.md`, so both failed with `FileNotFoundError` on any other machine — confirmed breaking on GitHub Actions' CI runner. Made both paths relative to `Path(__file__)`. Test-only, no source/behavior change.
+
 ## [0.2.11] - 2026-09-21
 
 - **Fix**: `hooks/ux_render.py`'s `render_phase_transition` had a SyntaxError (invalid f-string) that made every SubagentStop hook invocation exit 1 with a traceback — no test imported this module, so it shipped broken. Fixed and added direct test coverage (`tests/test_ux_render.py`) plus a compile-all-hooks guard in `test_agent_tdd_hooks_json.py`.
