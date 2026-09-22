@@ -84,7 +84,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 22, not 20: better-sqlite3@13.x's native addon segfaults on Node 20
+          # (confirmed both macOS arm64 and this job's own Linux runner --
+          # SIGSEGV, not an ABI mismatch); 22 and later are unaffected.
+          node-version: "22"
 
       - name: Configure git identity
         run: |
@@ -156,7 +159,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # See smoke-install's node-version comment: better-sqlite3@13.x segfaults on Node 20.
+          node-version: "22"
 
       - run: npm ci
 
