@@ -1,6 +1,21 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-22
+
+- **Breaking**: removed the `PLUGIN_ORCHESTRATOR_TELEMETRY` one-release
+  compatibility fallback (and its stderr deprecation notice) introduced in
+  2.0.0's plugin-orchestrator -> plugin-harness rename. `PLUGIN_HARNESS_TELEMETRY`
+  is now the only supported name; anyone still setting the old var must
+  switch.
+- **Resolved**: the nested `plugin-harness/.claude-plugin/marketplace.json`
+  disposition (open question from 2.0.0) — kept, since `renfordn/claude-plugins`
+  is a monorepo and this file is the only supported standalone-install path
+  for `plugin-harness` on its own. `README.md`'s install instructions and
+  `plugin.json`'s `homepage` were corrected to point at the monorepo
+  (`renfordn/claude-plugins`) instead of a non-existent standalone
+  `renfordn/plugin-harness` repo.
+
 ## [2.0.0] - 2026-09-22
 
 - **Breaking**: renamed `plugin-orchestrator` to `plugin-harness` across the entire monorepo

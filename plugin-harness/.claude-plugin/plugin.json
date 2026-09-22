@@ -1,9 +1,9 @@
 {
   "name": "plugin-harness",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "displayName": "Plugin Harness",
   "description": "Caching-first multi-plugin workflow router that coordinates plugin capabilities via INTEROP.md contracts, distributes nelly brief once, and maximizes prompt cache efficiency via three-tier context layout.",
-  "homepage": "https://github.com/renfordn/plugin-harness",
+  "homepage": "https://github.com/renfordn/claude-plugins/tree/main/plugin-harness",
   "author": {
     "name": "Renford Nelson"
   },

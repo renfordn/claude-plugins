@@ -14,26 +14,15 @@ intentionally excludes:
     verification test necessarily contain the literal old-name string, and a
     few plugin-harness test docstrings pin an SDD slice named after the
     rename itself (see SELF_REFERENTIAL_EXCEPTION_FILES)
+
+The former PLUGIN_ORCHESTRATOR_TELEMETRY one-release compatibility fallback
+(hook_telemetry.py) has since been removed, so it is no longer an exception
+here.
 """
 import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
-
-# Deliberate, permanent-for-one-release exception (not a rename gap): the
-# PLUGIN_ORCHESTRATOR_TELEMETRY env var name is intentionally still honored
-# as a fallback for one release (Slice 6), per design.md's Rename Plan, so
-# these two files legitimately retain the old literal string -- one as the
-# fallback constant + deprecation-notice text, the other as the tests
-# exercising that exact fallback behavior. This is the one deliberate
-# compatibility exception design.md calls out beyond the CHANGELOG.md
-# carve-out; tracked for removal in a subsequent release (see CHANGELOG.md's
-# Best-Practice Note).
-ENV_VAR_FALLBACK_EXCEPTION_FILES = {
-    "plugin-harness/orchestrator/hook_telemetry.py",
-    "plugin-harness/tests/test_hook_telemetry.py",
-}
 
 
 # Files whose old-name hits are the rename effort naming itself, not a
@@ -53,10 +42,8 @@ SELF_REFERENTIAL_EXCEPTION_FILES = {
 
 def _tracked_files_with_old_name():
     """Return tracked (git ls-files) paths containing the old plugin name,
-    excluding CHANGELOG.md files anywhere in the repo, the one deliberate
-    env-var-fallback exception (see ENV_VAR_FALLBACK_EXCEPTION_FILES), and
-    the sweep's own self-referential files (see
-    SELF_REFERENTIAL_EXCEPTION_FILES)."""
+    excluding CHANGELOG.md files anywhere in the repo and the sweep's own
+    self-referential files (see SELF_REFERENTIAL_EXCEPTION_FILES)."""
     result = subprocess.run(
         ["git", "grep", "-l", "-i", "-e", "plugin-orchestrator", "-e", "plugin_orchestrator"],
         cwd=REPO_ROOT,
@@ -70,7 +57,6 @@ def _tracked_files_with_old_name():
         f
         for f in files
         if Path(f).name != "CHANGELOG.md"
-        and f not in ENV_VAR_FALLBACK_EXCEPTION_FILES
         and f not in SELF_REFERENTIAL_EXCEPTION_FILES
     ]
 

@@ -7,10 +7,9 @@ zero hits after the rename lands") and requirements.md's Success Criteria
 the rename as a breaking change with migration instructions).
 
 Reuses test_plugin_harness_rename_sweep.py's git-grep helper (same
-exclusions: historical CHANGELOG.md entries, and the one deliberate
-PLUGIN_ORCHESTRATOR_TELEMETRY one-release-fallback exception) rather than
-duplicating the grep logic, so there is exactly one source of truth for
-"is the rename done."
+exclusions: historical CHANGELOG.md entries) rather than duplicating the
+grep logic, so there is exactly one source of truth for "is the rename
+done."
 """
 import sys
 from pathlib import Path

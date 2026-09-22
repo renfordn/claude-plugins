@@ -8,11 +8,13 @@ and validates handoff payloads against `INTEROP.md` capability contracts.
 
 This repo doubles as a Claude Code plugin (`.claude-plugin/`). Installing it
 into any other project via the marketplace is what makes it portable — no
-per-project `.claude/settings.json` copying required:
+per-project `.claude/settings.json` copying required. `plugin-harness` lives
+in the `renfordn/claude-plugins` monorepo (there is no separate
+`renfordn/plugin-harness` repo), so install it from there:
 
 ```
-/plugin marketplace add renfordn/plugin-harness
-/plugin install plugin-harness
+/plugin marketplace add renfordn/claude-plugins
+/plugin install plugin-harness@renfordn-plugins
 ```
 
 Once installed, the plugin's own `SessionStart` hook

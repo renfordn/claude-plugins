@@ -18,10 +18,8 @@ Zero-config by default: a `JSONLFileHook` is registered pointing at
 visible on disk with no external service required. Set
 `PLUGIN_HARNESS_TELEMETRY=off` (same convention as this ecosystem's
 `SDD_GATE=off`) to disable emission entirely, e.g. for tests that don't want
-log-file side effects. The prior `PLUGIN_ORCHESTRATOR_TELEMETRY` name is
-still honored as a one-release fallback (with a one-line stderr deprecation
-notice) so anyone relying on it for CI/test suppression isn't silently
-broken by the plugin-harness rename -- see CHANGELOG.md's migration note.
+log-file side effects. The prior old-name one-release compatibility
+fallback (from this plugin's rename) has been removed -- see CHANGELOG.md.
 
 Standalone calls (no `agent-isdd` SDD workflow active, so no
 `workflow_state_dir`) are no longer silently dropped either: pass `cwd` and a
@@ -38,7 +36,6 @@ from orchestrator.telemetry import TelemetryPublisher
 from orchestrator.telemetry_sinks import JSONLFileHook
 
 _NEW_TELEMETRY_ENV_VAR = "PLUGIN_HARNESS_TELEMETRY"
-_OLD_TELEMETRY_ENV_VAR = "PLUGIN_ORCHESTRATOR_TELEMETRY"
 _OFF_VALUES = ("off", "0", "false", "disabled")
 
 # hook_state.py lives in the sibling hooks/ directory (a per-plugin copy, not
@@ -56,15 +53,6 @@ def _telemetry_disabled() -> bool:
     new_value = os.environ.get(_NEW_TELEMETRY_ENV_VAR)
     if new_value is not None:
         return new_value.lower() in _OFF_VALUES
-
-    old_value = os.environ.get(_OLD_TELEMETRY_ENV_VAR)
-    if old_value is not None:
-        print(
-            f"[plugin-harness] {_OLD_TELEMETRY_ENV_VAR} is deprecated and will stop being "
-            f"honored in a future release; use {_NEW_TELEMETRY_ENV_VAR} instead.",
-            file=sys.stderr,
-        )
-        return old_value.lower() in _OFF_VALUES
 
     return False
 

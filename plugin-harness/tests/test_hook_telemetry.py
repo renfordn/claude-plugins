@@ -79,35 +79,6 @@ class TestHookTelemetryLogger(unittest.TestCase):
             logger.emit("hook_invoked", hook="before_continue")
             self.assertFalse((state_dir / "hook_telemetry_log.jsonl").exists())
 
-    @patch.dict(os.environ, {"PLUGIN_ORCHESTRATOR_TELEMETRY": "off"}, clear=True)
-    def test_old_env_var_name_still_suppresses_as_a_one_release_fallback(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state_dir = Path(tmp)
-            logger = get_hook_telemetry_logger(state_dir)
-            logger.emit("hook_invoked", hook="before_continue")
-            self.assertFalse((state_dir / "hook_telemetry_log.jsonl").exists())
-
-    @patch.dict(os.environ, {"PLUGIN_ORCHESTRATOR_TELEMETRY": "off"}, clear=True)
-    def test_old_env_var_name_emits_a_deprecation_notice_to_stderr(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state_dir = Path(tmp)
-            with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
-                get_hook_telemetry_logger(state_dir)
-            self.assertIn("PLUGIN_ORCHESTRATOR_TELEMETRY", mock_stderr.getvalue())
-            self.assertIn("PLUGIN_HARNESS_TELEMETRY", mock_stderr.getvalue())
-
-    @patch.dict(
-        os.environ,
-        {"PLUGIN_HARNESS_TELEMETRY": "on", "PLUGIN_ORCHESTRATOR_TELEMETRY": "off"},
-        clear=True,
-    )
-    def test_new_env_var_name_takes_precedence_over_old(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            state_dir = Path(tmp)
-            logger = get_hook_telemetry_logger(state_dir)
-            logger.emit("hook_invoked", hook="before_continue")
-            self.assertTrue((state_dir / "hook_telemetry_log.jsonl").exists())
-
     def test_a_hook_that_raises_never_propagates(self):
         """TelemetryPublisher.emit's own fail-closed contract: a broken sink
         never breaks the caller, even if the underlying file write fails."""

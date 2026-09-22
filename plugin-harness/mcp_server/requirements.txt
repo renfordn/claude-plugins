@@ -2,4 +2,13 @@
 # production hooks (hooks/before_continue.py, hooks/subagent_stop.py) stay
 # dependency-free by design -- this is the one place in the plugin that
 # needs the MCP protocol implementation.
-mcp>=1.2,<2
+#
+# pydantic is pinned explicitly (not just pulled transitively by mcp) because
+# older mcp/pydantic combinations can resolve to a pydantic version whose
+# `_typing_extra._eval_type` compat shim passes a `prefer_fwd_module` kwarg
+# that a given interpreter's `typing._eval_type` doesn't accept, raising
+# `TypeError: _eval_type() got an unexpected keyword argument
+# 'prefer_fwd_module'` at import time. mcp>=1.9 + pydantic>=2.10 is a
+# confirmed-working pair.
+mcp>=1.9,<2
+pydantic>=2.10,<3
