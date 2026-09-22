@@ -10,6 +10,10 @@ intentionally excludes:
   - files that are gitignored / not tracked by git (e.g. .claude/settings.local.json)
   - Slice 1's already-completed structural files (covered by
     test_plugin_harness_rename.py)
+  - the sweep's own self-referential files: this test and its sibling
+    verification test necessarily contain the literal old-name string, and a
+    few plugin-harness test docstrings pin an SDD slice named after the
+    rename itself (see SELF_REFERENTIAL_EXCEPTION_FILES)
 """
 import subprocess
 from pathlib import Path
@@ -32,10 +36,27 @@ ENV_VAR_FALLBACK_EXCEPTION_FILES = {
 }
 
 
+# Files whose old-name hits are the rename effort naming itself, not a
+# leftover reference: this sweep test and its sibling verification test
+# necessarily contain the literal string they grep for, and several
+# plugin-harness test docstrings pin an SDD slice titled "Plugin-Orchestrator
+# -> Plugin-Harness Rework" -- the slice's own name, not the old plugin path.
+SELF_REFERENTIAL_EXCEPTION_FILES = {
+    "shared/test_plugin_harness_rename.py",
+    "shared/test_plugin_harness_rename_sweep.py",
+    "shared/test_rename_verification.py",
+    "plugin-harness/tests/test_harness_context_cache.py",
+    "plugin-harness/tests/test_spawn_context.py",
+    "plugin-harness/tests/test_standalone_spawn.py",
+}
+
+
 def _tracked_files_with_old_name():
     """Return tracked (git ls-files) paths containing the old plugin name,
-    excluding CHANGELOG.md files anywhere in the repo and the one deliberate
-    env-var-fallback exception (see ENV_VAR_FALLBACK_EXCEPTION_FILES)."""
+    excluding CHANGELOG.md files anywhere in the repo, the one deliberate
+    env-var-fallback exception (see ENV_VAR_FALLBACK_EXCEPTION_FILES), and
+    the sweep's own self-referential files (see
+    SELF_REFERENTIAL_EXCEPTION_FILES)."""
     result = subprocess.run(
         ["git", "grep", "-l", "-i", "-e", "plugin-orchestrator", "-e", "plugin_orchestrator"],
         cwd=REPO_ROOT,
@@ -48,7 +69,9 @@ def _tracked_files_with_old_name():
     return [
         f
         for f in files
-        if Path(f).name != "CHANGELOG.md" and f not in ENV_VAR_FALLBACK_EXCEPTION_FILES
+        if Path(f).name != "CHANGELOG.md"
+        and f not in ENV_VAR_FALLBACK_EXCEPTION_FILES
+        and f not in SELF_REFERENTIAL_EXCEPTION_FILES
     ]
 
 
