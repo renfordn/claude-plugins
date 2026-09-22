@@ -1,6 +1,17 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.12] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
+  marketplace" placeholder (the `renfordn-plugins` marketplace already exists and is documented in
+  `docs/install-and-verify.md`).
+- **Chore**: removed two stray one-time status docs (`CONTINUATION_GUIDE.md`,
+  `SLICE_IMPLEMENTATION_STATUS.md`) and a leftover SDD `tasks.md`, none reflecting current state.
+- **Chore**: `.claude-plugin/plugin.json` now declares `skills` absent via
+  `first_class.declared_absent` — this plugin's interface is commands + subagents, no skill was
+  ever planned.
+
 ## [0.4.11] - 2026-09-20
 
 - **Chore**: add `model:` frontmatter to all four agent definitions (inherit for agent-nelly and nelly-maintenance; haiku for nelly-planning-agent and nelly-research-agent).
