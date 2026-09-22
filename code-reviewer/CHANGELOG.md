@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-22
+
+- **Fix**: `tests/test_interop_review_level.py` and `tests/test_skill_review_levels.py` hardcoded an absolute `/Users/jay.nelson/...` path to read `INTEROP.md`/`SKILL.md`, so both failed with `FileNotFoundError` on any other machine — confirmed breaking on GitHub Actions' CI runner. Made both paths relative to `Path(__file__)`.
+
 ## [0.1.9] - 2026-09-20
 
 - **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.1.8] entry.
