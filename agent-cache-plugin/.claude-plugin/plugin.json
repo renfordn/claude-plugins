@@ -1,6 +1,6 @@
 {
   "name": "agent-cache-plugin",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "description": "Token caching and management plugin for improving token efficiency via intelligent prompt caching and context deduplication",
   "author": {
     "name": "Jay Nelson"
@@ -15,6 +15,8 @@
     "optimization"
   ],
   "first_class": {
-    "declared_absent": ["INTEROP.md"]
+    "declared_absent": [
+      "INTEROP.md"
+    ]
   }
 }

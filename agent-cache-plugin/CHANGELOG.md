@@ -1,6 +1,22 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.0.10] - 2026-09-22
+
+- **Docs**: `STRUCTURE.md`'s `## Capabilities` section extended with this plugin's full real
+  integration surface (automatic hooks, the two subagents, CLI commands, in-process JS API) and a
+  documented gap — the `phase_state_cache` HTTP transport `agent-isdd/hooks/cache_hook.py` expects
+  was never actually implemented here (no server ever ran on the assumed port). Extracted the
+  still-open roadmap ideas from the retired `FOLLOW_UP_ITEMS.md` into a new `docs/ROADMAP.md`.
+- **Chore**: removed five one-time migration/shipping status docs no longer reflecting current
+  state (`FOLLOW_UP_ITEMS.md`, `MARKETPLACE_SUBMISSION.md`, `SHIPPING_CHECKLIST.md`,
+  `V1.3_RELEASE_NOTES.md`, `tasks.md`) and fixed `README.md`'s two links that pointed at them.
+- **Fix**: `LICENSE` and `package.json`'s `license` field were MIT, diverging from every other
+  plugin in this collection (all-rights-reserved); unified to match. `.claude-plugin/plugin.json`
+  now declares `INTEROP.md` absent via `first_class.declared_absent` — `STRUCTURE.md` is this
+  plugin's real, already-integrated INTEROP equivalent (see
+  `plugin-harness/orchestrator/schema_extractor.py`).
+
 ## [2.0.9] - 2026-09-21
 
 - **Test**: harden `hook-wiring.test.js` and `manifest.test.js` against the `hooks.json`-location regression fixed in 2.0.8 — assert `.claude-plugin/hooks.json` does not exist and `plugin.json` declares no inline `hooks` array, and validate hook wiring against `hooks/hooks.json` (the file Claude Code actually loads) instead of the old, unloaded path.
