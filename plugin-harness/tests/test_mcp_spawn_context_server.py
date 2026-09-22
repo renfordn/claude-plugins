@@ -105,7 +105,11 @@ class TestSpawnContextServer(unittest.TestCase):
         cwd = tempfile.mkdtemp()  # no workflow-state.md under this cwd's memory_dir
         _, result = asyncio.run(_call_get_spawn_context(cwd, self.plugin_data_dir))
         text = result.content[0].text
-        self.assertIn("No active SDD workflow", text)
+        # No SDD workflow and no standalone cache yet: same "nothing cached" message
+        # as the SDD-workflow-exists-but-empty case (spawn_context.py's
+        # _NO_CONTEXT_CACHED_MESSAGE), by design -- see _build_standalone_response's
+        # docstring.
+        self.assertIn("No spawn context cached yet", text)
 
     def test_no_cached_spawn_context_returns_plain_message(self):
         cwd = self._seed_workflow_state(last_spawn_context=None)
