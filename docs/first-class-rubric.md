@@ -36,7 +36,7 @@ does not suppress any check (fails closed).
 
 | ID | Pass Condition | Weight | Mechanical |
 |----|-----------------|--------|------------|
-| CONS-01 | `INTEROP.md` exists at the plugin's root, or the plugin declares `INTEROP.md` absent via `first_class.declared_absent` | 2 | Y |
+| CONS-01 | `INTEROP.md` exists at the plugin's root, or the plugin declares `INTEROP.md` absent via `first_class.declared_absent` (e.g. agent-cache-plugin, whose `STRUCTURE.md` is plugin-harness's established, tested INTEROP equivalent for it — see `plugin-harness/orchestrator/schema_extractor.py`'s `PLUGIN_INTEROP_PATHS`) | 2 | Y |
 | CONS-02 | `hooks/` exists at the plugin's root, or declared absent | 1 | Y |
 | CONS-03 | `commands/` exists at the plugin's root, or declared absent | 1 | Y |
 | CONS-04 | `skills/` exists at the plugin's root, or declared absent | 1 | Y |
@@ -44,7 +44,7 @@ does not suppress any check (fails closed).
 | CONS-06 | `CHANGELOG.md` exists at the plugin's root | 1 | Y |
 | CONS-07 | `.claude-plugin/plugin.json` parses as JSON and contains all of `name, version, description, author, homepage, keywords, license`, and `version` matches `\d+\.\d+\.\d+` | 2 | Y |
 | CONS-08 | `LICENSE` file content is byte-identical across every plugin in the collection | 2 | Y |
-| CONS-09 | No stray root-level status/history docs in the plugin directory (patterns: `*_STATUS.md`, `*_CHECKLIST.md`, `*_NOTES.md`, `*_SUBMISSION.md`, `CONTINUATION_GUIDE.md`, `STRUCTURE.md`, `tasks.md`) | 1 | Y |
+| CONS-09 | No stray root-level status/history docs in the plugin directory (patterns: `*_STATUS.md`, `*_CHECKLIST.md`, `*_NOTES.md`, `*_SUBMISSION.md`, `*_ITEMS.md`, `CONTINUATION_GUIDE.md`, `tasks.md` — deliberately excludes `STRUCTURE.md`, which is load-bearing for agent-cache-plugin, not stray; see `docs/first-class-backlog.md` item 5's history) | 1 | Y |
 | CONS-10 | Plugin has a discoverable test suite (`tests/` directory, or `test_*.py` / `*.test.js` files anywhere under the plugin root excluding `node_modules/`) — never declarable absent, even if `tests` appears in `declared_absent` | 3 | Y |
 
 ## Install & Onboarding

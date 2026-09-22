@@ -228,6 +228,18 @@ class EvaluatePluginTests(unittest.TestCase):
         ci02_result = self._find(results, "CI-02")
         self.assertEqual(ci02_result.status, "SKIPPED")
 
+    def test_structure_md_is_not_flagged_as_a_stray_doc(self):
+        # Regression: STRUCTURE.md was briefly (incorrectly) treated as a
+        # generic stray status doc. For agent-cache-plugin it is load-bearing
+        # -- plugin-harness's schema_extractor.py reads it as this plugin's
+        # real INTEROP.md equivalent -- so CONS-09 must never flag it.
+        plugin_dir = self._make_complete_plugin_dir()
+        with open(os.path.join(plugin_dir, "STRUCTURE.md"), "w") as f:
+            f.write("# Structure\n\n## Capabilities\n\n### phase_state_cache\n")
+        results = evaluate_plugin(plugin_dir, self.VALID_PLUGIN_JSON)
+        stray_result = self._find(results, "CONS-09")
+        self.assertEqual(stray_result.status, "PASS")
+
 
 class CollectionEvaluationTests(unittest.TestCase):
     """Red tests for evaluate_collection(repo_root) -> list[ItemResult].

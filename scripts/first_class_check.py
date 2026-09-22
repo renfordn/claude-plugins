@@ -115,8 +115,16 @@ _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
 # Patterns for CONS-09 "no stray root-level status/history docs" -- mirrors
 # the concrete files confirmed in design.md's Research Basis (agent-cache-plugin's
 # FOLLOW_UP_ITEMS.md / MARKETPLACE_SUBMISSION.md / SHIPPING_CHECKLIST.md /
-# STRUCTURE.md / V1.3_RELEASE_NOTES.md / tasks.md; agent-nelly's
-# CONTINUATION_GUIDE.md / SLICE_IMPLEMENTATION_STATUS.md / tasks.md).
+# V1.3_RELEASE_NOTES.md / tasks.md; agent-nelly's CONTINUATION_GUIDE.md /
+# SLICE_IMPLEMENTATION_STATUS.md / tasks.md).
+#
+# STRUCTURE.md is deliberately NOT in this list: for agent-cache-plugin it is
+# load-bearing, not stray -- plugin-harness/orchestrator/schema_extractor.py
+# and interop_parser.py both read it as this plugin's actual INTEROP.md
+# equivalent (a real Capabilities/phase_state_cache contract lives in it),
+# and agent-cache-plugin/tests/manifest-migration.test.js asserts its
+# content directly. A generic "*_STRUCTURE.md is always stray" pattern was
+# wrong -- confirmed by cross-reference search before removing it here.
 _STRAY_DOC_PATTERNS = [
     re.compile(r".*_STATUS\.md$"),
     re.compile(r".*_CHECKLIST\.md$"),
@@ -124,7 +132,6 @@ _STRAY_DOC_PATTERNS = [
     re.compile(r".*_SUBMISSION\.md$"),
     re.compile(r".*_ITEMS\.md$"),
     re.compile(r"^CONTINUATION_GUIDE\.md$"),
-    re.compile(r"^STRUCTURE\.md$"),
     re.compile(r"^tasks\.md$"),
 ]
 

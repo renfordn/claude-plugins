@@ -457,4 +457,36 @@ caching — optional)" for the consumer-side contract this mirrors).
 | cache_hit | boolean | yes | Whether cache entry was found and valid |
 | cached_state | object | no | Retrieved cached state if cache_hit is true |
 
-See SHIPPING_CHECKLIST.md for complete pre-deployment verification.
+> **Known gap (2026-09-22):** the write/invalidate/read contract above is fully
+> designed on both sides — `agent-isdd/hooks/cache_hook.py` already POSTs to
+> `localhost:7771/cache/write` and `/cache/invalidate` expecting exactly this
+> shape — but this plugin has never actually run an HTTP server on that port
+> or any other (no `bin` entry, no listener anywhere in `hooks/`, `skills/`,
+> or `commands/`). Every such request fails with a connection error, already
+> caught as graceful degradation by `cache_hook.py`, so nothing is
+> user-visibly broken — but `phase_state_cache` has never actually worked
+> end-to-end. See `docs/ROADMAP.md` and the tracked follow-up to either build
+> the HTTP surface or move `agent-isdd`'s side onto a real transport (option
+> 2/4 below).
+
+### Other integration points (no network service exists)
+
+Beyond `phase_state_cache`, a sibling plugin can integrate with this one three other ways — all
+in-process or subagent-based, never over the network:
+
+1. **Automatic — its own hooks** (no caller action needed): `hooks/hooks.json` registers
+   `pre-agent-spawn.js` (`PreToolUse`, matcher `Agent`), `post-agent-completion.js`
+   (`PostToolUse`, matcher `Agent`), and `cache-invalidation.js` (`SessionEnd`) — these fire on
+   Claude Code's own event bus for every `Agent` tool call in the session, including spawns made
+   by `agent-isdd`, `agent-tdd`, and others, with zero explicit invocation required.
+2. **Explicit — its two subagents**: `agent-cache-plugin:agent-cache-orchestrator` (decide cache
+   reuse vs. fresh reasoning; score relevance) and `agent-cache-plugin:cache-validator` (validate
+   cache entries). Invoked via the `Agent` tool the same way as `agent-nelly:nelly-orchestrator`,
+   gated by an Availability Check against the session's agent-types listing.
+3. **Explicit — CLI commands** (via `Bash`): `node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" cache-status|cache-clear|cache-config`.
+4. **In-process — skills' JS API** (Node callers only): `require('<path>/skills/cache-management')`
+   exposes `store()`/`retrieve()`/etc. — only usable by a caller that is itself Node/JS code.
+
+Every integration point is optional; a caller should treat this plugin's absence, or a
+subagent-not-found error, as non-fatal and continue without caching (the same soft-dependency
+pattern already applied to `agent-nelly` and `agent-ux` elsewhere in this collection).

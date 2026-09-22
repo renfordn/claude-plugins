@@ -144,8 +144,8 @@ agent-cache-plugin/
 - **[API.md](docs/API.md)** — Complete API reference with examples
 - **[CONFIGURATION.md](docs/CONFIGURATION.md)** — Configuration guide with presets
 - **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — Common issues and solutions
-- **[STRUCTURE.md](STRUCTURE.md)** — Detailed architecture and file organization
-- **[SHIPPING_CHECKLIST.md](SHIPPING_CHECKLIST.md)** — Pre-deployment verification
+- **[STRUCTURE.md](STRUCTURE.md)** — Detailed architecture, file organization, and this plugin's INTEROP capability contract
+- **[ROADMAP.md](docs/ROADMAP.md)** — Open, not-yet-built ideas
 
 ## Testing
 
@@ -211,7 +211,7 @@ When modifying cache behavior:
 1. Update relevant tests in `tests/`
 2. Update documentation in `docs/`
 3. Run full test suite to verify
-4. Update FOLLOW_UP_ITEMS.md with any discovered work
+4. Update `docs/ROADMAP.md` with any discovered future work
 
 ## License
 
