@@ -13,5 +13,8 @@
     "testing",
     "agent",
     "claude-code"
-  ]
+  ],
+  "first_class": {
+    "declared_absent": ["commands"]
+  }
 }

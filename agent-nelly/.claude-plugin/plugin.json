@@ -13,5 +13,8 @@
     "orchestration",
     "context",
     "claude-code"
-  ]
+  ],
+  "first_class": {
+    "declared_absent": ["skills"]
+  }
 }

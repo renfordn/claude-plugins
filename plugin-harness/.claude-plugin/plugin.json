@@ -22,5 +22,8 @@
         "${CLAUDE_PLUGIN_ROOT}/mcp_server/server.py"
       ]
     }
+  },
+  "first_class": {
+    "declared_absent": ["commands", "skills", "agents"]
   }
 }

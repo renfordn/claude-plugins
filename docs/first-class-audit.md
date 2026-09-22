@@ -75,7 +75,7 @@ Evidence paths below are relative to the repo root.
 | agent-nelly | CONS-01 | PASS | agent-nelly/INTEROP.md |
 | agent-nelly | CONS-02 | PASS | agent-nelly/hooks |
 | agent-nelly | CONS-03 | PASS | agent-nelly/commands |
-| agent-nelly | CONS-04 | FAIL | not found: agent-nelly/skills |
+| agent-nelly | CONS-04 | N/A | declared absent via first_class.declared_absent: skills |
 | agent-nelly | CONS-05 | PASS | agent-nelly/agents |
 | agent-nelly | CONS-06 | PASS | agent-nelly/CHANGELOG.md |
 | agent-nelly | CONS-07 | PASS | all required fields present, version is semver |
@@ -87,7 +87,7 @@ Evidence paths below are relative to the repo root.
 | agent-tdd | CI-02 | SKIPPED | deployment-ops-plugin:plugin-validate not available in this environment |
 | agent-tdd | CONS-01 | PASS | agent-tdd/INTEROP.md |
 | agent-tdd | CONS-02 | PASS | agent-tdd/hooks |
-| agent-tdd | CONS-03 | FAIL | not found: agent-tdd/commands |
+| agent-tdd | CONS-03 | N/A | declared absent via first_class.declared_absent: commands |
 | agent-tdd | CONS-04 | PASS | agent-tdd/skills |
 | agent-tdd | CONS-05 | PASS | agent-tdd/agents |
 | agent-tdd | CONS-06 | PASS | agent-tdd/CHANGELOG.md |
@@ -101,7 +101,7 @@ Evidence paths below are relative to the repo root.
 | agent-ux | CONS-01 | PASS | agent-ux/INTEROP.md |
 | agent-ux | CONS-02 | N/A | declared absent via first_class.declared_absent: hooks |
 | agent-ux | CONS-03 | N/A | declared absent via first_class.declared_absent: commands |
-| agent-ux | CONS-04 | FAIL | not found: agent-ux/skills |
+| agent-ux | CONS-04 | N/A | declared absent via first_class.declared_absent: skills |
 | agent-ux | CONS-05 | PASS | agent-ux/agents |
 | agent-ux | CONS-06 | PASS | agent-ux/CHANGELOG.md |
 | agent-ux | CONS-07 | PASS | all required fields present, version is semver |
@@ -113,9 +113,9 @@ Evidence paths below are relative to the repo root.
 | code-reviewer | CI-02 | SKIPPED | deployment-ops-plugin:plugin-validate not available in this environment |
 | code-reviewer | CONS-01 | PASS | code-reviewer/INTEROP.md |
 | code-reviewer | CONS-02 | N/A | declared absent via first_class.declared_absent: hooks |
-| code-reviewer | CONS-03 | FAIL | not found: code-reviewer/commands |
+| code-reviewer | CONS-03 | N/A | declared absent via first_class.declared_absent: commands |
 | code-reviewer | CONS-04 | PASS | code-reviewer/skills |
-| code-reviewer | CONS-05 | FAIL | not found: code-reviewer/agents |
+| code-reviewer | CONS-05 | N/A | declared absent via first_class.declared_absent: agents |
 | code-reviewer | CONS-06 | PASS | code-reviewer/CHANGELOG.md |
 | code-reviewer | CONS-07 | PASS | all required fields present, version is semver |
 | code-reviewer | CONS-08 | PASS | present and non-empty (per-plugin proxy) |
@@ -126,9 +126,9 @@ Evidence paths below are relative to the repo root.
 | plugin-harness | CI-02 | SKIPPED | deployment-ops-plugin:plugin-validate not available in this environment |
 | plugin-harness | CONS-01 | PASS | plugin-harness/INTEROP.md |
 | plugin-harness | CONS-02 | PASS | plugin-harness/hooks |
-| plugin-harness | CONS-03 | FAIL | not found: plugin-harness/commands |
-| plugin-harness | CONS-04 | FAIL | not found: plugin-harness/skills |
-| plugin-harness | CONS-05 | FAIL | not found: plugin-harness/agents |
+| plugin-harness | CONS-03 | N/A | declared absent via first_class.declared_absent: commands |
+| plugin-harness | CONS-04 | N/A | declared absent via first_class.declared_absent: skills |
+| plugin-harness | CONS-05 | N/A | declared absent via first_class.declared_absent: agents |
 | plugin-harness | CONS-06 | PASS | plugin-harness/CHANGELOG.md |
 | plugin-harness | CONS-07 | PASS | all required fields present, version is semver |
 | plugin-harness | CONS-08 | PASS | present and non-empty (per-plugin proxy) |
