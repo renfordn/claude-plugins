@@ -1,6 +1,16 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section at the top of `README.md` (install one-liner +
+  `claude mcp list` verification + pointer to the existing detailed local-dev section).
+- **Fix**: `.claude-plugin/plugin.json`'s `license` field said `MIT`, diverging from every other
+  plugin in this collection (all-rights-reserved); `LICENSE`'s content unified to match.
+- **Chore**: `.claude-plugin/plugin.json` now declares `commands`, `skills`, and `agents` absent
+  via `first_class.declared_absent` — this plugin's entire content is `hooks/` + `mcp_server/` +
+  `orchestrator/`, a routing/MCP-server plugin, not an agent-toolkit.
+
 ## [2.1.0] - 2026-09-22
 
 - **Breaking**: removed the `PLUGIN_ORCHESTRATOR_TELEMETRY` one-release

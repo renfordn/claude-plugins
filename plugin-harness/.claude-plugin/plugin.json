@@ -1,6 +1,6 @@
 {
   "name": "plugin-harness",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "displayName": "Plugin Harness",
   "description": "Caching-first multi-plugin workflow router that coordinates plugin capabilities via INTEROP.md contracts, distributes nelly brief once, and maximizes prompt cache efficiency via three-tier context layout.",
   "homepage": "https://github.com/renfordn/claude-plugins/tree/main/plugin-harness",
@@ -24,6 +24,10 @@
     }
   },
   "first_class": {
-    "declared_absent": ["commands", "skills", "agents"]
+    "declared_absent": [
+      "commands",
+      "skills",
+      "agents"
+    ]
   }
 }
