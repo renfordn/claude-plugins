@@ -185,20 +185,18 @@ describe('getSingleton / resetSingleton', () => {
 });
 
 describe('Security — path sanitization', () => {
-  const origEnv = process.env.CLAUDE_PLUGIN_DATA;
+  // NB: these must not `delete process.env.CLAUDE_PLUGIN_DATA` to force the homedir fallback --
+  // that fallback is the developer's real cache, and a later getSingleton() in the same worker
+  // would write to it. Both paths below are outside the allowed base either way.
   afterEach(() => {
     resetSingleton();
-    if (origEnv === undefined) delete process.env.CLAUDE_PLUGIN_DATA;
-    else process.env.CLAUDE_PLUGIN_DATA = origEnv;
   });
 
   test('getSingleton rejects a relative path traversal', () => {
-    delete process.env.CLAUDE_PLUGIN_DATA;
     expect(() => getSingleton('../../../etc/evil')).toThrow(/outside allowed/);
   });
 
   test('getSingleton rejects an absolute path outside the allowed base', () => {
-    delete process.env.CLAUDE_PLUGIN_DATA;
     expect(() => getSingleton('/tmp/attacker/cache.db')).toThrow(/outside allowed/);
   });
 
@@ -221,7 +219,7 @@ describe('Security — DB file permissions', () => {
   });
   afterEach(() => {
     resetSingleton();
-    delete process.env.CLAUDE_PLUGIN_DATA;
+    // setup-after-env.js re-pins CLAUDE_PLUGIN_DATA to this worker's dir; never delete it.
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 

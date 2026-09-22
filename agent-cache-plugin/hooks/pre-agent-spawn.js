@@ -2,9 +2,10 @@
 /**
  * Hook: pre-agent-spawn (PreToolUse) — M1 conditional
  *
- * NOTE: This hook is NOT registered in plugin.json until the PreToolUse harness
- * schema validation bug (git-pattern-ee23cc4) is confirmed resolved in a live session.
- * The implementation is present and tested; registration is the gate.
+ * Registered in hooks/hooks.json (PreToolUse, matcher "Agent") -- plugin.json carries no
+ * hooks key; Claude Code discovers hooks/hooks.json directly, and tests/hook-wiring.test.js
+ * asserts this hook is wired there. An earlier note here claimed the hook was deliberately
+ * left unregistered pending a PreToolUse schema-validation bug; that is no longer true.
  *
  * stdin  → { toolName, input, metadata? }
  * stdout → { permissionDecision: 'allow', tempFilePath? }

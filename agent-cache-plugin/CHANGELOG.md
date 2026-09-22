@@ -1,6 +1,37 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-22
+
+- **Fix**: running `npm test` wrote to the developer's **real** cache
+  (`~/.claude/plugin-data/agent-cache-plugin/`) — appending to `CACHE.md` and mutating
+  `cache.db` — because several suites reach code that falls back to that directory when
+  `CLAUDE_PLUGIN_DATA` is unset. Added `jest.config.js` with a `globalSetup` that points
+  `CLAUDE_PLUGIN_DATA` at a throwaway temp dir **in the main Jest process**, so forked workers
+  and the child processes tests spawn both inherit it (a value set only in `setupFiles` reaches
+  the test module but not a `spawn()`ed child, since Jest gives each test environment its own
+  `process.env` copy). `setupFilesAfterEnv` re-pins it around every test so a suite that
+  repoints it cannot leak that to its neighbours, and `tests/sqlite-cache.test.js` no longer
+  `delete`s the variable to exercise the homedir fallback. New `tests/data-dir-isolation.test.js`
+  guards all three layers.
+- **Fix**: `package.json` declared `engines.node >= 16`, but its only runtime dependency
+  (`better-sqlite3` 13) requires Node >= 22. Raised to `>= 22.0.0`.
+- **Fix**: `package.json` version was stuck at `1.0.6` while `.claude-plugin/plugin.json` had
+  moved to 2.x; both now read 2.1.1.
+- **Docs**: `hooks/pre-agent-spawn.js` claimed it was deliberately unregistered pending a
+  PreToolUse schema bug — it is registered in `hooks/hooks.json` and `hook-wiring.test.js`
+  asserts as much. Corrected. `STRUCTURE.md` now names the CLI subcommands correctly
+  (`status|clear|config`, not `cache-status|...`) and records that
+  `commands/cache-dashboard.js` is an unfinished internal module rather than a command;
+  `docs/ROADMAP.md` gained the follow-up to finish or delete it.
+- **Docs**: `README.md` still described the pre-SQLite plugin — "in-memory only", "cache lost on
+  process restart", "no persistence", `maxSize`/`evictionPolicy` config examples, a
+  `tests/cache-management.test.js` that does not exist, and `cache-command.js cache-status`
+  (the subcommand is `status`). Corrected, with the real four-key config table and a note that
+  the suite needs Node >= 22. `docs/CONFIGURATION.md` is largely pre-SQLite too; it now carries
+  an accuracy warning pointing at `commands/cache-config.md` and a ROADMAP entry for the full
+  rewrite (it and `docs/API.md` were left otherwise untouched — out of scope for this release).
+
 ## [2.1.0] - 2026-09-22
 
 - **Feat**: `/cache-config --set` now actually works and persists. `CacheManager` gained a

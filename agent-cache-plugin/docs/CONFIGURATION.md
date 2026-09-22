@@ -1,5 +1,13 @@
 # Cache Configuration Guide
 
+> **⚠️ Accuracy warning (2026-09-22):** much of this guide predates the SQLite rewrite and
+> describes a configuration model that no longer exists — `maxSize`, `evictionPolicy`,
+> `backend`, `persistenceEnabled`, `compressionEnabled`, `samplingRate` and the storage/metrics
+> sections below are **not implemented**, and `/cache-config --set` rejects those keys. The four
+> settings that actually exist are `maxEntries`, `defaultTTL`, `relevanceThreshold` and
+> `stalenessThreshold` — see [commands/cache-config.md](../commands/cache-config.md), which is
+> authoritative. A full rewrite of this file is tracked in [ROADMAP.md](ROADMAP.md).
+
 ## Overview
 
 The agent-cache-plugin can be configured to suit different deployment environments and usage patterns. This guide covers all configuration options, recommended settings for common scenarios, and tuning strategies.

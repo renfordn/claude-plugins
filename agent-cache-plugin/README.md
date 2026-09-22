@@ -59,13 +59,13 @@ if (result.found) {
 
 ```bash
 # Check cache status
-node scripts/cache-command.js cache-status
+node scripts/cache-command.js status
 
 # Clear cache
-node scripts/cache-command.js cache-clear --all --yes
+node scripts/cache-command.js clear --all --yes
 
 # Configure settings
-node scripts/cache-command.js cache-config --set maxSize 1073741824
+node scripts/cache-command.js config --set maxEntries 50000
 ```
 
 ## Architecture
@@ -149,6 +149,10 @@ agent-cache-plugin/
 
 ## Testing
 
+Requires Node >= 22 (`better-sqlite3` 13). Tests are isolated from your real cache: `jest.config.js`
+points `CLAUDE_PLUGIN_DATA` at a throwaway temp dir for the whole run, so nothing under
+`~/.claude/plugin-data/` is read or written.
+
 Run all tests:
 ```bash
 npm test
@@ -156,7 +160,7 @@ npm test
 
 Run specific test file:
 ```bash
-npm test -- tests/cache-management.test.js
+npm test -- tests/sqlite-cache.test.js
 ```
 
 Run with coverage:
@@ -164,46 +168,47 @@ Run with coverage:
 npm test -- --coverage
 ```
 
-## Configuration Examples
+## Configuration
 
-### Development
-```javascript
-configure({
-  maxSize: 50 * 1024 * 1024,      // 50 MB
-  maxEntries: 1000,
-  defaultTTL: 1 * 60 * 60 * 1000, // 1 hour
-  evictionPolicy: 'FIFO'
-});
+Four settings, persisted in the cache DB's `config` table and shared by every process:
+
+| Key | Default | Range |
+|-----|---------|-------|
+| `maxEntries` | 10000 | ≥ 100 |
+| `defaultTTL` | 3d | ≥ 1m |
+| `relevanceThreshold` | 75 | 50–95 |
+| `stalenessThreshold` | 1d | ≥ 1m |
+
+```bash
+node scripts/cache-command.js config --list
+node scripts/cache-command.js config --set defaultTTL 7d
+node scripts/cache-command.js config --reset
 ```
 
-### Production
+From Node code:
 ```javascript
-configure({
-  maxSize: 2 * 1024 * 1024 * 1024,  // 2 GB
-  maxEntries: 50000,
-  defaultTTL: 3 * 24 * 60 * 60 * 1000, // 3 days
-  evictionPolicy: 'LRU'
-});
+const { getSingleton } = require('./skills/sqlite-cache');
+getSingleton().configure({ maxEntries: 50000, defaultTTL: 3 * 24 * 60 * 60 * 1000 });
 ```
 
-See [CONFIGURATION.md](docs/CONFIGURATION.md) for full guide with presets.
+There is no `maxSize` or `evictionPolicy`: the SQLite backend evicts LRU by entry count and
+does not track bytes. See [commands/cache-config.md](commands/cache-config.md).
 
 ## Performance
 
-- **Retrieval**: O(1) by ID, O(n) for search
-- **Storage**: O(1) amortized
+- **Retrieval**: O(1) by key (primary-key lookup), O(n) for `search()`
+- **Storage**: O(1) amortized, with LRU eviction once `maxEntries` is reached
 - **Typical hit rate**: 60-85% in stable workflows
-- **Memory**: Configurable, default 100 MB
-- **Eviction policies**: LRU (default), LFU, FIFO
+- **Eviction**: LRU by entry count
 
 ## Known Limitations
 
-- **In-memory only**: Cache lost on process restart
-- **Single process**: Not shared across multiple processes
-- **Large caches**: Search performance degrades >50k entries
-- **No persistence**: No built-in backup/recovery
+- **Single SQLite file**: one `cache.db` under `CLAUDE_PLUGIN_DATA`; not shared across machines
+- **Large caches**: `search()` degrades past ~50k entries (no full-text index)
+- **No byte accounting**: entry size is not tracked, so size-based limits are not available
+- **No backup/recovery tooling**: the DB is a plain file; back it up yourself
 
-For persistence, see [Architecture Guide](STRUCTURE.md#Storage).
+See [Architecture Guide](STRUCTURE.md#Storage) for the storage layer.
 
 ## Contributing
 

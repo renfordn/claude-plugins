@@ -14,6 +14,14 @@ for what's actually landed.
   only synthetic-data testing exists today.
 - **Full audit/compliance logging** — `skills/audit-logger.js` exists, but SOC 2/GDPR-grade
   retention policy, data residency options, and compliance export are not built.
+- **Rewrite `docs/CONFIGURATION.md` and audit `docs/API.md`** — both largely predate the SQLite
+  rewrite and document settings and behaviour that no longer exist (`maxSize`,
+  `evictionPolicy`, `backend`, `persistenceEnabled`, …). `CONFIGURATION.md` carries an accuracy
+  warning pointing at `commands/cache-config.md` until it is rewritten.
+- **Finish `commands/cache-dashboard.js`** — it exports a bare class, is not routed in
+  `scripts/cache-command.js`, and its `_generateChartData()` returns `Math.random()` values, so
+  it is deliberately not exposed as a `/cache-dashboard` command. Either give it real
+  time-series data from `cache_events` and wire it into the CLI router, or delete it.
 - **Advanced reporting & analytics** — hit-rate-by-dimension reports, token-savings ROI
   analysis, anomaly detection; `metrics-tracker` covers basic stats only.
 - **Further retrieval performance work** — bloom filters for miss detection, batch

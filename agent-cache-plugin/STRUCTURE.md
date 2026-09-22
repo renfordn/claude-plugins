@@ -478,7 +478,9 @@ in-process or subagent-based, never over the network:
    reuse vs. fresh reasoning; score relevance) and `agent-cache-plugin:cache-validator` (validate
    cache entries). Invoked via the `Agent` tool the same way as `agent-nelly:nelly-orchestrator`,
    gated by an Availability Check against the session's agent-types listing.
-2. **Explicit — CLI commands** (via `Bash`): `node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" cache-status|cache-clear|cache-config`.
+2. **Explicit — CLI commands** (via `Bash`): `node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" status|clear|config`.
+   (`commands/cache-dashboard.js` is an unfinished internal module, not a CLI command — it is
+   not routed by `cache-command.js` and emits placeholder chart data. See `docs/ROADMAP.md`.)
 3. **In-process — skills' JS API** (Node callers only): `require('<path>/skills/sqlite-cache')`
    exposes `CacheManager` (`store()`/`retrieve()`/`configure()`/etc.) — only usable by a caller
    that is itself Node/JS code.
