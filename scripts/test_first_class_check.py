@@ -101,6 +101,20 @@ class CiMatrixDiffTests(unittest.TestCase):
             missing = plugins_missing_from_ci_matrix(marketplace_path, workflow_path)
             self.assertEqual(missing, [])
 
+    def test_matrix_diff_recognizes_equivalent_named_job(self):
+        # agent-cache-plugin absent from the matrix, but has its own
+        # top-level job named exactly after it -- equivalent coverage.
+        workflow_text = WORKFLOW_FIXTURE_MISSING_ONE + """
+  agent-cache-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm test
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            marketplace_path, workflow_path = self._write_fixtures(tmp, workflow_text)
+            missing = plugins_missing_from_ci_matrix(marketplace_path, workflow_path)
+            self.assertEqual(missing, [])
+
 
 class EvaluatePluginTests(unittest.TestCase):
     """Red tests for evaluate_plugin(plugin_dir, plugin_json) -> list[ItemResult].

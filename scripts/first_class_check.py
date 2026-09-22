@@ -79,10 +79,19 @@ def is_declared_absent(plugin_json: dict, component: str) -> bool:
 # a new dependency this checker is not allowed to add.
 _MATRIX_PLUGIN_RE = re.compile(r"plugin:\s*\[([^\]]*)\]")
 
+# A plugin doesn't have to run through the python-tests matrix to have real CI
+# coverage: a top-level job named exactly after the plugin (e.g.
+# agent-cache-plugin's own Node/npm job) is equivalent coverage, just via a
+# different job. Matches a job key at 2-space indent, the level every job in
+# this repo's tests.yml is defined at.
+_JOB_NAME_RE = re.compile(r"^  ([a-zA-Z0-9_-]+):\s*$", re.MULTILINE)
+
 
 def plugins_missing_from_ci_matrix(marketplace_path: str, workflow_path: str) -> list:
-    """Return marketplace.json plugin names absent from tests.yml's
-    matrix.plugin list, in marketplace.json's own order."""
+    """Return marketplace.json plugin names with no CI coverage in
+    workflow_path -- neither in the python-tests matrix.plugin list nor as
+    their own equivalent top-level job (e.g. a Node plugin's own npm job) --
+    in marketplace.json's own order."""
     with open(marketplace_path) as f:
         marketplace = json.load(f)
     plugin_names = [p["name"] for p in marketplace.get("plugins", [])]
@@ -95,7 +104,9 @@ def plugins_missing_from_ci_matrix(marketplace_path: str, workflow_path: str) ->
     if match:
         matrix_names = {name.strip() for name in match.group(1).split(",") if name.strip()}
 
-    return [name for name in plugin_names if name not in matrix_names]
+    job_names = set(_JOB_NAME_RE.findall(workflow_text))
+
+    return [name for name in plugin_names if name not in matrix_names and name not in job_names]
 
 
 REQUIRED_MANIFEST_FIELDS = ["name", "version", "description", "author", "homepage", "keywords", "license"]

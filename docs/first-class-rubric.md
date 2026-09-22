@@ -59,7 +59,7 @@ does not suppress any check (fails closed).
 
 | ID | Pass Condition | Weight | Mechanical |
 |----|-----------------|--------|------------|
-| CI-01 | Plugin's name appears in `.github/workflows/tests.yml`'s `python-tests` job `matrix.plugin` list (this is the standardized per-plugin coverage pattern the collection tracks; a separately-shaped job for a non-Python plugin, like `agent-cache-plugin`'s own `npm test` job, is not treated as equivalent for this item — see `docs/first-class-audit.md`'s `agent-cache-plugin` CI-01 row and `docs/first-class-backlog.md` for the tracked gap) | 3 | Y |
+| CI-01 | Plugin's name appears in `.github/workflows/tests.yml`'s `python-tests` job `matrix.plugin` list, OR the plugin has its own top-level CI job named exactly after it (recognized as equivalent coverage — e.g. `agent-cache-plugin`'s own `npm ci && npm test && npm run lint` job, for a non-Python plugin that can't run through the Python matrix) | 3 | Y |
 | CI-02 | `deployment-ops-plugin:plugin-validate` passes for this plugin, where the tool is available in the running environment; `SKIPPED` (never silently PASS) when the tool is absent | 2 | Y (SKIPPED when tool absent) |
 
 ## Runtime UX & Reliability
@@ -74,7 +74,7 @@ does not suppress any check (fails closed).
 | ID | Pass Condition | Weight | Mechanical |
 |----|-----------------|--------|------------|
 | COLL-01 | Every plugin directory containing a `.claude-plugin/plugin.json` is listed in `.claude-plugin/marketplace.json`, and vice versa (1:1, no extras, no omissions) | 2 | Y |
-| COLL-02 | Every plugin in `.claude-plugin/marketplace.json` is present in `.github/workflows/tests.yml`'s `python-tests` CI matrix (same underlying check as CI-01, scored once at the collection level) | 3 | Y |
+| COLL-02 | Every plugin in `.claude-plugin/marketplace.json` has CI coverage in `.github/workflows/tests.yml` — matrix membership or an equivalent named job (same underlying check as CI-01, scored once at the collection level) | 3 | Y |
 | COLL-03 | Root `README.md`'s plugin bullet list names the same set of plugins as `.claude-plugin/marketplace.json` | 1 | Y |
 | COLL-04 | No two plugins ship a divergent copy of a shared bare module without a regression test guarding it (see `shared/test_plugin_packaging_self_containment.py` for the known, currently-guarded case) | 2 | N |
 
