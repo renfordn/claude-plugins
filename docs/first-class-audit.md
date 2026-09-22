@@ -158,15 +158,24 @@ intentional there).
 Pass condition: the plugin's own `README.md` has a Quickstart (or equivalent)
 section a new user can follow start-to-finish without leaving the file.
 
+Snapshot updated 2026-09-22 after closing backlog item 7 (all 7/7 now PASS).
+
 | Plugin | Status | Justification |
 |---|---|---|
 | agent-cache-plugin | PASS | `README.md` has an explicit `## Quick Start` section (line 14). |
-| agent-isdd | FAIL | Has `## Commands` and `## Workflow` sections but no single start-to-finish walkthrough combining install + first command to try. |
-| agent-nelly | FAIL | Has `## Installation` and `## Storage` but no usage walkthrough after install. |
-| agent-tdd | FAIL | Has `## Installation` but the next usage-oriented section is `## Using Agent TDD from another plugin` — aimed at plugin authors, not an end-user quickstart. |
-| agent-ux | FAIL | Has `## Installation` and `## Contents` only; no usage walkthrough (consistent with `agent-ux` being a subagent other plugins delegate to, per `docs/install-and-verify.md`'s own note that it has no standalone command — but the rubric's pass condition, as written, is not met literally). |
-| code-reviewer | FAIL | Has `## Installation` and `## Using Code Reviewer from another plugin` but no direct end-user quickstart. |
-| plugin-harness | FAIL | Has `## Using this on other projects` and `## Scope` but no compact linear quickstart; the content is comprehensive but not structured as a start-to-finish walkthrough. |
+| agent-isdd | PASS | `## Quickstart` section added: install one-liner + `/isdd` first command + pointer to full guide. |
+| agent-nelly | PASS | `## Quickstart` section added, replacing the stale "will be added once published to a marketplace" placeholder: install one-liner + smoke-test command. |
+| agent-tdd | PASS | `## Quickstart` section added, replacing the same stale placeholder: install one-liner + explains it's spawned via `agent-isdd` (no standalone command) + `claude plugin details` verification. |
+| agent-ux | PASS | `## Quickstart` section added, replacing the same stale placeholder: install one-liner + `claude plugin details` verification (it's a subagent other plugins delegate to, not directly invoked — the quickstart now says so explicitly instead of just having no usage section at all). |
+| code-reviewer | PASS | `## Quickstart` section added, replacing the same stale placeholder: install one-liner + smoke-test command. |
+| plugin-harness | PASS | `## Quickstart` section added at the top: install one-liner + `claude mcp list` verification + pointer to the existing detailed "Using this on other projects" section for local-dev use. |
+
+**Note:** four of the six plugins fixed here (`agent-nelly`, `agent-tdd`, `agent-ux`,
+`code-reviewer`) had a literal `_Installation instructions will be added once the plugin is
+published to a marketplace._` placeholder — stale since `docs/install-and-verify.md` already
+documented the real, working marketplace install path. Discovered while researching this item,
+not previously flagged by any rubric item; fixed as part of the same edit since a real Quickstart
+necessarily needed real install instructions anyway.
 
 ### RUN-02 — Hooks degrade gracefully on missing optional dependency
 

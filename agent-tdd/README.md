@@ -48,9 +48,26 @@ exactly how to pair it with `agent-TDD`'s review pause.
 "Caller-driven review" still isn't required to be `code-reviewer` specifically — it can be
 anything the caller has available: an agent, a lint/static-analysis pass, or a human.
 
-## Installation
+## Quickstart
 
-_Installation instructions will be added once the plugin is published to a marketplace._
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install agent-tdd@renfordn-plugins
+```
+
+`agent-tdd` has no slash command of its own — it's a subagent (`agent-tdd:agent-TDD`) that an
+orchestrating skill spawns with a Design Spec or Slice Spec (see "What's in this plugin" above).
+The most common way to reach it is via `agent-isdd`'s `/isdd` workflow, which builds and hands
+off a Design Spec automatically once Design is approved. Confirm it installed correctly with:
+
+```bash
+claude plugin details agent-tdd@renfordn-plugins
+```
+
+Expected: a component inventory listing the `agent-TDD` and `test-author` agents and the
+`design-spec-direct` / `slice-spec` skills. See
+[docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
+multi-plugin install/verify guide.
 
 ## Storage
 

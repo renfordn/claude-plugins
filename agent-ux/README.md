@@ -22,9 +22,24 @@ also names `agent-tdd` and `code-reviewer` as prospective callers in its `caller
 both plugins' own repos, neither currently sends `agent-ux` an event — see `INTEROP.md`'s
 "`caller`-keyed rendering rules" section for what's confirmed live versus aspirational.
 
-## Installation
+## Quickstart
 
-_Installation instructions will be added once the plugin is published to a marketplace._
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install agent-ux@renfordn-plugins
+```
+
+`agent-ux` has no slash command or skill of its own — it's a subagent (`agent-ux:ux-agent`)
+that other plugins delegate rendering to via the event contract in [`INTEROP.md`](INTEROP.md).
+Confirm it installed correctly instead of invoking it directly:
+
+```bash
+claude plugin details agent-ux@renfordn-plugins
+```
+
+Expected: a component inventory listing the `ux-agent` agent. See
+[docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
+multi-plugin install/verify guide.
 
 ## Contents
 

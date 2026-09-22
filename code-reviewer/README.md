@@ -33,9 +33,24 @@ per-file state and history persisted across passes (see `references/REVIEW-STATE
 and `references/REVIEW-HISTORY.md.template`); omit it and the skill stays ephemeral for a single
 pass, applying the same evidence-tier and decision rules without writing anywhere.
 
-## Installation
+## Quickstart
 
-_Installation instructions will be added once the plugin is published to a marketplace._
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install code-reviewer@renfordn-plugins
+```
+
+Verify it loaded:
+
+```bash
+claude --print "Use the code-reviewer skill to list its four evidence tiers."
+```
+
+Expected: a brief description naming tier-1 through tier-5 evidence tiers. (Claude Code's
+own built-in `/code-review` command is a separate thing — this plugin is the
+`code-reviewer:code-reviewer` skill, invoked by name or by asking for a code review.) See
+[docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
+multi-plugin install/verify guide.
 
 ## Using Code Reviewer from another plugin
 

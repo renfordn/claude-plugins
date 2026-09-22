@@ -15,6 +15,25 @@ and implementation are owned by separate sibling plugins:
 gate, and never owns a memory subsystem beyond its own per-feature `spec/` artifacts. It produces
 a **Design Spec** at the Design → Implementation boundary and stops.
 
+## Quickstart
+
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install agent-isdd@renfordn-plugins
+```
+
+Then, in a Claude Code session in your project:
+
+```
+/isdd Your feature description here
+```
+
+This starts (or continues) an EARS-requirements → design workflow, interviewing you where the
+input is ambiguous. `/isdd-status` shows the current phase without starting anything. See
+[docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
+multi-plugin install/verify guide, including installing `agent-tdd`/`code-reviewer` so a Design
+Spec has somewhere to hand off to.
+
 ## Why this plugin exists
 
 `agent-isdd` is the successor to the `sdd` plugin, which originally bundled requirements,

@@ -4,6 +4,25 @@ Caching-first workflow router that coordinates the `agent-isdd` → `agent-tdd` 
 `code-reviewer` handoff chain, distributes the `agent-nelly` memory brief once,
 and validates handoff payloads against `INTEROP.md` capability contracts.
 
+## Quickstart
+
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install plugin-harness@renfordn-plugins
+```
+
+The MCP server (`spawn-context`) starts automatically on session launch. Confirm it's running:
+
+```bash
+claude mcp list
+```
+
+Expected: `spawn-context` listed as an active MCP server. `plugin-harness` works best alongside
+its sibling plugins (`agent-isdd`, `agent-tdd`, `code-reviewer`, and the optional
+`agent-nelly`/`agent-ux`) — see [docs/install-and-verify.md](../docs/install-and-verify.md) in
+this repo for the full multi-plugin install/verify guide. The rest of this section covers using
+this repo directly rather than via the marketplace (e.g. for local development).
+
 ## Using this on other projects (incl. cloud sessions)
 
 This repo doubles as a Claude Code plugin (`.claude-plugin/`). Installing it

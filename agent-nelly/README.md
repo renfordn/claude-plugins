@@ -3,9 +3,23 @@
 
 A general-purpose, project-aware memory orchestration plugin for Claude Code — goal-aware briefs, cross-project promotion, staleness detection, and consolidation, independent of any other plugin.
 
-## Installation
+## Quickstart
 
-_Installation instructions will be added once the plugin is published to a marketplace._
+```bash
+claude plugin marketplace add renfordn/claude-plugins
+claude plugin install agent-nelly@renfordn-plugins
+```
+
+Verify it loaded:
+
+```bash
+claude --print "Use the agent-nelly:agent-nelly subagent to fetch the project Intent. Just print the Intent line."
+```
+
+Expected: a short response naming the project Intent (or "not yet captured" on a fresh
+project — that's correct). See
+[docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
+multi-plugin install/verify guide.
 
 ## Storage
 
