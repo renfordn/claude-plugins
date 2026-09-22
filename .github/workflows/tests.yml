@@ -169,3 +169,20 @@ jobs:
 
       - name: Run lint
         run: npm run lint
+
+  first-class-check:
+    # Independent of python-tests: a first-class-check FAIL is a collection
+    # consistency/onboarding/CI-hygiene gap, not a per-plugin test failure, and
+    # shouldn't mask or be masked by that job. Stdlib-only, filesystem-only, no
+    # matrix needed -- scripts/first_class_check.py iterates plugins itself by
+    # reading .claude-plugin/marketplace.json.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run first-class checker
+        run: python3 scripts/first_class_check.py

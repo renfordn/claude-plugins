@@ -20,6 +20,12 @@ to the migration lives in the original per-plugin repos:
 [agent-ux](https://github.com/renfordn/agent-ux) (archived),
 [agent-cache-plugin](https://github.com/renfordn/agent-cache-plugin).
 
+## Installing the plugins
+
+See [`docs/install-and-verify.md`](./docs/install-and-verify.md) for the full
+install, verification, and troubleshooting walkthrough covering all 7 plugins
+in the `renfordn-plugins` marketplace.
+
 ## Why one repo
 
 plugin-harness's `CapabilityMap` reads all 6 plugins from a single base

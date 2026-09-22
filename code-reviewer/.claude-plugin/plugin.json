@@ -12,5 +12,8 @@
     "review",
     "quality",
     "claude-code"
-  ]
+  ],
+  "first_class": {
+    "declared_absent": ["hooks"]
+  }
 }
