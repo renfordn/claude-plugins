@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-22
+
+- **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
+  marketplace" placeholder (the `renfordn-plugins` marketplace already exists and is documented in
+  `docs/install-and-verify.md`); explains it's a subagent other plugins delegate to, not invoked
+  directly, and how to verify the install.
+- **Chore**: `.claude-plugin/plugin.json`'s `first_class.declared_absent` extended to include
+  `skills` (was `hooks`, `commands`) — nothing in this plugin is user-invoked.
+
 ## [0.1.6] - 2026-09-20
 
 - **Docs**: promote unpromoted Unreleased CHANGELOG section to versioned [0.1.5] entry.
