@@ -11,7 +11,7 @@
 - Previous Phase: Design
 - Workflow Status: Awaiting Implementation Request
 - Pause Reason: waiting for implementation request
-- Next Action: Confirm whether to hand Phase 1 to agent-TDD for implementation.
+- Next Action: Confirm whether to hand Slice 1 to agent-TDD for implementation.
 
 ## Hook Status
 

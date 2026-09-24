@@ -45,7 +45,7 @@ The migration is fully planned through Tasks. Requirements and Design are approv
 
 ## Next Task
 
-- Confirm whether to hand Phase 1 to `agent-TDD` for implementation.
+- Confirm whether to hand Slice 1 to `agent-TDD` for implementation.
 
 ## What Completed Work Enabled
 
