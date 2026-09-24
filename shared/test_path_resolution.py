@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Tests for shared path resolution utility."""
+import contextlib
+import io
 import os
 import tempfile
 import unittest
@@ -73,6 +75,33 @@ class TestPathResolution(unittest.TestCase):
             with self.subTest(plugin_dir=plugin_dir, legacy_name=legacy_name):
                 result = get_legacy_subdir_path(plugin_dir, legacy_name)
                 self.assertEqual(result, expected)
+
+    def test_warns_on_stderr_when_env_var_unset(self):
+        """Identity-split-hazard fix (2026-09-24, see module docstring): the fallback must be
+        loud, not silent. Warning goes to stderr, never stdout (reserved for a hook's JSON)."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+            captured_err = io.StringIO()
+            with contextlib.redirect_stderr(captured_err):
+                get_plugin_data_dir("agent-isdd")
+            warning = captured_err.getvalue()
+            self.assertIn("CLAUDE_PLUGIN_DATA", warning)
+            self.assertIn("agent-isdd", warning)
+
+    def test_no_warning_on_stdout_when_env_var_unset(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
+            captured_out = io.StringIO()
+            with contextlib.redirect_stdout(captured_out):
+                get_plugin_data_dir("agent-isdd")
+            self.assertEqual(captured_out.getvalue(), "")
+
+    def test_no_warning_when_env_var_set(self):
+        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": "/test/plugins/data/agent-isdd"}):
+            captured_err = io.StringIO()
+            with contextlib.redirect_stderr(captured_err):
+                get_plugin_data_dir("agent-isdd")
+            self.assertEqual(captured_err.getvalue(), "")
 
     def test_fallback_path_structure(self):
         """Test that fallback path follows ~/.claude/plugins/data/<plugin-name>/ structure."""

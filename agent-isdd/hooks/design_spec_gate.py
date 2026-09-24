@@ -9,6 +9,15 @@ on an unrelated Task call; every other spawn passes through untouched.
 
 If no SDD workflow is active at all, this is not this plugin's business to gate a non-SDD
 spawn -- falls through (no decision) rather than denying.
+
+Caution (see path_resolution.py's "identity-split hazard"): "no active workflow" is exactly
+what this hook also sees if the active feature's state was written under a *different* plugin
+identity's data dir than the one this hook itself resolves to this session -- e.g. state
+scaffolded by a manual `python3 hooks/sdd_memory.py ...` Bash call (which never gets
+`${CLAUDE_PLUGIN_DATA}` injected) instead of a real hook. In that case this hook can't tell "no
+workflow" apart from "workflow is one directory over," and falls through the same way --
+silently allowing an unapproved Design Spec spawn rather than denying it. Never invoke
+hooks/*.py directly outside the real registered hook chain; see path_resolution.py.
 """
 import json
 import os
