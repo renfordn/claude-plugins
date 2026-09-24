@@ -1,6 +1,27 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.13] - 2026-09-24
+
+- **Docs**: `agents/agent-nelly.md` claimed agent-nelly + nelly-maintenance are the *only*
+  things that ever read/write under the memory root — false, `hooks/nelly_auto_extract.py`,
+  `hooks/nelly_commit_extract.py`, and `hooks/nelly_session_end.py` are documented, deliberate
+  hook-based exceptions (plain scripts, no LLM involved); corrected to acknowledge them.
+- **Docs**: `references/nelly-entry.template.md`'s `metadata.type` enum was missing the
+  hook-generated `technique` type (and its real field set: `seen_count`, `family`,
+  `passing_count`, `commit`, `files_changed`, `paths`); added. Also completed the `error_type`
+  vocabulary — was missing `interop_parse_failure`, the 5th value in
+  `OrchestrationError.VALID_ERROR_TYPES` (plugin-harness).
+- **Docs**: `INTEROP.md` named a `memory-orchestrator` soft-dependency that doesn't exist under
+  that name anywhere in the repo — traced to the pre-plugin-split `spec-driven-development`
+  plugin; now points at `agent-isdd`'s `spec-driven-development` skill.
+- **Fix**: `hooks/nelly_memory_permission.py`'s docstring claimed it creates audit trail entries
+  for every allow/deny decision via `create_audit_logger` — that import was never called
+  anywhere in the file. Removed the false claim and the dead import.
+- **Docs**: corrected stale `~/.claude/agent-nelly-memory/` path illustrations across agent/
+  command docs, hook docstrings, and one real user-facing runtime message
+  (`scripts/nelly_weekly_consolidate.py`) to the real `${CLAUDE_PLUGIN_DATA}`-based resolution.
+
 ## [0.4.12] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
