@@ -1,6 +1,20 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.14] - 2026-09-24
+
+- **Docs**: `SKILL.md`'s Cross-References section cited a deleted `agents/ralph-loops.md` (removed
+  when the modular five-subagent pipeline was retired and folded into `agents/agent-TDD.md`) and
+  a `design.md` that never existed in this repo (the original SDD design doc, which lives under
+  `~/.claude/sdd-memory/`); corrected to the live sources.
+- **Docs**: `skills/task-slicer/SKILL.md` had the same wrong `code-reviewer/SKILL.md` path and
+  dangling `design.md §ISDD Workflow Integration` reference; corrected.
+- **Docs**: `references/escalation-paths.md` showed a fictitious `<!--AGENT-TDD-RESEARCH-GAP:...-->`
+  marker for the Research Gap Flag — `agent-TDD.md` never defines or emits one for this case (it's
+  a prose field in the handoff report, confirmed against
+  `references/examples/research-gap-flag-slice.md`'s canonical worked example); replaced the
+  example with the real field-based format.
+
 ## [0.2.13] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
