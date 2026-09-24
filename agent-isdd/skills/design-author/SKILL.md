@@ -35,6 +35,19 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    `research-consolidator` with it (whether reused or freshly fetched) so it isn't re-deriving
    project context the memory already has.
 
+   **[File & Folder Summary Cache]** On that same call (fresh or reused), also pass `file summary
+   lookup` for every path the brief's `Relevant entries`/`File relevance:` sub-list already names
+   plus any file explicitly named in the approved `requirements.md` — this is a smaller place to
+   check than re-deriving those paths' purpose from scratch. For each **cache hit**, verify
+   freshness yourself before trusting it: compute the file's current content hash (`Grep`
+   `pattern: "^"`, `output_mode: "count"` isn't a hash — use a `Bash` `git hash-object <path>`
+   call, the same primitive `research-consolidator` uses for `git_hash`) and compare it to the
+   returned `git_hash`; a match is a **confirmed** cache hit, a mismatch is a miss. Pass the list
+   of paths with a confirmed hit down to `research-consolidator` as "already summarized, skip
+   deep-reading unless something in this feature's scope specifically requires re-reading it" —
+   the same skip mechanic it already applies to the brief's `Relevant entries` (see its Pass 1,
+   step 1). This is the read side of the cache; the write side is step 2 below.
+
 2. **[Phase 2+3]** `research-consolidator` — unified codebase research (single pass) that produces
    **dual output:**
    - `design_findings` — architecture touchpoints, interfaces, design risks (for design.md)
@@ -63,10 +76,20 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    After `research-consolidator` returns:
    - Use `design_findings` to draft design.md
    - Cache `task_findings` in `research/cache.md` (for agent-tdd to reuse)
-   - Persist `file_summaries` to agent-nelly via `new facts` batch (type: "file_summary")
-     - `file_summaries` are structured for cross-feature reuse: path, summary, exports,
-       constraints, tech_debt, dependencies, test_surface, migration_risks, line_count, git_hash
-     - Agent-nelly caches these in `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project>/files/`
+   - Persist `file_summaries` to agent-nelly's `file summaries` field (see its
+     `agents/agent-nelly.md`'s "File & Folder Summary Cache" section) — **not** for a file that
+     was a confirmed cache hit and skipped deep-reading in step 1 above (nothing changed about it,
+     so there's nothing to re-persist), only for files `research-consolidator` actually deep-read
+     this pass. Each item's `summary` is `research-consolidator`'s one-line file summary,
+     truncated to 240 characters if needed (`file-summary` entries are capped — see the reference
+     above); `exports`/`constraints`/`dependencies`/`tech_debt` and `git_hash` carry straight
+     through from `research-consolidator`'s output.
+   - Also persist one `folder summaries` item per directory containing two or more of the files
+     `research-consolidator` deep-read this pass, when that directory has no existing
+     `folder-summary` cache hit from step 1: a short (≤240 char) description of the directory's
+     overall role, drawn from those files' summaries — not a mechanical file-by-file listing.
+     Skip a directory that already has a confirmed-fresh folder-summary; its purpose hasn't
+     changed just because one more file inside it got touched.
    - If a summary describes a design approach already tried and rejected (not just current
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
      section for criterion)

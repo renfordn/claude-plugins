@@ -378,14 +378,17 @@ discovery that a specific approach was tried and rejected is an `error lesson` i
 call fails or nelly is unavailable, log a one-line note in `recap.md` and continue — it is never
 a blocking condition.
 
-**[Phase 2+3] File-level cache via `new facts` batches**: after `research-consolidator` completes
-during Design phase, `design-author` extracts `file_summaries` from the research output and
-persists them to agent-nelly via a `new facts` batch with type: `"file_summary"`. Schema per
-summary:
+**[Phase 2+3, corrected 2026-09-24] File & Folder Summary Cache**: this used to describe a
+`type: "file_summary"` `new facts` batch item and a per-file JSON cache under
+`.../agent-nelly-memory/<project>/files/<slug>.json` — neither of those existed in agent-nelly;
+they were this document getting ahead of an integration that was never actually built. The real
+contract, now implemented on both sides:
+
+`research-consolidator`'s own "File Summaries" output (`research/cache.md`, the full in-context
+shape, per its own agent spec) carries more than what gets persisted to agent-nelly:
 
 ```json
 {
-  "type": "file_summary",
   "path": "src/api/client.ts",
   "summary": "HTTP client wrapper with retry logic",
   "exports": ["class ApiClient { request() }", "function retry<T>(...)"],
@@ -395,24 +398,50 @@ summary:
   "test_surface": ["Mock ApiClient.request()", "Test retry behavior"],
   "migration_risks": ["Request state cached; changes to error handling must clear cache"],
   "line_count": 342,
-  "git_hash": "abc123def456",
-  "touched_by": [{"feature": "payment-flow", "date": "2026-08-22"}]
+  "git_hash": "abc123def456"
 }
 ```
 
-Agent-nelly caches file summaries in `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project>/files/<slug>.json`
-for cross-feature reuse. When `agent-isdd` needs file context during a later feature (Design
-phase or agent-tdd slicing phase), it queries agent-nelly for cached summaries by file path;
-agent-nelly returns cache hits with git_hash validation and cache misses.
+After `research-consolidator` completes during Design phase, `design-author` persists a trimmed
+version of that same output to agent-nelly's dedicated `file summaries` request field (one
+`file-summary` entry per path, under that project's ordinary `entries/` store — not a separate
+JSON cache), and one `folder summaries` item per directory containing several touched files.
+`test_surface`, `migration_risks`, and `line_count` stay in `research/cache.md` for `agent-tdd`'s
+own use — they don't ride along to agent-nelly, since the summary cache exists to answer "what
+does this file do," not to duplicate the line-count-ceiling gate or task-slicing inputs. Schema
+per persisted file-summary item:
+
+```json
+{
+  "path": "src/api/client.ts",
+  "summary": "HTTP client wrapper with retry logic",
+  "exports": ["class ApiClient { request() }", "function retry<T>(...)"],
+  "constraints": ["Singleton: initialized once", "Not re-entrant"],
+  "tech_debt": ["Retry backoff hardcoded"],
+  "dependencies": ["axios", "events"],
+  "git_hash": "abc123def456"
+}
+```
+
+`summary` is capped at 240 characters (`agent-nelly`'s `nelly_memory.SUMMARY_CHAR_LIMIT`,
+structurally enforced by its `nelly_summary_guard.py` hook) — there is no `line_count`,
+`test_surface`, `migration_risks`, or `touched_by` field in the real entry (those stayed useful as
+in-context research findings for `design.md`/`research/cache.md`, just not as part of what gets
+persisted to agent-nelly). A folder-summary item is just `{"folder": "src/api", "summary": "..."}`.
+
+When `agent-isdd` needs file context during a later feature (Design phase — see
+`design-author/SKILL.md`'s "Research First" step 1 — or `agent-tdd` slicing, per this file's
+`file_summaries` field description above), it queries agent-nelly's `file summary lookup` field
+by path; agent-nelly returns a cache hit (`description` + `git_hash`), a folder-level partial hit,
+or a miss — see `agent-nelly/agents/agent-nelly.md`'s "File & Folder Summary Cache" section for
+the full read/write contract and `agent-nelly/INTEROP.md`'s section of the same name for the
+consumer-facing summary. `git_hash` validity is always checked by the *caller* (`git hash-object
+<path>` against the stored value) — agent-nelly itself never shells out to git.
 
 Agent-nelly's file cache is optional and transparent to agent-isdd: if unavailable, agent-isdd
-continues without pre-loaded file context (slower, but correct). The integration assumes
-agent-nelly:agent-nelly supports:
-- `type: "file_summary"` in `new facts` batches (storage)
-- A query interface to retrieve file summaries by path (retrieval, with git_hash validity check)
-
-This is documented here as the contract both plugins can cross-check; agent-nelly's own `INTEROP.md`
-is authoritative for its side of the contract.
+continues without pre-loaded file context (slower, but correct). This is documented here as the
+contract both plugins can cross-check; agent-nelly's own `INTEROP.md` is authoritative for its
+side of the contract.
 
 ## → agent-cache-plugin (no direct integration)
 

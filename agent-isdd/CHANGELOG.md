@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.59] - 2026-09-24
+
 - **Fix**: `hooks/sdd_state.py`'s `find_state_files()`/`active_state_file()` now skip features whose `workflow-state.md` has `Workflow Status: Complete` (new `is_complete_state()`). Before, the newest workflow-state.md stayed "active" after completion, so hooks such as `subagent_report.py` kept appending to its `recap/subagent-reports.md` in unrelated sessions. When every feature is Complete, discovery now returns no active workflow. In-progress and paused features resolve as before.
+- **Feature**: Design phase now checks agent-nelly's File & Folder Summary Cache before deep-reading files. `design-author`'s "Research First" step 1 sends a `file summary lookup` for the brief's `Relevant entries`/named requirement files alongside its usual brief call, verifies each cache hit's `git_hash` itself, and passes confirmed-fresh paths to `research-consolidator` to skip re-reading. `research-consolidator`'s Pass 1/2 honor that skip list, and its "File Summaries" output is now explicitly capped at 240 characters per entry. After it returns, `design-author` persists file summaries to agent-nelly's real `file summaries`/`folder summaries` fields instead of the previously-undefined `type: "file_summary"` (a documented-but-never-implemented mechanism this corrects).
+- **Feature**: `requirements-agent`'s Review mode checks the same cache for any files a source ticket/PRD names explicitly, before reading them cold.
+- **Feature**: implementation handoff (`implementation-handoff.md`) now names the real `file summary lookup` field for its pre-fetch step and forwards `agent-TDD`'s new **File Summaries** report field to agent-nelly alongside Handoff Facts.
+- **Fix (docs)**: `INTEROP.md`'s "→ agent-nelly" section described a `type: "file_summary"` `new facts` batch item and a per-file JSON cache path that agent-nelly never actually implemented. Corrected to document the real contract (agent-nelly's `file summaries`/`folder summaries`/`file summary lookup` fields, `entries/`-backed `file-summary`/`folder-summary` types, 240-char cap) — see agent-nelly's own CHANGELOG/INTEROP.md for its side.
 
 ## [0.1.58] - 2026-09-24
 

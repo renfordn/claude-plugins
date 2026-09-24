@@ -44,17 +44,23 @@ def test_design_gate_checklist_item_documented():
         "Design Gate checklist does not mention the line-count ceiling"
 
 
-def test_file_summaries_field_list_includes_line_count():
-    """Test that the Research First step's file_summaries field-list enumeration includes
-    line_count, matching research-consolidator.md's schema and INTEROP.md's JSON example."""
+def test_file_summaries_persistence_excludes_line_count():
+    """Test that the Research First step documents `line_count` (and the other
+    task-slicing-only fields) staying in `research/cache.md` rather than riding along to
+    agent-nelly's file/folder summary cache -- corrected 2026-09-24: an earlier version of
+    this file assumed a `line_count` field on the *persisted* agent-nelly entry, which never
+    matched agent-nelly's actual `file-summary` schema (see agent-nelly's
+    references/nelly-entry.template.md and INTEROP.md's corrected File & Folder Summary Cache
+    section). `line_count` still belongs in research-consolidator's in-context findings and the
+    Refactor & Reduction Opportunities gate -- just not in what gets written to agent-nelly."""
     content = read_design_author_skill()
-    marker = "`file_summaries` are structured for cross-feature reuse"
+    marker = "Persist `file_summaries` to agent-nelly's `file summaries` field"
     field_list_start = content.index(marker)
-    window = content[field_list_start:field_list_start + 200]
+    window = content[field_list_start:field_list_start + 700]
 
-    assert "line_count" in window, \
-        "file_summaries field-list enumeration is missing line_count (schema drift vs. " \
-        "research-consolidator.md and INTEROP.md)"
+    assert "line_count" not in window, \
+        "file_summaries persistence step re-introduces line_count into the agent-nelly-bound " \
+        "field list -- it belongs only in research/cache.md's task_findings"
 
 
 def test_code_reviewer_exclusion_guardrail_documented():

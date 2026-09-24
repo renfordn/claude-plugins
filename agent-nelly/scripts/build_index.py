@@ -15,7 +15,15 @@ trimmed to its first line:
    "confidence": <metadata.confidence|null>, "description": <str>,
    "tags": [...], "file_path": <path relative to the store dir>,
    "mtime": <float epoch seconds of the source file>,
-   "seen_count": <metadata.seen_count|null>}
+   "seen_count": <metadata.seen_count|null>,
+   "files": [...] (metadata.files, `file-relevance`/`file-summary` only,
+   `[]` when absent), "folder": <metadata.folder|null> (`folder-summary`
+   only), "git_hash": <metadata.git_hash|null> (`file-summary` only)}
+
+`files`/`folder`/`git_hash` exist so lookup_by_path() below can answer "is
+there already a cached summary for this path?" from this one JSON file --
+without them, a path-based lookup would have to fall back to opening every
+entries/*.md file, defeating the reason this pre-index exists at all.
 
 `seen_count` tracks how many times an auto-extract hook
 (hooks/nelly_auto_extract.py, hooks/nelly_commit_extract.py) has written or
@@ -46,6 +54,9 @@ _TYPE_RE = re.compile(r"^\s*type:\s*(\S+)", re.M)
 _CONFIDENCE_RE = re.compile(r"^\s*confidence:\s*(\S+)", re.M)
 _TAGS_RE = re.compile(r"^\s*tags:\s*\[(.*?)\]\s*$", re.M)
 _SEEN_COUNT_RE = re.compile(r"^\s*seen_count:\s*(\d+)", re.M)
+_FILES_RE = re.compile(r"^\s*files:\s*\[(.*?)\]\s*$", re.M)
+_FOLDER_RE = re.compile(r"^\s*folder:\s*(\S+)", re.M)
+_GIT_HASH_RE = re.compile(r"^\s*git_hash:\s*(\S+)", re.M)
 
 
 def _parse_frontmatter_block(block):
@@ -62,11 +73,17 @@ def _parse_frontmatter_block(block):
     confidence_m = _CONFIDENCE_RE.search(block)
     tags_m = _TAGS_RE.search(block)
     seen_count_m = _SEEN_COUNT_RE.search(block)
+    files_m = _FILES_RE.search(block)
+    folder_m = _FOLDER_RE.search(block)
+    git_hash_m = _GIT_HASH_RE.search(block)
 
     description = desc_m.group(1).strip().splitlines()[0] if desc_m else ""
     tags = []
     if tags_m:
         tags = [t.strip().strip("'\"") for t in tags_m.group(1).split(",") if t.strip()]
+    files = []
+    if files_m:
+        files = [f.strip().strip("'\"") for f in files_m.group(1).split(",") if f.strip()]
 
     return {
         "slug": name_m.group(1).strip(),
@@ -75,6 +92,9 @@ def _parse_frontmatter_block(block):
         "description": description,
         "tags": tags,
         "seen_count": int(seen_count_m.group(1)) if seen_count_m else None,
+        "files": files,
+        "folder": folder_m.group(1).strip() if folder_m else None,
+        "git_hash": git_hash_m.group(1).strip() if git_hash_m else None,
     }
 
 
@@ -174,6 +194,47 @@ def upsert_project_entry(cwd, entry_path):
     return records
 
 
+def lookup_by_path(cwd, path):
+    """Fast cache lookup for one repo-relative path, answered entirely from
+    the project's nelly-index.json -- no entries/*.md file is opened. This is
+    the read side of the file/folder summary cache: before Glob/Grep-ing the
+    whole repo for a targeted change, a caller checks here first for an
+    already-cached `file-summary`/`folder-summary` entry covering the path.
+
+    `path` must be repo-relative with forward slashes, matching how
+    `files`/`folder` are stored on file-summary/folder-summary entries --
+    never resolved against `cwd`, mirroring resolve_repo_relative()'s own
+    never-absolute invariant for `metadata.files`.
+
+    Returns {"file": <record|None>, "folders": [<record>, ...]}:
+      - "file": the `file-summary` record whose `files` list contains `path`
+        exactly (one entry per file, so at most one match).
+      - "folders": every `folder-summary` record whose `folder` is `path`
+        itself or an ancestor directory of it, most specific (longest
+        `folder` value) first -- callers wanting the nearest folder summary
+        read index 0; a coarser ancestor summary is still useful context.
+    """
+    if os.path.isabs(path):
+        raise ValueError(f"lookup_by_path: path must be repo-relative, got absolute path {path!r}")
+    norm = path.rstrip("/")
+    index_path = os.path.join(memory_dir(cwd), INDEX_FILENAME)
+    records = _read_index(index_path)
+
+    file_record = None
+    folder_records = []
+    for record in records:
+        rtype = record.get("type")
+        if rtype == "file-summary" and norm in (record.get("files") or []):
+            file_record = record
+        elif rtype == "folder-summary":
+            folder = (record.get("folder") or "").rstrip("/")
+            if folder and (norm == folder or norm.startswith(folder + "/")):
+                folder_records.append(record)
+
+    folder_records.sort(key=lambda r: len(r.get("folder") or ""), reverse=True)
+    return {"file": file_record, "folders": folder_records}
+
+
 def build_global_index():
     """Full rescan of global/GLOBAL-MEMORY.md's inline frontmatter blocks.
     Unlike a per-project store, the global tier has no per-entry files to
@@ -241,6 +302,15 @@ def main(argv=None):
         cwd = argv[cwd_idx + 1] if cwd_idx is not None else os.getcwd()
         records = upsert_project_entry(cwd, entry_path)
         print(os.path.join(memory_dir(cwd), INDEX_FILENAME), f"({len(records)} entries)")
+        return
+
+    if "--lookup-path" in argv:
+        idx = argv.index("--lookup-path")
+        path = argv[idx + 1]
+        cwd_idx = argv.index("--cwd") if "--cwd" in argv else None
+        cwd = argv[cwd_idx + 1] if cwd_idx is not None else os.getcwd()
+        result = lookup_by_path(cwd, path)
+        print(json.dumps(result, indent=2))
         return
 
     if "--global" in argv:

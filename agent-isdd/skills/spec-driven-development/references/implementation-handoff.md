@@ -23,9 +23,13 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    files research-consolidator's pass didn't cover (files named in requirements/design but never
    deep-read, or adjacent files worth knowing about from earlier features). If the resulting list
    is empty, skip the nelly query entirely — there's nothing left to ask about.
-   - Pass the reduced file list to agent-nelly (if available)
-   - Receive cache hits (with git_hash validation) + cache misses
-   - Bundle cache hits into Design Spec handoff
+   - Pass the reduced file list to agent-nelly (if available) via `file summary lookup` (see
+     `agent-nelly/agents/agent-nelly.md`'s "File & Folder Summary Cache" section)
+   - Receive cache hits (`description` + `git_hash`) + cache misses; validate each hit yourself
+     by comparing the returned `git_hash` against `git hash-object <path>` on the current file —
+     a mismatch is a miss, not a hit
+   - Bundle confirmed cache hits into the Design Spec's `research_cache.file_summaries` (merged
+     alongside the fresh ones from step 1, per `INTEROP.md`'s `file_summaries` field description)
 3. Construct **Design Spec** with:
    - Full `requirements.md` (approved)
    - Full `design.md` (approved, with Research Basis)
@@ -82,7 +86,9 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    skill's scope, same as before this change.
 9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
    `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
-   batch. One call only — no re-fetch of the brief needed.
+   batch. In the same call, if the report's **File Summaries** field (see
+   `agent-tdd/agents/agent-TDD.md`'s section of that name) is also non-empty, pass its items as
+   `file summaries` too — one call carries both, no re-fetch of the brief needed.
 
 ## Fast Track: Slice Spec handoff
 
@@ -118,5 +124,5 @@ mandatory post-Green review pause:
    `Workflow Status: Complete`. No step 6/8 equivalent from the Standard path applies here —
    step 4 already handled the one high-risk case upfront, so there's no post-hoc
    test-author-pause-then-resume cycle to manage.
-7. Same as Standard step 9: forward non-empty Handoff Facts to `agent-nelly:agent-nelly` if
-   available.
+7. Same as Standard step 9: forward non-empty Handoff Facts (and any non-empty File Summaries) to
+   `agent-nelly:agent-nelly` if available.

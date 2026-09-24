@@ -834,6 +834,24 @@ Include a **Handoff Facts** field listing anything worth persisting: ownership d
 coverage found, behavior/interface changes made. Omit if nothing qualifies or the caller has no
 memory store. Writing to the store is the caller's responsibility.
 
+## File Summaries (Design Spec Mode only, for agent-nelly's file/folder summary cache)
+
+Task slicing (per-slice) reads files the Design Spec's `research/cache.md` `file_summaries` plus
+"Pre-fetched file summaries" (see "Design Spec (alternative input...)" above — already merged
+with agent-nelly's own cache hits before the spec ever reaches you) don't already cover — a file
+named only in
+`requirements.md`/`design.md` prose, or one discovered while investigating an interface during
+slicing. When that happens, include a **File Summaries** field: one `{path, summary, git_hash}`
+item per such file, in the same shape `research-consolidator`'s "File Summaries" output uses
+(`agent-isdd/agents/research-consolidator.md`) — `summary` a one-line "what this file does" in
+240 characters or fewer (the caller truncates further if needed; agent-nelly denies an
+over-length write outright), `git_hash` via the same `Grep`/hash approach research-consolidator
+uses, never invented. Omit this field entirely when task slicing didn't read anything outside
+the Design Spec's existing coverage — the common case. Persisting these is the caller's
+responsibility (agent-isdd forwards them to `agent-nelly:agent-nelly` as `file summaries`
+alongside **Handoff Facts**, per agent-isdd's own `INTEROP.md` "→ agent-nelly" section), same
+division of labor as **Handoff Facts** above: you report, the caller writes.
+
 ## Handoff report (your return value)
 
 ### Slice Spec Mode (Single-Slice Implementation)
@@ -879,11 +897,15 @@ Then provide, where applicable:
 6. **Risks and Follow-ups** — assumptions, tech debt, recommended next slice.
 7. **Handoff Facts** — facts worth persisting, if the caller has somewhere to put them. Omit or
    say "none" if nothing qualifies.
-8. **Research Gap Flag** — present only in a pre-review handoff, only when Red/Green work
+8. **File Summaries** — see *File Summaries (Design Spec Mode only, for agent-nelly's file/folder
+   summary cache)* above; the same shape applies here too despite that section's heading (a
+   Slice Spec can read a file outside its own scope while investigating an interface, same as
+   Design Spec Mode's task slicing can). Omit when nothing qualifies.
+9. **Research Gap Flag** — present only in a pre-review handoff, only when Red/Green work
    revealed a material divergence from the Slice Spec's assumptions (see *Mid-Slice Research
    Request* above). Describe precisely what's missing/divergent and what needs answering before
    Green can proceed. Omit entirely when there is no such divergence.
-9. **Plan Validity Flag** — present only when the conflict described in *Plan Validity Flag*
+10. **Plan Validity Flag** — present only when the conflict described in *Plan Validity Flag*
    above applies. State the conflict plainly; the caller decides what to do with it. Omit
    entirely otherwise, and never raise it from a hunch.
 
@@ -912,6 +934,9 @@ Then provide:
 7. **Tasks File Path** — location of generated tasks.md.
 8. **Handoff Facts** — facts worth persisting (discovered constraints, weak test surfaces,
    migration risks, etc.).
+9. **File Summaries** — see *File Summaries (Design Spec Mode only, for agent-nelly's file/folder
+   summary cache)* above. Omit when task slicing read nothing beyond the Design Spec's existing
+   coverage.
 
 If the readiness verdict is **paused** (escalation needed):
 - State the specific reason (research gap, design contradiction, slicing blocker, etc.).
