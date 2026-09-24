@@ -67,9 +67,16 @@ Each level defines checks performed, skipped checks, and output style, ordered b
   - API contract consistency
   - Naming conventions (variable, function, class)
   - Basic design coherence (functions not doing too many things)
+  - SOLID-principle violations (Single Responsibility, Open/Closed, Liskov Substitution,
+    Interface Segregation, Dependency Inversion) — named explicitly, not folded into generic
+    "design coherence"
+  - Separation of concerns problems, as their own named check
+  - Duplicated logic that should be consolidated into a shared function, method, or class —
+    scoped to the diff/file under review (not project-wide; project-wide duplicate detection
+    stays exclusive to Level 4/Ultra below)
   - Obvious bugs and edge cases
   - Test coverage basics (are obvious test cases covered?)
-- **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, refactoring opportunities, module-wide coherence
+- **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, module-wide coherence, and broader refactoring suggestions beyond the narrow duplicate-consolidation check above (those stay a Level 3/Deep concern)
 - **Output Style**: Organized by finding type (correctness, naming, design); severity-tiered; typical current behavior
 
 #### **Level 3: Deep (Coherence/Sanity)**
@@ -79,7 +86,8 @@ Each level defines checks performed, skipped checks, and output style, ordered b
 - **Checks Performed**:
   - All Standard level checks
   - Design pattern alignment (does implementation match intended patterns?)
-  - Single Responsibility Principle (SRP) validation
+  - Single Responsibility Principle (SRP) validation, extended beyond Standard's SOLID check into
+    cross-method judgment calls a diff-scoped pass can't make
   - Interface coherence (methods group logically, no leaky abstractions)
   - Class-level design consistency
   - Module-wide coherence (do related functions form a cohesive unit?)
@@ -96,7 +104,8 @@ Each level defines checks performed, skipped checks, and output style, ordered b
   - All Deep level checks
   - Security vulnerabilities (injection, authorization, data exposure, crypto, etc.)
   - Regression risk (could changes break existing code outside modified files?)
-  - Duplicate detection (code duplication across project scope)
+  - Duplicate detection (code duplication across project scope — distinct from Standard's
+    diff/file-scoped duplicate-consolidation check above)
   - Performance implications (memory, I/O, CPU complexity)
   - Refactoring opportunities at whole-system scale
 - **Skipped Checks**: None (comprehensive)
@@ -205,7 +214,9 @@ populated, downgrade the tier rather than omitting the field.
 - **`decision`** — `accept` | `flag` | `block` | `defer`.
 - **`severity`** — `critical` | `high` | `medium` | `low` | `nit`.
 - **`category`** — `correctness` | `security` | `test-coverage` | `style` | `architecture` |
-  `performance` | `documentation`.
+  `performance` | `documentation`. SOLID-principle, separation-of-concerns, and
+  duplicate-consolidation findings (Standard level and above) map to `category: architecture` —
+  no new enum value.
 - **`workflow_action`** — `proceed` | `pause_for_review` | `block_commit` | `require_test` |
   `log_only`.
 - **`confidence`** — `high` | `medium` | `low`. Tracks how sure the reviewer is the finding is

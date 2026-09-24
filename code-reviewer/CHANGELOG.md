@@ -1,6 +1,20 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.13] - 2026-09-24
+
+- **Feature**: `Standard` review level (the default) now explicitly checks SOLID-principle
+  violations, separation-of-concerns problems, and duplicated logic that should be consolidated
+  into a shared function/method/class — scoped to the diff/file under review. Previously these
+  were only implicit (a generic "design coherence" bullet) and gated behind `Deep`/`Ultra`.
+  `Deep`'s SRP bullet reworded to make clear it extends Standard's new check rather than
+  duplicating it; `Ultra`'s duplicate-detection bullet reworded to state it's project-wide,
+  distinct from Standard's new diff/file-scoped check. Decision Model's `category` field
+  documented as mapping these findings to `architecture` (no new enum value).
+- **Note**: file-size/line-count-ceiling enforcement was explicitly considered and rejected as a
+  `code-reviewer` concern — that stays a design-time check owned by `agent-isdd` (see
+  `agent-isdd`'s own 0.1.53 changelog entry).
+
 ## [0.1.12] - 2026-09-24
 
 - **Docs**: `INTEROP.md`'s cross-reference list cited a nonexistent top-level `code-reviewer/

@@ -65,6 +65,25 @@ def test_graceful_degradation_section_exists():
     assert "Ultra" in content, "Ultra level degradation not documented"
 
 
+def test_standard_level_solid_and_duplicate_checks_documented():
+    """Test that Standard (Level 2) explicitly checks SOLID, separation of concerns, and
+    duplicate-logic consolidation, scoped to that level's own section."""
+    content = read_skill_md()
+
+    level2_start = content.index("Level 2: Standard")
+    level3_start = content.index("Level 3: Deep")
+    level2_section = content[level2_start:level3_start]
+
+    assert "SOLID" in level2_section, \
+        "SOLID principles not explicitly named in Level 2 (Standard) section"
+    assert "separation of concerns" in level2_section.lower(), \
+        "Separation-of-concerns check not documented in Level 2 (Standard) section"
+    assert "consolidat" in level2_section.lower(), \
+        "Duplicate-logic consolidation check not documented in Level 2 (Standard) section"
+    assert "project scope" not in level2_section.lower(), \
+        "Standard-level duplicate check must not claim 'project scope' (exclusive to Ultra)"
+
+
 def test_cross_references_to_design():
     """Test that cross-references to design.md are present."""
     content = read_skill_md()
