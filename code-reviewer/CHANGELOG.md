@@ -1,6 +1,19 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.15] - 2026-09-24
+
+- **Feature**: new `research-brief` invocation mode — triggered explicitly when the user wants to
+  understand or be walked through how existing code works, rather than review a change. Produces
+  a single visual Artifact (structure and/or timeline diagram plus a narrative walkthrough) for a
+  human reader instead of `ReportFindings`. Reuses the Evidence Tier Model for grounding (claims
+  still carry tier-1..5) and `review_level` for investigation depth, but has no Decision Model
+  and writes nothing to `REVIEW-STATE.md`/`REVIEW-HISTORY.md`/`TODO-LEDGER.md` — there's no
+  commit to gate. Owns its Artifact directly (no `agent-ux` dependency), following the same
+  precedent as `agent-ux`'s own design-phase-diagrams carve-out. See SKILL.md's "Research Brief
+  Output" section, README's "Research briefs: explaining code, not reviewing it", and INTEROP.md's
+  "`research-brief` mode: a different contract".
+
 ## [0.1.14] - 2026-09-24
 
 - **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.

@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review code changes against evidence tiers and a required decision model, rendering findings visually via ReportFindings (and an optional review dashboard for larger passes). Per-file review state persists to a caller-supplied location if given, or stays ephemeral for a single pass otherwise. Invoked directly by the user, mid-TDD-loop by an orchestrating skill, or pre-commit. Independent of any other plugin.
+description: Review code changes against evidence tiers and a required decision model, rendering findings visually via ReportFindings (and an optional review dashboard for larger passes). Per-file review state persists to a caller-supplied location if given, or stays ephemeral for a single pass otherwise. Invoked directly by the user, mid-TDD-loop by an orchestrating skill, or pre-commit. Also supports a `research-brief` mode for when the user wants to understand or be walked through how existing code works, rather than review a change: produces a visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a human reader, with no decision model and no ReportFindings call. Use this mode whenever the user asks to explain, visualize, diagram, or walk through how code or a system works. Independent of any other plugin.
 ---
 
 # Code Reviewer
@@ -12,6 +12,8 @@ Claude-native review skill. Tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Ar
 - The user explicitly asks for a code review (`direct-review`).
 - An implementer agent reaches a mandatory pre-refactor review boundary — the orchestrating skill runs this review before resuming the agent (`review-improve`).
 - A commit is about to be created and the calling workflow wants a final pass (`pre-commit`).
+- The user wants to understand or be walked through how existing code works — a visual, diagram-led
+  explanation for a person, not findings for further implementation (`research-brief`).
 
 ## Invocation Modes
 
@@ -20,6 +22,16 @@ Claude-native review skill. Tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Ar
 Triggered explicitly by the user. Scope: whatever file set or diff the user names, or the
 working tree diff if unspecified. Output: findings persisted per *Review State* below (if a
 location was supplied), rendered per "Visual Review" below.
+
+### `research-brief`
+
+Triggered explicitly by the user asking to understand or be walked through how existing code
+works — not to review a change for correctness. Scope: whatever file set, feature, or subsystem
+the user names. Output: a single visual Artifact (diagram plus narrative — see *Research Brief
+Output* below) instead of `ReportFindings`. This mode is terminal: there is no decision to hand
+back, nothing is persisted to review state, and no downstream implementation agent is invoked —
+the intended reader is a person building their own understanding, not another agent resuming
+work.
 
 ### `review-improve`
 
@@ -224,6 +236,52 @@ populated, downgrade the tier rather than omitting the field.
 
 Valid field-value combinations are not otherwise restricted.
 
+**Not for `research-brief`** — see *Research Brief Output* below for what replaces this section
+in that mode.
+
+## Research Brief Output (`research-brief` mode only)
+
+This mode answers "how does this work?", not "should this change be accepted?" — the Decision
+Model above and `ReportFindings` are both built around a verdict on a change, and neither fits a
+narrative explanation. This section's shape replaces them; every other section of this file
+(Review Levels, Evidence Tier Model, Auto-Detection Rules) still applies.
+
+**What stays the same**: every claim in the brief still needs an evidence tier (tier-1..5, per
+*Evidence Tier Model* above) — a research brief that states something with unearned confidence is
+worse than no brief at all. `review_level` still controls investigation depth the same way it
+does for review modes (Quick for a fast orientation, Ultra for a full subsystem deep-dive).
+
+**What's different**: no `decision`, `severity`, `workflow_action`, `confidence`, or `category`
+field anywhere in the output, no `ReportFindings` call, and nothing written to
+`REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md` — those all exist to gate a future
+commit or track an outstanding fix, and a research brief gates nothing.
+
+**Structure** — build one Artifact (load `artifact-design` for the page contract and
+`artifact-diagramming` for the diagram mechanics before writing it) with:
+
+1. **Overview** — two or three sentences: what this subsystem/feature does and why it's shaped
+   the way it is.
+2. **Diagram(s)** — pick whichever the material actually calls for:
+   - A **structure diagram** (components/modules and how they call or depend on each other) when
+     the interesting thing is *what talks to what*.
+   - A **timeline / sequence diagram** (steps in order) when the interesting thing is *what
+     happens when* — a request lifecycle, a startup sequence, a state machine's transitions.
+   - Both, as separate diagrams, when the research covers both a structure and a process — don't
+     force one diagram to carry two kinds of information it can't legibly hold at once.
+3. **Walkthrough** — prose tied to the diagram, in the same order the diagram reads, not a
+   restatement of it: the diagram shows the shape, the walkthrough explains the *why* at each
+   step (a design constraint, a non-obvious dependency, a workaround).
+4. **Unverified areas** — anything grounded at tier-3 or lower, named plainly as inferred rather
+   than folded silently into the confident narrative. This is the one piece of the Evidence Tier
+   Model's rigor this mode keeps in full, because a reader trusting a diagram needs to know which
+   parts of it to double-check themselves.
+
+**Delegation**: `code-reviewer` owns this Artifact directly, the same way it owns the review
+dashboard — no `agent-ux` dependency. Diagrams are deliberately outside `agent-ux`'s scope (it
+renders progress/findings state, not explanatory visuals — `agent-ux/references/
+ux-conventions.md` carves design-phase diagrams out to `design-author` for the same reason); this
+mode follows that precedent rather than growing a new cross-plugin contract for it.
+
 ## Combined Findings And Anti-Blur Rules
 
 **Merge** when observations share the same root cause, or are the same category/severity where
@@ -338,3 +396,9 @@ Before calling:
   downgrade rules before reusing it.
 - Never open a review-dashboard Artifact below the 5-finding/1-file threshold.
 - Never claim persistence happened when no review-state directory was supplied.
+- Never call `ReportFindings`, or populate any Decision Model field, for a `research-brief`
+  pass — build the visual Artifact per *Research Brief Output* instead.
+- Never write to `REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md` from a
+  `research-brief` pass — there is no decision or outstanding fix to persist.
+- Never state a claim in a research brief above tier-2 without direct evidence — fold anything
+  weaker into the *Unverified areas* section instead of smoothing it into confident prose.
