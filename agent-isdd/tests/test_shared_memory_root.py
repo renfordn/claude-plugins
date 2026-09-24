@@ -120,6 +120,24 @@ class SharedMemoryRootTests(unittest.TestCase):
         self.assertEqual(pointer["sdd_memory"], os.path.join(self.data, "sdd-memory"))
         self.assertIsNone(pointer["shared_memory_root"])
 
+    def test_session_start_lists_summaries_pending_for_nelly(self):
+        completed = os.path.join(self.shared_mem(), "completed")
+        os.makedirs(completed)
+        for name, flag in (("a.md", "no"), ("b.md", "yes")):
+            with open(os.path.join(completed, name), "w") as fh:
+                fh.write(f"---\nfeature: {name}\nnelly_recorded: {flag}\n---\n")
+        proc = self.run_script("session_start.py", payload={"cwd": self.cwd})
+        ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("1 completed-feature summary", ctx)
+        self.assertIn(os.path.join(completed, "a.md"), ctx)
+        self.assertNotIn(os.path.join(completed, "b.md"), ctx)
+
+    def test_memory_permission_allows_completed_summaries(self):
+        target = os.path.join(self.shared_mem(), "completed", "a.md")
+        proc = self.run_script("memory_permission.py",
+                               payload={"tool_input": {"file_path": target}, "cwd": self.cwd})
+        self.assertEqual(self.decision(proc), "allow")
+
     def test_session_markers_stay_machine_local(self):
         feature = os.path.join(self.shared_mem(), "spec", "2026-09-24-x")
         os.makedirs(feature)

@@ -80,9 +80,31 @@ ${CLAUDE_PLUGIN_DATA}/sdd-memory/
             ├── design/                 # Design + research basis
             ├── tasks/                  # TDD-sized task slices
             └── recap/                  # Summary, risks, handoff
+    └── completed/
+        └── <feature-slug>.md          # Condensed summary of a finished feature
 ```
 
 **Note:** sdd-memory is shared between agent-isdd and plugin-harness via symlink coordination for workflow state access.
+
+### Cleanup of finished work
+
+`scripts/sdd_cleanup.py` runs weekly (as part of the `nelly-weekly-consolidate` scheduled
+task) to stop `sdd-memory/` from bloating:
+
+- **Completed features:** a feature that is `Workflow Status: Complete` and has had no artifact
+  changes for 14 days is condensed into `<project-slug>/completed/<feature>.md` (goal, success
+  signals, decisions, open follow-ups, commits, final state). Its requirements, design, tasks,
+  recap, intent and workflow state are then deleted. Hook bookkeeping files
+  (`workflow-state.json`, telemetry, `subagent-reports.md`) don't count as changes.
+- **Handing summaries to agent-nelly:** each summary starts with `nelly_recorded: no`. The next
+  SessionStart in that project lists it so the session can pass it to agent-nelly, which records
+  a `feature-<slug>` entry plus separate lesson entries and runs its global-promotion judgment
+  on those. The session then flips the flag to `yes`.
+- **Closed worktrees:** a worktree's store (`<repo-slug>-claude-worktrees-<name>`) that has been
+  idle for 14 days is merged into its parent repo's store, and the worktree store is removed.
+
+Every action is logged in the project's `CLEANUP-LOG.md`, and each run writes a report to
+`sdd-memory/cleanup-reports/`. Run it with `--dry-run` to preview.
 
 Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-isdd/` when running in Claude Code
 under a single plugin identity. Claude Code can load the same plugin under more than one identity in

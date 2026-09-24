@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.16] - 2026-09-24
+
+- **Feature**: weekly bloat cleanup (`scripts/nelly_cleanup.py`, run first by `nelly_weekly_consolidate.py`). Old `session-handoff-*` entries (beyond the newest 5 per project, 14+ days old) roll up into an append-only `SESSION-HISTORY.md`. A closed worktree's store (worktree path gone and store idle 14 days) merges into its parent repo's store; nested worktree paths map to the matching repo subdir, and clashing entries are kept as `<name>--<worktree>.md`. Both actions are logged in `CONSOLIDATION-LOG.md`, and the report now includes the memory root.
+- **Docs**: `agents/agent-nelly.md` gains a "Consolidated memories" section (using `SESSION-HISTORY.md`, handling worktree clash copies, recording agent-isdd completed-feature summaries as a `feature-<slug>` entry plus separate lesson entries so global promotion runs). `references/nelly-consolidation.md` starts from the weekly report and the clash copies. README section added.
+
 ## [0.4.15] - 2026-09-24
 
 - **Feature**: optional `shared_memory_root` plugin option (`userConfig`, exported to hooks as `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT`). When set, `hooks/nelly_memory.py`'s `BASE` becomes `<root>/agent-nelly-memory/` instead of `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/`. Every plugin identity and machine pointed at the same root then shares one store. Unset keeps the old behaviour. A relative value raises `PluginDataDirUnavailable`.

@@ -128,6 +128,26 @@ def spec_dir(cwd, slug=None):
     return d
 
 
+def pending_nelly_summaries(cwd):
+    """completed/<feature>.md summaries (scripts/sdd_cleanup.py) not yet recorded in agent-nelly."""
+    d = os.path.join(memory_dir(cwd), "completed")
+    try:
+        names = sorted(n for n in os.listdir(d) if n.endswith(".md"))
+    except OSError:
+        return []
+    pending = []
+    for name in names:
+        path = os.path.join(d, name)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                head = fh.read(2048)
+        except OSError:
+            continue
+        if re.search(r"^nelly_recorded:\s*no\s*$", head, re.M):
+            pending.append(path)
+    return pending
+
+
 def ensure_dir(cwd):
     d = memory_dir(cwd)
     os.makedirs(d, exist_ok=True)

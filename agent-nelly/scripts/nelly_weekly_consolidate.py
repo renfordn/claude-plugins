@@ -13,8 +13,12 @@ two entries really describe the same fact needs the LLM judgment
 `agent-nelly` applies via `/nelly-memory consolidate`, which this
 script deliberately does not attempt to replicate.
 
+Before scanning, runs scripts/nelly_cleanup.py's bloat cleanup (orphaned worktree stores merged
+into their parent repo's store, old session-handoff entries rolled up into SESSION-HISTORY.md).
+
 Writes a human-readable report to
-`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/consolidation-reports/YYYY-MM-DD.md` (this
+`<memory root>/agent-nelly-memory/consolidation-reports/YYYY-MM-DD.md` (the shared_memory_root
+option when set, else ${CLAUDE_PLUGIN_DATA}; this
 plugin's actual memory root -- see hooks/nelly_memory.py's BASE) and, for
 every project where it archived something, appends one `Action: archived`
 block to that project's own CONSOLIDATION-LOG.md, matching the shape already
@@ -43,6 +47,7 @@ from nelly_memory import BASE, global_dir  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_index import iter_project_dirs, build_all  # noqa: E402
+import nelly_cleanup  # noqa: E402
 
 STALE_INFERRED_THRESHOLD_DAYS = 90
 NEAR_DUPLICATE_RATIO = 0.72
@@ -283,14 +288,18 @@ def _scan_global(errors):
     return _find_near_duplicate_pairs(entries)
 
 
-def _render_report(date_str, threshold_days, project_results, global_dup_pairs, errors, dry_run):
+def _render_report(date_str, threshold_days, project_results, global_dup_pairs, errors, dry_run,
+                   cleanup=None):
     lines = [f"# Nelly Weekly Consolidation Report -- {date_str}", ""]
     if dry_run:
         lines.append("_Dry run -- no files were archived or modified._")
         lines.append("")
+    lines.append(f"Memory root: `{BASE}`")
     lines.append(f"Stale-inferred threshold: {threshold_days} days.")
     lines.append(f"Near-duplicate similarity threshold: {NEAR_DUPLICATE_RATIO}.")
     lines.append("")
+    if cleanup is not None:
+        lines.extend(nelly_cleanup.render_cleanup_section(cleanup, dry_run))
 
     total_archived = sum(len(r["archived"]) for r in project_results)
     total_dup_pairs = sum(len(r["dup_pairs"]) for r in project_results) + len(global_dup_pairs)
@@ -369,6 +378,13 @@ def run(threshold_days=STALE_INFERRED_THRESHOLD_DAYS, dry_run=False, today=None)
     today = today or datetime.date.today()
     errors = []
 
+    # Bloat cleanup first, so merged worktree entries are scanned with their new parent.
+    try:
+        cleanup = nelly_cleanup.run_cleanup(today, dry_run=dry_run)
+    except OSError as exc:
+        cleanup = None
+        errors.append(f"cleanup: {exc}")
+
     project_results = []
     for project_dir in iter_project_dirs():
         result = _scan_project(project_dir, today, threshold_days, dry_run, errors)
@@ -384,11 +400,12 @@ def run(threshold_days=STALE_INFERRED_THRESHOLD_DAYS, dry_run=False, today=None)
     date_str = today.isoformat()
     report_path = os.path.join(REPORT_DIR, f"{date_str}.md")
     report_text = _render_report(
-        date_str, threshold_days, project_results, global_dup_pairs, errors, dry_run
+        date_str, threshold_days, project_results, global_dup_pairs, errors, dry_run, cleanup
     )
     with open(report_path, "w", encoding="utf-8") as fh:
         fh.write(report_text)
 
+    run.last_cleanup = cleanup
     return report_path, project_results, global_dup_pairs, errors
 
 
@@ -407,7 +424,15 @@ def main(argv=None):
 
     total_archived = sum(len(r["archived"]) for r in project_results)
     _log(f"Nelly weekly consolidation: scanned {len(project_results)} project(s).")
+    _log(f"Memory root: {BASE}")
     _log(f"Archived {total_archived} stale inferred entr{'y' if total_archived == 1 else 'ies'}.")
+    cleanup = getattr(run, "last_cleanup", None)
+    if cleanup is not None:
+        merged = cleanup["would_merge"] if args.dry_run else cleanup["merged"]
+        rolled = sum(len(v) for v in cleanup["rolled_up"].values())
+        verb = "Would merge" if args.dry_run else "Merged"
+        _log(f"{verb} {len(merged)} orphaned worktree store(s); "
+             f"{'would roll' if args.dry_run else 'rolled'} up {rolled} old session handoff(s).")
     if errors:
         _log(f"{len(errors)} error(s) encountered -- see report for details.")
     _log(f"Report written to {report_path}")

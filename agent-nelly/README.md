@@ -30,13 +30,31 @@ ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
 ├── <project-slug>/
 │   ├── MEMORY.md              # Project memory index
 │   ├── entries/               # Per-entry memory files
-│   └── archive/               # Archived memory entries
+│   ├── archive/               # Archived memory entries
+│   └── SESSION-HISTORY.md     # One line per past session (rolled-up handoffs)
 └── global/
     ├── GLOBAL-MEMORY.md       # Cross-project memory index
     └── entries/               # Global memory files
 ```
 
 Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-nelly/` when running in Claude Code.
+
+### Weekly consolidation and cleanup
+
+The `nelly-weekly-consolidate` scheduled task runs `scripts/nelly_weekly_consolidate.py` against
+the memory root. Before its usual scan (archive stale unconfirmed inferred lessons, report
+near-duplicates), it runs `scripts/nelly_cleanup.py`:
+
+- **Session handoffs:** the newest 5 `session-handoff-*` entries per project stay as entries.
+  Older ones (14+ days) become one line each in `SESSION-HISTORY.md`, and their entry files are
+  removed.
+- **Closed worktrees:** a worktree's store is merged into its parent repo's store once the
+  worktree no longer exists on this machine and the store has been idle for 14 days. A clashing
+  entry is kept as `<name>--<worktree>.md` for `/nelly-memory consolidate` to merge.
+
+agent-nelly's "Consolidated memories" section covers how it uses these, and the agent-isdd
+completed-feature summaries it's handed. Reports go to `consolidation-reports/`, and
+`--dry-run` previews a run.
 
 ### Sharing memory across machines and installs
 

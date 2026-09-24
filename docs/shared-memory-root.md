@@ -82,6 +82,16 @@ iCloud Drive or Dropbox also work, with no merge step. The trade-off: when two m
 file before it syncs, you get a "conflicted copy" file instead of a merge. Keep sessions on different
 machines from overlapping.
 
+## Weekly cleanup
+
+The `nelly-weekly-consolidate` scheduled task runs both plugins' cleanup scripts against the
+shared root. It rolls old session handoffs into `SESSION-HISTORY.md`, merges closed-worktree
+stores into their parent repo's store, and condenses finished SDD features into
+`completed/<feature>.md` summaries. Scheduled sessions get no plugin environment variables, so
+the task sets `CLAUDE_PLUGIN_DATA` and `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT` itself. Point
+it at this machine's root if you change the option. Run it on one machine only, so two machines
+don't clean the same store at once.
+
 ## Migrating existing data
 
 Fold each identity's existing store into the shared root with

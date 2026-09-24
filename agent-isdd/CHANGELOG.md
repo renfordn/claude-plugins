@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.58] - 2026-09-24
+
+- **Feature**: `scripts/sdd_cleanup.py` condenses features that are `Complete` and have no artifact changes for 14 days into `completed/<feature>.md` (goal, success signals, decisions, open follow-ups, commits, final state) and deletes the rest. Hook bookkeeping files don't count as activity. It also merges idle worktree stores into their parent repo's store. Actions are logged to `CLEANUP-LOG.md`, and reports go to `cleanup-reports/`.
+- **Feature**: `session_start.py` lists completed-feature summaries still marked `nelly_recorded: no`, so the session hands them to agent-nelly. `memory_permission.py` auto-approves edits under `completed/**`. Adds `sdd_memory.pending_nelly_summaries()`.
+- **Docs**: README "Cleanup of finished work" section.
+
 ## [0.1.57] - 2026-09-24
 
 - **Fix**: `hooks/post_write_check.py` capped `workflow-state.json`'s `hook_history` at `MAX_HOOK_HISTORY` (100, oldest dropped first), so the file stops growing without bound.

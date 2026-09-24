@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import find_state_files, parse_state  # noqa: E402
 from sdd_memory import (  # noqa: E402
     SHARED_ROOT, memory_dir, local_state_dir, ensure_shared_root, write_base_pointer,
+    pending_nelly_summaries,
 )
 
 
@@ -66,6 +67,18 @@ def main():
         write_base_pointer()
     except OSError:
         pass  # best-effort; SessionStart must never fail over this
+
+    pending = pending_nelly_summaries(cwd)
+    if pending:
+        lines.append("")
+        lines.append(
+            f"{len(pending)} completed-feature summar{'y' if len(pending) == 1 else 'ies'} "
+            f"(condensed by the weekly SDD cleanup) not yet in Agent Nelly memory. If "
+            f"agent-nelly:agent-nelly is available, pass them to it in one `new facts` batch, "
+            f"each labelled `Source: agent-isdd completed-feature summary <path>`, then change "
+            f"`nelly_recorded: no` to `nelly_recorded: yes` in each summary's frontmatter:"
+        )
+        lines.extend(f"- {p}" for p in pending)
 
     note = _interruption_note(cwd)
     if note:

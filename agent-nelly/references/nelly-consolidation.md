@@ -6,6 +6,10 @@ Read by `agents/nelly-maintenance.md` when invoked via `/nelly-memory consolidat
 Only runs when invoked via `/nelly-memory consolidate` (Phase 8), never
 autonomously during brief assembly.
 
+0. Start with the newest weekly report (`<memory root>/agent-nelly-memory/consolidation-reports/`):
+   its near-duplicate pairs are your first candidates. Also treat every `<name>--<worktree>.md`
+   entry (a clash copy left when a closed worktree's store was merged in, see
+   `scripts/nelly_cleanup.py`) as a candidate pair with `<name>.md`.
 1. Review the project's entries (via `Grep`/`Read` over `entries/*.md`) for
    pairs/groups whose `description` and body clearly describe the same
    underlying fact from different angles (e.g. "retry on flaky network

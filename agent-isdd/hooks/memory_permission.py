@@ -13,7 +13,8 @@ path it created and scoped. Central, cross-feature memory files
 (PROJECT-MEMORY.md, TDD-MEMORY.md, scholar-memory.md, GLOBAL-MEMORY.md, and
 the global/ tier generally) are not this plugin's domain — that
 responsibility belongs to the agent-nelly plugin — so this hook does not
-auto-approve them. Nothing outside spec/** is affected by this hook — every
+auto-approve them. Besides spec/**, it also approves the project's completed/**
+feature summaries (scripts/sdd_cleanup.py). Nothing else is affected by this hook — every
 other path falls through to the harness's normal permission prompting
 untouched.
 """
@@ -22,7 +23,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_memory import spec_dir  # noqa: E402
+from sdd_memory import memory_dir, spec_dir  # noqa: E402
 
 
 def allow(reason=None):
@@ -60,6 +61,12 @@ def main():
     if norm == spec_root or norm.startswith(spec_root + os.sep):
         allow(f"SDD memory permission: {norm} is under the project's per-feature "
               f"spec state, generated and owned by this plugin.")
+
+    # completed/<feature>.md summaries from scripts/sdd_cleanup.py (the session flips their
+    # nelly_recorded flag after handing them to agent-nelly).
+    completed_root = os.path.normpath(os.path.join(memory_dir(cwd), "completed"))
+    if norm.startswith(completed_root + os.sep):
+        allow(f"SDD memory permission: {norm} is a completed-feature summary owned by this plugin.")
 
     no_decision()
 
