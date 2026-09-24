@@ -1,6 +1,13 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.12] - 2026-09-24
+
+- **Docs**: `INTEROP.md`'s cross-reference list cited a nonexistent top-level `code-reviewer/
+  SKILL.md` and a nonexistent `§ISDD Phase Context` heading (real path is `skills/code-reviewer/
+  SKILL.md`, real content is under `§Auto-Detection Rules`), plus a `design.md` that was never
+  part of this repo. Corrected to the live paths.
+
 ## [0.1.11] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
