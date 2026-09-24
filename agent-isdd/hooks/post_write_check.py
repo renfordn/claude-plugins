@@ -9,7 +9,7 @@ Behaviour is unchanged from the two originals, plus one additive sync:
     (silently, authoritative writer per workflow-manager's Write Responsibilities
     section), mirror the same fields into a lightweight `.sdd-state.json` at the
     project root (cwd) so other tools can cheaply read current phase without
-    parsing markdown or reaching into ~/.claude/sdd-memory, then remind the model
+    parsing markdown or reaching into sdd_memory.py's BASE dir, then remind the model
     to sync the visible progress UI.
   - tasks/tasks.md writes: remind the model to sync the visible progress UI.
   - All other paths: silent no-op, exit 0.

@@ -5,7 +5,7 @@ description: First-run onboarding — confirm how this project should use SDD, t
 This is the guided first-contact command for the plugin: a short `AskUserQuestion` flow instead
 of asking the user to read docs before their first feature.
 
-1. Resolve `~/.claude/sdd-memory/<project-slug>/` via
+1. Resolve `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/` via
    `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path`, and check whether any
    `spec/<date-slug>/workflow-state.md` already exists under it, or whether it already has other
    entries. If either is true, this project is already onboarded — report its current state

@@ -33,14 +33,14 @@ class ErrorLogger:
     def persist_error(self, error: OrchestrationError, base_path: str, project_slug: str) -> None:
         """Persist error to project-wide error registry (file).
 
-        Creates error-registry.json in ~/.claude/sdd-memory/<project_slug>/ if it doesn't exist.
+        Creates error-registry.json in ${CLAUDE_PLUGIN_DATA}/sdd-memory/<project_slug>/ if it doesn't exist.
         Appends error to errors[] array.
 
         Non-blocking; errors logged to session even if file persistence fails.
 
         Args:
             error: OrchestrationError to persist
-            base_path: Base directory path (e.g., ~/.claude/sdd-memory)
+            base_path: Base directory path (e.g., ${CLAUDE_PLUGIN_DATA}/sdd-memory)
             project_slug: Project identifier
         """
         # Always log to session first (non-blocking)

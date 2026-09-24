@@ -95,7 +95,7 @@ extraction — only where it's documented moved).
 Before starting or continuing meaningful phase work, when agent-nelly is available (per the
 Availability Check defined in `workflow-manager/SKILL.md`), delegate to
 `agent-nelly:agent-nelly` for a holistic brief (Intent, Relevant entries, Intent alignment,
-Written) instead of reading `~/.claude/sdd-memory/` files directly. If it flags an
+Written) instead of reading `${CLAUDE_PLUGIN_DATA}/sdd-memory/` files directly. If it flags an
 Intent-alignment concern, surface it to the user before proceeding — don't silently continue
 past a stated drift. Reuse an already-fetched brief or subagent finding within the same
 continuous stretch of phase work rather than re-fetching. See `references/goal-aware-memory.md`
@@ -245,6 +245,16 @@ list extraction, the `agent-nelly` subtract-then-query step, the recap summariza
 Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
 fallback, the test-author pause/resume steps, and the Handoff Facts write-back.
 
+**Second trigger (added 2026-09-24): `Current Phase: Tasks` on continue.** This step also fires
+when `workflow-manager` resolves `continue` against a feature whose `Current Phase` is `Tasks` —
+a rollback-landing state set when a human or `code-reviewer` relays an `agent-tdd` finding that
+the task-level plan itself was wrong (see `INTEROP.md`'s "← agent-tdd / code-reviewer (rollback
+request)" and `workflow-manager/SKILL.md`'s `continue` Action Rule). Treat it identically to the
+Design-approved trigger above — rebuild the Design Spec (or Slice Spec) from the still-approved
+`requirements.md`/`design.md` and re-spawn `agent-tdd:agent-TDD` — there is no separate
+Requirements/Design re-authoring step for this case; `Current Phase: Tasks` never gates on an
+agent-isdd-owned artifact (task slicing itself happens entirely inside `agent-tdd`).
+
 ## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
 
 After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a Risk Tier
@@ -296,7 +306,7 @@ Call `TaskCreate`/`TaskUpdate`/`TaskList` directly from this skill at every phas
 ## Artifact Convention
 
 Per-feature artifacts are plugin-generated state, not source — they live under the project's
-central SDD memory directory (`~/.claude/sdd-memory/<project-slug>/`), not the repo:
+central SDD memory directory (`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`), not the repo:
 
 ```text
 <sdd-memory-dir>/

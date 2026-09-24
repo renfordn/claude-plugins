@@ -123,9 +123,17 @@ Agent-TDD completes successfully when:
 
 ## Cross-References
 
-- **Design rationale**: `design.md` §Agent-TDD Integration, §Review-Level Strategy
-- **ISDD integration**: `agent-isdd/INTEROP.md` §Strategic Review Placement
-- **Code-reviewer contract**: `code-reviewer/SKILL.md` §Review Levels, §Auto-Detection Rules
-- **Ralph loops integration**: `agent-tdd/agents/ralph-loops.md`
+**Corrected 2026-09-24**: this section used to cite `design.md` (the original SDD design doc
+this plugin was built from — never part of this repo, it lives under `~/.claude/sdd-memory/`)
+and `agent-tdd/agents/ralph-loops.md` (deleted when the modular five-subagent pipeline was
+retired and folded into `agents/agent-TDD.md` — see `INTEROP.md`'s "Design Spec Mode" section).
+Both were dangling. The live cross-references are:
+
+- **ISDD integration**: `agent-isdd/INTEROP.md` §Strategic Review Placement via Review Levels
+- **Code-reviewer contract**: `code-reviewer/skills/code-reviewer/SKILL.md` §Review Levels, §Auto-Detection Rules
+- **Ralph Loops / Review-Level Strategy detail**: `agents/agent-TDD.md`'s "Design Spec Workflow"
+  section (Phase 3: Validation (Ralph Loops)) and its "Per-Slice Code Review Integration" section
+  — this file's own Review-Level Strategy above is a duplicate summary of that content, kept for
+  a quick plugin-level overview; treat `agent-TDD.md` as authoritative if the two ever disagree.
 
 See those documents for implementation details, trade-offs, and design rationale.

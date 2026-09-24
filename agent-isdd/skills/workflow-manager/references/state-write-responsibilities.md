@@ -17,6 +17,6 @@ needs updating for phase-state changes — the hook handles the rest.
 `hooks/post_write_check.py` also mirrors the same four fields into a lightweight
 `.sdd-state.json` at the project root on every `workflow-state.md` write, so other tools can
 cheaply check current phase without parsing markdown or resolving
-`~/.claude/sdd-memory/<project-slug>/`. Plain field mirror, no `hook_history` of its own; the
+`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`. Plain field mirror, no `hook_history` of its own; the
 memory-dir `workflow-state.json` stays the authoritative, audited copy. Entirely hook-owned —
 nothing here needs to write it directly.

@@ -3,8 +3,15 @@
 
 Agent Nelly is a general-purpose, project-aware memory plugin for Claude Code. It is not
 specific to spec-driven-development (SDD) — SDD is simply its first real consumer, via
-`memory-orchestrator`'s soft dependency on `agent-nelly`. This document is the contract
-for any *other* plugin author who wants to use it too.
+`agent-isdd`'s `spec-driven-development` skill's soft dependency on `agent-nelly` (see that
+skill's Availability Check). **Corrected 2026-09-24**: this used to name `memory-orchestrator`,
+a capability inside the old, single `spec-driven-development` plugin before it was split into
+today's agent-isdd/agent-tdd/agent-nelly/agent-ux/code-reviewer/plugin-harness — the name
+doesn't resolve to anything in the current repo (see `agent-isdd/hooks/memory_slug_guard.py`'s
+docstring for the historical "memory-orchestrator slug bug" this plugin's own
+`doc-consistency-auditor` skill still references by that name — that's a historical incident
+label, not a live component). This document is the contract for any *other* plugin author who
+wants to use it too.
 
 Nothing below requires SDD to be installed, and nothing below is specific to SDD's concepts
 (feature slugs, workflow phases, TDD state). If you're looking for how SDD itself uses Agent
@@ -176,7 +183,7 @@ cross-project tier) and `--entries-path` (ensures `entries/` exists, idempotent)
 ## One terminology note: "slug"
 
 This plugin's `project_slug()` (a deterministic hash of an absolute path, used to namespace
-`~/.claude/agent-nelly-memory/<project-slug>/`) is unrelated to a "feature slug" as used by
+`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/`) is unrelated to a "feature slug" as used by
 spec-driven-development (a human-readable spec-folder name like `2026-08-10-my-feature`). They
 share a word, not a concept — if you're integrating a plugin that also uses SDD, don't conflate
 the two.

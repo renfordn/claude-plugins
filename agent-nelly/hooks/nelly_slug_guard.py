@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse gate: deny Write/Edit/MultiEdit whose target path resolves
-under ~/.claude/agent-nelly-memory/<X>/ when X doesn't match the canonical
+under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<X>/ when X doesn't match the canonical
 project_slug(cwd) or the literal "global" directory.
 
 Rationale: nothing should hand-compute or approximate a project slug instead
@@ -74,7 +74,7 @@ def main():
 
     m = _SLUG_PATTERN.match(norm)
     if not m:
-        no_decision()  # not under ~/.claude/agent-nelly-memory/ at all
+        no_decision()  # not under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/ at all
 
     segment = m.group(1)
     if segment == "global":

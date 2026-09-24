@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## [0.1.52] - 2026-09-24
+
+- **Fix**: `hooks/diff_fingerprint.py`'s `TRACKED_DIRS` matching was never monorepo-aware
+  (unlike `_interop_paths`, which already handled both shapes) — when `commit_audit_gate.py`
+  runs from the monorepo root (a mode its own `_looks_like_this_plugin` explicitly supports),
+  none of `skills/`/`agents/`/`commands/`/`hooks/` exist at that root directly, so every real
+  staged change under a sibling plugin was silently invisible to the fingerprint. Worse: this
+  let the audit gate be silently bypassed for any monorepo-root commit that didn't happen to
+  touch an `INTEROP.md` (`current_fp` came back `None` → auto-allow). Added `_tracked_dir_paths`
+  mirroring `_interop_paths`'s existing dual-shape glob pattern, plus 2 regression tests.
+- **Docs**: two more instances of the `after-tasks`/`handoff` "tasks.md ownership" drift fixed
+  in 0.1.51 — `INTEROP.md`'s "one scoped exception" framing for the one-directional `agent-tdd`
+  handoff was itself stale (Model Escalation, added 0.1.39, is a second real exception, never
+  acknowledged); `INTEROP.md`'s `slice_spec_gate.py` "retired/never wired into hooks.json" claim
+  was also stale (re-enabled 2026-09-17 for `Track: Fast`, confirmed via
+  `tests/test_hooks_json.py`'s `test_slice_spec_gate_reenabled_for_fast_track`).
+  `skills/design-author/SKILL.md` and `skills/spec-driven-development/references/
+  review-levels.md` had the same "next phase is agent-isdd's own Tasks phase" framing, corrected.
+- **Docs**: `Current Phase: Tasks` clarified as a real, intentional rollback-landing state
+  (reached via `/isdd-rewind Tasks` or a relayed rollback request when the task-level plan
+  itself — not the design — needs redoing), not a phase `agent-isdd` dwells in or authors an
+  artifact for. Added the previously-missing routing rule for it (re-invoke Implementation
+  Handoff directly on `continue`) to `skills/workflow-manager/SKILL.md`,
+  `skills/spec-driven-development/SKILL.md`, and `references/artifact-templates.md`; corrected
+  `references/MIGRATION_GUIDE.md`'s flatly wrong "no, can't rewind to Tasks" answer.
+- **Docs**: corrected stale `~/.claude/sdd-memory/`/`~/.claude/agent-nelly-memory/` path
+  illustrations across hook docstrings, command docs, and the `doc-consistency-auditor`
+  reference templates to the real `${CLAUDE_PLUGIN_DATA}`-based resolution
+  (`hooks/sdd_memory.py`'s `BASE` never had a bare-path fallback — only the illustrative
+  examples were stale, not the actual resolution logic).
+
 ## [0.1.51] - 2026-09-24
 
 - **Docs**: corrected `skills/workflow-manager/SKILL.md`'s `after-tasks`/`handoff` action-table

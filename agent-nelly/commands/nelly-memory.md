@@ -5,9 +5,9 @@ allowed-tools: Bash(python3 *)
 ---
 
 Manage this project's memory store, which lives under
-`~/.claude/agent-nelly-memory/<project-slug>/` (and the cross-project
-`~/.claude/agent-nelly-memory/global/` tier). This store is entirely
-independent of the SDD plugin's `~/.claude/sdd-memory/` — no SDD plugin
+`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/` (and the cross-project
+`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/global/` tier). This store is entirely
+independent of the SDD plugin's `${CLAUDE_PLUGIN_DATA}/sdd-memory/` — no SDD plugin
 needs to be installed for this command to work. `agent-nelly` and its
 sibling `nelly-maintenance` are the **only** owners of every file under that
 root (`nelly-maintenance` for `import`/`prune`/`consolidate`; `agent-nelly`

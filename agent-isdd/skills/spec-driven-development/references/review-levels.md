@@ -8,7 +8,7 @@ phase's concerns.
 |-------|--------------|---------|------|-----------|
 | Requirements | Standard | Clarity check | After requirements draft, before approval | requirements-agent (optional) |
 | Design | Deep | Coherence validation | After design complete, before Tasks | design-author (mandatory) |
-| Tasks | Standard | Clarity check | After tasks.md generation, before implementation | task-slicer |
+| Tasks | Standard | Clarity check | After task slicing, before implementation | task-slicer (agent-tdd internal — not an agent-isdd phase; see `INTEROP.md`'s "→ agent-tdd" section) |
 | Implementation (per-slice, Red) | Quick | Test clarity | After test written, before implementation | test-author (high-risk only) |
 | Implementation (per-slice, Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
 | Implementation (post-slices coherence) | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if majority high-risk) |

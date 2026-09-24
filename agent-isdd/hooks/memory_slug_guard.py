@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse gate: deny Write/Edit/MultiEdit whose target path resolves under
-~/.claude/sdd-memory/<X>/ when X doesn't match the canonical project_slug(cwd)
-or the literal "global" directory.
+sdd_memory.py's BASE (`${CLAUDE_PLUGIN_DATA}/sdd-memory/<X>/`, not the legacy
+bare `~/.claude/sdd-memory/`) when X doesn't match the canonical
+project_slug(cwd) or the literal "global" directory.
 
 Rationale: a subagent (memory-orchestrator) has twice hand-computed or
 otherwise arrived at a wrong project slug instead of using sdd_memory.py's

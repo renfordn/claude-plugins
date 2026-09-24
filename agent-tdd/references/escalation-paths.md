@@ -107,22 +107,26 @@ Agent-tdd implements slices one by one. It **escalates and pauses** when it disc
 
 **Agent-tdd Action**:
 - Stop implementing the slice
-- Emit a **Research Gap Flag** in the handoff report
-- Clearly describe what was assumed vs. what was found
 - Stop at the mandatory review pause (after Green) even if it hasn't been reached
-- Include the flag describing the gap
+- Include a **Research Gap Flag** *field* in the handoff report, describing precisely what's
+  missing or divergent and what you need answered (see `agents/agent-TDD.md`'s "Mid-Slice
+  Research Request" section)
 
-**Example handoff marker**:
+**Corrected 2026-09-24**: unlike the Plan Validity Flag below, the Research Gap Flag is a prose
+field in the handoff report, not a `<!--AGENT-TDD-...-->` marker — `agent-TDD.md` never defines
+or emits one for this case, and `references/examples/research-gap-flag-slice.md` (the canonical
+worked example) confirms no marker appears. An earlier version of this doc showed a fictitious
+`<!--AGENT-TDD-RESEARCH-GAP:...-->` example; that was never real. What it actually looks like:
+
+**Example handoff report field**:
 ```
-<!--AGENT-TDD-RESEARCH-GAP:
-Expected: auth middleware in `src/auth/middleware.ts` exporting function authMiddleware()
-Found: middleware in `src/middlewares/auth.js` exporting class AuthMiddleware
-Impact: Slice 3 implementation blocked until gap is clarified
--->
+**Research Gap Flag**: Expected auth middleware in `src/auth/middleware.ts` exporting function
+authMiddleware(); found middleware in `src/middlewares/auth.js` exporting class AuthMiddleware
+instead. Slice 3 implementation blocked until this gap is clarified.
 ```
 
 **Agent-isdd Action**:
-- Receive the Research Gap Flag
+- Receive the Research Gap Flag field from the handoff report
 - Provide additional context or spawn a research pass
 - Clarify the actual code structure
 - Resume agent-tdd with clarification

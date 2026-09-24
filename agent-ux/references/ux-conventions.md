@@ -39,8 +39,8 @@ Requirements ▸ **Design** ▸ Tasks ▸ Implementation
 ## Phase tick list (`TaskCreate`/`TaskUpdate`) — driven by the calling skill, not `ux-agent`
 
 - One harness task per required checklist item for the phase (see each phase's checklist in
-  `references/artifact-templates.md` — the markdown checklist is the source of truth; the task
-  list is a rendering of it, never a second definition of what "done" means).
+  `agent-isdd/references/artifact-templates.md` — the markdown checklist is the source of truth;
+  the task list is a rendering of it, never a second definition of what "done" means).
 - Mark a task `in_progress` the moment its checklist item starts being worked, `completed` the
   moment it's satisfied — never batch updates to the end of a phase.
 - Do not recreate tasks that already exist for the current phase on every turn; check

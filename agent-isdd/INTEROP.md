@@ -6,7 +6,7 @@ for both agent-isdd's own maintainers and the sibling plugins' maintainers to cr
 
 > Status: skeleton written in Phase 1 of the `agent-isdd` scope refactor; the concrete Slice
 > Spec mapping below is implemented and finalized in Phase 3. See
-> `~/.claude/sdd-memory/users-jay-nelson-codebase-ai-plugins-claude-agent-isdd/spec/2026-08-12-isdd-plugin-scope-refactor/`
+> `${CLAUDE_PLUGIN_DATA}/sdd-memory/users-jay-nelson-codebase-ai-plugins-claude-agent-isdd/spec/2026-08-12-isdd-plugin-scope-refactor/`
 > for the full requirements/design/tasks this repo was built from.
 
 ## → agent-tdd (implementation, Phase 2+3 revised)
@@ -45,11 +45,16 @@ validation, task slicing, and implementation.
 3. **Implementation** (Red-Green-Refactor per slice, existing behavior)
 
 This is a **one-directional handoff**: agent-isdd does not resume or monitor agent-tdd past
-the initial spawn, with one scoped exception (Test-Author Gate, immediately below). Task
-slicing happens inside agent-tdd (not handed back to agent-isdd as Slice Specs). Escalations
-back to agent-isdd (design contradicts research, research too thin) pause with explicit reason;
-agent-isdd resumes via its `before-continue` hook when user re-enters after addressing the
-escalation.
+the initial spawn, with two scoped exceptions — Test-Author Gate (immediately below) and Model
+Escalation (**corrected 2026-09-24**: this used to say "one scoped exception," stale since
+`hooks/model_escalate_marker.py` added automatic re-spawn-at-higher-tier handling in 0.1.39; see
+`hooks/before_continue.py`'s model-escalation detection and `agent-tdd/references/
+escalation-paths.md`'s "Model Insufficiency (Model Escalation)" section for the marker `agent-tdd`
+emits — note the marker vocabulary and resume flow are documented on the `agent-tdd` side and in
+this hook's own docstring, not elsewhere in this file). Task slicing happens inside agent-tdd
+(not handed back to agent-isdd as Slice Specs). Escalations back to agent-isdd (design
+contradicts research, research too thin) pause with explicit reason; agent-isdd resumes via its
+`before-continue` hook when user re-enters after addressing the escalation.
 
 **Exception — Test-Author Gate (automatic, `spec-driven-development` skill-driven,
 added 2026-09-16)**: `agent-tdd` already determines every slice's Risk Tier during Task Slicing
@@ -184,10 +189,13 @@ Ralph Loops results: all passed | <loop name> iteration X of max
 **Design Spec completeness gate**: `hooks/design_spec_gate.py` (`PreToolUse`, matcher `Agent`,
 scoped to `subagent_type: agent-tdd:agent-TDD`) hard-denies the spawn unless the active
 feature's `requirements.md` and `design.md` are both `State: Approved` on disk — modeled on
-`hooks/memory_permission.py`'s pattern, replacing the retired `slice_spec_gate.py` (which
-validated a different, incompatible schema and was never wired into `hooks.json` for this
-handoff path). Read-only; never mutates state; falls through with no decision when no SDD
-workflow is active at all.
+`hooks/memory_permission.py`'s pattern. `slice_spec_gate.py` validates a different, incompatible
+(Slice Spec) schema and is not involved in this Design Spec path — it was removed from
+`hooks.json` when Phase 2+3 eliminated unconditional per-slice Slice Spec validation, then
+**re-enabled 2026-09-17** scoped to `Track: Fast`'s single-slice Slice Spec handoff (the hook
+itself reads `workflow-state.json`'s `Track` and no-ops for `Track: Standard` — see
+`tests/test_hooks_json.py`'s `test_slice_spec_gate_reenabled_for_fast_track`). Read-only; never
+mutates state; falls through with no decision when no SDD workflow is active at all.
 
 **Availability check**: unlike `agent-nelly`, which is checked eagerly at `before-requirements`
 and cached in `workflow-state.json` because it is used throughout the workflow, `agent-tdd` is
@@ -341,13 +349,13 @@ Before starting or continuing meaningful phase work, `agent-isdd` delegates to
 `agent-nelly:agent-nelly` for a goal-aware brief — nelly's four output sections are
 `Intent`, `Relevant entries`, `Intent alignment`, and `Written`; agent-isdd uses `Intent` to
 seed/check the feature's `Goal` field, and `Intent alignment` as the divergence signal — rather
-than reading `~/.claude/sdd-memory/` cross-feature index files directly. If `agent-nelly` is
+than reading `${CLAUDE_PLUGIN_DATA}/sdd-memory/` cross-feature index files directly. If `agent-nelly` is
 unavailable, agent-isdd surfaces one plain notice and continues without the Intent-alignment
 check — never a hard dependency.
 
 agent-isdd still owns writing its own per-feature `spec/` artifacts
 (`workflow-state.md`/`.json`, `requirements.md`, `design.md`, `tasks.md`, `recap.md`) under
-`~/.claude/sdd-memory/<project-slug>/spec/<feature-slug>/` directly — that scaffolding
+`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/` directly — that scaffolding
 (`hooks/sdd_memory.py`) is not part of what `agent-nelly` owns.
 
 Within a continuous stretch of phase work, agent-isdd does not re-call
@@ -391,7 +399,7 @@ summary:
 }
 ```
 
-Agent-nelly caches file summaries in `~/.claude/agent-nelly-memory/<project>/files/<slug>.json`
+Agent-nelly caches file summaries in `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project>/files/<slug>.json`
 for cross-feature reuse. When `agent-isdd` needs file context during a later feature (Design
 phase or agent-tdd slicing phase), it queries agent-nelly for cached summaries by file path;
 agent-nelly returns cache hits with git_hash validation and cache misses.

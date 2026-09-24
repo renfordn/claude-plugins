@@ -14,7 +14,7 @@ two entries really describe the same fact needs the LLM judgment
 script deliberately does not attempt to replicate.
 
 Writes a human-readable report to
-`~/.claude/agent-nelly-memory/consolidation-reports/YYYY-MM-DD.md` (this
+`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/consolidation-reports/YYYY-MM-DD.md` (this
 plugin's actual memory root -- see hooks/nelly_memory.py's BASE) and, for
 every project where it archived something, appends one `Action: archived`
 block to that project's own CONSOLIDATION-LOG.md, matching the shape already
@@ -305,7 +305,8 @@ def _render_report(date_str, threshold_days, project_results, global_dup_pairs, 
     lines.append("")
 
     if not project_results:
-        lines.append("No project memory stores found under `~/.claude/agent-nelly-memory/`.")
+        lines.append("No project memory stores found under Agent Nelly's memory root "
+                     "(see hooks/nelly_memory.py's BASE).")
         lines.append("")
 
     for r in project_results:

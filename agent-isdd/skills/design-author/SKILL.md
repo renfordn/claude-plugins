@@ -46,7 +46,7 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    - Persist `file_summaries` to agent-nelly via `new facts` batch (type: "file_summary")
      - `file_summaries` are structured for cross-feature reuse: path, summary, exports,
        constraints, tech_debt, dependencies, test_surface, migration_risks, git_hash
-     - Agent-nelly caches these in `~/.claude/agent-nelly-memory/<project>/files/`
+     - Agent-nelly caches these in `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project>/files/`
    - If a summary describes a design approach already tried and rejected (not just current
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
      section for criterion)
@@ -129,18 +129,23 @@ feasibility before advancing to the Tasks phase.
    - Architecture coherence (do design decisions hang together or conflict?)
 
 3. Gate logic:
-   - **Critical findings**: Block advancement to Tasks. Surface issues to user, suggest design rework.
-   - **Non-critical findings** (warnings, improvement suggestions): Document as follow-up tasks,
-     allow advancement to Tasks phase.
-   - **No findings**: Proceed to Tasks phase.
+   - **Critical findings**: Block advancement to Implementation. Surface issues to user, suggest design rework.
+   - **Non-critical findings** (warnings, improvement suggestions): Document as follow-up notes,
+     allow advancement to Implementation.
+   - **No findings**: Proceed to Implementation.
 
-4. Output: Attach Deep review findings to the handoff to `task-slicer` (next phase) so that 
-   any design-level concerns are visible during task planning.
+4. **Corrected 2026-09-24**: there is no separate `task-slicer`/"next phase" handoff on
+   `agent-isdd`'s side to attach findings to — per Phase 2+3, task slicing happens entirely
+   inside `agent-tdd` during the Design Spec handoff (see `INTEROP.md`'s "→ agent-tdd" section),
+   and the Design Spec's fixed fields (`requirements_md`, `design_md`, `research_cache`,
+   `recap_md`) carry no dedicated review-findings field. Output: fold any Deep review findings
+   worth preserving into `design.md` itself (e.g. its Design Summary or a Risks/Constraints note)
+   before the Design Spec is constructed, so they travel with `design_md` — do not rely on a
+   separate handoff channel that no longer exists.
 
 **Rationale**: This upfront Deep review catches wrong-shape designs early, before task slicing 
 and implementation, reducing rework during Red-Green-Refactor cycles. See 
-`code-reviewer/SKILL.md`'s "Review Levels" section for Deep level definition and 
-`design.md` §ISDD Workflow Integration for strategic review placement rationale.
+`code-reviewer/SKILL.md`'s "Review Levels" section for Deep level definition.
 
 ## Required Output
 

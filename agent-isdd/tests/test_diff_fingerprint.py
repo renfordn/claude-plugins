@@ -65,6 +65,24 @@ class DiffFingerprintTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as not_git:
             self.assertIsNone(diff_fingerprint.compute(not_git))
 
+    def test_monorepo_root_tracks_sibling_plugin_skills_changes(self):
+        """Regression for the 2026-09-24 fix: repo_root can itself be a monorepo root
+        (commit_audit_gate.py's own `_looks_like_this_plugin` explicitly supports this),
+        where TRACKED_DIRS live one level down under each sibling plugin, not at repo_root
+        directly. Before the fix, this returned None (nothing staged, per the old bare
+        TRACKED_DIRS pathspecs) even with a real staged change, silently disabling the gate.
+        """
+        self._write_and_stage("agent-isdd/skills/foo/SKILL.md", "hello\n")
+        fp = diff_fingerprint.compute(self.repo)
+        self.assertIsNotNone(fp)
+
+    def test_monorepo_root_ignores_unrelated_sibling_dir(self):
+        self._write_and_stage("agent-isdd/skills/foo/SKILL.md", "hello\n")
+        before = diff_fingerprint.compute(self.repo)
+        self._write_and_stage("agent-isdd/README.md", "irrelevant\n")
+        after = diff_fingerprint.compute(self.repo)
+        self.assertEqual(before, after)
+
 
 if __name__ == "__main__":
     unittest.main()

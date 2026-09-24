@@ -1,7 +1,7 @@
 """Tests for hooks/nelly_memory.py — core path-resolution primitives (Phase 2).
 
 Every test monkeypatches nelly_memory.BASE to an isolated tmp_path so the suite
-never touches the real ~/.claude/agent-nelly-memory/ tree on disk.
+never touches the real ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/ tree on disk.
 
 Updated for ${CLAUDE_PLUGIN_DATA} env var support (Task 2.1).
 """

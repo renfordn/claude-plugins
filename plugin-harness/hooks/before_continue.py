@@ -62,8 +62,9 @@ def main():
         if not state_path:
             # No active SDD workflow: still provide standalone Tier-1-equivalent
             # context (capability map + HarnessContextCache-backed nelly brief)
-            # and telemetry, rather than silently no-op'ing (see design.md's
-            # "Standalone Tier 1 Split").
+            # and telemetry, rather than silently no-op'ing ("Standalone Tier 1
+            # Split" -- from this plugin's original SDD design doc, which lives
+            # under ~/.claude/sdd-memory/, not this repo).
             telemetry = get_hook_telemetry_logger(None, cwd=cwd)
             from orchestrator.hooks.before_continue import handle_standalone_spawn  # noqa: E402
             handle_standalone_spawn(agent_type, cwd)

@@ -1,6 +1,6 @@
 # Doc Audit State
 
-Project-level (not per-feature) — lives at `~/.claude/sdd-memory/<project-slug>/DOC-AUDIT-STATE.md`,
+Project-level (not per-feature) — lives at `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/DOC-AUDIT-STATE.md`,
 in the project's central SDD memory directory. Unlike `REVIEW-STATE.md` (one row per reviewed *file*, scoped
 under a single feature's `spec/<feature-slug>/`), this file tracks one row for the whole
 plugin's `skills/`+`agents/`+`commands/`+`hooks/` tree, because `hooks/commit_audit_gate.py`

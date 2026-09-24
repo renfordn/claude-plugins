@@ -107,10 +107,16 @@ for auto-detection to succeed. See `plugin-harness/tests/test_smoke_e2e.py` for 
 
 **Cross-references:**
 
-- **Phase-by-Phase Guidance**: `code-reviewer/SKILL.md` §ISDD Phase Context (auto-detection rules and examples)
+- **Phase-by-Phase Guidance**: **corrected 2026-09-24** — `code-reviewer/skills/code-reviewer/
+  SKILL.md`'s §Auto-Detection Rules (auto-detection rules and per-ISDD-phase examples); this
+  used to cite a nonexistent top-level `code-reviewer/SKILL.md` and a nonexistent
+  §ISDD Phase Context heading
 - **Per-Slice Strategy**: `agent-tdd/SKILL.md` §Review-Level Strategy (per-slice checkpoints)
 - **Ralph Loops Integration**: `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops
-- **Design Rationale**: `design.md` §Strategic Placement (full reasoning for phase selections)
+- **Design Rationale**: **corrected 2026-09-24** — no `design.md` exists in this repo (it was
+  the original SDD design doc this plugin was built from, which lives under
+  `~/.claude/sdd-memory/`, not the repo); see `agent-isdd/INTEROP.md`'s "Strategic Review
+  Placement via Review Levels" section for the live reasoning instead
 
 ## What you get back
 

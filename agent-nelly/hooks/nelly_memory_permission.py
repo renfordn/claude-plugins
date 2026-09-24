@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse hook: auto-approve Write/Edit/MultiEdit whose target path
 resolves strictly under this project's Agent Nelly memory directory
-(~/.claude/agent-nelly-memory/<project-slug>/) or the cross-project global
-tier (~/.claude/agent-nelly-memory/global/).
+(${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/) or the cross-project global
+tier (${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/global/).
 
 Rationale: Agent Nelly is the single owner of both directories' contents, and
 it should never stall on a permission prompt for a path the plugin itself
@@ -10,8 +10,11 @@ created and scoped. Nothing outside those directories is affected by this
 hook -- every other path falls through to the harness's normal permission
 prompting untouched.
 
-Validates file types (blocks .exe) and creates audit trail entries for all
-decisions (allow or deny) using shared validators from plugin_data_whitelist.
+Validates file types (blocks .exe) using shared validators from
+plugin_data_whitelist. Corrected 2026-09-24: this docstring used to also claim
+it "creates audit trail entries for all decisions (allow or deny)" -- that was
+never implemented (plugin_data_whitelist.create_audit_logger was imported but
+never called); no decision from this hook is currently logged anywhere.
 
 Set env NELLY_GATE=off (or 0/false/disabled, case-insensitive) to disable
 entirely.
@@ -22,7 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nelly_memory import memory_dir, global_dir  # noqa: E402
-from plugin_data_whitelist import create_whitelist_validator, create_audit_logger  # noqa: E402
+from plugin_data_whitelist import create_whitelist_validator  # noqa: E402
 
 
 def allow(reason=None):

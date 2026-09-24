@@ -1,6 +1,6 @@
 # Doc Audit History
 
-Project-level, append-only — lives at `~/.claude/sdd-memory/<project-slug>/DOC-AUDIT-HISTORY.md`,
+Project-level, append-only — lives at `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/DOC-AUDIT-HISTORY.md`,
 alongside `DOC-AUDIT-STATE.md`. Mirrors `REVIEW-HISTORY.md.template`'s shape. Never edit or
 remove prior entries.
 

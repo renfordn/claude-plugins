@@ -184,7 +184,7 @@ def handle_agent_completion(
         report: Agent output report
         workflow_state: Current workflow state dict (modified in-place)
         error_registry_base_path: Optional base directory for the persistent,
-            cross-session error-registry.json (e.g. ~/.claude/sdd-memory). When
+            cross-session error-registry.json (e.g. ${CLAUDE_PLUGIN_DATA}/sdd-memory). When
             given together with project_slug, a contract violation is persisted
             there (via ErrorLogger.persist_error) in addition to being logged to
             workflow_state's handoff_history. Omit to keep session-only logging

@@ -40,7 +40,7 @@ matching `type`; entries of other types MUST NOT include them):
     lookup (see that plugin's `orchestrator/error_handler.py` and
     `hooks/resolve_nelly_request.py`). `error_type` uses
     `OrchestrationError.VALID_ERROR_TYPES`' vocabulary (`handoff_validation`,
-    `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`) —
+    `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`, `interop_parse_failure`) —
     NOT `ErrorHandler`'s internal classification vocabulary
     (`contract_mismatch`, `known_issue`, etc.), since those are the terms a
     workaround-lookup query is actually phrased in. A consumer resolving a
@@ -56,7 +56,7 @@ matching `type`; entries of other types MUST NOT include them):
 name: <short-kebab-case-slug>
 description: <one-line summary used for relevance matching against a caller's task description>
 metadata:
-  type: <user | feedback | project | reference | file-relevance | error-prevention | project-defined via types.yaml>
+  type: <user | feedback | project | reference | file-relevance | error-prevention | technique | project-defined via types.yaml>
   last_referenced: <YYYY-MM-DD>
   # --- only present when type: file-relevance ---
   files: [<repo-relative path>, ...]      # one or more paths this entry is about
@@ -66,9 +66,20 @@ metadata:
   # --- only present when type: error-prevention AND this entry is an
   #     orchestration-error workaround (see comment block above); all three
   #     or none ---
-  error_type: <handoff_validation | plugin_unavailable | routing_failed | nelly_fetch_failed>
+  error_type: <handoff_validation | plugin_unavailable | routing_failed | nelly_fetch_failed | interop_parse_failure>
   source_plugin: <plugin name, e.g. agent-tdd>
   target_plugin: <plugin name, e.g. orchestrator>
+  # --- only present when type: technique (corrected 2026-09-24 -- these
+  #     entries are written directly by hooks/nelly_commit_extract.py,
+  #     hooks/nelly_auto_extract.py, and hooks/nelly_session_end.py, never
+  #     by an LLM agent; always confidence: inferred, no explicit variant ---
+  confidence: inferred                     # REQUIRED for this type; always inferred, never explicit
+  seen_count: <integer>                    # commit_extract/auto_extract only -- recurrence count
+  family: <short label>                    # auto_extract only -- groups related recurring techniques
+  passing_count: <integer>                 # auto_extract only -- times seen passing since first noted
+  commit: <git commit hash>                # commit_extract only
+  files_changed: <integer>                 # commit_extract (count) or session_end (count)
+  paths: [<repo-relative path>, ...]       # commit_extract only
 ---
 
 <The fact or detail this entry captures.

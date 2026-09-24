@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse hook: auto-approve Read/Write/Edit/MultiEdit whose target path
 resolves strictly under this project's per-feature spec state
-(~/.claude/sdd-memory/<project-slug>/spec/**).
+(`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/**`, resolved via
+sdd_memory.py's BASE/spec_dir() -- never hand-computed; the legacy bare
+`~/.claude/sdd-memory/` path is no longer the canonical location).
 
 Rationale: this plugin owns and generates that per-feature scaffolding
 (workflow-state.md, recap.md, requirements/design/tasks — see spec_dir() in

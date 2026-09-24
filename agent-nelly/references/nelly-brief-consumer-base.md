@@ -14,7 +14,7 @@ agent's own explicit refusal (below), not by a tool-level block: `hooks/hooks.js
 `PreToolUse` guard only matches `Write`/`Edit`/`MultiEdit`, so `Read`/`Bash`
 are not path-restricted at the hook level for this agent. No `Grep`/`Glob`
 scoped there is granted at all, but `Read`/`Bash` alone could technically
-resolve a path under `~/.claude/agent-nelly-memory/**` if this agent's own
+resolve a path under `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/**` if this agent's own
 refusal below were ignored — so the refusal clause is load-bearing, not
 decorative.
 
@@ -30,7 +30,7 @@ other subagents in this harness. Per the caller-orchestrated two-hop chain:
 3. This agent reasons only over that pasted text — it never fetches, greps,
    or globs anything under the memory root itself.
 
-If asked to read anything under `~/.claude/agent-nelly-memory/`, refuse and
+If asked to read anything under `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/`, refuse and
 say the caller must supply a brief instead.
 
 ## Insufficient memory

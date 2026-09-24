@@ -16,10 +16,15 @@ rather than shipping a new major version for callers to migrate independently. A
 new optional field, a new `event_type`) don't require this — callers that don't send the new
 field/type are unaffected.
 
-Defers, not resolves, `design.md`'s Open Question ("should this be semver'd?"). Revisit once
-lockstep updates across callers become unmanageable. Current callers: `agent-isdd` (phase
-transitions, breadcrumbs), `code-reviewer` (review dashboard via `review_threshold` envelope),
-`agent-tdd` hooks (phase transitions via systemMessage delegation).
+Defers, not resolves, this plugin's original design doc's Open Question ("should this be
+semver'd?"). Revisit once lockstep updates across callers become unmanageable. Current live
+callers: `agent-isdd` (phase transitions, breadcrumbs), `agent-tdd` hooks (phase transitions via
+systemMessage delegation — `hooks/ux_render.py`). **Corrected 2026-09-24**: `code-reviewer` used
+to be listed here as a current caller too — it is not; see this file's "`code-reviewer`" entry
+below and `references/ux-conventions.md`'s "Review dashboard (Artifact)" section, both of which
+already correctly state no caller currently sends a live `review_threshold` event and
+`code-reviewer` opens its own Artifact directly today. `code-reviewer` is a real, designed-for,
+not-yet-wired-up integration, not a current one.
 
 ## → Every caller (event envelope contract)
 

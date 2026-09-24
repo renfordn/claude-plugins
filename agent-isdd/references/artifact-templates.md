@@ -2,7 +2,7 @@
 
 Use these templates as the default structure for per-feature artifacts. These are plugin-
 generated state, not source — they live under the project's central SDD memory directory
-(`~/.claude/sdd-memory/<project-slug>/`, resolved via `hooks/sdd_memory.py`), never inside the
+(`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`, resolved via `hooks/sdd_memory.py`), never inside the
 repo itself.
 
 For a filled example, see `references/example-feature/`.
@@ -59,9 +59,9 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 ## Current State
 
-- Current Phase: <Requirements | Design | Implementation | Complete>
+- Current Phase: <Requirements | Design | Tasks | Implementation | Complete>
 - Track: <Fast | Standard>
-- Previous Phase: <None | Requirements | Design | Implementation>
+- Previous Phase: <None | Requirements | Design | Tasks | Implementation>
 - Workflow Status: <In Progress | Blocked | Awaiting Confirmation | Awaiting Implementation Request | Complete>
 - Pause Reason: <None | blocker | confirmation required | waiting for implementation request>
 - Next Action: <next concrete workflow step>
@@ -88,6 +88,19 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 Use `workflow-state.md` as a compact machine-readable summary for the workflow.
 
 - `Current Phase` is the primary continuation pointer, and is what the top-level breadcrumb (rendered by `agent-ux:ux-agent`, see `INTEROP.md`'s "→ agent-ux (UX rendering)" section) reads directly — no separate progress field exists or should be invented.
+- **`Tasks` (added 2026-09-24, clarifying long-standing but undocumented behavior)**: originally
+  meant a distinct phase where `agent-isdd` itself authored an agent-friendly task breakdown from
+  `design.md` — superseded once `agent-tdd` took over task slicing internally during the Design
+  Spec handoff (see `INTEROP.md`'s "→ agent-tdd" section). `agent-isdd` never sets `Current Phase:
+  Tasks` on the initial Design-approved handoff path (that goes straight to `Implementation`, per
+  `workflow-manager/SKILL.md`'s `handoff` Action Rule). It's set only as a **rollback-landing
+  state**, reached either directly via `/isdd-rewind Tasks` or via a human (or `code-reviewer`)
+  relaying a mid-implementation finding that the task-level plan — not the design — was wrong
+  (`SDD-ROLLBACK-REQUEST: target=Tasks`, see `INTEROP.md`'s "← agent-tdd / code-reviewer
+  (rollback request)" section) — both funnel through the same Rewind Contract. On `continue` with
+  `Current Phase: Tasks`, `spec-driven-development` re-invokes its Implementation Handoff step
+  directly — rebuilding the Design Spec from the still-approved `requirements.md`/`design.md` and
+  re-spawning `agent-tdd` — rather than re-entering Requirements or Design authoring.
 - `Track` is set once at Start (see `spec-driven-development/SKILL.md`'s "Fast Track" section) and absent/unset means `Standard` — no migration needed for features started before this field existed. `Track: Fast` means `requirements-agent` used its Fast Track entry mode and the Implementation Handoff will send a single Slice Spec with review skipped, never a Design Spec; no `tasks.md` is produced. It can flip from `Fast` to `Standard` mid-flight (the Fast Track escape hatch) but never the other way around.
 - `Goal` is seeded once via `agent-nelly:agent-nelly` (if available) when the feature starts and rarely rewritten; `agent-nelly:agent-nelly` uses it for the goal-alignment check in every brief it returns.
 - `Workflow Status` determines whether the next action is to continue, pause, hand off, or complete.

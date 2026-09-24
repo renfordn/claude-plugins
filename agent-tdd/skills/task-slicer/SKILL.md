@@ -43,9 +43,11 @@ implementation begins.
 
 **Rationale**: This upfront Standard review catches task clarity issues and dependency 
 conflicts early, before Red-Green-Refactor cycles. Findings feed into ralph loops' 
-Dependency Correctness validation. See `code-reviewer/SKILL.md`'s "Review Levels" section 
-for Standard level definition and `design.md` §ISDD Workflow Integration for strategic 
-review placement.
+Dependency Correctness validation. See `code-reviewer/skills/code-reviewer/SKILL.md`'s
+"Review Levels" section for Standard level definition. **Corrected 2026-09-24**: this used to
+also cite a nonexistent `design.md §ISDD Workflow Integration` — no `design.md` exists in this
+repo (it's the plugin's original SDD design doc, which lives under `~/.claude/sdd-memory/`); see
+`agent-isdd/INTEROP.md`'s "Strategic Review Placement via Review Levels" section instead.
 
 ## Task Success Criteria
 

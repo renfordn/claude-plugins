@@ -118,7 +118,7 @@ contradiction to "fix."
 After findings are gathered and high-confidence auto-fixes applied and re-staged:
 
 1. Compute the fingerprint: `hooks/diff_fingerprint.compute(repo_root)`.
-2. Resolve `~/.claude/sdd-memory/<project-slug>/` the same way every other component in this
+2. Resolve `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/` the same way every other component in this
    plugin does — via the session-announced path, or `hooks/sdd_memory.py --path` — never
    hand-computed (same discipline the `memory-orchestrator` slug bug taught the hard way).
 3. Write `DOC-AUDIT-STATE.md` (`references/DOC-AUDIT-STATE.md.template`): `Status` is `passed`
@@ -128,7 +128,7 @@ After findings are gathered and high-confidence auto-fixes applied and re-staged
 4. Append one entry to `DOC-AUDIT-HISTORY.md` (`references/DOC-AUDIT-HISTORY.md.template`) —
    append-only, never edit or remove a prior entry.
 
-These two files live at the **project level** (`~/.claude/sdd-memory/<project-slug>/`), not under
+These two files live at the **project level** (`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`), not under
 any `spec/<feature-slug>/` folder — `hooks/commit_audit_gate.py` must work whether or not an SDD
 feature is currently active, so a feature-scoped marker (like `REVIEW-STATE.md`) doesn't fit
 here.

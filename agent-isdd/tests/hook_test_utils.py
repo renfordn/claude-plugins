@@ -134,7 +134,7 @@ def run_sdd_memory_cli(args, cwd=None, env_extra=None, timeout=10):
 
 @contextlib.contextmanager
 def temp_home():
-    """A throwaway directory standing in for HOME, isolating ~/.claude/sdd-memory/ resolution."""
+    """A throwaway directory standing in for HOME, isolating ${CLAUDE_PLUGIN_DATA}/sdd-memory/ resolution."""
     with tempfile.TemporaryDirectory() as d:
         yield d
 

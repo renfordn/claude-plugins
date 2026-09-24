@@ -768,7 +768,7 @@ enforce against. All remaining fixtures ran for real from that worktree cwd.
   entry reflected the new content; `last_referenced` refreshed to today.
 
 **Cleanup performed after the run:** the worktree's own Agent Nelly memory
-directory (`~/.claude/agent-nelly-memory/users-...-worktrees-nelly-validation-scratch/`)
+directory (`${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/users-...-worktrees-nelly-validation-scratch/`)
 was deleted, and the worktree itself was removed via `ExitWorktree`
 (`action: remove`, discarding the untracked `import-source/` scratch fixture
 files). Two facts legitimately promoted into the shared
@@ -861,7 +861,7 @@ different real working directory, not a role-played one.
 **Cleanup performed after the run:** `chflags nouchg` cleared on the locked test file, the
 worktree's entire agent-nelly memory directory removed, and the worktree itself removed via
 `ExitWorktree` (`action: remove`, `discard_changes: true` — no changes were made inside the
-worktree's own git tree, only under `~/.claude/agent-nelly-memory/`, which is outside the
+worktree's own git tree, only under `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/`, which is outside the
 repo).
 
 ## Outstanding — Agent Nelly Interoperability (2026-08-10) live sanity check
@@ -925,7 +925,7 @@ partial briefs; step 5 confirms zero agent-nelly-interoperability changes leaked
 ### Cleanup
 
 Same as every other worktree-based fixture above: remove the worktree's agent-nelly memory
-directory under `~/.claude/agent-nelly-memory/`, then remove the worktree itself via
+directory under `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/`, then remove the worktree itself via
 `ExitWorktree` (`action: remove`).
 
 ### Status

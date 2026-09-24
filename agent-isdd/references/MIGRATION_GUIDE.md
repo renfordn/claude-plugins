@@ -162,9 +162,20 @@ If you're just using agent-isdd without touching tdd-planner internals:
 
 ### Q: Can I rewind to Tasks phase?
 
-**A:** No. In 0.1.14+, no Tasks phase for agent-isdd:
-- Rewind only goes to Requirements or Design
-- Task changes happen inside agent-tdd (via escalations)
+**Corrected 2026-09-24:** this used to say no outright — wrong; `Tasks` has been a valid
+`/isdd-rewind` target and rollback-request target all along (see `isdd-rewind.md`'s
+argument-hint and `workflow-manager/references/rewind-and-rollback.md`'s Rewind Contract), it
+just doesn't mean what it used to.
+
+**A:** Yes, via either `/isdd-rewind Tasks` or a rollback request (a human, or `code-reviewer`,
+relaying an `agent-tdd` finding that the task-level plan itself was wrong — not the design — via
+`SDD-ROLLBACK-REQUEST: target=Tasks`; see `INTEROP.md`'s "← agent-tdd / code-reviewer (rollback
+request)" section). Both funnel through the same Rewind Contract and land on `Current Phase:
+Tasks`. What changed: `Tasks` is no longer a phase `agent-isdd` dwells in or produces an
+artifact for — task slicing happens entirely inside `agent-tdd` now (via escalations). On the
+next `continue`, `spec-driven-development` re-invokes its Implementation Handoff step directly
+(rebuild the Design Spec from the still-approved `requirements.md`/`design.md`, re-spawn
+`agent-tdd`) rather than re-entering Requirements or Design authoring.
 
 ## Testing Checklist
 

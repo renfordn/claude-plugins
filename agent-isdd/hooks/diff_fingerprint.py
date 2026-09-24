@@ -47,19 +47,45 @@ def _interop_paths(repo_root):
     return paths
 
 
+def _tracked_dir_paths(repo_root):
+    """TRACKED_DIRS path(s) relevant to a re-audit trigger, relative to repo_root.
+
+    **Corrected 2026-09-24**: this used to be just `TRACKED_DIRS` itself, passed straight
+    to `git diff --cached --`, which only ever matched when `repo_root` IS a single
+    plugin's own directory (`skills/` existing directly under it). `commit_audit_gate.py`'s
+    own `_looks_like_this_plugin` explicitly supports running from the monorepo root too
+    (this repo, when >= 2 sibling plugin dirs carry INTEROP.md) -- but in that mode, none of
+    `skills/`, `agents/`, `commands/`, `hooks/` exist at `repo_root` itself, so every staged
+    change under e.g. `agent-isdd/skills/workflow-manager/SKILL.md` was silently invisible to
+    `compute()`, `current_fp` came back `None`, and the gate's `if current_fp is None: allow(...)`
+    branch let the commit through with NO audit enforcement at all. Mirrors `_interop_paths`'s
+    already-correct dual-shape handling: the bare dir name for the single-plugin case, plus a
+    `*/<dir>/` glob one level down for the monorepo case. Both can apply at once, same as
+    `_interop_paths` -- paths are deduped by the caller via git's own diff.
+    """
+    paths = []
+    for d in TRACKED_DIRS:
+        if os.path.isdir(os.path.join(repo_root, d)):
+            paths.append(d)
+        for hit in glob.glob(os.path.join(repo_root, "*", d)):
+            paths.append(os.path.relpath(hit, repo_root) + "/")
+    return paths
+
+
 def compute(repo_root):
     """sha256 hex digest of `git diff --cached -- <tracked paths>` in repo_root.
 
-    Tracked paths = the four directories in TRACKED_DIRS plus whatever
-    INTEROP.md file(s) _interop_paths finds -- computed fresh per call so a
-    plugin added or removed since the last run is reflected immediately.
+    Tracked paths = `_tracked_dir_paths`'s dual-shape (single-plugin or monorepo)
+    resolution of TRACKED_DIRS plus whatever INTEROP.md file(s) `_interop_paths` finds --
+    both computed fresh per call so a plugin added or removed since the last run is
+    reflected immediately.
 
     Returns None -- never a fabricated/empty-string hash -- when: repo_root
     isn't a git repo, git itself errors, or nothing is staged under the
     tracked paths. Callers must treat None as "cannot verify", not as a
     value that could ever equal a real fingerprint.
     """
-    tracked = list(TRACKED_DIRS) + _interop_paths(repo_root)
+    tracked = _tracked_dir_paths(repo_root) + _interop_paths(repo_root)
 
     try:
         result = subprocess.run(

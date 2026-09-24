@@ -23,7 +23,7 @@ class HookErrorLogger:
         """Initialize hook error logger.
 
         Args:
-            workflow_state_dir: Path to workflow state directory (e.g., ~/.claude/sdd-memory/project/spec/feature/)
+            workflow_state_dir: Path to workflow state directory (e.g., ${CLAUDE_PLUGIN_DATA}/sdd-memory/project/spec/feature/)
                               If None, logs only to console (degraded mode).
         """
         self.workflow_state_dir = workflow_state_dir
