@@ -1,6 +1,18 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-24
+
+- **Docs**: `INTEROP.md`'s "Current callers" line listed `code-reviewer` as a live caller of the
+  `review_threshold` envelope, directly contradicted by this same plugin's own
+  `references/ux-conventions.md` ("No caller in this ecosystem currently sends a live
+  `review_threshold` event... `code-reviewer` opens its own Artifact directly today") and by
+  this file's own later, more careful wording. Corrected to distinguish live callers
+  (`agent-isdd`, `agent-tdd` hooks) from the designed-but-not-yet-wired-up `code-reviewer`
+  integration.
+- **Docs**: `references/ux-conventions.md` pointed at a nonexistent `references/
+  artifact-templates.md` (wrong plugin prefix — that file belongs to `agent-isdd`); corrected.
+
 ## [0.1.7] - 2026-09-22
 
 - **Docs**: added a `## Quickstart` section, replacing a stale "will be added once published to a
