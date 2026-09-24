@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """PreToolUse hook: auto-approve Write/Edit/MultiEdit whose target path
 resolves strictly under this project's Agent Nelly memory directory
-(${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/) or the cross-project global
-tier (${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/global/).
+(<memory root>/agent-nelly-memory/<project-slug>/) or the cross-project global
+tier (<memory root>/agent-nelly-memory/global/), where <memory root> is the
+shared_memory_root plugin option when set, else ${CLAUDE_PLUGIN_DATA} -- both
+resolved by nelly_memory.py, so this hook follows whichever one is active.
 
 Rationale: Agent Nelly is the single owner of both directories' contents, and
 it should never stall on a permission prompt for a path the plugin itself

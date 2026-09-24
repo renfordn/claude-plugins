@@ -2,8 +2,9 @@
 """Per-feature spec-artifact scaffolding for the SDD plugin.
 
 Per-feature spec artifacts (workflow-state.md, workflow-state.json, requirements/, design/,
-tasks/, recap/) live under ${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
-spec_dir() below. Note: sdd-memory is shared between agent-isdd and plugin-harness via
+tasks/, recap/) live under <root>/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
+spec_dir() below. <root> is the user's `shared_memory_root` plugin option when set (one store for
+every plugin identity and machine pointed at it), else ${CLAUDE_PLUGIN_DATA}. Note: sdd-memory is shared between agent-isdd and plugin-harness via
 symlink coordination (Task 3.1). They are plugin-generated state, not source, so they never live
 in the repo itself; see references/artifact-templates.md and skills/workflow-manager/SKILL.md's
 "Scaffolding" section.
@@ -27,12 +28,14 @@ ever creates the bare directory.
 Do not run this module's CLI (`python3 hooks/sdd_memory.py --path|--spec-path ...`) by hand
 from a plain shell, or via a Bash tool call, during interactive session work -- see
 path_resolution.py's "identity-split hazard" docstring. BASE is resolved once at import time
-from `${CLAUDE_PLUGIN_DATA}`, which a manual invocation never has set, so a hand-run scaffold
+from `${CLAUDE_PLUGIN_DATA}` (and CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT), which a manual
+invocation never has set, so a hand-run scaffold
 can silently land under a different plugin identity's data dir than whichever one this
 project's real, registered hooks resolve to -- invisible to every other hook in this plugin
 until reconciled by hand. Let real hooks (or a skill that only ever calls through them, the way
 hooks.json does) scaffold and discover this state.
 """
+import json
 import os
 import re
 import sys
@@ -42,11 +45,23 @@ import sys
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
-from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+from path_resolution import (  # noqa: E402
+    get_plugin_data_dir, get_legacy_subdir_path, get_memory_root, get_shared_memory_root,
+    ensure_shared_root_scaffold,
+)
 
-# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
+# BASE holds the syncable per-feature spec state (spec/<feature>/, DOC-AUDIT-STATE.md, ...): the
+# user's shared_memory_root option when set, else ${CLAUDE_PLUGIN_DATA}. LOCAL_BASE is always
+# ${CLAUDE_PLUGIN_DATA} and holds machine-local session markers (last-stop.json, snapshots/) --
+# see local_state_dir(). The two are the same directory when no shared root is configured.
+SHARED_ROOT = get_shared_memory_root()
 _plugin_data_dir = get_plugin_data_dir("agent-isdd")
-BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
+BASE = get_legacy_subdir_path(get_memory_root("agent-isdd"), "sdd-memory")
+LOCAL_BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
+
+# Written into agent-isdd's own ${CLAUDE_PLUGIN_DATA} so plugin-harness (whose hooks never see
+# agent-isdd's userConfig) can follow the same resolved location -- see write_base_pointer().
+BASE_POINTER_NAME = "sdd-memory-location.json"
 
 
 def project_slug(cwd):
@@ -58,6 +73,44 @@ def project_slug(cwd):
 
 def memory_dir(cwd):
     return os.path.join(BASE, project_slug(cwd))
+
+
+def local_state_dir(cwd):
+    """Machine-local per-project dir for session markers (last-stop.json, snapshots/).
+
+    Always under ${CLAUDE_PLUGIN_DATA}, even when a shared memory root is configured: these
+    record what happened in *this* machine's sessions, so syncing them would make one machine's
+    Stop look like another's clean resume. Equal to memory_dir(cwd) with no shared root.
+    """
+    return os.path.join(LOCAL_BASE, project_slug(cwd))
+
+
+def write_base_pointer():
+    """Record the resolved BASE in ${CLAUDE_PLUGIN_DATA}/sdd-memory-location.json.
+
+    plugin-harness reads this (via its sibling-data-dir lookup) so its hooks use the same
+    sdd-memory as agent-isdd's, shared root or not. Rewritten only when the value changes.
+    """
+    path = os.path.join(_plugin_data_dir, BASE_POINTER_NAME)
+    record = {"sdd_memory": BASE, "shared_memory_root": SHARED_ROOT}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            if json.load(fh) == record:
+                return path
+    except (OSError, ValueError):
+        pass
+    os.makedirs(_plugin_data_dir, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(record, fh)
+    os.replace(tmp, path)
+    return path
+
+
+def ensure_shared_root():
+    """Scaffold the shared memory root (.gitignore/.gitattributes) when one is configured."""
+    if SHARED_ROOT:
+        ensure_shared_root_scaffold(SHARED_ROOT)
 
 
 def spec_dir(cwd, slug=None):

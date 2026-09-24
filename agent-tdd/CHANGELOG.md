@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.16] - 2026-09-24
+
+- **Chore**: `hooks/path_resolution.py` synced with `shared/` (shared memory root helpers). agent-tdd's own state (`agent-tdd-state/`: per-slice progress, stop markers) is short-lived session state, so it deliberately stays in `${CLAUDE_PLUGIN_DATA}`.
+
 ## [0.2.15] - 2026-09-24
 
 - **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.

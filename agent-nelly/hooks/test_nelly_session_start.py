@@ -25,6 +25,8 @@ HOME = os.path.expanduser("~")
 @pytest.fixture(autouse=True)
 def isolated_base(tmp_path, monkeypatch):
     monkeypatch.setattr(nelly_memory, "BASE", str(tmp_path / "agent-nelly-memory"))
+    # No shared root in these tests, so the machine-local base is the same directory.
+    monkeypatch.setattr(nelly_memory, "LOCAL_BASE", str(tmp_path / "agent-nelly-memory"))
     return tmp_path
 
 

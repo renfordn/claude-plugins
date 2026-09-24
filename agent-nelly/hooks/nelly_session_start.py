@@ -19,7 +19,10 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from nelly_memory import memory_dir, read_index, read_global_index, list_entries  # noqa: E402
+from nelly_memory import (  # noqa: E402
+    BASE, SHARED_ROOT, memory_dir, local_state_dir, read_index, read_global_index,
+    list_entries, ensure_shared_root,
+)
 
 INDEX_FILENAME = "nelly-index.json"
 HOTSPOTS_FILENAME = "hotspots.json"
@@ -86,7 +89,7 @@ def _read_hotspots(cwd):
     "hotspot"). Missing/malformed hotspots.json -> empty list, same
     silent-fallback convention as _read_project_index().
     """
-    path = os.path.join(memory_dir(cwd), HOTSPOTS_FILENAME)
+    path = os.path.join(local_state_dir(cwd), HOTSPOTS_FILENAME)
     try:
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -159,6 +162,27 @@ def _format_brief(records):
     return "\n".join(lines)
 
 
+def _refresh_shared_indexes(cwd):
+    """Rebuild nelly-index.json from entries/ when the store is shared.
+
+    Another machine may have synced new entries in since this one last wrote the index, and
+    nelly-index.json is gitignored in a shared root (derived, per machine), so it's rebuilt
+    here instead of being merged. Best-effort: a failed rebuild just leaves the old index.
+    """
+    try:
+        ensure_shared_root()
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import build_index
+        if os.path.isdir(os.path.join(memory_dir(cwd), "entries")):
+            build_index.build_project_index(cwd)
+        if os.path.isfile(os.path.join(BASE, "global", "GLOBAL-MEMORY.md")):
+            build_index.build_global_index()
+    except (OSError, ImportError, ValueError):
+        pass
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -173,6 +197,9 @@ def main():
     # under this path are auto-approved by hooks/nelly_memory_permission.py.
     mem = memory_dir(cwd)
     lines.append(f"Agent Nelly memory for this project: {mem}")
+    if SHARED_ROOT:
+        lines.append(f"(shared memory root: {SHARED_ROOT})")
+        _refresh_shared_indexes(cwd)
 
     lines.append(_read_intent(cwd))
 

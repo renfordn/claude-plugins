@@ -38,6 +38,16 @@ ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
 
 Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-nelly/` when running in Claude Code.
 
+### Sharing memory across machines and installs
+
+`${CLAUDE_PLUGIN_DATA}` is local disk, separate for every plugin identity (`@inline` vs. a marketplace
+install) and for every machine. Set the optional **`shared_memory_root`** plugin option (via `/config`)
+to a directory every machine can see, ideally a git repo you pull and push. agent-nelly then keeps
+`agent-nelly-memory/` there instead. Set the same value for agent-isdd. `hotspots.json` stays local,
+and `nelly-index.json` is rebuilt from `entries/` at SessionStart. See
+[`docs/shared-memory-root.md`](../docs/shared-memory-root.md) for setup, sync, and migrating existing
+memory with `scripts/merge_plugin_data.py`.
+
 ## Using Agent Nelly from another plugin
 
 Agent Nelly isn't specific to any one consumer — see [`INTEROP.md`](INTEROP.md) for the full

@@ -26,7 +26,7 @@ never mark anything `explicit` themselves — that stays a decision only you or 
 
 Path resolution: whenever you need `memory_dir(cwd)`, `entry_path(cwd, name)`,
 `archive_path(cwd, name)`, or `global_dir()`, run
-`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --path [cwd]` / read the module's documented
+`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --path [cwd]` / read the module's documented
 shape and construct the equivalent path yourself using the same rule
 (`<memory_dir>/entries/<name>.md`, `<memory_dir>/archive/<name>.md`,
 `<BASE>/global/`). Never invent a different layout.
@@ -227,7 +227,7 @@ whenever `handoff surfacing` was passed for this call.
      `MEMORY.md`, or `global/GLOBAL-MEMORY.md`. If a candidate's index
      record ever looks stale relative to what its opened file actually
      says (rare — e.g. the hook failed to fire), you may force a full
-     rebuild yourself: `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_index.py" --project [cwd]`
+     rebuild yourself: `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_index.py" --project [cwd]`
      (or `--global` for the cross-project tier). This is a repair action,
      not part of the normal read path above, and it never substitutes for
      opening the real file wherever this section already requires it.
@@ -487,7 +487,7 @@ to evaluate, never raw caller text:
    reference`.
 4. Set `metadata.last_referenced` to today (`YYYY-MM-DD`).
 5. Before writing the entry file, guarantee `entries/` exists — run
-   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --entries-path [cwd]` via `Bash` (this
+   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --entries-path [cwd]` via `Bash` (this
    creates both the project dir and `entries/` if either is missing and
    prints the resulting `entries/` path; it is idempotent, safe to call every
    time). Do not skip this step and do not assume `entries/` already exists
@@ -606,7 +606,7 @@ approach:`/`Context:` body content.
    `inferred`-confidence entries).
 5. Set `metadata.last_referenced` to today (`YYYY-MM-DD`).
 6. Before writing the entry file, guarantee `entries/` exists — run
-   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --entries-path [cwd]` via `Bash`, same as
+   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --entries-path [cwd]` via `Bash`, same as
    step 5 of "Recording a new fact" above. Do not skip this step.
 7. Write the entry to `entries/<name>.md` in
    `references/nelly-entry.template.md`'s exact `error-prevention` shape

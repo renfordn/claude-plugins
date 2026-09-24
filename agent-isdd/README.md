@@ -91,6 +91,15 @@ the same install — e.g. a monorepo checkout as `agent-isdd@inline` alongside a
 `.../data/agent-isdd-inline/` vs. `.../data/agent-isdd/`). See `hooks/path_resolution.py`'s docstring
 for the full writeup.
 
+### Sharing SDD state across machines and installs
+
+Set the optional **`shared_memory_root`** plugin option (via `/config`) to a directory every machine
+can see, ideally a git repo you pull and push, and agent-isdd keeps `sdd-memory/` there instead of in
+`${CLAUDE_PLUGIN_DATA}`. Use the same value for agent-nelly. `last-stop.json` and `snapshots/` stay
+local. plugin-harness follows automatically, via `${CLAUDE_PLUGIN_DATA}/sdd-memory-location.json`,
+which `hooks/session_start.py` writes. See [`docs/shared-memory-root.md`](../docs/shared-memory-root.md)
+for setup and for migrating existing state with `scripts/merge_plugin_data.py`.
+
 ### Running `hooks/*.py` by hand
 
 `${CLAUDE_PLUGIN_DATA}` is only injected into subprocesses Claude Code itself spawns for a
@@ -101,7 +110,7 @@ hooks and gates see). From a skill, command, or agent, pass it explicitly — Cl
 the placeholder when it loads that content:
 
 ```bash
-CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path
 ```
 
 If you need to inspect or repair this project's actual SDD state, do it through a real hook

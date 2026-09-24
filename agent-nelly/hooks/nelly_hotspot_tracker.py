@@ -8,7 +8,8 @@ no subprocess. Silent: no stdout, no logging, never blocks or reports
 failure back to the tool call (PostToolUse cannot undo a tool call that
 already happened, same convention as nelly_index_update.py).
 
-`hotspots.json` lives at `<memory_dir>/hotspots.json`:
+`hotspots.json` lives at `<local_state_dir>/hotspots.json` -- always under
+${CLAUDE_PLUGIN_DATA}, never the shared memory root (it's rewritten on every tool call):
     {"files": {"<repo-relative-path>": {"count": N, "last_seen": "<iso>"}},
      "updated_at": "<iso>"}
 
@@ -93,7 +94,7 @@ def _run():
     if not rel:
         return
 
-    d = nelly_memory.memory_dir(cwd)
+    d = nelly_memory.local_state_dir(cwd)
     os.makedirs(d, exist_ok=True)
     hotspots_path = os.path.join(d, "hotspots.json")
 

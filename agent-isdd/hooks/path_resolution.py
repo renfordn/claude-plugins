@@ -90,3 +90,77 @@ def get_legacy_subdir_path(plugin_data_dir: str, legacy_name: str) -> str:
         # memory_path = ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
     """
     return os.path.join(plugin_data_dir, legacy_name)
+
+
+# --- shared memory root (keep this block byte-identical in every copy of this file) ---
+
+# userConfig key `shared_memory_root` (declared in agent-nelly's and agent-isdd's plugin.json).
+# Claude Code exports it to hook processes as CLAUDE_PLUGIN_OPTION_<KEY uppercased>; skill/agent
+# content that runs a hook script by hand passes it through the same way it passes
+# CLAUDE_PLUGIN_DATA: CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}".
+SHARED_MEMORY_ROOT_ENV = "CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT"
+
+# Written into a shared root the first time a plugin uses it (never overwritten afterwards).
+# nelly-index.json is derived from entries/ (rebuilt at SessionStart), so syncing it would only
+# produce conflicts; the append-only files merge cleanly as a union of both sides' lines.
+SHARED_ROOT_GITIGNORE = (
+    "# Derived or machine-local files -- regenerated per machine, never synced.\n"
+    "nelly-index.json\n"
+    "hotspots.json\n"
+    "last-stop.json\n"
+    "snapshots/\n"
+    ".DS_Store\n"
+    "*.conflict-*\n"
+)
+SHARED_ROOT_GITATTRIBUTES = (
+    "# Append-only files: keep both machines' lines on a git merge instead of conflicting.\n"
+    "MEMORY.md merge=union\n"
+    "GLOBAL-MEMORY.md merge=union\n"
+    "*HISTORY*.md merge=union\n"
+    "*.jsonl merge=union\n"
+)
+
+
+def get_shared_memory_root():
+    """The user-configured shared memory root, or None when it isn't configured.
+
+    Unset, empty, or an unsubstituted `${user_config.shared_memory_root}` placeholder all mean
+    "not configured" -- callers then fall back to ${CLAUDE_PLUGIN_DATA}. A configured value must
+    be absolute after `~`/`$VAR` expansion; a relative one raises PluginDataDirUnavailable rather
+    than being resolved against whatever cwd the hook happens to run in.
+    """
+    raw = (os.environ.get(SHARED_MEMORY_ROOT_ENV) or "").strip()
+    if not raw or raw.startswith("${user_config."):
+        return None
+    root = os.path.expanduser(os.path.expandvars(raw))
+    if not os.path.isabs(root):
+        raise PluginDataDirUnavailable(
+            f"{SHARED_MEMORY_ROOT_ENV}={raw!r} is not an absolute path. Set the plugin's "
+            f"shared_memory_root option to an absolute directory, or clear it to use "
+            f"${{CLAUDE_PLUGIN_DATA}}."
+        )
+    return os.path.normpath(root)
+
+
+def get_memory_root(plugin_name: str) -> str:
+    """Directory that holds this plugin's syncable memory subdir (e.g. agent-nelly-memory/).
+
+    The shared memory root when configured -- the same directory for every plugin identity and
+    every machine that points at it -- otherwise ${CLAUDE_PLUGIN_DATA} (raises
+    PluginDataDirUnavailable when that is unset too). Subdir names are the same in both places,
+    so scripts/merge_plugin_data.py can fold an existing data dir into a shared root as-is.
+    """
+    return get_shared_memory_root() or get_plugin_data_dir(plugin_name)
+
+
+def ensure_shared_root_scaffold(root: str) -> None:
+    """Create `root` plus its .gitignore/.gitattributes if missing. Never overwrites either."""
+    os.makedirs(root, exist_ok=True)
+    for name, content in ((".gitignore", SHARED_ROOT_GITIGNORE),
+                          (".gitattributes", SHARED_ROOT_GITATTRIBUTES)):
+        path = os.path.join(root, name)
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(content)
+
+# --- end shared memory root ---

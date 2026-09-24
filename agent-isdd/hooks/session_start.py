@@ -9,7 +9,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import find_state_files, parse_state  # noqa: E402
-from sdd_memory import memory_dir  # noqa: E402
+from sdd_memory import (  # noqa: E402
+    SHARED_ROOT, memory_dir, local_state_dir, ensure_shared_root, write_base_pointer,
+)
 
 
 def _interruption_note(cwd):
@@ -18,7 +20,7 @@ def _interruption_note(cwd):
     recovering from an interruption rather than resuming cleanly. Returns ""
     when there's nothing to say (matches this hook's additive-only convention).
     """
-    d = memory_dir(cwd)
+    d = local_state_dir(cwd)
     snapshots = glob.glob(os.path.join(d, "snapshots", "*"))
     if not snapshots:
         return ""
@@ -57,6 +59,13 @@ def main():
     # cross-project memory lives in agent-nelly, not here.
     mem = memory_dir(cwd)
     lines.append(f"SDD per-feature state for this project: {mem}")
+    if SHARED_ROOT:
+        lines.append(f"(shared memory root: {SHARED_ROOT})")
+    try:
+        ensure_shared_root()
+        write_base_pointer()
+    except OSError:
+        pass  # best-effort; SessionStart must never fail over this
 
     note = _interruption_note(cwd)
     if note:

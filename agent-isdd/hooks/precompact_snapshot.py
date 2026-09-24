@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import find_state_files  # noqa: E402
-from sdd_memory import memory_dir  # noqa: E402
+from sdd_memory import local_state_dir  # noqa: E402
 
 
 def read(path):
@@ -32,7 +32,7 @@ def main():
         sys.exit(0)  # nothing worth snapshotting
 
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    snap_dir = os.path.join(memory_dir(cwd), "snapshots")
+    snap_dir = os.path.join(local_state_dir(cwd), "snapshots")
     out = [f"# SDD pre-compact snapshot — {ts}",
            f"Project: {os.path.abspath(cwd)}",
            f"Trigger: {payload.get('trigger', 'unknown')}", ""]

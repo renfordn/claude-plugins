@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.1.56] - 2026-09-24
+
+- **Feature**: optional `shared_memory_root` plugin option (`userConfig`, exported to hooks as `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT`). When set, `hooks/sdd_memory.py`'s `BASE` becomes `<root>/sdd-memory/`, so SDD spec state is shared across plugin identities and machines. Unset keeps the old behaviour. A relative value raises `PluginDataDirUnavailable`.
+- **Change**: `last-stop.json` and `snapshots/` stay machine-local (`sdd_memory.local_state_dir()`). `session_start.py` scaffolds the shared root's `.gitignore`/`.gitattributes` and records the resolved location in `${CLAUDE_PLUGIN_DATA}/sdd-memory-location.json` for plugin-harness.
+- **Change**: `memory_permission.py` follows the active root. `memory_slug_guard.py` guards the shared root and, while a shared root is active, denies writes into the stale `${CLAUDE_PLUGIN_DATA}/sdd-memory/`.
+- **Change**: command/skill content that runs hook scripts now also passes `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}"`.
+- **Docs**: README section and `docs/shared-memory-root.md`.
+- **Fix**: `hooks/post_write_check.py` now caps `hook_history` in `workflow-state.json` at `MAX_HOOK_HISTORY` (100, oldest dropped). Before this it grew by one entry per state sync with no limit.
+
 ## [0.1.55] - 2026-09-24
 
 - **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.

@@ -27,6 +27,12 @@ See [`docs/install-and-verify.md`](./docs/install-and-verify.md) for the full
 install, verification, and troubleshooting walkthrough covering all 7 plugins
 in the `renfordn-plugins` marketplace.
 
+## Sharing memory across machines
+
+agent-nelly's memory and agent-isdd's SDD state are local to each plugin install and each machine by
+default. To share them, set the `shared_memory_root` option to a synced directory (a git repo is
+recommended). See [`docs/shared-memory-root.md`](./docs/shared-memory-root.md).
+
 ## Why one repo
 
 plugin-harness's `CapabilityMap` reads all 6 plugins from a single base

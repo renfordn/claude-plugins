@@ -1,6 +1,6 @@
 {
   "name": "agent-nelly",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "description": "A general-purpose, project-aware memory orchestration plugin for Claude Code \u2014 goal-aware briefs, cross-project promotion, staleness detection, and consolidation, independent of any other plugin.",
   "author": {
     "name": "Renford Nelson"
@@ -13,5 +13,14 @@
     "orchestration",
     "context",
     "claude-code"
-  ]
+  ],
+  "userConfig": {
+    "shared_memory_root": {
+      "type": "directory",
+      "title": "Shared memory root",
+      "description": "Optional. A directory shared by every machine and plugin install you use (a git repo is recommended; iCloud/Dropbox also work). When set, agent-nelly keeps its memory under <dir>/agent-nelly-memory/ instead of the per-install, per-machine plugin data dir. Use the same value for agent-nelly and agent-isdd. Leave empty to keep memory local.",
+      "required": false,
+      "default": ""
+    }
+  }
 }

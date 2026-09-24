@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.15] - 2026-09-24
+
+- **Feature**: optional `shared_memory_root` plugin option (`userConfig`, exported to hooks as `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT`). When set, `hooks/nelly_memory.py`'s `BASE` becomes `<root>/agent-nelly-memory/` instead of `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/`. Every plugin identity and machine pointed at the same root then shares one store. Unset keeps the old behaviour. A relative value raises `PluginDataDirUnavailable`.
+- **Change**: `hotspots.json` always stays machine-local (`nelly_memory.local_state_dir()`, under `${CLAUDE_PLUGIN_DATA}`). With a shared root, SessionStart scaffolds the root's `.gitignore`/`.gitattributes` (union merge for `MEMORY.md`/`GLOBAL-MEMORY.md`/`*.jsonl`) and rebuilds `nelly-index.json` from `entries/` rather than syncing it.
+- **Change**: `nelly_memory_permission.py` auto-approves under the active root. `nelly_slug_guard.py` guards the shared root and, while a shared root is active, denies writes into the stale `${CLAUDE_PLUGIN_DATA}` store.
+- **Change**: agent/command content that runs hook scripts now also passes `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}"`.
+- **Docs**: README section and `docs/shared-memory-root.md` (setup, git-backed sync, migration via `scripts/merge_plugin_data.py`).
+
 ## [0.4.14] - 2026-09-24
 
 - **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.

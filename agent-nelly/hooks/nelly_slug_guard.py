@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse gate: deny Write/Edit/MultiEdit whose target path resolves
-under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<X>/ when X doesn't match the canonical
-project_slug(cwd) or the literal "global" directory.
+under <memory root>/agent-nelly-memory/<X>/ when X doesn't match the canonical
+project_slug(cwd) or the literal "global" directory. <memory root> is the shared_memory_root
+plugin option when set, else ${CLAUDE_PLUGIN_DATA}; with a shared root configured, any write
+under the (now stale) ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/ copy is denied as well.
 
 Rationale: nothing should hand-compute or approximate a project slug instead
 of using nelly_memory.py's canonical resolver. This hook makes the correct
@@ -23,10 +25,20 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from nelly_memory import BASE, project_slug  # noqa: E402
+from nelly_memory import BASE, LOCAL_BASE, project_slug  # noqa: E402
 
-_SLUG_PATTERN = re.compile(
-    r"^" + re.escape(os.path.normpath(BASE)) + re.escape(os.sep) + r"([^" + re.escape(os.sep) + r"]+)"
+
+def _slug_pattern(base):
+    return re.compile(
+        r"^" + re.escape(os.path.normpath(base)) + re.escape(os.sep) + r"([^" + re.escape(os.sep) + r"]+)"
+    )
+
+
+_SLUG_PATTERN = _slug_pattern(BASE)
+# Only set when a shared memory root is configured (BASE then differs from LOCAL_BASE): the
+# ${CLAUDE_PLUGIN_DATA} copy of the store is stale from then on, so writes there are denied.
+_LOCAL_PATTERN = (
+    _slug_pattern(LOCAL_BASE) if os.path.normpath(LOCAL_BASE) != os.path.normpath(BASE) else None
 )
 
 
@@ -72,9 +84,19 @@ def main():
     abspath = file_path if os.path.isabs(file_path) else os.path.join(cwd, file_path)
     norm = os.path.normpath(abspath)
 
+    if _LOCAL_PATTERN is not None and _LOCAL_PATTERN.match(norm):
+        deny(
+            f"Agent Nelly slug guard: '{norm}' is under the local "
+            f"${{CLAUDE_PLUGIN_DATA}} memory store ({LOCAL_BASE}), but a shared memory root "
+            f"is configured, so the live store is {BASE}. Resolve the path via "
+            f"'hooks/nelly_memory.py --path' (passing CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT) "
+            f"and use its output verbatim. To bring old local entries across, run "
+            f"scripts/merge_plugin_data.py."
+        )
+
     m = _SLUG_PATTERN.match(norm)
     if not m:
-        no_decision()  # not under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/ at all
+        no_decision()  # not under <memory root>/agent-nelly-memory/ at all
 
     segment = m.group(1)
     if segment == "global":

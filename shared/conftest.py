@@ -12,3 +12,7 @@ if not os.environ.get("CLAUDE_PLUGIN_DATA"):
     _data = os.path.join(tempfile.mkdtemp(prefix="plugins-data-test-"), _plugin)
     os.makedirs(_data)
     os.environ["CLAUDE_PLUGIN_DATA"] = _data
+
+# A developer's real shared_memory_root option must never leak into tests; tests that exercise
+# it set CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT themselves (in a subprocess or reloaded module).
+os.environ.pop("CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT", None)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Core path-resolution primitives for Agent Nelly's independent memory store.
 
-Memory lives under ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/ — a NEW root,
+Memory lives under <root>/agent-nelly-memory/<project-slug>/, where <root> is the user's
+`shared_memory_root` plugin option when set (one store for every plugin identity and machine
+pointed at it) and ${CLAUDE_PLUGIN_DATA} otherwise — a NEW root,
 structurally independent from SDD's sdd-memory/. Every other file in
 this plugin resolves paths by calling into this module; nothing hand-computes a
 path under BASE (see hooks/nelly_slug_guard.py, Phase 4).
@@ -32,11 +34,18 @@ from shared_slug import get_project_slug
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
-from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+from path_resolution import (  # noqa: E402
+    get_plugin_data_dir, get_legacy_subdir_path, get_memory_root, get_shared_memory_root,
+    ensure_shared_root_scaffold,
+)
 
-# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
-_plugin_data_dir = get_plugin_data_dir("agent-nelly")
-BASE = get_legacy_subdir_path(_plugin_data_dir, "agent-nelly-memory")
+# BASE holds the syncable store (MEMORY.md, entries/, archive/, global/): the user's
+# shared_memory_root option when set, else ${CLAUDE_PLUGIN_DATA}. LOCAL_BASE is always
+# ${CLAUDE_PLUGIN_DATA} and holds machine-local churn (hotspots.json) that must never be synced
+# -- see local_state_dir(). The two are the same directory when no shared root is configured.
+SHARED_ROOT = get_shared_memory_root()
+BASE = get_legacy_subdir_path(get_memory_root("agent-nelly"), "agent-nelly-memory")
+LOCAL_BASE = get_legacy_subdir_path(get_plugin_data_dir("agent-nelly"), "agent-nelly-memory")
 
 
 # Backward compatibility: alias to shared implementation
@@ -51,6 +60,22 @@ def project_slug(cwd):
 
 def memory_dir(cwd):
     return os.path.join(BASE, project_slug(cwd))
+
+
+def local_state_dir(cwd):
+    """Machine-local per-project dir for high-churn state (hotspots.json).
+
+    Always under ${CLAUDE_PLUGIN_DATA}, even when a shared memory root is configured:
+    hotspots.json is rewritten on every Read/Write, so syncing it would make every machine
+    rewrite the same file constantly. Equal to memory_dir(cwd) when no shared root is set.
+    """
+    return os.path.join(LOCAL_BASE, project_slug(cwd))
+
+
+def ensure_shared_root():
+    """Scaffold the shared memory root (.gitignore/.gitattributes) when one is configured."""
+    if SHARED_ROOT:
+        ensure_shared_root_scaffold(SHARED_ROOT)
 
 
 def _write_index_header(index_path, lines):

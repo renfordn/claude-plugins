@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.6] - 2026-09-24
+
+- **Change**: `hooks/hook_state.py`'s `BASE` now follows agent-isdd's recorded sdd-memory location (`<agent-isdd data dir>/sdd-memory-location.json`, which is its `shared_memory_root` when configured) before falling back to the symlink/registry coordination.
+- **Fix**: `_ensure_sdd_memory_coordination()` had a function-local `import json`, so its `except (OSError, json.JSONDecodeError)` could raise `UnboundLocalError`. It now uses the module-level import.
+- **Chore**: `hooks/path_resolution.py` synced with `shared/` (shared memory root helpers).
+
 ## [2.1.5] - 2026-09-24
 
 - **Fix**: checkpoint snapshots could still carry derived orchestration history, which is what inflated `workflow-state.json` to 18 GB per file on 2026-09-24. `CheckpointManager` now excludes both `orchestration.checkpoints` and `orchestration.handoff_history` from every `state_snapshot` (`SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS`). `restore_checkpoint()` copies both over from the current state, so saving a restored state no longer drops the checkpoint list or audit log. `prune_old_checkpoints()` also strips nested history from snapshots written by older versions, so an already-bloated file shrinks at its next checkpoint.

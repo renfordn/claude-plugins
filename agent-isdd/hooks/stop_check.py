@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import active_state_file, parse_state  # noqa: E402
-from sdd_memory import memory_dir  # noqa: E402
+from sdd_memory import local_state_dir  # noqa: E402
 
 
 PHASE_ORDER = ["Requirements", "Design", "Tasks"]  # Expected phase progression
@@ -30,7 +30,7 @@ def _write_last_stop_marker(cwd):
     a clean resume apart from recovering after an interrupted session. Additive
     and best-effort — never affects Stop's control flow."""
     try:
-        d = memory_dir(cwd)
+        d = local_state_dir(cwd)
         os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, "last-stop.json"), "w", encoding="utf-8") as fh:
             json.dump({"timestamp": datetime.datetime.now().isoformat()}, fh)

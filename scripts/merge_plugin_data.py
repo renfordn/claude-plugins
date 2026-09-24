@@ -28,6 +28,11 @@ Drive, a USB stick), then on the other machine merge that copy into its local da
     python3 scripts/merge_plugin_data.py /path/to/synced/agent-nelly \\
         ~/.claude/plugins/data/agent-nelly-renfordn-plugins
 
+Into a shared memory root (the agent-nelly/agent-isdd `shared_memory_root` option -- see
+docs/shared-memory-root.md), merge each identity's memory subdir into the matching one there:
+    python3 scripts/merge_plugin_data.py \
+        ~/.claude/plugins/data/agent-nelly-inline/agent-nelly-memory ~/claude-memory/agent-nelly-memory
+
 Stdlib only. Run with --dry-run first to see what would change.
 """
 

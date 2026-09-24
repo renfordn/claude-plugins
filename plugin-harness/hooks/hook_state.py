@@ -4,10 +4,13 @@ Locates and persists the same workflow-state.json that agent-isdd scaffolds and
 agent-tdd reads, so the orchestrator's PreToolUse/SubagentStop hooks mutate the
 one shared per-feature state file rather than an orchestrator-private copy.
 
-Resolves ${CLAUDE_PLUGIN_DATA} env var for official storage location. Since this
-plugin shares sdd-memory with agent-isdd, symlink logic is coordinated in Task 3.1.
+Follows agent-isdd's resolved sdd-memory: the location agent-isdd records in its own
+${CLAUDE_PLUGIN_DATA}/sdd-memory-location.json (which is its shared_memory_root when the user
+configured one), else agent-isdd's ${CLAUDE_PLUGIN_DATA}/sdd-memory via the symlink/registry
+coordination below.
 """
 import glob
+import json
 import os
 import re
 import sys
@@ -21,7 +24,8 @@ _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
 from path_resolution import (  # noqa: E402
-    get_plugin_data_dir, get_legacy_subdir_path, get_sibling_plugin_data_dir,
+    PluginDataDirUnavailable, get_plugin_data_dir, get_legacy_subdir_path,
+    get_sibling_plugin_data_dir,
 )
 
 # Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
@@ -91,7 +95,6 @@ def _ensure_sdd_memory_coordination():
                 "actual_path": isdd_sdd_memory,
                 "created": True
             }
-            import json
             with open(registry_path, "w", encoding="utf-8") as f:
                 json.dump(registry, f)
     except (OSError, json.JSONDecodeError):
@@ -100,9 +103,37 @@ def _ensure_sdd_memory_coordination():
     return orch_sdd_memory
 
 
-# Call coordination at module import time
-_ensure_sdd_memory_coordination()
-BASE = _default_base
+# Must match agent-isdd/hooks/sdd_memory.py's BASE_POINTER_NAME.
+ISDD_BASE_POINTER_NAME = "sdd-memory-location.json"
+
+
+def _isdd_pointer_base():
+    """agent-isdd's resolved sdd-memory, as recorded by its SessionStart hook, or None.
+
+    agent-isdd may be configured with a shared_memory_root (a userConfig option only
+    agent-isdd's own hooks receive), in which case its sdd-memory is no longer under its
+    ${CLAUDE_PLUGIN_DATA} at all and the symlink coordination below would point at stale
+    state. agent-isdd writes its resolved location to ${CLAUDE_PLUGIN_DATA}/
+    sdd-memory-location.json (sdd_memory.write_base_pointer()); following that keeps both
+    plugins on the same directory. Missing/malformed/non-absolute -> None (fall back).
+    """
+    try:
+        isdd_plugin_data = get_sibling_plugin_data_dir("plugin-harness", "agent-isdd")
+        with open(os.path.join(isdd_plugin_data, ISDD_BASE_POINTER_NAME), "r", encoding="utf-8") as fh:
+            location = json.load(fh).get("sdd_memory")
+    except (OSError, ValueError, AttributeError, PluginDataDirUnavailable):
+        return None
+    if isinstance(location, str) and os.path.isabs(location):
+        return os.path.normpath(location)
+    return None
+
+
+# Resolve at module import time: agent-isdd's recorded location first, else the
+# symlink/registry coordination against its ${CLAUDE_PLUGIN_DATA}/sdd-memory.
+BASE = _isdd_pointer_base()
+if BASE is None:
+    _ensure_sdd_memory_coordination()
+    BASE = _default_base
 
 
 def project_slug(cwd):
