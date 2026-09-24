@@ -108,6 +108,25 @@ class PostWriteCheckJsonSyncTests(unittest.TestCase):
             with open(json_path) as fh:
                 self.assertEqual(fh.read(), before)
 
+    def test_hook_history_is_capped(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            old = [{"hook": "old", "i": i} for i in range(150)]
+            feature_dir, md_path, json_path = self._seed(
+                home, repo,
+                {"current_phase": "Design", "workflow_status": "In Progress"},
+                {"current_phase": "Tasks", "phase_state": "In Progress", "hook_history": old},
+            )
+            h.run_hook_message(
+                "post_write_check.py",
+                {"tool_input": {"file_path": md_path}, "cwd": repo},
+                env_extra={"HOME": home},
+            )
+            with open(json_path) as fh:
+                history = json.load(fh)["hook_history"]
+            self.assertEqual(len(history), 100)
+            self.assertEqual(history[-1]["hook"], "post_write_check/state_sync")
+            self.assertEqual(history[0]["i"], 51)
+
     def test_drift_is_synced_toward_md_silently(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir, md_path, json_path = self._seed(

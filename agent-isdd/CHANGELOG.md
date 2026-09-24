@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Fix**: `hooks/post_write_check.py` capped `workflow-state.json`'s `hook_history` at `MAX_HOOK_HISTORY` (100, oldest dropped first), so the file stops growing without bound.
+
 ## [0.1.56] - 2026-09-24
 
 - **Feature**: optional `shared_memory_root` plugin option (`userConfig`, exported to hooks as `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT`). When set, `hooks/sdd_memory.py`'s `BASE` becomes `<root>/sdd-memory/`, so SDD spec state is shared across plugin identities and machines. Unset keeps the old behaviour. A relative value raises `PluginDataDirUnavailable`.

@@ -28,6 +28,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import parse_state, parse_state_json, write_state_json  # noqa: E402
 
+# Entries retained in workflow-state.json's hook_history (oldest dropped first).
+MAX_HOOK_HISTORY = 100
+
 PHASE_TASK_SUFFIXES = ("workflow-state.md", "tasks/tasks.md")
 
 FIELD_MAP = {
@@ -75,6 +78,7 @@ def _sync_json(file_path):
         "fields": sorted(updates.keys()),
         "timestamp": ts,
     })
+    del history[:-MAX_HOOK_HISTORY]
     write_state_json(json_path, json_fields)
 
 
