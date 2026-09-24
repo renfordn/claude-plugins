@@ -133,7 +133,7 @@ Pulled straight from `MetricsTracker.getRecommendations()` — the same suggesti
 ```
 or, outside a Claude Code session:
 ```bash
-node scripts/cache-command.js dashboard --output dashboard.html
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" dashboard --output dashboard.html
 ```
 Both default `--output` to `cache-dashboard.html` in the current directory when omitted.
 

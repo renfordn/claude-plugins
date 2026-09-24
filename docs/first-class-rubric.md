@@ -19,9 +19,12 @@ checker output) and enforced mechanically in CI where possible
 
 ## Declared absence
 
-A plugin may add an optional `first_class.declared_absent` array to its own
-`.claude-plugin/plugin.json` naming components it intentionally omits, drawn
-from a fixed enum: `hooks`, `commands`, `skills`, `agents`, `INTEROP.md`.
+A plugin may add an optional `.claude-plugin/first-class.json` sidecar
+(`{"declared_absent": [...]}`) naming components it intentionally omits, drawn
+from a fixed enum: `hooks`, `commands`, `skills`, `agents`, `INTEROP.md`. It
+lives outside `plugin.json` because `claude plugin validate --strict` rejects
+unknown manifest fields. (A legacy `first_class` key in `plugin.json` is
+still honored if present.)
 `tests` is **not** in the enum and can never be declared absent — every
 plugin must have tests, no escape hatch. An unrecognized value in the array
 does not suppress any check (fails closed).

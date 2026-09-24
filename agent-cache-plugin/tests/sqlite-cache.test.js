@@ -185,9 +185,9 @@ describe('getSingleton / resetSingleton', () => {
 });
 
 describe('Security — path sanitization', () => {
-  // NB: these must not `delete process.env.CLAUDE_PLUGIN_DATA` to force the homedir fallback --
-  // that fallback is the developer's real cache, and a later getSingleton() in the same worker
-  // would write to it. Both paths below are outside the allowed base either way.
+  // NB: these must not `delete process.env.CLAUDE_PLUGIN_DATA` -- without it getSingleton()
+  // throws before reaching the path check under test. Both paths below are outside the
+  // allowed base either way.
   afterEach(() => {
     resetSingleton();
   });

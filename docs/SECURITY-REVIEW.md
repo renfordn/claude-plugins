@@ -19,8 +19,8 @@ plugin-harness, agent-cache-plugin
 | agent-tdd | Python (hooks) | None | `~/.claude/agent-tdd-state/` read/write | None (stdlib only) |
 | agent-ux | None (skills only) | None | None | None |
 | code-reviewer | Python (hooks) | None | Project files read-only | None (stdlib only) |
-| plugin-harness | Python (hooks) + MCP server | None (stdio MCP) | `~/.claude/.../sdd-memory/` read/write | `redis` (dev/optional), `mcp<2` (MCP server only) |
-| agent-cache-plugin | Node.js | None | `~/.claude/plugin-data/` read/write | `better-sqlite3` (production) |
+| plugin-harness | Python (hooks) + MCP server | None (stdio MCP) | `${CLAUDE_PLUGIN_DATA}` + agent-isdd's sibling data dir (`sdd-memory/`) read/write | `redis` (dev/optional), `mcp<2` (MCP server only) |
+| agent-cache-plugin | Node.js | None | `${CLAUDE_PLUGIN_DATA}` read/write | `better-sqlite3` (production) |
 
 **No plugin opens an inbound network listener.** All external communication is either:
 - Outbound only, initiated by the Claude Code host (never by the plugins themselves), or
@@ -38,7 +38,7 @@ Claude Code host (trusted)
   │    └─ Read-only access to workflow-state.json
   │
   └─ agent-cache-plugin CLI commands — Node.js, path-validated DB writes
-       └─ DB confined to CLAUDE_PLUGIN_DATA or ~/.claude/plugin-data/
+       └─ DB confined to CLAUDE_PLUGIN_DATA (required; no fallback)
 ```
 
 ### 1.3 Threat Vectors Considered

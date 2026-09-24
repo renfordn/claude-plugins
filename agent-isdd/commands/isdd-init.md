@@ -6,7 +6,7 @@ This is the guided first-contact command for the plugin: a short `AskUserQuestio
 of asking the user to read docs before their first feature.
 
 1. Resolve `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/` via
-   `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path`, and check whether any
+   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path`, and check whether any
    `spec/<date-slug>/workflow-state.md` already exists under it, or whether it already has other
    entries. If either is true, this project is already onboarded — report its current state
    (delegate to `spec-driven-development`'s status path) instead of re-scaffolding, and stop.

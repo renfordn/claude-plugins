@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-24
+
+- **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.
+- **Fix**: hooks and the sqlite-cache / metrics-tracker skills fell back to a nonexistent `~/.claude/plugin-data/agent-cache-plugin` when `CLAUDE_PLUGIN_DATA` was unset; they now report a clear error instead (hooks still exit 0). Commands document running `scripts/cache-command.js` with `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"`.
+
 ## [2.2.0] - 2026-09-22
 
 - **Feat**: `/cache-dashboard` — `commands/cache-dashboard.js` is now routed through

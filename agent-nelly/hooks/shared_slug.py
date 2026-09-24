@@ -24,8 +24,8 @@ def get_project_slug(cwd: Optional[str] = None) -> str:
         characters with hyphens, lowercased.
 
     Examples:
-        /Users/jay/Codebase/AI/plugins/claude/agent-nelly → users-jay-codebase-ai-plugins-claude-agent-nelly
-        /home/user/project → home-user-project
+        /srv/code/plugins/agent-nelly → srv-code-plugins-agent-nelly
+        /tmp/project → tmp-project
     """
     if cwd is None:
         cwd = os.getcwd()

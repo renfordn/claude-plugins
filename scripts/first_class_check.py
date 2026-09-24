@@ -49,7 +49,7 @@ from collections import namedtuple
 ItemResult = namedtuple("ItemResult", ["plugin", "item_id", "status", "evidence"])
 
 # Fixed enum of structural/component names a plugin may declare intentionally
-# absent via first_class.declared_absent in its own plugin.json. "tests" is
+# absent via first_class.declared_absent in its own .claude-plugin/first-class.json. "tests" is
 # deliberately excluded -- every plugin must have tests, no escape hatch.
 DECLARED_ABSENT_ENUM = frozenset({"hooks", "commands", "skills", "agents", "INTEROP.md"})
 
@@ -440,9 +440,20 @@ def _load_plugin_json_safe(plugin_dir: str):
     path = os.path.join(plugin_dir, ".claude-plugin", "plugin.json")
     try:
         with open(path) as f:
-            return json.load(f)
+            plugin_json = json.load(f)
     except (OSError, ValueError):
         return None
+    # first_class lives in a sidecar, not plugin.json: `claude plugin validate
+    # --strict` rejects unknown manifest fields. Merged under the same key so
+    # is_declared_absent() reads it unchanged.
+    if isinstance(plugin_json, dict) and "first_class" not in plugin_json:
+        sidecar = os.path.join(plugin_dir, ".claude-plugin", "first-class.json")
+        try:
+            with open(sidecar) as f:
+                plugin_json["first_class"] = json.load(f)
+        except (OSError, ValueError):
+            pass
+    return plugin_json
 
 
 def _run_all_checks(marketplace_path: str) -> list:

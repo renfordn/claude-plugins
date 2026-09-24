@@ -14,6 +14,12 @@ Delete cache entries by filter, or everything.
              [--pattern SUBSTR] [--id KEY] [--tags A,B]
 ```
 
+## Run
+```bash
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" clear [options]
+```
+Pass `CLAUDE_PLUGIN_DATA` explicitly -- the Bash tool doesn't have it, and the script refuses to guess a data directory.
+
 ## Options
 - `--all --yes` - Delete every entry. `--all` alone only reports the count and asks for `--yes`.
 - `--agent AGENT` - Entries whose `agent_type` matches (comma-separate for several)

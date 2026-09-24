@@ -10,7 +10,6 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const { readStdinJSON } = require('./_stdin-reader');
 const { sanitizeDeep } = require('../utils/sanitize-deep');
 
@@ -19,10 +18,7 @@ const CACHE_MD_MAX_BYTES = 500 * 1024; // 500 KB
 function resolveDataDir() {
   const d = process.env.CLAUDE_PLUGIN_DATA;
   if (!d) {
-    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
-    process.stderr.write('[agent-cache-plugin] CLAUDE_PLUGIN_DATA unset; falling back to ' + fallback + '\n');
-    fs.mkdirSync(fallback, { recursive: true });
-    return fallback;
+    throw new Error('[agent-cache-plugin] CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code, or set CLAUDE_PLUGIN_DATA to this plugin\'s data directory.');
   }
   fs.mkdirSync(d, { recursive: true });
   return d;

@@ -18,6 +18,9 @@ import pytest
 import nelly_memory
 import nelly_session_start
 
+# Real home dir, not a hardcoded one -- these paths are only slug inputs.
+HOME = os.path.expanduser("~")
+
 
 @pytest.fixture(autouse=True)
 def isolated_base(tmp_path, monkeypatch):
@@ -25,7 +28,7 @@ def isolated_base(tmp_path, monkeypatch):
     return tmp_path
 
 
-CWD = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+CWD = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
 
 
 def _run(monkeypatch, capsys, cwd=CWD):

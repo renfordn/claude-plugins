@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-24
+
+- **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.
+
 ## [0.1.8] - 2026-09-24
 
 - **Docs**: `INTEROP.md`'s "Current callers" line listed `code-reviewer` as a live caller of the

@@ -37,7 +37,10 @@ def run_hook(payload, env=None):
 
 
 def _isolated_env(tmp_path):
-    return {"HOME": str(tmp_path / "home")}
+    return {
+        "HOME": str(tmp_path / "home"),
+        "CLAUDE_PLUGIN_DATA": str(tmp_path / "home" / ".claude" / "plugins" / "data" / "agent-nelly"),
+    }
 
 
 def _memory_dir(cwd, env):

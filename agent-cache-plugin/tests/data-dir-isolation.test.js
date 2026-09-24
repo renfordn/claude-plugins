@@ -1,21 +1,21 @@
 /**
  * Guard: the test suite must never touch the developer's real plugin data directory.
  *
- * sqlite-cache's getSingleton() and the hooks' resolveDataDir() fall back to
- * ~/.claude/plugin-data/agent-cache-plugin when CLAUDE_PLUGIN_DATA is unset. Before the jest
- * env isolation landed, running the suite appended to that CACHE.md and mutated that cache.db.
+ * sqlite-cache's getSingleton() and the hooks' resolveDataDir() require CLAUDE_PLUGIN_DATA and
+ * throw without it (no guessed fallback). The jest env pins it to a per-worker temp dir so the
+ * suite never reads or writes a real ~/.claude/plugins/data/ directory.
  */
 const { execFileSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 
-const REAL_DATA_DIR = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
+const REAL_DATA_ROOT = path.join(os.homedir(), '.claude', 'plugins', 'data');
 
 describe('test data-dir isolation', () => {
   test('CLAUDE_PLUGIN_DATA is set and is not the real plugin data dir', () => {
     const dir = process.env.CLAUDE_PLUGIN_DATA;
     expect(dir).toBeTruthy();
-    expect(path.resolve(dir)).not.toBe(path.resolve(REAL_DATA_DIR));
+    expect(path.resolve(dir).startsWith(path.resolve(REAL_DATA_ROOT))).toBe(false);
     expect(path.resolve(dir).startsWith(path.resolve(os.tmpdir()))).toBe(true);
   });
 
@@ -27,7 +27,18 @@ describe('test data-dir isolation', () => {
       encoding: 'utf-8'
     }).trim();
     expect(out).toBeTruthy();
-    expect(path.resolve(out)).not.toBe(path.resolve(REAL_DATA_DIR));
+    expect(path.resolve(out).startsWith(path.resolve(REAL_DATA_ROOT))).toBe(false);
+  });
+
+  test('a hook run without CLAUDE_PLUGIN_DATA reports a clear error instead of guessing a dir', () => {
+    const { spawnSync } = require('child_process');
+    const env = { ...process.env };
+    delete env.CLAUDE_PLUGIN_DATA;
+    const res = spawnSync('node', [path.join(__dirname, '..', 'hooks', 'cache-invalidation.js')], {
+      input: '{}', encoding: 'utf-8', env
+    });
+    expect(res.status).toBe(0);
+    expect(res.stderr).toContain('CLAUDE_PLUGIN_DATA is not set');
   });
 
   test('sqlite-cache resolves its DB inside the throwaway dir', () => {

@@ -276,8 +276,54 @@ question** — never a list, never open-ended back-and-forth.
 
 ## Output Shape (per finding)
 
-`id`, `title`, `locations`, `evidence_tier`, `decision`/`severity`/`category`/`workflow_action`/
-`confidence`, `evidence` (what was read or run to support the tier), `resolution_note`.
+Internally, each finding carries: `id`, `title`, `locations`, `evidence_tier`,
+`decision`/`severity`/`category`/`workflow_action`/`confidence`, `evidence` (what was read or run
+to support the tier), `resolution_note`. These are the *review record* — they live in the
+dashboard, `REVIEW-STATE.md`, and your reasoning. They are **not** `ReportFindings` fields.
+
+## ReportFindings Payload (the handover)
+
+`ReportFindings` validates its input with a strict schema and rejects the **entire** call if one
+field is over its limit — the user then sees "Failed to report review findings" and nothing
+renders. The model builds this JSON by hand, so there is no validator to lean on: budget each
+field as you write it.
+
+Accepted fields per finding — anything else is dropped or rejected:
+
+| Field | Limit | Put here |
+|---|---|---|
+| `file` (required) | repo-relative path | first entry of `locations` |
+| `line` | integer | first line of that location |
+| `short_summary` | **≤ 60 chars, hard** | the claim alone, ~8 words. No rationale, no tier/severity tags, no file path |
+| `summary` (required) | one sentence, aim ≤ 200 chars | `[severity · tier-N · decision] ` prefix, then the defect in one sentence |
+| `failure_scenario` (required) | 1–2 sentences | concrete input/state → wrong output/crash; for non-bug findings, the concrete cost |
+| `category` | ≤ 40 chars, kebab-case | the Decision Model `category` |
+| `verdict` | `CONFIRMED` \| `PLAUSIBLE` | `CONFIRMED` for tier-1/2, `PLAUSIBLE` for tier-3/4/5 |
+
+Top-level: `findings` (ranked most-severe first, **max 32**), and `level` mapped from
+`review_level` — Quick→`low`, Standard→`medium`, Deep→`high`, Ultra→`xhigh`.
+
+Everything else (`evidence`, `workflow_action`, `confidence`, `resolution_note`, extra
+locations) stays out of the payload. If it matters to the user, it goes in the dashboard or one
+line of follow-up text — not stuffed into `summary`.
+
+Example of a well-formed finding:
+
+```json
+{"file": "src/cache.py", "line": 88, "category": "correctness", "verdict": "CONFIRMED",
+ "short_summary": "TTL check uses < so entries expire one tick late",
+ "summary": "[high · tier-1 · block] Expiry compares now < ttl instead of now <= ttl, keeping stale entries alive.",
+ "failure_scenario": "Entry with ttl=100 read at t=100 returns stale data instead of a miss."}
+```
+
+Before calling:
+
+1. Count every `short_summary` — if any is over 60, rewrite it shorter (don't just chop mid-word).
+2. More than 32 findings? Merge `nit`/`low` items per the anti-blur rules, and move the rest to
+   the dashboard (which the >5-finding threshold already requires).
+3. If the call still fails with a validation error, read the `path` in the error (e.g.
+   `findings.1.short_summary`), fix that field, and call again. Don't give up and dump findings
+   as prose — a failed handover means the caller gets nothing structured.
 
 ## Guardrails
 

@@ -23,7 +23,7 @@ Requested action (default `view`): $ARGUMENTS
   `scholar-memory.md`, `GLOBAL-MEMORY.md`, or similar files). To recover it:
   1. Resolve this project's sdd-memory directory:
      ```
-     python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path
+     CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path
      ```
   2. Tell the user to run `/nelly-memory import <that-resolved-path>`. `import` creates one
      agent-nelly memory entry per source file found in the directory; it is safe and idempotent

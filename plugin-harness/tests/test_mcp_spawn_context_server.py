@@ -77,7 +77,10 @@ async def _call_get_spawn_context(cwd, plugin_data_dir):
 @unittest.skipUnless(HAS_MCP, "mcp package not installed (pip install -r mcp_server/requirements.txt)")
 class TestSpawnContextServer(unittest.TestCase):
     def setUp(self):
-        self.plugin_data_dir = tempfile.mkdtemp()
+        # Named like a real ~/.claude/plugins/data/<plugin>/ dir: the server derives
+        # agent-isdd's sibling dir from this name and refuses to guess otherwise.
+        self.plugin_data_dir = os.path.join(tempfile.mkdtemp(), "plugin-harness")
+        os.makedirs(self.plugin_data_dir)
         patcher = patch.object(hook_state, "BASE", os.path.join(self.plugin_data_dir, "sdd-memory"))
         patcher.start()
         self.addCleanup(patcher.stop)

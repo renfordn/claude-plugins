@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.14] - 2026-09-24
+
+- **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.
+- **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.
+- **Fix**: `hooks/plugin_data_whitelist.py`'s namespace check looked for a `plugin-data/<name>/` path segment that never exists; it now requires the real path to sit inside `${CLAUDE_PLUGIN_DATA}` (raises if unset).
+- **Fix**: `scripts/nelly_populate_from_git.py` defaulted to a hardcoded `~/Codebase`; it now defaults to `$CLAUDE_PROJECT_DIR` / cwd (`$NELLY_REPO_BASE` still overrides).
+- **Docs/Tests**: removed user-machine-specific absolute paths from tests, `shared_slug.py`, `MANUAL-VALIDATION.md` and `PLUGIN_HOOKS_PATTERN.md` (examples now use `${CLAUDE_PLUGIN_DATA}`).
+
 ## [0.4.13] - 2026-09-24
 
 - **Docs**: `agents/agent-nelly.md` claimed agent-nelly + nelly-maintenance are the *only*

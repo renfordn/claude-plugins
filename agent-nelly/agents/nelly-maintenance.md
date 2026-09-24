@@ -15,7 +15,7 @@ per call; no consumer plugin's brief/fact-recording contract (see `INTEROP.md`) 
 
 Path resolution: whenever you need `memory_dir(cwd)`, `entry_path(cwd, name)`,
 `archive_path(cwd, name)`, or `global_dir()`, run
-`python3 hooks/nelly_memory.py --path [cwd]` / read the module's documented shape and construct
+`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --path [cwd]` / read the module's documented shape and construct
 the equivalent path yourself using the same rule (`<memory_dir>/entries/<name>.md`,
 `<memory_dir>/archive/<name>.md`, `<BASE>/global/`). Never invent a different layout — the same
 discipline `agent-nelly` follows.

@@ -37,7 +37,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_index  # noqa: E402
 
 _DEFAULT_LIMIT = 200
-_DEFAULT_BASE = "~/Codebase"
 _MAX_DEPTH = 2
 
 # Commit boundary is \x00 (never appears in a subject line); hash and
@@ -203,7 +202,7 @@ def _build_arg_parser():
         dest="repos",
         metavar="PATH",
         help="Path to a git repo to scan (repeatable). Defaults to auto-discovering repos under "
-        "$NELLY_REPO_BASE (or ~/Codebase) up to 2 directory levels deep.",
+        "$NELLY_REPO_BASE (or the current project, $CLAUDE_PROJECT_DIR / cwd) up to 2 directory levels deep.",
     )
     parser.add_argument(
         "--limit",
@@ -225,7 +224,9 @@ def main(argv=None):
 
     repos = args.repos
     if not repos:
-        base = os.path.expanduser(os.environ.get("NELLY_REPO_BASE") or _DEFAULT_BASE)
+        base = os.path.expanduser(
+            os.environ.get("NELLY_REPO_BASE") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+        )
         repos = discover_repos(base)
         if not repos:
             print(f"[nelly] no git repos found under {base}")

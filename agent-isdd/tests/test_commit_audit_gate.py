@@ -113,7 +113,7 @@ class CommitAuditGateTests(unittest.TestCase):
 
     def test_count_today_reflects_logged_runs(self):
         with h.temp_git_repo(with_plugin_dirs=True) as repo, h.temp_home() as home:
-            env = dict(os.environ, HOME=home)
+            env = h._hook_env({"HOME": home})
 
             # nothing staged -> allow, logged
             decision, rc = h.run_hook(

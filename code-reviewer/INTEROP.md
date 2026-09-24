@@ -156,6 +156,8 @@ Before calling `ReportFindings`, ensure all findings meet the tool's field const
 - `short_summary`: ≤60 characters (required)
 - `summary`: ≤200 characters (recommended)
 
-Use the shared `findings_validator` utility to truncate oversized fields and validate input before
-calling the tool. See `shared/FINDINGS_VALIDATOR_USAGE.md` for examples and API reference. This
-prevents `ReportFindings` call failures when findings contain verbose summaries.
+The skill enforces these itself — see SKILL.md §"ReportFindings Payload (the handover)" for the
+full field mapping from the internal review record to the tool schema. Callers building their
+own `ReportFindings` payload from Python can use `shared/findings_validator.py`
+(`shared/FINDINGS_VALIDATOR_USAGE.md`), but the skill doesn't depend on it: the model writes the
+tool-call JSON directly and can't run a Python helper from inside it.

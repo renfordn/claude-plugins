@@ -7,11 +7,12 @@ code path production uses and needs no per-module mock/reset bookkeeping between
 Assumed baseline: Python 3.11 (see .github/workflows/tests.yml -- nothing in this repo pinned a
 version before this test suite existed).
 
-Isolation: hooks resolve ~/.claude/plugins/data/agent-isdd/sdd-memory/ (the ${CLAUDE_PLUGIN_DATA}
-fallback -- see hooks/sdd_memory.py's BASE) via os.path.expanduser("~"), which reads the HOME
-environment variable on POSIX. Every test that could reach that resolution MUST pass
-env_extra={"HOME": <temp_home() path>} to run_hook()/run_sdd_memory_cli() -- omitting it risks
-silently touching the real ~/.claude/plugins/data/agent-isdd/sdd-memory/ tree during a test run.
+Isolation: hooks resolve ${CLAUDE_PLUGIN_DATA}/sdd-memory/ (see hooks/sdd_memory.py's BASE) and
+refuse to run without CLAUDE_PLUGIN_DATA. When a test passes env_extra={"HOME": <temp_home()>},
+_hook_env() sets CLAUDE_PLUGIN_DATA to <HOME>/.claude/plugins/data/agent-isdd -- the same layout
+Claude Code uses -- so fixtures built with feature_spec_dir(home, ...) line up with what the hook
+resolves. Without a HOME override the hook inherits conftest.py's throwaway temp dir, never the
+real ~/.claude/plugins/data/ tree.
 """
 import contextlib
 import json
@@ -35,13 +36,27 @@ def project_slug_for(path):
 def feature_spec_dir(home, cwd, feature_slug="2020-01-01-test-feature"):
     """Create and return <home>/.claude/plugins/data/agent-isdd/sdd-memory/<project_slug(cwd)>/
     spec/<feature_slug>/, the same location active_state_file()/find_state_files() would look
-    under given HOME=home (mirrors hooks/sdd_memory.py's BASE -- the ${CLAUDE_PLUGIN_DATA}
-    fallback path, since tests don't set that env var)."""
+    under given HOME=home (mirrors hooks/sdd_memory.py's BASE with CLAUDE_PLUGIN_DATA set by
+    _hook_env() from that HOME)."""
     slug = project_slug_for(cwd)
     d = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory",
                       slug, "spec", feature_slug)
     os.makedirs(d, exist_ok=True)
     return d
+
+
+def plugin_data_for(home):
+    """The CLAUDE_PLUGIN_DATA a real install would get under HOME=home."""
+    return os.path.join(home, ".claude", "plugins", "data", "agent-isdd")
+
+
+def _hook_env(env_extra):
+    env = dict(os.environ)
+    if env_extra:
+        env.update(env_extra)
+        if "HOME" in env_extra and "CLAUDE_PLUGIN_DATA" not in env_extra:
+            env["CLAUDE_PLUGIN_DATA"] = plugin_data_for(env_extra["HOME"])
+    return env
 
 
 def run_hook(name, payload, cwd=None, env_extra=None, timeout=10):
@@ -52,9 +67,7 @@ def run_hook(name, payload, cwd=None, env_extra=None, timeout=10):
     hook's own allow()/deny()-vs-no_decision() convention.
     """
     script = os.path.join(HOOKS_DIR, name)
-    env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
+    env = _hook_env(env_extra)
 
     result = subprocess.run(
         ["python3", script],
@@ -87,9 +100,7 @@ def run_hook_message(name, payload, cwd=None, env_extra=None, timeout=10):
     Returns (systemMessage_str_or_None, returncode).
     """
     script = os.path.join(HOOKS_DIR, name)
-    env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
+    env = _hook_env(env_extra)
 
     result = subprocess.run(
         ["python3", script],
@@ -117,9 +128,7 @@ def run_sdd_memory_cli(args, cwd=None, env_extra=None, timeout=10):
     Returns (stdout_stripped, returncode).
     """
     script = os.path.join(HOOKS_DIR, "sdd_memory.py")
-    env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
+    env = _hook_env(env_extra)
 
     result = subprocess.run(
         ["python3", script] + list(args),

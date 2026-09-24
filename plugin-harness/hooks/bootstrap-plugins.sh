@@ -2,9 +2,10 @@
 set -euo pipefail
 
 # Portable SessionStart hook, bundled with the plugin-harness plugin.
-# Clones/updates renfordn/claude-plugins into the standard plugin data
-# directory so CapabilityMap() finds it in ANY host project, on any device,
-# with no per-project settings.json config required.
+# Clones/updates renfordn/claude-plugins into this plugin's own data directory
+# (${CLAUDE_PLUGIN_DATA}/claude-plugins) so CapabilityMap() finds it in ANY host
+# project, on any device, with no per-project settings.json config required.
+# Set CLAUDE_PLUGINS_DIR to use an existing checkout instead.
 
 echo "🔌 plugin-harness: bootstrapping dependency plugins..."
 
@@ -14,7 +15,11 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 PLUGINS_REPO_URL="https://github.com/renfordn/claude-plugins"
-PLUGINS_DIR="${CLAUDE_PLUGINS_DIR:-$HOME/.claude/plugins/claude-plugins}"
+if [ -z "${CLAUDE_PLUGINS_DIR:-}" ] && [ -z "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    echo "❌ plugin-harness: CLAUDE_PLUGIN_DATA is not set (run via Claude Code, or set CLAUDE_PLUGINS_DIR)"
+    exit 1
+fi
+PLUGINS_DIR="${CLAUDE_PLUGINS_DIR:-$CLAUDE_PLUGIN_DATA/claude-plugins}"
 # CLAUDE_PLUGINS_DIR may come from settings.json, where "$HOME" is a literal
 # string (JSON env values aren't shell-expanded), not an expanded path. Expand
 # it here so this resolves to the same real directory as

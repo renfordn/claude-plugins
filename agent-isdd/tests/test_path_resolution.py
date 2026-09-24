@@ -33,43 +33,28 @@ class GetPluginDataDirTests(unittest.TestCase):
             result = self.module.get_plugin_data_dir("agent-isdd")
             self.assertEqual(result, "/test/plugins/data/agent-isdd-inline")
 
-    def test_fallback_when_env_var_unset(self):
+    def test_raises_when_env_var_unset(self):
+        """No guessed fallback: a guess can point at the wrong install identity's data dir."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-            result = self.module.get_plugin_data_dir("agent-isdd")
-            self.assertTrue(os.path.isabs(result))
-            self.assertIn("agent-isdd", result)
-            self.assertIn(os.path.join(".claude", "plugins", "data"), result)
-
-    def test_never_returns_none(self):
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-            result = self.module.get_plugin_data_dir("agent-isdd")
-            self.assertIsNotNone(result)
-            self.assertIsInstance(result, str)
-            self.assertTrue(len(result) > 0)
-
-    def test_warns_on_stderr_when_env_var_unset(self):
-        """Identity-split-hazard fix: the fallback must be loud, not silent -- see
-        path_resolution.py's module docstring. Warning goes to stderr (never stdout, which
-        every hook uses for its JSON decision) and names both the env var and the plugin."""
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-            captured_err = io.StringIO()
-            with contextlib.redirect_stderr(captured_err):
+            with self.assertRaises(self.module.PluginDataDirUnavailable) as ctx:
                 self.module.get_plugin_data_dir("agent-isdd")
-            warning = captured_err.getvalue()
-            self.assertIn("CLAUDE_PLUGIN_DATA", warning)
-            self.assertIn("agent-isdd", warning)
+            self.assertIn("CLAUDE_PLUGIN_DATA", str(ctx.exception))
+            self.assertIn("agent-isdd", str(ctx.exception))
 
-    def test_no_warning_on_stdout_when_env_var_unset(self):
-        """A hook's stdout is reserved for its JSON hookSpecificOutput/systemMessage -- the
-        warning must never land there, or it would corrupt every caller's JSON parsing."""
+    def test_raises_when_env_var_empty(self):
+        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": ""}):
+            with self.assertRaises(self.module.PluginDataDirUnavailable):
+                self.module.get_plugin_data_dir("agent-isdd")
+
+    def test_nothing_on_stdout_when_env_var_unset(self):
+        """A hook's stdout is reserved for its JSON output -- the failure must never land there."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("CLAUDE_PLUGIN_DATA", None)
             captured_out = io.StringIO()
             with contextlib.redirect_stdout(captured_out):
-                self.module.get_plugin_data_dir("agent-isdd")
+                with self.assertRaises(self.module.PluginDataDirUnavailable):
+                    self.module.get_plugin_data_dir("agent-isdd")
             self.assertEqual(captured_out.getvalue(), "")
 
     def test_no_warning_when_env_var_set(self):

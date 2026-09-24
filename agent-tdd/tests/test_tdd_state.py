@@ -151,15 +151,15 @@ class ClaudePluginDataEnvVarTests(unittest.TestCase):
         finally:
             importlib.reload(tdd_state)
 
-    def test_base_uses_fallback_when_env_unset(self):
-        """Verify BASE falls back to ~/.claude/plugins/data when CLAUDE_PLUGIN_DATA unset."""
+    def test_base_raises_when_env_unset(self):
+        """No guessed fallback: importing without CLAUDE_PLUGIN_DATA fails with a clear error."""
         import importlib
         try:
             with patch.dict(os.environ, {}, clear=False):
                 os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-                importlib.reload(tdd_state)
-                self.assertIn(".claude/plugins/data", tdd_state.BASE)
-                self.assertIn("agent-tdd", tdd_state.BASE)
+                with self.assertRaises(RuntimeError) as ctx:
+                    importlib.reload(tdd_state)
+                self.assertIn("CLAUDE_PLUGIN_DATA", str(ctx.exception))
         finally:
             importlib.reload(tdd_state)
 

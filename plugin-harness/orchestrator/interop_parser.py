@@ -10,6 +10,16 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
+
+
+def _plugins_checkout_dir() -> str:
+    """hooks/path_resolution.get_plugins_checkout_dir(), importable from orchestrator/."""
+    import sys
+    hooks_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks")
+    if hooks_dir not in sys.path:
+        sys.path.insert(0, hooks_dir)
+    from path_resolution import get_plugins_checkout_dir
+    return get_plugins_checkout_dir()
 from orchestrator.error import OrchestrationError
 from orchestrator.error_logger import persist_best_effort
 from orchestrator.schema_extractor import SchemaExtractor
@@ -93,10 +103,10 @@ class CapabilityMap:
 
         Args:
             plugin_dir_base: Base directory containing all plugin folders.
-                            Defaults to environment variable CLAUDE_PLUGINS_DIR if set,
-                            otherwise ~/.claude/plugins/claude-plugins (the standard
-                            bootstrap location), falling back to test fixtures only
-                            when neither exists.
+                            Defaults to ${CLAUDE_PLUGINS_DIR} if set, otherwise
+                            ${CLAUDE_PLUGIN_DATA}/claude-plugins (where
+                            hooks/bootstrap-plugins.sh clones it). Raises
+                            PluginDataDirUnavailable when neither is set.
             error_registry_base_path: Optional base directory for the persistent
                 error-registry.json. No-op persistence of interop_parse_failure
                 errors unless given together with project_slug.
@@ -108,15 +118,7 @@ class CapabilityMap:
         self.project_slug = project_slug
 
         if plugin_dir_base is None:
-            env_dir = os.environ.get("CLAUDE_PLUGINS_DIR")
-            if env_dir:
-                plugin_dir_base = Path(os.path.expanduser(os.path.expandvars(env_dir)))
-            else:
-                default_dir = Path.home() / ".claude" / "plugins" / "claude-plugins"
-                if default_dir.exists():
-                    plugin_dir_base = default_dir
-                else:
-                    plugin_dir_base = Path(__file__).parent.parent / "tests" / "fixtures"
+            plugin_dir_base = Path(_plugins_checkout_dir())
 
             # Only attempt sibling-plugin discovery (below) when the caller didn't
             # pass an explicit plugin_dir_base -- that's the "real production hook"
@@ -186,7 +188,7 @@ class CapabilityMap:
         separately maintained git clone of the monorepo.
 
         Why this exists (F-13, 2026-09-21 GTM review): `hooks/bootstrap-plugins.sh`
-        clones/pulls `renfordn/claude-plugins` into `~/.claude/plugins/claude-plugins`
+        clones/pulls `renfordn/claude-plugins` into `${CLAUDE_PLUGIN_DATA}/claude-plugins`
         and `plugin_dir_base` (above) reads INTEROP.md from that clone. A failed
         `git pull` there is swallowed ("using existing checkout") and the stale
         clone kept, so that clone's INTEROP.md content can silently diverge from
@@ -814,7 +816,7 @@ class CapabilityMap:
             plugin_dir_base: Base directory the cached map was built from. Must
                 match the directory passed to the original CapabilityMap(), or
                 hash comparison will always report a change. Defaults the same
-                way CapabilityMap.__init__ does (CLAUDE_PLUGINS_DIR, else fixtures).
+                way CapabilityMap.__init__ does.
 
         Returns:
             CapabilityMap or None if cache invalid or not found
@@ -840,7 +842,8 @@ class CapabilityMap:
         if not current_map.invalidate_on_interop_change(cached_hashes):
             return CapabilityMap._reconstruct_from_cache(
                 state.get("capability_map", {}),
-                cached_hashes
+                cached_hashes,
+                current_map.plugin_dir_base
             )
 
         return None
@@ -848,7 +851,8 @@ class CapabilityMap:
     @staticmethod
     def _reconstruct_from_cache(
         capability_map_data: dict,
-        interop_hashes: dict
+        interop_hashes: dict,
+        plugin_dir_base: Path
     ) -> 'CapabilityMap':
         """
         Reconstruct CapabilityMap from cached JSON data.
@@ -856,14 +860,13 @@ class CapabilityMap:
         Args:
             capability_map_data: Serialized plugin capability data
             interop_hashes: Serialized INTEROP file hashes
+            plugin_dir_base: Base directory the live map was resolved against
 
         Returns:
             CapabilityMap instance with cached data
         """
         cached_map = CapabilityMap.__new__(CapabilityMap)
-        cached_map.plugin_dir_base = Path(
-            "/Users/jay.nelson/Codebase/AI/plugins/claude"
-        )
+        cached_map.plugin_dir_base = Path(plugin_dir_base)
         cached_map.interop_hashes = interop_hashes
 
         # Deserialize plugins dict

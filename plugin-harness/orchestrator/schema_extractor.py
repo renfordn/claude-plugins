@@ -117,7 +117,7 @@ class SchemaExtractor:
         """Initialize schema extractor.
 
         Args:
-            base_dir: Base directory containing plugin folders (e.g., ~/.claude/plugins/claude-plugins).
+            base_dir: Base directory containing plugin folders (e.g., ${CLAUDE_PLUGIN_DATA}/claude-plugins).
                      If None, attempts to locate automatically.
         """
         self.base_dir = base_dir or self._locate_plugin_base()
@@ -135,19 +135,14 @@ class SchemaExtractor:
         """
         import os
 
-        # Try environment variable first
-        env_dir = os.environ.get("CLAUDE_PLUGINS_DIR")
-        if env_dir:
-            path = Path(os.path.expanduser(os.path.expandvars(env_dir)))
+        # The harness's own checkout (${CLAUDE_PLUGINS_DIR}, else ${CLAUDE_PLUGIN_DATA}/claude-plugins)
+        if os.environ.get("CLAUDE_PLUGINS_DIR") or os.environ.get("CLAUDE_PLUGIN_DATA"):
+            from orchestrator.interop_parser import _plugins_checkout_dir
+            path = Path(_plugins_checkout_dir())
             if path.exists():
                 return path
 
-        # Try standard bootstrap location
-        default_dir = Path.home() / ".claude" / "plugins" / "claude-plugins"
-        if default_dir.exists():
-            return default_dir
-
-        # Try relative to this file
+        # This plugin's own siblings (${CLAUDE_PLUGIN_ROOT}/..) in a monorepo checkout
         rel_dir = Path(__file__).parent.parent.parent
         if (rel_dir / "agent-isdd").exists():
             return rel_dir

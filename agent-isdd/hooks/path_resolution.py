@@ -19,9 +19,9 @@ injected into ITS registered hook subprocesses (e.g. `.../plugins/data/agent-isd
 whichever identity's env var is wired up, so every registered hook agrees with every other
 registered hook within one session. The env var is NEVER injected into a plain manual
 subprocess -- e.g. a Bash tool call running `python3 hooks/sdd_memory.py ...` directly, instead
-of going through the actual hook chain -- so that call silently falls back to the bare,
-non-suffixed guess below, which may not match whichever identity's hooks are actually
-registered this session. Any state written that way (or read by a script invoked that way) can
+of going through the actual hook chain -- so get_plugin_data_dir() raises
+PluginDataDirUnavailable there instead of guessing a path that may not match whichever
+identity's hooks are actually registered this session. When it used to guess, any state written that way (or read by a script invoked that way) could
 silently diverge from what real hooks see; a discovery-based hook (one that locates its own
 state via get_plugin_data_dir()/memory_dir()/active_state_file() rather than being handed an
 explicit path in its own PreToolUse/PostToolUse/SubagentStop payload) that finds nothing under
@@ -38,54 +38,38 @@ real hook invocation (or a skill/command that itself only ever calls into these 
 way hooks.json does), never a bare interactive invocation of this module's callers.
 """
 import os
-import sys
+
+
+class PluginDataDirUnavailable(RuntimeError):
+    """CLAUDE_PLUGIN_DATA is not set, so this process can't know its plugin's data directory."""
 
 
 def get_plugin_data_dir(plugin_name: str) -> str:
-    """Resolve plugin data directory using ${CLAUDE_PLUGIN_DATA} env var.
+    """Resolve the plugin data directory from ${CLAUDE_PLUGIN_DATA}.
 
     Args:
-        plugin_name: Name of the plugin (e.g., "agent-nelly")
+        plugin_name: Name of the plugin (e.g., "agent-nelly"), used only in the error message.
 
     Returns:
-        Absolute path to plugin data directory. Never None.
+        The value of CLAUDE_PLUGIN_DATA. The directory may not exist yet; the caller creates it.
 
-    Behavior:
-        - If CLAUDE_PLUGIN_DATA env var is set (Claude Code runtime): returns that path
-        - If unset (local dev/testing, OR a manual/direct invocation outside the real hook
-          chain -- see this module's docstring): returns ~/.claude/plugins/data/{plugin_name}/,
-          and prints a one-line warning to stderr so anyone watching (or reading logs) can see
-          that this process is not resolving via a real hook's env var and this guessed path may
-          not match whichever plugin identity's hooks are actually registered this session.
+    Raises:
+        PluginDataDirUnavailable: CLAUDE_PLUGIN_DATA is unset or empty.
 
-    The returned path may not exist; caller is responsible for creation. The env var
-    is set by Claude Code to ensure data persists across updates and is cleaned on uninstall.
+    Claude Code sets CLAUDE_PLUGIN_DATA for hook subprocesses and substitutes
+    ${CLAUDE_PLUGIN_DATA} in skill/command content. There is deliberately no fallback: the real
+    directory is ~/.claude/plugins/data/<plugin>-<marketplace>/ (per install identity), so any
+    guessed path can silently read or write the wrong identity's state. A script run by hand
+    must be given the variable explicitly, e.g.
+    `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/<script>.py"`
+    from skill/command content. Tests set it to a temp dir.
     """
     data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
     if not data_dir:
-        # Fallback: local development, testing, or a manual/direct invocation outside the real
-        # hook chain (Claude Code didn't set the env var for this process). This guess can
-        # silently diverge from whatever identity's hooks are actually registered this session
-        # -- see the identity-split hazard in this module's docstring -- so warn loudly rather
-        # than silently guessing. Non-fatal: callers (including tests, which rely on this exact
-        # fallback under a temp HOME) still get a usable path back.
-        print(
-            f"path_resolution: CLAUDE_PLUGIN_DATA is not set; falling back to a guessed data "
-            f"dir for '{plugin_name}'. This is expected for local dev/tests, but if this "
-            f"process is meant to be a real Claude Code hook, its env var wasn't injected -- "
-            f"and if this is a manual/direct script invocation, the guessed path below may not "
-            f"match whichever plugin identity's hooks are actually registered this session "
-            f"(see path_resolution.py's module docstring). Never treat this path as "
-            f"authoritative for gate/state decisions without confirming it matches the active "
-            f"identity's ${{CLAUDE_PLUGIN_DATA}}.",
-            file=sys.stderr,
-        )
-        data_dir = os.path.join(
-            os.path.expanduser("~"),
-            ".claude",
-            "plugins",
-            "data",
-            plugin_name
+        raise PluginDataDirUnavailable(
+            f"{plugin_name}: CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code "
+            f"(hook, or a skill/command that passes CLAUDE_PLUGIN_DATA=\"${{CLAUDE_PLUGIN_DATA}}\"), "
+            f"or set CLAUDE_PLUGIN_DATA to this plugin's data directory yourself."
         )
     return data_dir
 
@@ -103,6 +87,6 @@ def get_legacy_subdir_path(plugin_data_dir: str, legacy_name: str) -> str:
     Example:
         data_dir = get_plugin_data_dir("agent-nelly")
         memory_path = get_legacy_subdir_path(data_dir, "agent-nelly-memory")
-        # memory_path = ~/.claude/plugins/data/agent-nelly/agent-nelly-memory/
+        # memory_path = ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
     """
     return os.path.join(plugin_data_dir, legacy_name)

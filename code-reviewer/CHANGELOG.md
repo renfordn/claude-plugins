@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.14] - 2026-09-24
+
+- **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.
+- **Fix**: `ReportFindings` handover failed with `too_big` on `short_summary`. SKILL.md now has a "ReportFindings Payload (the handover)" section mapping the internal review record onto the tool schema (`short_summary` ≤60, `category` ≤40, max 32 findings, `review_level`→`level`), with a valid example and retry-on-validation-error guidance. INTEROP.md no longer points the skill at an uncallable Python validator. New test: `tests/test_skill_report_findings_payload.py`.
+
 ## [0.1.13] - 2026-09-24
 
 - **Feature**: `Standard` review level (the default) now explicitly checks SOLID-principle

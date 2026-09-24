@@ -30,8 +30,7 @@ class SddStateTests(unittest.TestCase):
                 with open(correct_path, "w") as fh:
                     fh.write("- Title: Correct\n")
 
-                env = dict(os.environ)
-                env["HOME"] = home
+                env = h._hook_env({"HOME": home})
                 import subprocess
                 result = subprocess.run(
                     ["python3", "-c",
@@ -54,8 +53,7 @@ class SddStateTests(unittest.TestCase):
                     workflow_status="In Progress",
                     implementation_requested="No",
                 )
-                env = dict(os.environ)
-                env["HOME"] = home
+                env = h._hook_env({"HOME": home})
                 import subprocess
                 result = subprocess.run(
                     ["python3", "-c",

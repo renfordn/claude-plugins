@@ -13,31 +13,36 @@ testing (see shared/test_path_resolution.py), this is the one that actually ship
 import os
 
 
+class PluginDataDirUnavailable(RuntimeError):
+    """CLAUDE_PLUGIN_DATA is not set, so this process can't know its plugin's data directory."""
+
+
 def get_plugin_data_dir(plugin_name: str) -> str:
-    """Resolve plugin data directory using ${CLAUDE_PLUGIN_DATA} env var.
+    """Resolve the plugin data directory from ${CLAUDE_PLUGIN_DATA}.
 
     Args:
-        plugin_name: Name of the plugin (e.g., "agent-nelly")
+        plugin_name: Name of the plugin (e.g., "agent-nelly"), used only in the error message.
 
     Returns:
-        Absolute path to plugin data directory. Never None.
+        The value of CLAUDE_PLUGIN_DATA. The directory may not exist yet; the caller creates it.
 
-    Behavior:
-        - If CLAUDE_PLUGIN_DATA env var is set (Claude Code runtime): returns that path
-        - If unset (local dev/testing): returns ~/.claude/plugins/data/{plugin_name}/
+    Raises:
+        PluginDataDirUnavailable: CLAUDE_PLUGIN_DATA is unset or empty.
 
-    The returned path may not exist; caller is responsible for creation. The env var
-    is set by Claude Code to ensure data persists across updates and is cleaned on uninstall.
+    Claude Code sets CLAUDE_PLUGIN_DATA for hook subprocesses and substitutes
+    ${CLAUDE_PLUGIN_DATA} in skill/command content. There is deliberately no fallback: the real
+    directory is ~/.claude/plugins/data/<plugin>-<marketplace>/ (per install identity), so any
+    guessed path can silently read or write the wrong identity's state. A script run by hand
+    must be given the variable explicitly, e.g.
+    `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/<script>.py"`
+    from skill/command content. Tests set it to a temp dir.
     """
     data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
     if not data_dir:
-        # Fallback: local development or testing when Claude Code doesn't set env var
-        data_dir = os.path.join(
-            os.path.expanduser("~"),
-            ".claude",
-            "plugins",
-            "data",
-            plugin_name
+        raise PluginDataDirUnavailable(
+            f"{plugin_name}: CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code "
+            f"(hook, or a skill/command that passes CLAUDE_PLUGIN_DATA=\"${{CLAUDE_PLUGIN_DATA}}\"), "
+            f"or set CLAUDE_PLUGIN_DATA to this plugin's data directory yourself."
         )
     return data_dir
 
@@ -55,7 +60,7 @@ def get_legacy_subdir_path(plugin_data_dir: str, legacy_name: str) -> str:
     Example:
         data_dir = get_plugin_data_dir("agent-nelly")
         memory_path = get_legacy_subdir_path(data_dir, "agent-nelly-memory")
-        # memory_path = ~/.claude/plugins/data/agent-nelly/agent-nelly-memory/
+        # memory_path = ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
     """
     return os.path.join(plugin_data_dir, legacy_name)
 
@@ -86,11 +91,10 @@ def get_sibling_plugin_data_dir(own_plugin_name: str, sibling_plugin_name: str) 
     actually uses -- so it stays correct across marketplaces, project-scope
     installs, and local dev, without hardcoding "-renfordn-plugins" anywhere.
 
-    Falls back to get_plugin_data_dir(sibling_plugin_name) -- the same
-    local dev/testing path used before this function existed -- when
-    ${CLAUDE_PLUGIN_DATA} is unset, or when `own_plugin_name` doesn't actually
-    prefix-match this plugin's own resolved directory name (an unexpected
-    shape we can't safely rewrite; better to fall back than guess wrong).
+    Raises PluginDataDirUnavailable when ${CLAUDE_PLUGIN_DATA} is unset, or when
+    `own_plugin_name` doesn't prefix-match this plugin's own resolved directory
+    name (an unexpected shape we can't safely rewrite -- guessing would point at
+    the wrong directory).
 
     Args:
         own_plugin_name: This running plugin's name (e.g. "plugin-harness").
@@ -99,9 +103,7 @@ def get_sibling_plugin_data_dir(own_plugin_name: str, sibling_plugin_name: str) 
     Returns:
         Absolute path to the sibling plugin's data directory. Never None.
     """
-    own_data_dir = os.environ.get("CLAUDE_PLUGIN_DATA")
-    if not own_data_dir:
-        return get_plugin_data_dir(sibling_plugin_name)
+    own_data_dir = get_plugin_data_dir(own_plugin_name)
 
     parent = os.path.dirname(own_data_dir)
     basename = os.path.basename(own_data_dir)
@@ -112,6 +114,23 @@ def get_sibling_plugin_data_dir(own_plugin_name: str, sibling_plugin_name: str) 
         suffix = basename[len(own_plugin_name):]  # e.g. "-renfordn-plugins"
         sibling_basename = sibling_plugin_name + suffix
     else:
-        return get_plugin_data_dir(sibling_plugin_name)
+        raise PluginDataDirUnavailable(
+            f"{own_plugin_name}: can't derive {sibling_plugin_name}'s data dir -- "
+            f"CLAUDE_PLUGIN_DATA ({own_data_dir}) doesn't start with '{own_plugin_name}'."
+        )
 
     return os.path.join(parent, sibling_basename)
+
+
+def get_plugins_checkout_dir() -> str:
+    """Where plugin-harness keeps its checkout of the claude-plugins repo.
+
+    ${CLAUDE_PLUGINS_DIR} if set (e.g. pointing at a local dev checkout), otherwise
+    ${CLAUDE_PLUGIN_DATA}/claude-plugins -- inside plugin-harness's own data directory,
+    the only place it's entitled to write. Raises PluginDataDirUnavailable when
+    neither is set.
+    """
+    env_dir = os.environ.get("CLAUDE_PLUGINS_DIR")
+    if env_dir:
+        return os.path.expanduser(os.path.expandvars(env_dir))
+    return os.path.join(get_plugin_data_dir("plugin-harness"), "claude-plugins")

@@ -87,8 +87,8 @@ fact" path (brief assembly with a `new fact` input), one at a time, then run
 
 - **Seed fact (construct one that only generalizes down to something that still
   exposes a person or a private path):**
-  > "Jay always structures his personal dotfiles repo at
-  > `/Users/jay.nelson/dotfiles-private` with a `secrets/` folder that must never be
+  > "<Your name> always structures their personal dotfiles repo at
+  > `<your absolute home path>/dotfiles-private` with a `secrets/` folder that must never be
   > committed — this convention only makes sense because of how his personal machine
   > is set up."
 - **Pass conditions:**
@@ -98,9 +98,9 @@ fact" path (brief assembly with a `new fact` input), one at a time, then run
   - `Written` explicitly states promotion was considered and skipped, with a
     **category-level** reason (e.g. "tied to a personal authoring convention and
     identifying paths that don't generalize") and contains **none** of: the string
-    `Jay`, the string `dotfiles-private`, or the literal home-directory path.
+    your name, the string `dotfiles-private`, or your literal home-directory path.
 - **Fail if:** `Written`, `GLOBAL-MEMORY.md`, or `GLOBAL-PROMOTION-LOG.md` contains the
-  name "Jay", the path `/Users/jay.nelson/...`, or "dotfiles-private" verbatim anywhere.
+  name you used, your home-directory path, or "dotfiles-private" verbatim anywhere.
 
 ---
 

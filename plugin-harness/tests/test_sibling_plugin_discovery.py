@@ -2,7 +2,7 @@
 
 Before this fix, CapabilityMap always read INTEROP.md from a single flat
 `plugin_dir_base` -- in production that's a separately maintained git clone
-(`~/.claude/plugins/claude-plugins`, cloned/pulled by hooks/bootstrap-plugins.sh).
+(`${CLAUDE_PLUGIN_DATA}/claude-plugins`, cloned/pulled by hooks/bootstrap-plugins.sh).
 A failed `git pull` there is swallowed and the stale checkout kept, so that
 clone's INTEROP.md content could silently diverge from the plugin versions
 actually installed and running -- `.exists()` alone can't detect staleness,

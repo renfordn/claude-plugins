@@ -13,6 +13,12 @@ View and change the cache's persisted settings.
 /cache-config [--list] [--get KEY] [--set KEY VALUE] [--reset [KEY]] [--validate]
 ```
 
+## Run
+```bash
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" config [options]
+```
+Pass `CLAUDE_PLUGIN_DATA` explicitly -- the Bash tool doesn't have it, and the script refuses to guess a data directory.
+
 ## Options
 - `--list` - Show current settings and cache status (default when no option given)
 - `--get KEY` - Show one setting

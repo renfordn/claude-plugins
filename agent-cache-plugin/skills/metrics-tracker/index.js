@@ -211,13 +211,10 @@ function resetSingleton() {
 
 function _resolveDbPath() {
   const path = require('path');
-  const os = require('os');
   const fs = require('fs');
   const d = process.env.CLAUDE_PLUGIN_DATA;
   if (!d) {
-    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
-    fs.mkdirSync(fallback, { recursive: true });
-    return path.join(fallback, 'cache.db');
+    throw new Error('[agent-cache-plugin] CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code, or set CLAUDE_PLUGIN_DATA to this plugin\'s data directory.');
   }
   fs.mkdirSync(d, { recursive: true });
   return path.join(d, 'cache.db');

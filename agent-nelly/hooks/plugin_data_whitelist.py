@@ -11,6 +11,8 @@ import os
 import time
 from typing import Callable, Dict, Any, Optional
 
+from path_resolution import get_plugin_data_dir
+
 
 # File types to block
 BLOCKED_FILE_TYPES = {".exe"}
@@ -20,7 +22,8 @@ def create_whitelist_validator(check_namespace: bool = True) -> Callable[[str, s
     """Create a validator function for plugin_data writes.
 
     Args:
-        check_namespace: If True, enforce plugin-data/<plugin_name>/ namespace.
+        check_namespace: If True, the file must resolve inside this plugin's own
+                        ${CLAUDE_PLUGIN_DATA} directory.
                         If False, only check file types (for memory-dir use).
 
     Returns:
@@ -52,13 +55,11 @@ def create_whitelist_validator(check_namespace: bool = True) -> Callable[[str, s
             }
 
         if check_namespace:
-            # Check directory scope: file must be under ~/.claude/plugin-data/<plugin_name>/
-            # Extract the agent from the path and verify it matches the plugin_name
-            normalized_path = os.path.normpath(file_path)
-
-            # Check if path contains the plugin-data/<plugin_name>/ pattern
-            plugin_namespace = f"plugin-data{os.sep}{plugin_name}{os.sep}"
-            if plugin_namespace not in normalized_path:
+            # Check directory scope: file must resolve inside this plugin's ${CLAUDE_PLUGIN_DATA}.
+            # Raises PluginDataDirUnavailable when the variable isn't set -- never guesses.
+            data_dir = os.path.realpath(get_plugin_data_dir(plugin_name))
+            target = os.path.realpath(file_path)
+            if os.path.commonpath([data_dir, target]) != data_dir:
                 return {
                     "allowed": False,
                     "reason": f"Cross-namespace access denied: {plugin_name} cannot write outside its namespace",

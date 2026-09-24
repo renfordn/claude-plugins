@@ -22,7 +22,7 @@ Resolve the memory directory first, for logging/context only (never used to
 read/write entry files directly from here):
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --path
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --path
 ```
 
 ## view

@@ -6,7 +6,7 @@ Report the current spec-driven-development workflow status **without advancing i
 modifying any files**.
 
 Locate the active feature's `workflow-state.md` under the project's central SDD memory dir's
-`spec/<date-slug>/` (resolve the memory dir via `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py"
+`spec/<date-slug>/` (resolve the memory dir via `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py"
 --path`; use the most recently updated feature folder if several exist). Delegate to
 `agent-ux:ux-agent` for the breadcrumb line, then summarize concisely:
 

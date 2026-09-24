@@ -63,7 +63,10 @@ def _memory_dir(cwd, env=None):
 
 
 def _isolated_env(tmp_path):
-    return {"HOME": str(tmp_path / "home")}
+    return {
+        "HOME": str(tmp_path / "home"),
+        "CLAUDE_PLUGIN_DATA": str(tmp_path / "home" / ".claude" / "plugins" / "data" / "agent-nelly"),
+    }
 
 
 def test_no_op_for_path_outside_memory_store(tmp_path):

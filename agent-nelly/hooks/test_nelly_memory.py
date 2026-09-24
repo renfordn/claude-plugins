@@ -11,6 +11,9 @@ import pytest
 
 import nelly_memory
 
+# Real home dir, not a hardcoded one -- these paths are only slug inputs.
+HOME = os.path.expanduser("~")
+
 
 @pytest.fixture
 def isolated_base(tmp_path, monkeypatch):
@@ -41,12 +44,12 @@ def cleanup_env(monkeypatch):
 # ---------------------------------------------------------------------------
 
 PATH_BATTERY = [
-    "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly",
-    "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly-old",
-    "/Users/jay.nelson/Codebase/AI/plugins/claude/other-plugin",
+    f"{HOME}/Codebase/AI/plugins/claude/agent-nelly",
+    f"{HOME}/Codebase/AI/plugins/claude/agent-nelly-old",
+    f"{HOME}/Codebase/AI/plugins/claude/other-plugin",
     "/tmp/some/deep/nested/project/path",
     "/",
-    "/Users/jay.nelson/Projects/My Project (v2)",
+    f"{HOME}/Projects/My Project (v2)",
 ]
 
 # "agent-nelly" vs "agent_nelly" is a KNOWN, accepted collision of this
@@ -56,8 +59,8 @@ PATH_BATTERY = [
 # the general collision-resistance battery above doesn't wrongly assume
 # every non-identical path is collision-free.
 def test_project_slug_hyphen_and_underscore_variants_collide_by_design():
-    a = nelly_memory.project_slug("/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly")
-    b = nelly_memory.project_slug("/Users/jay.nelson/Codebase/AI/plugins/claude/agent_nelly")
+    a = nelly_memory.project_slug(f"{HOME}/Codebase/AI/plugins/claude/agent-nelly")
+    b = nelly_memory.project_slug(f"{HOME}/Codebase/AI/plugins/claude/agent_nelly")
     assert a == b
 
 
@@ -72,13 +75,13 @@ def test_project_slug_is_collision_resistant_across_battery():
 
 
 def test_project_slug_near_identical_paths_do_not_collide():
-    a = nelly_memory.project_slug("/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly")
-    b = nelly_memory.project_slug("/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly-old")
+    a = nelly_memory.project_slug(f"{HOME}/Codebase/AI/plugins/claude/agent-nelly")
+    b = nelly_memory.project_slug(f"{HOME}/Codebase/AI/plugins/claude/agent-nelly-old")
     assert a != b
 
 
 def test_project_slug_is_lowercase_and_alphanumeric_hyphen_only():
-    slug = nelly_memory.project_slug("/Users/jay.nelson/Projects/My Project (v2)")
+    slug = nelly_memory.project_slug(f"{HOME}/Projects/My Project (v2)")
     assert slug == slug.lower()
     assert all(c.isalnum() or c == "-" for c in slug)
 
@@ -92,7 +95,7 @@ def test_project_slug_empty_result_falls_back_to_root():
 # ---------------------------------------------------------------------------
 
 def test_memory_dir_resolves_under_new_base_root(isolated_base):
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.memory_dir(cwd)
     assert d.startswith(nelly_memory.BASE)
     assert "sdd-memory" not in d
@@ -115,7 +118,7 @@ def test_base_root_is_agent_nelly_memory_not_sdd_memory():
 # ---------------------------------------------------------------------------
 
 def test_ensure_dir_creates_project_dir_with_index_header(isolated_base):
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.ensure_dir(cwd)
     assert os.path.isdir(d)
     index = os.path.join(d, "MEMORY.md")
@@ -123,7 +126,7 @@ def test_ensure_dir_creates_project_dir_with_index_header(isolated_base):
 
 
 def test_ensure_dir_is_idempotent_and_preserves_existing_content(isolated_base):
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.ensure_dir(cwd)
     index = os.path.join(d, "MEMORY.md")
     with open(index, "a", encoding="utf-8") as fh:
@@ -138,12 +141,12 @@ def test_ensure_dir_is_idempotent_and_preserves_existing_content(isolated_base):
 
 
 def test_read_index_returns_empty_string_when_absent(isolated_base):
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly/never-created"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly/never-created"
     assert nelly_memory.read_index(cwd) == ""
 
 
 def test_read_index_returns_written_content(isolated_base):
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     nelly_memory.ensure_dir(cwd)
     content = nelly_memory.read_index(cwd)
     assert "Memory" in content or "memory" in content
@@ -194,7 +197,7 @@ def test_read_global_index_is_best_effort_and_never_raises(monkeypatch, isolated
 # respective subdirectory even when name contains path-traversal segments.
 # ---------------------------------------------------------------------------
 
-CWD = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+CWD = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
 
 TRAVERSAL_NAMES = [
     "../../etc/passwd",
@@ -287,7 +290,7 @@ def test_recording_a_new_fact_creates_both_entry_file_and_index_line(isolated_ba
     test fails against the pre-fix code path if ensure_entries_dir() is
     removed or the entries-dir-creation step is skipped.
     """
-    cwd = "/Users/jay.nelson/.claude/Spec-driven-development"
+    cwd = f"{HOME}/.claude/Spec-driven-development"
     name = "some-test-fact"
 
     # Step 5: guarantee entries/ exists before writing (the fixed behavior).
@@ -390,7 +393,7 @@ def test_cli_summary_prints_index_when_real_entries_present(capsys, isolated_bas
 # ---------------------------------------------------------------------------
 
 def test_resolve_repo_relative_joins_cwd_and_relative_path():
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     result = nelly_memory.resolve_repo_relative(cwd, "src/foo.py")
     assert result == os.path.normpath(os.path.join(cwd, "src/foo.py"))
 
@@ -506,7 +509,7 @@ def test_memory_dir_respects_claude_plugin_data_env_var(monkeypatch, tmp_path):
     expected_base = os.path.join(plugin_data, "agent-nelly-memory")
     monkeypatch.setattr(nelly_memory, "BASE", expected_base)
 
-    cwd = "/Users/jay.nelson/Codebase/AI/plugins/claude/agent-nelly"
+    cwd = f"{HOME}/Codebase/AI/plugins/claude/agent-nelly"
     d = nelly_memory.memory_dir(cwd)
 
     # Verify BASE is in the path

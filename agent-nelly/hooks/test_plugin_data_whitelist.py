@@ -9,66 +9,77 @@ from plugin_data_whitelist import (
 )
 
 
+@pytest.fixture
+def data_root(tmp_path, monkeypatch):
+    """A fake ~/.claude/plugins/data/ with this plugin's CLAUDE_PLUGIN_DATA inside it."""
+    root = tmp_path / "plugins" / "data"
+    own = root / "agent-nelly"
+    own.mkdir(parents=True)
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(own))
+    return str(root)
+
+
+@pytest.mark.usefixtures("data_root")
 class TestWhitelistValidator:
     """Test file-type restrictions and directory scoping."""
 
-    def test_file_type_blocklist_exe_denied(self):
+    def test_file_type_blocklist_exe_denied(self, data_root):
         """Executable .exe files should be blocked."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/script.exe",
+            file_path=os.path.join(data_root, "agent-nelly/script.exe"),
             operation="write",
             plugin_name="agent-nelly",
         )
         assert result["allowed"] is False
         assert "Executable" in result["reason"] or "blocked" in result["reason"].lower()
 
-    def test_file_type_md_allowed(self):
+    def test_file_type_md_allowed(self, data_root):
         """Markdown files should be allowed."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/memory.md",
+            file_path=os.path.join(data_root, "agent-nelly/memory.md"),
             operation="write",
             plugin_name="agent-nelly",
         )
         assert result["allowed"] is True
 
-    def test_directory_scope_same_agent_allowed(self):
+    def test_directory_scope_same_agent_allowed(self, data_root):
         """Agent writing to its own namespace should be allowed."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/entries/foo.md",
+            file_path=os.path.join(data_root, "agent-nelly/entries/foo.md"),
             operation="write",
             plugin_name="agent-nelly",
         )
         assert result["allowed"] is True
 
-    def test_directory_scope_cross_agent_denied(self):
+    def test_directory_scope_cross_agent_denied(self, data_root):
         """Agent writing to another agent's namespace should be denied."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-tdd/state.json",
+            file_path=os.path.join(data_root, "agent-tdd/state.json"),
             operation="write",
             plugin_name="agent-nelly",
         )
         assert result["allowed"] is False
         assert "namespace" in result["reason"].lower() or "denied" in result["reason"].lower()
 
-    def test_file_type_json_allowed(self):
+    def test_file_type_json_allowed(self, data_root):
         """JSON files should be allowed."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/state.json",
+            file_path=os.path.join(data_root, "agent-nelly/state.json"),
             operation="write",
             plugin_name="agent-nelly",
         )
         assert result["allowed"] is True
 
-    def test_file_type_yaml_allowed(self):
+    def test_file_type_yaml_allowed(self, data_root):
         """YAML files should be allowed."""
         validator = create_whitelist_validator()
         result = validator(
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/config.yaml",
+            file_path=os.path.join(data_root, "agent-nelly/config.yaml"),
             operation="write",
             plugin_name="agent-nelly",
         )
@@ -78,12 +89,12 @@ class TestWhitelistValidator:
 class TestAuditLogger:
     """Test audit entry creation."""
 
-    def test_audit_entry_has_required_fields(self):
+    def test_audit_entry_has_required_fields(self, data_root):
         """Audit entry should have timestamp, action, reason."""
         logger = create_audit_logger()
         entry = logger(
             operation="write",
-            file_path="/Users/test/.claude/plugin-data/agent-nelly/entry.md",
+            file_path=os.path.join(data_root, "agent-nelly/entry.md"),
             plugin_name="agent-nelly",
             allowed=True,
             reason="File type allowed",
@@ -94,7 +105,7 @@ class TestAuditLogger:
         assert "allowed" in entry
         assert "reason" in entry
 
-    def test_audit_entry_allowed_flag(self):
+    def test_audit_entry_allowed_flag(self, data_root):
         """Audit entry should preserve allowed flag."""
         logger = create_audit_logger()
         entry = logger(
@@ -106,7 +117,7 @@ class TestAuditLogger:
         )
         assert entry["allowed"] is False
 
-    def test_audit_entry_timestamp_is_numeric(self):
+    def test_audit_entry_timestamp_is_numeric(self, data_root):
         """Timestamp should be numeric (Unix milliseconds or seconds)."""
         logger = create_audit_logger()
         entry = logger(

@@ -13,6 +13,12 @@ Display current cache statistics and health metrics.
 /cache-status [--detailed] [--export json|csv|html]
 ```
 
+## Run
+```bash
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" status [options]
+```
+Pass `CLAUDE_PLUGIN_DATA` explicitly -- the Bash tool doesn't have it, and the script refuses to guess a data directory.
+
 ## Options
 - `--detailed` - Show detailed breakdown by agent type, task type
 - `--export FORMAT` - Export report in specified format

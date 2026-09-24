@@ -216,9 +216,10 @@ Workflow continues if soft dependencies are unavailable—graceful degradation.
 All 5 plugins live together in one repo, `renfordn/claude-plugins` (one subdirectory per
 plugin: `agent-isdd/`, `agent-tdd/`, `code-reviewer/`, `agent-nelly/`, `agent-ux/`), migrated
 there from 5 separate repos specifically to make cloud bootstrap cheaper — see that repo's
-README for why. The `.claude/hooks/session-start.sh` hook clones it into
-`~/.claude/plugins/claude-plugins`, and `CLAUDE_PLUGINS_DIR` (set in `.claude/settings.json`)
-points `CapabilityMap()` at that directory.
+README for why. As an installed plugin, `hooks/bootstrap-plugins.sh` clones it into
+`${CLAUDE_PLUGIN_DATA}/claude-plugins` (plugin-harness's own data directory), and `CapabilityMap()`
+reads from there. When developing *in this repo*, `.claude/settings.json` sets `CLAUDE_PLUGINS_DIR`
+to your existing checkout instead, and both the bootstrap script and `CapabilityMap()` use that.
 
 `renfordn/claude-plugins` is currently **public**, so this session's git proxy serves anonymous
 reads (clone/fetch) of it directly — the hook's plain `git clone` succeeds on its own with no
@@ -227,13 +228,13 @@ reports read access already available and attaches nothing).
 
 **If the repo is ever made private**, anonymous reads stop working and this changes: at the
 start of every new cloud session, before relying on the hook's clone having worked, check
-whether `~/.claude/plugins/claude-plugins` exists with all 5 plugin subdirectories. If not, call
+whether the `CLAUDE_PLUGINS_DIR` checkout exists with all 5 plugin subdirectories. If not, call
 `add_repo` (owner `renfordn`, repo `claude-plugins`) — this is a session-scoped grant, not a
 persistent whitelist, so it must be called again in *every* fresh session, not just once — then
-`git clone https://github.com/renfordn/claude-plugins ~/.claude/plugins/claude-plugins` directly
-(not into the default `/home/user/claude-plugins` workspace). `add_repo` grants session-wide
-git-proxy access, so this one clone covers all 5 plugins, and a subsequent hook-issued `git
-clone`/`pull` to that path will also succeed for the rest of that same session.
+`git clone https://github.com/renfordn/claude-plugins "$CLAUDE_PLUGINS_DIR"` directly (not into
+the session's default workspace). `add_repo` grants session-wide git-proxy access, so this one
+clone covers all 5 plugins, and a subsequent hook-issued `git clone`/`pull` to that path will also
+succeed for the rest of that same session.
 
 Either way, a failed clone no longer aborts the session: `bootstrap-plugins.sh` warns and
 continues for all 5 plugins, hard or soft (only a missing `python3` still hard-fails the hook).

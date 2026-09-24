@@ -40,6 +40,7 @@ def _isolated_env(tmp_path):
     state_dir.mkdir(exist_ok=True)
     return {
         "HOME": str(tmp_path / "home"),
+        "CLAUDE_PLUGIN_DATA": str(tmp_path / "home" / ".claude" / "plugins" / "data" / "agent-nelly"),
         "NELLY_SESSION_STATE_DIR": str(state_dir),
     }
 

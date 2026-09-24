@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.55] - 2026-09-24
+
+- **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.
+- **Docs**: README's "never invoke hooks directly" section rewritten for the new fail-fast behaviour.
+
 ## [0.1.54] - 2026-09-24
 
 - **Fix**: `hooks/path_resolution.py`'s `${CLAUDE_PLUGIN_DATA}` fallback (used whenever the env

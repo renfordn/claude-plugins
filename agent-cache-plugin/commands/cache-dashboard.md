@@ -18,6 +18,12 @@ numbers.
 /cache-dashboard [--output FILE]
 ```
 
+## Run
+```bash
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" node "${CLAUDE_PLUGIN_ROOT}/scripts/cache-command.js" dashboard [options]
+```
+Pass `CLAUDE_PLUGIN_DATA` explicitly -- the Bash tool doesn't have it, and the script refuses to guess a data directory.
+
 ## Options
 - `--output FILE` - Destination for the generated HTML (default: `cache-dashboard.html`)
 

@@ -15,6 +15,9 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import path_resolution  # noqa: E402
 
+# Only used as string input to the name-derivation logic; nothing is read or written there.
+DATA_ROOT = os.path.join(tempfile.gettempdir(), "claude", "plugins", "data")
+
 
 class TestSymlinkCoordination(unittest.TestCase):
     """Tests for sdd-memory symlink coordination between plugins."""
@@ -133,21 +136,21 @@ class TestGetSiblingPluginDataDir(unittest.TestCase):
         should change, so the sibling keeps the same marketplace suffix.
         """
         with patch.dict(os.environ, {
-            "CLAUDE_PLUGIN_DATA": "/Users/x/.claude/plugins/data/plugin-harness-renfordn-plugins"
+            "CLAUDE_PLUGIN_DATA": DATA_ROOT + "/plugin-harness-renfordn-plugins"
         }):
             sibling = path_resolution.get_sibling_plugin_data_dir(
                 "plugin-harness", "agent-isdd"
             )
         self.assertEqual(
             sibling,
-            "/Users/x/.claude/plugins/data/agent-isdd-renfordn-plugins",
+            DATA_ROOT + "/agent-isdd-renfordn-plugins",
         )
 
     def test_sibling_dir_is_never_equal_to_own_dir(self):
         """The core regression: resolving a *different* plugin's data dir must
         never collapse to this plugin's own ${CLAUDE_PLUGIN_DATA} value.
         """
-        own_dir = "/Users/x/.claude/plugins/data/plugin-harness-renfordn-plugins"
+        own_dir = DATA_ROOT + "/plugin-harness-renfordn-plugins"
         with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": own_dir}):
             own = path_resolution.get_plugin_data_dir("plugin-harness")
             sibling = path_resolution.get_sibling_plugin_data_dir(
@@ -159,24 +162,25 @@ class TestGetSiblingPluginDataDir(unittest.TestCase):
     def test_bare_plugin_name_shape_with_no_marketplace_suffix(self):
         """Local/marketplace-less install: directory is the bare plugin name."""
         with patch.dict(os.environ, {
-            "CLAUDE_PLUGIN_DATA": "/Users/x/.claude/plugins/data/plugin-harness"
+            "CLAUDE_PLUGIN_DATA": DATA_ROOT + "/plugin-harness"
         }):
             sibling = path_resolution.get_sibling_plugin_data_dir(
                 "plugin-harness", "agent-isdd"
             )
-        self.assertEqual(sibling, "/Users/x/.claude/plugins/data/agent-isdd")
+        self.assertEqual(sibling, DATA_ROOT + "/agent-isdd")
 
-    def test_falls_back_to_local_dev_path_when_env_unset(self):
-        """No ${CLAUDE_PLUGIN_DATA} at all (dev/testing) -- same as before."""
+    def test_raises_when_env_unset(self):
+        """No ${CLAUDE_PLUGIN_DATA} at all: refuse to guess a sibling directory."""
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("CLAUDE_PLUGIN_DATA", None)
-            sibling = path_resolution.get_sibling_plugin_data_dir(
-                "plugin-harness", "agent-isdd"
-            )
-        self.assertEqual(
-            sibling,
-            os.path.join(os.path.expanduser("~"), ".claude", "plugins", "data", "agent-isdd"),
-        )
+            with self.assertRaises(path_resolution.PluginDataDirUnavailable):
+                path_resolution.get_sibling_plugin_data_dir("plugin-harness", "agent-isdd")
+
+    def test_raises_when_own_dir_name_is_unexpected(self):
+        """Own dir doesn't start with the plugin name: deriving the sibling would be a guess."""
+        with patch.dict(os.environ, {"CLAUDE_PLUGIN_DATA": DATA_ROOT + "/something-else"}):
+            with self.assertRaises(path_resolution.PluginDataDirUnavailable):
+                path_resolution.get_sibling_plugin_data_dir("plugin-harness", "agent-isdd")
 
     def test_hook_state_symlinks_to_the_real_sibling_directory(self):
         """End-to-end: with CLAUDE_PLUGIN_DATA simulating a real install,

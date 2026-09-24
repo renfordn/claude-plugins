@@ -19,7 +19,6 @@
  */
 
 const path = require('path');
-const os = require('os');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 const { SCHEMA_SQL } = require('./schema');
@@ -373,7 +372,7 @@ class CacheManager {
 let _singleton = null;
 
 /**
- * @param {string} [dbPath] - Path to cache.db; defaults to env var or fallback.
+ * @param {string} [dbPath] - Path to cache.db; defaults to ${CLAUDE_PLUGIN_DATA}/cache.db.
  *   Pass ':memory:' for in-process test use. Any other explicit path must resolve
  *   within the plugin data directory; paths outside are rejected to prevent traversal.
  */
@@ -389,9 +388,8 @@ function getSingleton(dbPath) {
 function _assertAllowedPath(dbPath) {
   if (dbPath === ':memory:') return;
   const resolved = path.resolve(dbPath);
-  const allowedBase = process.env.CLAUDE_PLUGIN_DATA
-    ? path.resolve(process.env.CLAUDE_PLUGIN_DATA)
-    : path.join(os.homedir(), '.claude', 'plugin-data');
+  if (!process.env.CLAUDE_PLUGIN_DATA) throw new Error('[agent-cache-plugin] CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code, or set CLAUDE_PLUGIN_DATA to this plugin\'s data directory.');
+  const allowedBase = path.resolve(process.env.CLAUDE_PLUGIN_DATA);
   if (!resolved.startsWith(allowedBase + path.sep) && resolved !== allowedBase) {
     throw new Error(`DB path outside allowed directory: ${resolved}`);
   }
@@ -407,12 +405,7 @@ function resetSingleton() {
 function _resolveDbPath() {
   const dataDir = process.env.CLAUDE_PLUGIN_DATA;
   if (!dataDir) {
-    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
-    fs.mkdirSync(fallback, { recursive: true });
-    process.stderr.write(
-      '[agent-cache-plugin] CLAUDE_PLUGIN_DATA unset; falling back to ' + fallback + '\n'
-    );
-    return path.join(fallback, 'cache.db');
+    throw new Error('[agent-cache-plugin] CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code, or set CLAUDE_PLUGIN_DATA to this plugin\'s data directory.');
   }
   const resolved = path.resolve(dataDir);
   fs.mkdirSync(resolved, { recursive: true });

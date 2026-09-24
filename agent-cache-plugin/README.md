@@ -150,8 +150,9 @@ agent-cache-plugin/
 ## Testing
 
 Requires Node >= 22 (`better-sqlite3` 13). Tests are isolated from your real cache: `jest.config.js`
-points `CLAUDE_PLUGIN_DATA` at a throwaway temp dir for the whole run, so nothing under
-`~/.claude/plugin-data/` is read or written.
+points `CLAUDE_PLUGIN_DATA` at a throwaway temp dir for the whole run, so your real plugin data
+directory is never read or written. Outside tests the plugin requires `CLAUDE_PLUGIN_DATA` (set by
+Claude Code) and reports an error instead of guessing a directory.
 
 Run all tests:
 ```bash

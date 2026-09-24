@@ -10,6 +10,7 @@ import tempfile
 import unittest
 
 from first_class_check import (
+    _load_plugin_json_safe,
     evaluate_collection,
     evaluate_plugin,
     is_declared_absent,
@@ -501,6 +502,20 @@ class CliMainTests(unittest.TestCase):
         ci02_rows = [row for row in payload if row["item_id"] == "CI-02"]
         self.assertTrue(ci02_rows)
         self.assertTrue(all(row["status"] == "SKIPPED" for row in ci02_rows))
+
+
+class FirstClassSidecarTests(unittest.TestCase):
+    def test_declared_absent_read_from_sidecar(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        os.makedirs(os.path.join(d, ".claude-plugin"))
+        with open(os.path.join(d, ".claude-plugin", "plugin.json"), "w") as f:
+            json.dump({"name": "p", "version": "1.0.0"}, f)
+        with open(os.path.join(d, ".claude-plugin", "first-class.json"), "w") as f:
+            json.dump({"declared_absent": ["hooks"]}, f)
+        plugin_json = _load_plugin_json_safe(d)
+        self.assertTrue(is_declared_absent(plugin_json, "hooks"))
+        self.assertFalse(is_declared_absent(plugin_json, "skills"))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ A standardized approach for managing plugin_data permissions, audit trails, and 
 ## Section 1: Overview
 
 ### Problem
-Multiple plugins (agent-nelly, agent-isdd, agent-tdd, future plugins) need to safely manage plugin-specific data under `~/.claude/plugin-data/`. Without coordination:
+Multiple plugins (agent-nelly, agent-isdd, agent-tdd, future plugins) need to safely manage plugin-specific data in their own `${CLAUDE_PLUGIN_DATA}` directories. Without coordination:
 - Each plugin repeats permission logic (code duplication)
 - Security checks are inconsistent (file-type blocking, namespace enforcement)
 - Audit trails are incomplete (no traceability of what accessed what)
@@ -41,7 +41,7 @@ All plugins inherit the same security model, reducing surface area and enabling 
 └─────────────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ State Files (~/.claude/plugin-data/<agent>/)                │
+│ State Files (${CLAUDE_PLUGIN_DATA}/)                        │
 │ ├─ Active state (write operations)                          │
 │ ├─ Audit entries (operation log)                            │
 │ └─ Archive (rotated old entries)                            │
@@ -97,12 +97,10 @@ def main():
 ### Step 3: Create Deny-Only Hook
 
 ```python
-PLUGIN_DATA_BASE = os.path.join(os.path.expanduser("~"), ".claude", "plugin-data")
-ALLOWED_AGENT = "your-plugin"
-_AGENT_PATTERN = re.compile(
-    r"^" + re.escape(os.path.normpath(PLUGIN_DATA_BASE)) + 
-    re.escape(os.sep) + r"([^" + re.escape(os.sep) + r"]+)"
-)
+from path_resolution import get_plugin_data_dir  # raises if CLAUDE_PLUGIN_DATA is unset
+
+OWN_DATA_DIR = os.path.realpath(get_plugin_data_dir("your-plugin"))
+PLUGIN_DATA_ROOT = os.path.dirname(OWN_DATA_DIR)  # parent of every plugin's data dir
 
 def main():
     # Check env-gate
@@ -112,16 +110,14 @@ def main():
     payload = json.load(sys.stdin)
     file_path = payload.get("tool_input", {}).get("file_path", "")
     
-    # Extract agent name from path
-    m = _AGENT_PATTERN.match(file_path)
-    if not m:
-        no_decision()  # Not under plugin-data
-    
-    agent_name = m.group(1)
-    if agent_name == ALLOWED_AGENT:
-        no_decision()  # Let allow hook handle it
-    
-    deny(f"Cross-agent access denied: cannot write to {agent_name} namespace")
+    target = os.path.realpath(file_path)
+    if os.path.commonpath([PLUGIN_DATA_ROOT, target]) != PLUGIN_DATA_ROOT:
+        no_decision()  # Not under any plugin's data dir
+
+    if os.path.commonpath([OWN_DATA_DIR, target]) == OWN_DATA_DIR:
+        no_decision()  # Own namespace -- let allow hook handle it
+
+    deny("Cross-agent access denied: cannot write to another plugin's data dir")
 ```
 
 ### Step 4: Register in hooks.json
@@ -152,10 +148,14 @@ def main():
 
 ### Step 5: Add Tests
 
+`own_data_dir` and `other_plugin_data_dir` are sibling temp dirs (e.g. `tmp_path / "data" / "your-plugin"`
+and `tmp_path / "data" / "agent-nelly"`); `run_hook` passes `CLAUDE_PLUGIN_DATA=own_data_dir` to the
+hook subprocess, exactly as Claude Code would.
+
 ```python
 def test_allow_own_namespace(self):
     """Writes to plugin's namespace should be allowed."""
-    target = os.path.join(home, ".claude", "plugin-data", "your-plugin", "state.json")
+    target = os.path.join(own_data_dir, "state.json")
     payload = {"tool_input": {"file_path": target}, "cwd": "/some/project"}
     proc = run_hook(payload)
     assert proc.returncode == 0
@@ -163,7 +163,7 @@ def test_allow_own_namespace(self):
 
 def test_deny_cross_namespace(self):
     """Writes to other plugin's namespace should be denied."""
-    target = os.path.join(home, ".claude", "plugin-data", "agent-nelly", "state.json")
+    target = os.path.join(other_plugin_data_dir, "state.json")
     payload = {"tool_input": {"file_path": target}, "cwd": "/some/project"}
     proc = run_hook(payload)
     assert proc.returncode == 0
@@ -171,7 +171,7 @@ def test_deny_cross_namespace(self):
 
 def test_block_executables(self):
     """Executable files should be blocked."""
-    target = os.path.join(home, ".claude", "plugin-data", "your-plugin", "malware.exe")
+    target = os.path.join(own_data_dir, "malware.exe")
     payload = {"tool_input": {"file_path": target}, "cwd": "/some/project"}
     proc = run_hook(payload)
     assert proc.returncode == 0
@@ -222,10 +222,12 @@ Plugin-data should contain configuration, state, and caches — never executable
 ## Section 5: Directory Scoping
 
 ### Per-Agent Namespace
-Each plugin gets its own directory under `~/.claude/plugin-data/`:
+Claude Code gives each installed plugin its own `${CLAUDE_PLUGIN_DATA}` directory (one per
+install identity, e.g. `agent-nelly-<marketplace>`). Plugin code reads it from the environment
+and never builds or guesses the path itself:
 
 ```
-~/.claude/plugin-data/
+<Claude Code plugin data root>/
 ├─ agent-nelly/      ← agent-nelly writes here only
 │  ├─ state.json
 │  └─ ...
@@ -242,14 +244,14 @@ Each plugin gets its own directory under `~/.claude/plugin-data/`:
 
 ### Namespace Enforcement
 The validator checks that:
-1. Path contains `plugin-data/<plugin-name>/` pattern
-2. Plugin name matches the one making the request
-3. Path doesn't escape the namespace via `../` tricks
+1. The resolved path is inside this plugin's own `${CLAUDE_PLUGIN_DATA}`
+2. `CLAUDE_PLUGIN_DATA` is set -- otherwise it raises instead of guessing
+3. Path doesn't escape the namespace via `../` tricks or symlinks (checked on the real path)
 
 **In code:**
 ```python
-plugin_namespace = f"plugin-data{os.sep}agent-nelly{os.sep}"
-if plugin_namespace not in normalized_path:
+data_dir = os.path.realpath(get_plugin_data_dir(plugin_name))  # raises if unset
+if os.path.commonpath([data_dir, os.path.realpath(file_path)]) != data_dir:
     return {"allowed": False, "reason": "Cross-namespace access denied"}
 ```
 
@@ -273,7 +275,7 @@ Each audit entry captures:
   "timestamp": 1693017600.123456,
   "plugin_name": "agent-nelly",
   "operation": "write",
-  "file_path": "/Users/user/.claude/plugin-data/agent-nelly/state.json",
+  "file_path": "${CLAUDE_PLUGIN_DATA}/state.json",
   "allowed": true,
   "reason": "File type allowed, namespace valid"
 }
@@ -281,7 +283,7 @@ Each audit entry captures:
 
 ### Rotation Policy
 
-**Active file:** `~/.claude/plugin-data/<agent>/hook_history.json` (capped at 1000 entries)
+**Active file:** `${CLAUDE_PLUGIN_DATA}/hook_history.json` (capped at 1000 entries)
 
 **Trigger:** When active history reaches 1001 entries
 - Oldest 1000 entries move to `hook_history.archive.json`
@@ -318,7 +320,7 @@ def test_namespace_enforcement():
     """Validator should enforce plugin namespace."""
     validator = create_whitelist_validator(check_namespace=True)
     result = validator(
-        "/home/user/.claude/plugin-data/agent-nelly/state.json",
+        os.path.join(other_plugin_data_dir, "state.json"),  # outside agent-isdd's CLAUDE_PLUGIN_DATA
         "write",
         "agent-isdd"
     )
@@ -329,13 +331,13 @@ def test_namespace_enforcement():
 ```python
 def test_hook_allows_own_namespace():
     """Hook should allow writes to own namespace."""
-    target = os.path.join(home, ".claude", "plugin-data", "plugin-name", "state.json")
+    target = os.path.join(own_data_dir, "state.json")
     proc = run_hook({"tool_input": {"file_path": target}, "cwd": cwd})
     assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 def test_hook_denies_cross_namespace():
     """Hook should deny writes to other namespace."""
-    target = os.path.join(home, ".claude", "plugin-data", "agent-nelly", "state.json")
+    target = os.path.join(other_plugin_data_dir, "state.json")
     proc = run_hook({"tool_input": {"file_path": target}, "cwd": cwd})
     assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
 ```
@@ -344,7 +346,7 @@ def test_hook_denies_cross_namespace():
 ```python
 def test_path_traversal_blocked():
     """Path traversal via ../ should be blocked."""
-    target = os.path.join(home, ".claude", "plugin-data", "plugin", "..", "agent-nelly", "state.json")
+    target = os.path.join(own_data_dir, "..", "agent-nelly", "state.json")
     proc = run_hook({"tool_input": {"file_path": target}, "cwd": cwd})
     # Should either normalize to own namespace or deny
     result = json.loads(proc.stdout)
@@ -353,7 +355,7 @@ def test_path_traversal_blocked():
 
 def test_symlink_escape():
     """Symlink escape attempts should be blocked by namespace check."""
-    # Create symlink pointing outside plugin-data
+    # Create symlink pointing outside ${CLAUDE_PLUGIN_DATA}
     # Attempt to write through it
     # Validator should normalize path and still catch cross-namespace access
     pass
@@ -428,7 +430,7 @@ if validation.get("allowed"):
 
 **Deny hook** (`plugin_data_slug_guard.py`):
 ```python
-# Extract agent name from plugin-data path
+# Resolve the target against ${CLAUDE_PLUGIN_DATA} (see Step 3)
 if agent_name != "agent-tdd":
     deny("Agent-TDD slug guard: cross-agent write denied")
 ```
@@ -490,7 +492,7 @@ Use this checklist when adding a new plugin to the ecosystem:
 - [ ] Define plugin name (e.g., `new-plugin-name`)
 - [ ] Define env-gate name (e.g., `NEW_PLUGIN_GATE`)
 - [ ] Identify plugin-data needs (state files, caches, audit logs)
-- [ ] Plan namespace structure (`~/.claude/plugin-data/new-plugin-name/...`)
+- [ ] Plan namespace structure (`${CLAUDE_PLUGIN_DATA}/...`)
 
 ### Implementation
 - [ ] Copy `plugin_data_whitelist.py` to `hooks/`
@@ -546,4 +548,3 @@ Use this checklist when adding a new plugin to the ecosystem:
 - **[plugin_data_whitelist.py](agent-nelly/hooks/plugin_data_whitelist.py)** — Shared validators and audit logger
 - **[shared_slug.py](agent-nelly/hooks/shared_slug.py)** — Canonical project slug derivation
 - **[nelly_memory_permission.py](agent-nelly/hooks/nelly_memory_permission.py)** — Reference implementation for memory dirs
-- **[plugin_data_write.py](agent-tdd/hooks/plugin_data_write.py)** — Reference implementation for plugin-data

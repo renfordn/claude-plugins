@@ -3,9 +3,8 @@
  * Defence in depth for the data-dir isolation setup-env.js establishes.
  *
  * Individual suites legitimately mutate CLAUDE_PLUGIN_DATA (pointing it at their own temp dir)
- * and some used to `delete` it afterwards, which silently re-armed sqlite-cache's
- * ~/.claude/plugin-data fallback for every later test in that worker -- i.e. the developer's
- * real cache. Re-pinning it before and after each test means a suite can still point it
+ * and some used to `delete` it afterwards, which would make every later getSingleton() in that
+ * worker throw (CLAUDE_PLUGIN_DATA is required). Re-pinning it before and after each test means a suite can still point it
  * wherever it likes for its own duration without leaking that change to its neighbours.
  */
 const { resetSingleton } = require('../../skills/sqlite-cache');

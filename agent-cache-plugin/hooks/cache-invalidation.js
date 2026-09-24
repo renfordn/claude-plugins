@@ -9,7 +9,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const MAX_ENTRIES = 10_000;
 const EVENT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -17,9 +16,7 @@ const EVENT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 function resolveDbPath() {
   const d = process.env.CLAUDE_PLUGIN_DATA;
   if (!d) {
-    const fallback = path.join(os.homedir(), '.claude', 'plugin-data', 'agent-cache-plugin');
-    fs.mkdirSync(fallback, { recursive: true });
-    return path.join(fallback, 'cache.db');
+    throw new Error('[agent-cache-plugin] CLAUDE_PLUGIN_DATA is not set. Run this through Claude Code, or set CLAUDE_PLUGIN_DATA to this plugin\'s data directory.');
   }
   fs.mkdirSync(d, { recursive: true });
   return path.join(d, 'cache.db');

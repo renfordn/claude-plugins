@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.4] - 2026-09-24
+
+- **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.
+- **Chore**: moved `first_class.declared_absent` out of `.claude-plugin/plugin.json` into `.claude-plugin/first-class.json` — `claude plugin validate --strict` rejects unknown manifest fields.
+- **Change**: `hooks/bootstrap-plugins.sh` and `CapabilityMap()` default to `${CLAUDE_PLUGINS_DIR}`, else `${CLAUDE_PLUGIN_DATA}/claude-plugins` (was a hardcoded `~/.claude/plugins/claude-plugins`); the silent fallback to test fixtures is gone. First session after upgrading re-clones into the plugin's own data dir.
+- **Fix**: `get_sibling_plugin_data_dir()` returned plugin-harness's own dir when its data-dir name had an unexpected shape; it now raises.
+- **Fix**: `orchestrator/interop_parser.py` rebuilt cached maps against a hardcoded `/Users/.../plugins/claude` base dir; it now uses the live map's base.
+
 ## [2.1.3] - 2026-09-24
 
 - **Docs**: `hooks/before_continue.py` and three `orchestrator/` docstrings cited the legacy bare

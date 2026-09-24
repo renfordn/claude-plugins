@@ -109,7 +109,7 @@ for the full field-by-field breakdown.
 Per-feature artifacts are plugin-generated state, not source — they live under the project's
 central SDD memory directory (`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`), never inside the repo.
 Resolve (and create, if missing) a feature's folder with
-`python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path <YYYY-MM-DD-feature-slug>`
+`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path <YYYY-MM-DD-feature-slug>`
 rather than hand-building the path — this also rejects unsafe slugs. Reads/writes under the
 memory directory are auto-approved by `hooks/memory_permission.py`.
 

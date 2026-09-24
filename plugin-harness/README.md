@@ -38,7 +38,7 @@ in the `renfordn/claude-plugins` monorepo (there is no separate
 
 Once installed, the plugin's own `SessionStart` hook
 ([hooks/bootstrap-plugins.sh](hooks/bootstrap-plugins.sh)) clones/updates
-`renfordn/claude-plugins` into `~/.claude/plugins/claude-plugins` on its own,
+`renfordn/claude-plugins` into its own `${CLAUDE_PLUGIN_DATA}/claude-plugins`,
 and `CapabilityMap()` defaults to that path when `CLAUDE_PLUGINS_DIR` isn't
 set — so a fresh cloud session (phone, web, wherever) bootstraps the same
 `agent-isdd` / `agent-tdd` / `code-reviewer` / `agent-nelly` / `agent-ux`
