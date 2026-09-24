@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Fix**: `hooks/hook_state.py`'s `active_state_dir()`/`workflow_state_path()` now skip features whose `workflow-state.md` has `Workflow Status: Complete`. Before, a completed feature stayed "active" as the newest workflow-state.md, and `before_continue.py`/`subagent_stop.py` kept writing its `workflow-state.json`, lock file and `hook_telemetry_log.jsonl` in unrelated sessions. When every feature is Complete, these hooks now take their no-active-workflow path. In-progress and paused features resolve as before.
+
 ## [2.1.7] - 2026-09-24
 
 - **Fix**: `orchestrator/harness_context_cache.py`'s `set()` now always removes its temp file in a `finally` block. After a successful write it also deletes `.context-cache.json-*.tmp` files older than `STALE_TMP_SECONDS` (1 h). This matches the `FileStateStore` change in 2.1.5.

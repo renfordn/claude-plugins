@@ -156,10 +156,31 @@ def error_registry_path(cwd):
     return os.path.join(memory_dir(cwd), "error-registry.json")
 
 
+_WORKFLOW_STATUS_RE = re.compile(r"^\s*[-*]\s*Workflow Status:\s*(.*?)\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def _is_complete_state(path):
+    """True when a workflow-state.md's first `- Workflow Status:` field is `Complete`.
+
+    Mirrors agent-isdd's sdd_state.is_complete_state (not imported -- separate plugin).
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            m = _WORKFLOW_STATUS_RE.search(fh.read())
+    except OSError:
+        return False
+    return bool(m) and m.group(1).lower() == "complete"
+
+
 def active_state_dir(cwd):
-    """Directory of the most recently modified workflow-state.md under memory_dir(cwd), or None."""
+    """Directory of the most recently modified non-Complete workflow-state.md under
+    memory_dir(cwd), or None.
+
+    Complete features are skipped so a finished feature doesn't stay "active" forever and
+    keep receiving workflow-state.json / telemetry writes from unrelated sessions.
+    """
     pattern = os.path.join(memory_dir(cwd), "spec", "*", "workflow-state.md")
-    files = glob.glob(pattern)
+    files = [p for p in glob.glob(pattern) if not _is_complete_state(p)]
     if not files:
         return None
     files.sort(key=lambda p: os.path.getmtime(p), reverse=True)

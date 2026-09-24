@@ -68,6 +68,24 @@ class SubagentReportTests(unittest.TestCase):
                 logged = fh.read()
             self.assertIn("Implemented the thing.", logged)
 
+    def test_complete_feature_is_not_written_to(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="Done Feature", workflow_status="Complete")
+            transcript = os.path.join(home, "transcript.jsonl")
+            _write_transcript(
+                transcript,
+                [_assistant_line("<!--SDD-REPORT:spec-reviewer-->\nUnrelated later session.")],
+            )
+            msg, rc = h.run_hook_message(
+                "subagent_report.py",
+                {"cwd": repo, "transcript_path": transcript},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNone(msg)
+            self.assertFalse(os.path.exists(self._log_path(feature_dir)))
+
     def test_keyword_fallback_list_block_content_is_appended(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)

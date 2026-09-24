@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Fix**: `hooks/sdd_state.py`'s `find_state_files()`/`active_state_file()` now skip features whose `workflow-state.md` has `Workflow Status: Complete` (new `is_complete_state()`). Before, the newest workflow-state.md stayed "active" after completion, so hooks such as `subagent_report.py` kept appending to its `recap/subagent-reports.md` in unrelated sessions. When every feature is Complete, discovery now returns no active workflow. In-progress and paused features resolve as before.
+
 ## [0.1.58] - 2026-09-24
 
 - **Feature**: `scripts/sdd_cleanup.py` condenses features that are `Complete` and have no artifact changes for 14 days into `completed/<feature>.md` (goal, success signals, decisions, open follow-ups, commits, final state) and deletes the rest. Hook bookkeeping files don't count as activity. It also merges idle worktree stores into their parent repo's store. Actions are logged to `CLEANUP-LOG.md`, and reports go to `cleanup-reports/`.

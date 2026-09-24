@@ -76,6 +76,55 @@ class SddStateTests(unittest.TestCase):
         self.assertFalse(sdd_state.is_pre_implementation({"workflow status": "Complete"}))
 
 
+class CompleteFeatureDiscoveryTests(unittest.TestCase):
+    """find_state_files/active_state_file must skip `Workflow Status: Complete` features.
+
+    Regression (2026-09-24): discovery picked the newest-mtime workflow-state.md regardless of
+    status, so a finished feature stayed "active" forever and hooks kept writing into it.
+    """
+
+    def _run(self, home, project_root, expr):
+        import subprocess
+        result = subprocess.run(
+            ["python3", "-c",
+             f"import sys; sys.path.insert(0, {h.HOOKS_DIR!r}); "
+             f"import sdd_state; print({expr})"],
+            capture_output=True, text=True, env=h._hook_env({"HOME": home}),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result.stdout.strip()
+
+    def _seed(self, home, project_root, slug, status, mtime_offset=0):
+        import time
+        path = h.seed_state_file(h.feature_spec_dir(home, project_root, slug), workflow_status=status)
+        t = time.time() + mtime_offset
+        os.utime(path, (t, t))
+        return path
+
+    def test_all_complete_means_no_active_state(self):
+        import tempfile
+        with h.temp_home() as home, tempfile.TemporaryDirectory() as root:
+            self._seed(home, root, "done", "Complete")
+            self.assertEqual(self._run(home, root, f"sdd_state.active_state_file({root!r})"), "None")
+            self.assertEqual(self._run(home, root, f"sdd_state.find_state_files({root!r})"), "[]")
+
+    def test_newer_complete_skipped_for_older_in_progress(self):
+        import tempfile
+        with h.temp_home() as home, tempfile.TemporaryDirectory() as root:
+            wip = self._seed(home, root, "wip", "In Progress", mtime_offset=-100)
+            self._seed(home, root, "done", "Complete")
+            self.assertEqual(self._run(home, root, f"sdd_state.active_state_file({root!r})"), wip)
+
+    def test_non_complete_statuses_keep_newest_first_order(self):
+        import tempfile
+        with h.temp_home() as home, tempfile.TemporaryDirectory() as root:
+            older = self._seed(home, root, "older", "In Progress", mtime_offset=-100)
+            newer = self._seed(home, root, "newer", "Awaiting Implementation Request")
+            self.assertEqual(
+                self._run(home, root, f"sdd_state.find_state_files({root!r})"), repr([newer, older])
+            )
+
+
 class ParseStateJsonTests(unittest.TestCase):
     def setUp(self):
         sys.path.insert(0, h.HOOKS_DIR)

@@ -26,16 +26,26 @@ from sdd_memory import memory_dir
 MAX_ESCALATION_HISTORY = 50
 
 
+def is_complete_state(path):
+    """True when a workflow-state.md's `- Workflow Status:` field is `Complete`.
+
+    A finished feature must drop out of discovery -- otherwise, as the newest-mtime
+    workflow-state.md, it stays "active" forever and every later hook run (in unrelated
+    sessions) keeps writing into its folder.
+    """
+    return parse_state(path).get("workflow status", "").strip().lower() == "complete"
+
+
 def find_state_files(root):
-    """Return workflow-state.md paths under <memory_dir(root)>/spec/*/ sorted newest-first."""
+    """Return non-Complete workflow-state.md paths under <memory_dir(root)>/spec/*/, newest-first."""
     pattern = os.path.join(memory_dir(root), "spec", "*", "workflow-state.md")
-    files = glob.glob(pattern)
+    files = [p for p in glob.glob(pattern) if not is_complete_state(p)]
     files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
     return files
 
 
 def active_state_file(root):
-    """Most recently modified workflow-state.md under memory_dir(root), or None."""
+    """Most recently modified non-Complete workflow-state.md under memory_dir(root), or None."""
     files = find_state_files(root)
     return files[0] if files else None
 
