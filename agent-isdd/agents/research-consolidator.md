@@ -50,6 +50,28 @@ Sweep broadly for candidate touchpoints, optimized with nelly hints:
 
 ---
 
+## Pass 1b — repo line-count ceiling (once per pass)
+
+Resolve the target repo's own documented line-count ceiling, once, before Pass 2:
+
+1. `Read` the target repo root's `AGENTS.md`; if absent or it states no numeric line-count
+   convention, `Read` `CLAUDE.md` at the same root instead. The first of the two that states a
+   numeric convention wins — never read both for competing numbers.
+2. Look for a number adjacent to "lines"/"physical lines" plus limit-language ("no more than",
+   "<=", "limit"). If the stated convention is a range (e.g. "200-400 lines"), resolve
+   deterministically to its **upper bound** (400 in that example) — never leave it ambiguous.
+3. If neither file exists, or neither states a numeric convention: the ceiling defaults to **400**,
+   with `source: "default (no repo convention found)"`.
+4. Resolved **exactly once** per research pass — reuse the same `{value, source}` pair for every
+   file's line-count comparison within this pass; never re-resolve per file.
+5. Never fabricate a ceiling without a recorded `source` — every resolved ceiling states exactly
+   where it came from (`AGENTS.md`, `CLAUDE.md`, or the default label above).
+
+**Result:** one `{value: <int>, source: "AGENTS.md" | "CLAUDE.md" | "default (no repo convention
+found)"}` pair, reused for the rest of this pass.
+
+---
+
 ## Pass 2 — deep, focused (dual output)
 
 Read in full only the files that passed Pass 1. Extract only what constrains design OR tasks:
@@ -60,6 +82,12 @@ Read in full only the files that passed Pass 1. Extract only what constrains des
 - **Tech debt:** known issues, incomplete patterns
 - **Dependencies:** what this file depends on, what depends on it
 - **Risks:** coupling, missing tests, complexity
+- **Line count:** compute via `Grep` with `pattern: "^"` and `output_mode: "count"` — this matches
+  every line, giving an exact physical line count. **Never** use `Read`'s own line numbering as
+  the source of this count; `Read` truncates for large files and its line numbers are not a
+  reliable count. Computed fresh every pass (no caching of the number itself beyond the existing
+  `git_hash`-keyed file-summary cache). If this file's line count is at or over the ceiling
+  resolved in Pass 1b, its Risk line below states that explicitly.
 
 **Then produce dual output:**
 
@@ -89,6 +117,7 @@ Read in full only the files that passed Pass 1. Extract only what constrains des
   - dependencies: [<what it depends on>]
   - test_surface: [<what to mock>]
   - migration_risks: [<changes needed if this file is touched>]
+  - line_count: <int, via Grep pattern "^" output_mode "count" — never from Read's line numbers>
   - git_hash: <for cache invalidation>
 ```
 
@@ -121,7 +150,14 @@ Per-file findings for slicing:
 Per-file summaries structured for cross-feature reuse:
 - path, summary, exports, constraints, tech_debt, dependencies
 - test_surface, migration_risks
+- line_count (via `Grep` `pattern: "^"`, `output_mode: "count"` — never from `Read`'s own line
+  numbering, which truncates for large files)
 - git_hash (for cache invalidation)
+
+### Line-Count Ceiling
+The repo-level ceiling resolved once in Pass 1b: `{value: <int>, source: "AGENTS.md" |
+"CLAUDE.md" | "default (no repo convention found)"}`. A stated range always resolves to its
+upper bound. Default value when no repo convention is found: `400`.
 
 ### Excluded Candidates
 Files that surfaced but were not deep-read, with reason
@@ -148,6 +184,11 @@ Anything the code alone can't answer (product decision, ambiguous requirement)
 - **If nothing relevant:** Say so plainly instead of manufacturing findings.
 - **Nelly integration:** Extract file summaries as you deep-read. You don't call nelly; the
   caller will persist these summaries via its own write-back call.
+- **Line-count integrity:** Never report a `line_count` computed any way other than `Grep`
+  `pattern: "^"`, `output_mode: "count"` — `Read`'s own line numbers truncate for large files and
+  must never be the source. Never fabricate a `Line-Count Ceiling` without a recorded `source`
+  (`AGENTS.md`, `CLAUDE.md`, or the default label); resolve it exactly once per pass, not per
+  file.
 
 ---
 

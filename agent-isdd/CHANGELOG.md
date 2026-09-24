@@ -13,6 +13,25 @@
   `design.md`/`research/cache.md` were already on disk at a point that can still precede plan
   approval.
 
+## [0.1.53] - 2026-09-24
+
+- **Feature**: `research-consolidator` now reports each deep-read file's physical line count
+  (`line_count`, via `Grep` `pattern: "^"` + `output_mode: "count"` — it has no `Bash` tool, so
+  never via `Read`'s own truncating line numbers) and resolves the target repo's own documented
+  line-count ceiling once per research pass (`AGENTS.md`/`CLAUDE.md`, a stated range resolving to
+  its upper bound, defaulting to 400 with an explicit `default (no repo convention found)` source
+  when neither file states one). `design-author` gained a Design Gate item requiring a
+  split/extraction recommendation in `design.md`'s `Refactor & Reduction Opportunities
+  (non-blocking)` section for any touchpoint file at/over that ceiling, plus a guardrail keeping
+  `code-reviewer`'s Deep review pass out of line-count-ceiling territory — file-size enforcement
+  is a design-time concern, never a `code-reviewer` one (see `code-reviewer`'s own 0.1.13
+  changelog entry). `INTEROP.md`'s `file_summary` JSON example and Design Spec field table
+  updated to match.
+- **Fix**: `design-author/SKILL.md`'s own prose enumeration of `file_summaries`' fields (in its
+  "Research First" step) had drifted from `research-consolidator.md`'s actual schema — missing
+  the `line_count` field the same feature had just added to it. Caught by a follow-up review
+  pass; added a regression test.
+
 ## [0.1.52] - 2026-09-24
 
 - **Fix**: `hooks/diff_fingerprint.py`'s `TRACKED_DIRS` matching was never monorepo-aware

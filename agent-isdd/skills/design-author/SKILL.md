@@ -45,6 +45,14 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    continuous stretch of phase work (per `spec-driven-development`'s extended brief-reuse
    convention and its three re-fetch triggers) instead of re-delegating for the same touchpoints.
    
+   For each named touchpoint file `research-consolidator` reports at or over the resolved
+   `Line-Count Ceiling`, add one bullet to `design.md`'s existing `Refactor & Reduction
+   Opportunities (non-blocking)` section: `<path>: <line_count> lines, at/over the
+   <ceiling>-line ceiling (source: <AGENTS.md | CLAUDE.md | default>) — recommend
+   splitting/extracting before or alongside this feature's changes.` This is non-blocking
+   (recording, not resolving, gates approval) and only ever produced for a file
+   `research-consolidator` actually reported on — never a proactive whole-repo sweep.
+
    Record `design_findings` in the `Research Basis` section of `design.md` (see
    `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`) so a later reader can see the design is grounded, not
    guessed. Pass the caller's brief (including its `Relevant entries` section, which the
@@ -57,7 +65,7 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    - Cache `task_findings` in `research/cache.md` (for agent-tdd to reuse)
    - Persist `file_summaries` to agent-nelly via `new facts` batch (type: "file_summary")
      - `file_summaries` are structured for cross-feature reuse: path, summary, exports,
-       constraints, tech_debt, dependencies, test_surface, migration_risks, git_hash
+       constraints, tech_debt, dependencies, test_surface, migration_risks, line_count, git_hash
      - Agent-nelly caches these in `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project>/files/`
    - If a summary describes a design approach already tried and rejected (not just current
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
@@ -89,6 +97,9 @@ Move forward only when all of the following are true:
 - key tradeoffs are visible
 - no unresolved contradiction remains
 - **[Phase 2+3]** research cache created (research/cache.md with design_findings + task_findings)
+- **[Phase 2+3]** a `Refactor & Reduction Opportunities` bullet exists for every touchpoint file
+  `research-consolidator` reported at or over the resolved line-count ceiling — non-blocking
+  (recording the recommendation gates approval; resolving it doesn't)
 - `plan-reviewer` has been run against this design (or its skip was explicitly noted, per
   Research First step 3) — no unresolved Blocker or Genuinely-unresolved finding remains
 - **[Phase 2+3]** file summaries extracted and ready for agent-nelly persistence
@@ -210,3 +221,5 @@ above, or the file itself once approved), use the canonical template from
 - Prefer the smallest coherent design that supports the current requirement slice.
 - Do not render a diagram for a design simple enough to state in a sentence or two — `show_widget`
   is for when a picture removes real ambiguity, not decoration.
+- `/code-reviewer`'s Design Validation Deep Review pass never checks line counts at any level —
+  the line-count-ceiling gate belongs entirely to this skill's Design Gate, not to code-reviewer.

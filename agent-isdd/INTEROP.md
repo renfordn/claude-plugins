@@ -22,7 +22,7 @@ validation, task slicing, and implementation.
 |-------|------|----------|-------------|
 | requirements_md | string | yes | Full approved requirements.md |
 | design_md | string | yes | Full approved design.md (with Research Basis section) |
-| research_cache | object | yes | Research findings including design_findings, task_findings, file_summaries, git_hashes |
+| research_cache | object | yes | Research findings including design_findings, task_findings, file_summaries, git_hashes, and the resolved per-repo line-count ceiling (`{value, source}`) |
 | recap_md | string | yes | Summarized recap of summary, known risks, blockers, and Goal alignment notes |
 
 **Optional fields** (passed through but not validated):
@@ -394,6 +394,7 @@ summary:
   "dependencies": ["axios", "events"],
   "test_surface": ["Mock ApiClient.request()", "Test retry behavior"],
   "migration_risks": ["Request state cached; changes to error handling must clear cache"],
+  "line_count": 342,
   "git_hash": "abc123def456",
   "touched_by": [{"feature": "payment-flow", "date": "2026-08-22"}]
 }
