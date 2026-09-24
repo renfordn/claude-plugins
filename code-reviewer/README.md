@@ -26,6 +26,16 @@ pause — run it in `review-improve` mode, scoped to the files `agent-TDD` named
 `agent-TDD` with the outcome. Neither plugin hard-depends on the other; you can use `agent-tdd`
 with a different reviewer, or use this skill with a different (or no) TDD implementer.
 
+## Research briefs: explaining code, not reviewing it
+
+`research-brief` is a fourth invocation mode, separate from the three review modes above. Ask
+for it explicitly when you want to understand or be walked through how existing code works — a
+visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a person, not
+findings for an implementation agent to act on. It reuses the same evidence-tier grounding
+(claims still need tier-1..5 backing) but has no Decision Model, no `ReportFindings` call, and
+writes nothing to review state — there's no commit to gate. See SKILL.md's "Research Brief
+Output" section for the exact shape.
+
 ## Review state is opt-in
 
 This skill has no memory location of its own. Pass it a review-state directory if you want

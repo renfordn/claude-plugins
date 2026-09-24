@@ -13,8 +13,8 @@ README's "Why this is a skill, not an agent"). Tell it:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| Mode | string | yes | `direct-review`, `review-improve`, or `pre-commit` (see SKILL.md's Invocation Modes) |
-| Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff |
+| Mode | string | yes | `direct-review`, `review-improve`, `pre-commit`, or `research-brief` (see SKILL.md's Invocation Modes) |
+| Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. For `research-brief`, the subsystem/feature/file set the caller wants explained |
 | review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
 | review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
 | phase_state | string | no | Compact phase token (e.g. `Design`, `TDD:green`) if your workflow has one. Unlocks `agent-ux:ux-agent` delegation for review dashboard if installed. Omit for standalone/pre-commit pass |
@@ -118,7 +118,18 @@ for auto-detection to succeed. See `plugin-harness/tests/test_smoke_e2e.py` for 
   `~/.claude/sdd-memory/`, not the repo); see `agent-isdd/INTEROP.md`'s "Strategic Review
   Placement via Review Levels" section for the live reasoning instead
 
-## What you get back
+## `research-brief` mode: a different contract
+
+`research-brief` is not a review — it produces a visual explanation of how existing code works
+for a human reader, not a verdict for a caller to act on. It returns **no `findings` array and
+never calls `ReportFindings`**; the only thing handed back is a single Artifact (diagram(s) plus
+narrative walkthrough — see SKILL.md's "Research Brief Output" for the shape). Nothing is
+persisted to `REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md` for this mode, and there
+is no `workflow_action` to gate a commit on. Do not route this mode's output into a
+`review_threshold`-style downstream consumer expecting the Decision Model's fields — there aren't
+any.
+
+## What you get back (`direct-review` / `review-improve` / `pre-commit`)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
