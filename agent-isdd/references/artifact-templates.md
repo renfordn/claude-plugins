@@ -295,6 +295,16 @@ section).
 
 ## `tasks/tasks.md`
 
+> **Superseded 2026-09-24:** `agent-isdd` never writes `tasks.md`. Per the Phase 2+3 revised
+> architecture (see `agent-isdd/INTEROP.md`'s "→ agent-tdd" section and `agent-tdd/INTEROP.md`'s
+> "Design Spec Mode" section), `agent-tdd` produces `tasks.md` entirely on its own during the
+> Design Spec handoff, using a slice-based schema (`## Slice N: <behavior>` with Risk Tier,
+> Depends On, Files, Test Intent, Validation Target, Ordered Steps) — not the Phase-based
+> structure below. The authoritative format lives in `agent-tdd/agents/agent-TDD.md`'s
+> "tasks.md Format (Design Spec Mode Output)" section and is schema'd in
+> `agent-tdd/references/tasks-schema.json`. The template below is kept only as historical
+> reference for the old (pre-Phase-2+3) structure.
+
 ```md
 # Tasks: <feature title>
 
