@@ -6,6 +6,14 @@ Note: workflow-state.md lives under the central memory dir (see sdd_memory.memor
 not under <root>/spec/*/. A legacy repo-local spec/ directory from before this convention
 change is not migrated or supported by find_state_files/active_state_file -- none exist in
 this canonical repo.
+
+Caution: every function here is discovery-based -- it locates state via memory_dir(cwd), never
+via an explicit path handed to it in a hook's own PreToolUse/PostToolUse/SubagentStop payload.
+memory_dir() is `${CLAUDE_PLUGIN_DATA}`-based and therefore plugin-identity-scoped (see
+path_resolution.py's "identity-split hazard"): a caller of find_state_files/active_state_file
+running under one identity's env var will not see state written under a different identity's
+data dir, and gets exactly the same empty result as "no workflow is active at all." Every hook
+in this plugin that calls these functions inherits that caveat.
 """
 import glob
 import json

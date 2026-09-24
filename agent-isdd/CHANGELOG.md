@@ -1,6 +1,61 @@
 # Changelog
 
-## Unreleased
+## [0.1.54] - 2026-09-24
+
+- **Fix**: `hooks/path_resolution.py`'s `${CLAUDE_PLUGIN_DATA}` fallback (used whenever the env
+  var isn't set) silently guessed a bare, non-suffixed `~/.claude/plugins/data/agent-isdd/`
+  path with no warning. Confirmed root cause of a false commit-gate denial: Claude Code can load
+  this plugin under more than one identity at once (e.g. a monorepo checkout as
+  `agent-isdd@inline` alongside a marketplace install as `agent-isdd@<marketplace>`), and each
+  identity gets its own `${CLAUDE_PLUGIN_DATA}` injected into *its own* registered hook
+  subprocesses — but never into a manual/direct `python3 hooks/*.py` invocation (e.g. run via a
+  Bash tool call instead of the real hook chain), which silently fell back to the guessed path
+  instead. State scaffolded that way can land under a different identity's data dir than
+  whichever one the project's real hooks resolve to, invisible to every real hook until
+  reconciled by hand — confirmed in practice via a duplicated `DOC-AUDIT-STATE.md`/
+  `DOC-AUDIT-HISTORY.md` and an entirely invisible SDD feature folder. Every hook in this plugin
+  that discovers its own state via `memory_dir()`/`active_state_file()`/`find_state_files()`
+  (all of `hooks/session_start.py`, `before_continue.py`, `precompact_snapshot.py`,
+  `high_risk_reviewer.py`, `design_spec_gate.py`, `slice_spec_gate.py`, `subagent_report.py`,
+  `stop_check.py`, `ux_render.py`, `commit_audit_gate.py` — none of this plugin's hooks receive
+  an explicit spec-folder path in their own PreToolUse/PostToolUse/SubagentStop payload) inherits
+  this exposure. The most serious instance: `hooks/design_spec_gate.py` treats "no state found"
+  as "no SDD workflow active, not this plugin's business to gate" and falls through with no
+  decision — for a gate hook, a resolution mismatch means a silent *allow* of an unapproved
+  `agent-tdd:agent-TDD` Design Spec spawn, not just a stale-looking read.
+
+  Fix: `path_resolution.py`'s fallback now prints a clear, one-line warning to stderr (never
+  stdout, which every hook reserves for its JSON decision) whenever `${CLAUDE_PLUGIN_DATA}` is
+  unset, so a manual invocation — or a real hook whose env var somehow didn't get injected — is
+  never silent about it. Kept in sync in both the per-plugin copy
+  (`hooks/path_resolution.py`, what actually ships) and `shared/path_resolution.py` (the
+  whole-repo test copy), per that file's own "keep in sync" instruction. This is a detection/
+  visibility fix, not a resolution-unification one — deliberately: normalizing to one path
+  regardless of identity would fight Claude Code's own per-identity data isolation, which is
+  there on purpose. Documented the actual discipline instead: never invoke `hooks/*.py` directly
+  outside the real registered hook chain (new docstring guidance in `path_resolution.py`,
+  `sdd_memory.py`, `sdd_state.py`, `design_spec_gate.py`, `commit_audit_gate.py`,
+  `slice_spec_gate.py`, plus a new "Debugging: never invoke `hooks/*.py` directly" section in
+  `README.md`). Added `tests/test_path_resolution.py` (new) and matching cases in
+  `shared/test_path_resolution.py` covering the warning's presence/absence and that it never
+  lands on stdout.
+
+  Also reconciled this monorepo's own already-split SDD memory data for this project (found
+  during the same investigation): the `2026-09-24-code-reviewer-improvement-detection` feature
+  folder and this project's `DOC-AUDIT-STATE.md`/`DOC-AUDIT-HISTORY.md` existed only (or in a
+  smaller, diverged form) under the non-`-inline` `agent-isdd` plugin-data directory, invisible
+  to this project's real hooks, which resolve to the `-inline` one (confirmed via
+  `commit_audit_gate.py`'s own `RUN-LOG.jsonl`, present only under `-inline`). Copied/merged the
+  fuller records into the `-inline` location (now canonical for this project) and left the
+  non-`-inline` originals in place, annotated as superseded, for reference — nothing was
+  deleted. The affected workflow was already `Complete` / `Implementation Requested: Yes` at
+  reconciliation time, so this was a record-keeping fix, not a resumed-workflow concern.
+
+  Scoped to `agent-isdd` (the plugin actually reported). Most sibling plugins
+  (`agent-tdd`, `agent-nelly`, `agent-ux`, `code-reviewer`, `plugin-harness`,
+  `deployment-ops-plugin`, etc.) carry their own per-plugin copy of `path_resolution.py` with
+  the same fallback pattern and likely share this same exposure — worth a follow-up pass across
+  those, not done here to avoid scope creep on a single-plugin bug fix.
 
 - **Fix**: `skills/workflow-manager/SKILL.md`'s "Native Plan Mode Gate" and
   `skills/design-author/SKILL.md` claimed Design writes `design.md`/`research/cache.md`/

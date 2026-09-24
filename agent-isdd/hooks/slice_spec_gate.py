@@ -27,6 +27,13 @@ narrowly-scoped, consequential call, unlike routine phase-transition writes.
 The check is deliberately shallow (field-name presence in the prompt text), not a full
 parse: a hook can't semantically judge Slice Spec quality, only whether the required
 sections were included at all.
+
+Caution (see path_resolution.py's "identity-split hazard"): the Track: Fast detection below
+resolves active_state_file(cwd), which is identity-scoped. If the active feature's state lives
+under a different plugin identity's data dir than this hook resolves to this session, this
+falls through as "no active workflow" -- Track: Fast's field check is silently skipped rather
+than applied. Lower-severity than design_spec_gate.py's equivalent gap (a skipped field check,
+not an unapproved implementation spawn), but the same underlying gap.
 """
 import json
 import os

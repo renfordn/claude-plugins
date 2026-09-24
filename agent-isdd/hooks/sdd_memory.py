@@ -23,6 +23,15 @@ Note: this module never reads or writes MEMORY.md (or PROJECT-MEMORY.md/TDD-MEMO
 scholar-memory.md/GLOBAL-MEMORY.md) -- per requirements.md's Ubiquitous rule, sdd shall
 never touch those files again; agent-nelly owns that tier now. ensure_dir()/--path only
 ever creates the bare directory.
+
+Do not run this module's CLI (`python3 hooks/sdd_memory.py --path|--spec-path ...`) by hand
+from a plain shell, or via a Bash tool call, during interactive session work -- see
+path_resolution.py's "identity-split hazard" docstring. BASE is resolved once at import time
+from `${CLAUDE_PLUGIN_DATA}`, which a manual invocation never has set, so a hand-run scaffold
+can silently land under a different plugin identity's data dir than whichever one this
+project's real, registered hooks resolve to -- invisible to every other hook in this plugin
+until reconciled by hand. Let real hooks (or a skill that only ever calls through them, the way
+hooks.json does) scaffold and discover this state.
 """
 import os
 import re

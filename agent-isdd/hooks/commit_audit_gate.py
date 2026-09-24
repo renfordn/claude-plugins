@@ -14,6 +14,14 @@ any repo that doesn't have skills/, agents/, commands/, and hooks/ at its
 root *and* doesn't contain sibling plugin dirs carrying INTEROP.md, so this
 hook never affects commits in unrelated repositories even though it's
 registered globally via this plugin's hooks.json.
+
+Caution (see path_resolution.py's "identity-split hazard"): this hook resolves
+DOC-AUDIT-STATE.md via memory_dir(cwd), which is `${CLAUDE_PLUGIN_DATA}`-based and thus
+identity-scoped. If DOC-AUDIT-STATE.md was last written under a *different* plugin identity's
+data dir than the one this hook resolves to this session (e.g. via a manual `python3
+hooks/*.py` invocation, which never gets `${CLAUDE_PLUGIN_DATA}` injected), this hook sees
+"none recorded" and denies -- a confusing false denial, not a real audit-gate failure. Never
+invoke hooks/*.py directly outside the real registered hook chain; see path_resolution.py.
 """
 import datetime
 import json

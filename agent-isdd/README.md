@@ -84,7 +84,31 @@ ${CLAUDE_PLUGIN_DATA}/sdd-memory/
 
 **Note:** sdd-memory is shared between agent-isdd and plugin-harness via symlink coordination for workflow state access.
 
-Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-isdd/` when running in Claude Code.
+Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-isdd/` when running in Claude Code
+under a single plugin identity. Claude Code can load the same plugin under more than one identity in
+the same install — e.g. a monorepo checkout as `agent-isdd@inline` alongside a marketplace install as
+`agent-isdd@<marketplace>` — and each identity gets its own `${CLAUDE_PLUGIN_DATA}` (e.g.
+`.../data/agent-isdd-inline/` vs. `.../data/agent-isdd/`). See `hooks/path_resolution.py`'s docstring
+for the full writeup.
+
+### Debugging: never invoke `hooks/*.py` directly
+
+Do not run any `hooks/*.py` script by hand from a plain shell, or via a Bash tool call, during
+interactive session work (e.g. `python3 hooks/sdd_memory.py --spec-path ...` to "just check
+where state lives"). `${CLAUDE_PLUGIN_DATA}` is only injected into subprocesses Claude Code
+itself spawns for a *registered* hook — a manual invocation never gets it, so every such script
+silently falls back to a guessed, non-suffixed path (`~/.claude/plugins/data/agent-isdd/...`)
+that may not match whichever plugin identity's hooks are actually registered this session. Any
+state scaffolded or read that way can silently diverge from what the real hooks — including the
+gates in `hooks/commit_audit_gate.py` and `hooks/design_spec_gate.py` — see, and a
+discovery-based gate hook that finds nothing at its resolved path falls through as "no active
+workflow" rather than erroring, which for `design_spec_gate.py` means a spawn silently proceeds
+ungated rather than being denied.
+
+If you need to inspect or repair this project's actual SDD state, do it through a real hook
+invocation (e.g. `/isdd-status`, which reads state the same way `hooks/session_start.py` does)
+or a skill that only ever calls into these hooks the way `hooks.json` does — never a bare
+interactive call to a script under `hooks/`.
 
 ## Handoff contract
 
