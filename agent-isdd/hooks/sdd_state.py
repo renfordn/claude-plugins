@@ -22,6 +22,9 @@ import re
 
 from sdd_memory import memory_dir
 
+# Entries retained in workflow-state.json's escalation_history (oldest dropped first).
+MAX_ESCALATION_HISTORY = 50
+
 
 def find_state_files(root):
     """Return workflow-state.md paths under <memory_dir(root)>/spec/*/ sorted newest-first."""
@@ -144,7 +147,8 @@ def write_escalation_outcome(path, entry):
     """Append `entry` to workflow-state.json's escalation_history list, creating the list if
     absent, and clear escalation_pending in the same write -- mirrors write_rollback_pending's
     tolerant-of-missing-file behavior, but appends rather than overwrites (escalation history is
-    a durable audit trail; see design.md's Data Contracts And Interfaces).
+    a durable audit trail; see design.md's Data Contracts And Interfaces), capped at the most
+    recent MAX_ESCALATION_HISTORY entries.
 
     `entry` is expected to be {reason, from_model, to_model, detected_at, outcome, resolved_at}.
     """
@@ -153,7 +157,7 @@ def write_escalation_outcome(path, entry):
     if not isinstance(history, list):
         history = []
     history.append(entry)
-    data["escalation_history"] = history
+    data["escalation_history"] = history[-MAX_ESCALATION_HISTORY:]
     if "escalation_pending" in data:
         del data["escalation_pending"]
     write_state_json(path, data)

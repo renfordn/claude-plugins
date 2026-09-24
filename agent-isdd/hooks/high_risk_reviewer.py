@@ -325,7 +325,8 @@ def update_reviewed_phases(workflow_state_json: dict, phase_name: str, severity:
         reviewer_version: Version string of code-reviewer used (e.g., "code-reviewer@0.1.x")
 
     Returns:
-        Updated workflow_state_json with new entry appended to reviewed_phases.
+        Updated workflow_state_json with new entry appended to reviewed_phases
+        (replacing any earlier entry for the same phase_name).
         Creates code_reviewer_tracking structure if missing.
     """
     from datetime import datetime, timezone
@@ -350,6 +351,12 @@ def update_reviewed_phases(workflow_state_json: dict, phase_name: str, severity:
         "reviewer_version": reviewer_version
     }
 
+    # A re-review of the same phase supersedes its earlier entry, so the list stays
+    # bounded by the number of phases rather than growing with every re-review.
+    tracking["reviewed_phases"] = [
+        e for e in tracking["reviewed_phases"]
+        if not (isinstance(e, dict) and e.get("phase_name") == phase_name)
+    ]
     tracking["reviewed_phases"].append(reviewed_entry)
     return workflow_state_json
 

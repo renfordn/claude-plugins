@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
+## [0.1.57] - 2026-09-24
+
 - **Fix**: `hooks/post_write_check.py` capped `workflow-state.json`'s `hook_history` at `MAX_HOOK_HISTORY` (100, oldest dropped first), so the file stops growing without bound.
+- **Fix**: `hooks/sdd_state.py`'s `write_escalation_outcome()` now keeps only the last `MAX_ESCALATION_HISTORY` (50) entries of `escalation_history`.
+- **Fix**: `hooks/high_risk_reviewer.py`'s `update_reviewed_phases()` now replaces a phase's earlier entry when that phase is reviewed again, so `reviewed_phases` holds at most one entry per phase.
 
 ## [0.1.56] - 2026-09-24
 

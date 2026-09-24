@@ -51,6 +51,18 @@ class EscalationHistoryTests(unittest.TestCase):
             self.assertEqual(data["escalation_history"], [entry])
             self.assertEqual(data.get("current_phase"), "Implementation")
 
+    def test_write_escalation_outcome_caps_history(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "workflow-state.json")
+            cap = self.sdd_state.MAX_ESCALATION_HISTORY
+            self._write_json(path, {"escalation_history": [{"i": i} for i in range(cap + 10)]})
+            self.sdd_state.write_escalation_outcome(path, {"i": "new"})
+
+            history = self.sdd_state.parse_state_json(path)["escalation_history"]
+            self.assertEqual(len(history), cap)
+            self.assertEqual(history[-1], {"i": "new"})
+            self.assertEqual(history[0], {"i": 11})
+
     def test_write_escalation_outcome_appends_without_clobbering_prior_entries(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "workflow-state.json")

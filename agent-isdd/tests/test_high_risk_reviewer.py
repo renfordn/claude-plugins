@@ -810,6 +810,21 @@ class UpdateReviewedPhasesTests(unittest.TestCase):
         self.assertEqual(reviewed[0]["severity"], "clean")
         self.assertEqual(reviewed[0]["findings_count"], 1)
 
+    def test_update_reviewed_phases_rereview_replaces_prior_entry(self):
+        """Re-reviewing a phase replaces its entry instead of growing the list."""
+        state = {}
+        for severity in ("major", "non-major", "clean"):
+            state = high_risk_reviewer.update_reviewed_phases(
+                state, "Phase 1", severity, [], "code-reviewer@0.1.0"
+            )
+        state = high_risk_reviewer.update_reviewed_phases(
+            state, "Phase 2", "clean", [], "code-reviewer@0.1.0"
+        )
+
+        reviewed = state["code_reviewer_tracking"]["reviewed_phases"]
+        self.assertEqual([e["phase_name"] for e in reviewed], ["Phase 1", "Phase 2"])
+        self.assertEqual(reviewed[0]["severity"], "clean")
+
     def test_update_reviewed_phases_creates_structure_if_missing(self):
         """Create code_reviewer_tracking structure if not present."""
         state = {}
