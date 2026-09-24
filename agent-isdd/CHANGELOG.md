@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Fix**: `skills/workflow-manager/SKILL.md`'s "Native Plan Mode Gate" and
+  `skills/design-author/SKILL.md` claimed Design writes `design.md`/`research/cache.md`/
+  agent-nelly `file_summaries` to disk "as it goes" while native plan mode is active — the
+  harness actually restricts file edits during plan mode to the one designated plan file, so
+  those writes are refused, not merely discouraged (observed in practice as a self-correction
+  mid-session). `design-author` now drafts all Design-phase output in context and in the plan
+  file only, and persists the real artifacts in one step once the user approves the plan
+  (`ExitPlanMode`) — including the Design Validation Deep Review step, which previously assumed
+  `design.md`/`research/cache.md` were already on disk at a point that can still precede plan
+  approval.
+
 ## [0.1.52] - 2026-09-24
 
 - **Fix**: `hooks/diff_fingerprint.py`'s `TRACKED_DIRS` matching was never monorepo-aware
