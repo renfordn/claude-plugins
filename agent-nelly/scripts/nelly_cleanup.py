@@ -19,13 +19,21 @@ Two deterministic passes, no LLM:
    one line each in SESSION-HISTORY.md (append-only, union-merged by git) and their entry
    files and index lines are removed.
 
-Both passes append what they did to the project's CONSOLIDATION-LOG.md.
+3. Stale git worktrees. Before either pass, every `<repo>/.claude/worktrees/<name>` worktree of a
+   repo this store knows about (from the `Project:` lines in its MEMORY.md files) is removed with
+   plain `git worktree remove` -- never `--force` -- when it has no uncommitted or untracked
+   changes, every commit it has is on a remote, and neither its last commit nor its index changed
+   for WORKTREE_IDLE_DAYS. Its branch is kept. Locked worktrees and repos on other machines are
+   skipped. The worktree's memory store is then merged by pass 1 once it's idle.
+
+All passes append what they did to the project's CONSOLIDATION-LOG.md.
 """
 import datetime
 import filecmp
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
@@ -343,10 +351,122 @@ def merge_worktree_store(store, parent_slug, label, base=None):
     return summary
 
 
+# ---------------------------------------------------------------------------
+# Stale git worktrees
+# ---------------------------------------------------------------------------
+
+_GIT_ENV = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+
+
+def _git(cwd, *args):
+    """Run git; return stdout, or None if it failed."""
+    try:
+        proc = subprocess.run(["git", "-C", cwd, *args], capture_output=True, text=True,
+                              timeout=60, env=_GIT_ENV)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def known_repos(base=None):
+    """Repo roots on this machine named by `Project:` lines in the store's MEMORY.md files."""
+    base = base or BASE
+    repos = set()
+    for slug in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+        path = _worktree_path(os.path.join(base, slug))
+        if not path:
+            continue
+        repo = path.split("/.claude/worktrees/", 1)[0]
+        if os.path.isdir(os.path.join(repo, ".git")):  # a main checkout, not another worktree
+            repos.add(repo)
+    return sorted(repos)
+
+
+def _list_worktrees(repo):
+    out = _git(repo, "worktree", "list", "--porcelain")
+    if out is None:
+        return []
+    trees, cur = [], {}
+    for line in out.splitlines() + [""]:
+        if not line:
+            if cur:
+                trees.append(cur)
+            cur = {}
+            continue
+        key, _, value = line.partition(" ")
+        cur[key] = value or True
+    return trees
+
+
+def _worktree_idle_days(wt, today):
+    stamps = []
+    last_commit = (_git(wt, "log", "-1", "--format=%ct") or "").strip()
+    if last_commit.isdigit():
+        stamps.append(int(last_commit))
+    git_dir = (_git(wt, "rev-parse", "--absolute-git-dir") or "").strip()
+    index = os.path.join(git_dir, "index") if git_dir else ""
+    if index and os.path.exists(index):
+        stamps.append(os.path.getmtime(index))
+    if not stamps:
+        return None
+    return (today - datetime.date.fromtimestamp(max(stamps))).days
+
+
+def stale_worktree_reason(wt, today, idle_days=WORKTREE_IDLE_DAYS):
+    """None if `wt` is safe to remove, else why it's kept."""
+    # Measure idleness before anything else touches the index: a plain `git status` refreshes
+    # it, which would make every worktree look active today.
+    idle = _worktree_idle_days(wt, today)
+    status = _git(wt, "--no-optional-locks", "status", "--porcelain", "--untracked-files=normal")
+    if status is None:
+        return "git status failed"
+    if status.strip():
+        return f"{len(status.splitlines())} uncommitted/untracked change(s)"
+    unpushed = (_git(wt, "rev-list", "--count", "HEAD", "--not", "--remotes") or "").strip()
+    if unpushed != "0":
+        return f"{unpushed or 'unknown number of'} commit(s) not on any remote"
+    if idle is None or idle < idle_days:
+        return f"active {idle} day(s) ago (waits until {idle_days} idle)"
+    return None
+
+
+def prune_stale_worktrees(today, dry_run=False, base=None, idle_days=WORKTREE_IDLE_DAYS):
+    base = base or BASE
+    result = {"removed": [], "would_remove": [], "kept": []}
+    for repo in known_repos(base):
+        for tree in _list_worktrees(repo):
+            wt = tree.get("worktree")
+            if not wt or "/.claude/worktrees/" not in wt or not os.path.isdir(wt):
+                continue
+            if tree.get("locked"):
+                result["kept"].append((wt, "locked"))
+                continue
+            reason = stale_worktree_reason(wt, today, idle_days)
+            if reason:
+                result["kept"].append((wt, reason))
+            elif dry_run:
+                result["would_remove"].append(wt)
+            elif _git(repo, "worktree", "remove", wt) is None:
+                result["kept"].append((wt, "git worktree remove refused"))
+            else:
+                result["removed"].append(wt)
+                branch = str(tree.get("branch", "detached HEAD")).replace("refs/heads/", "")
+                parent_dir = os.path.join(base, get_project_slug(repo))
+                if os.path.isdir(parent_dir):
+                    _log_action(parent_dir, "removed-stale-worktree", [
+                        f"Worktree: {wt}",
+                        f"Why: clean, all commits on a remote, idle {idle_days}+ days",
+                        f"Branch kept: {branch}",
+                    ])
+    return result
+
+
 def run_cleanup(today, dry_run=False, base=None, idle_days=WORKTREE_IDLE_DAYS):
-    """Worktree merges first (so their handoffs join the parent), then handoff rollups."""
+    """Stale git worktrees first, then worktree-store merges (so their handoffs join the
+    parent), then handoff rollups."""
     base = base or BASE
     result = {"merged": [], "skipped_worktrees": [], "would_merge": [], "rolled_up": {}}
+    result["worktrees"] = prune_stale_worktrees(today, dry_run, base, idle_days)
     for store, parent, label, reason in find_orphaned_worktree_stores(base, today, idle_days):
         if reason:
             result["skipped_worktrees"].append((os.path.basename(store), reason))
@@ -367,6 +487,13 @@ def run_cleanup(today, dry_run=False, base=None, idle_days=WORKTREE_IDLE_DAYS):
 
 def render_cleanup_section(result, dry_run):
     lines = ["## Cleanup", ""]
+    trees = result.get("worktrees")
+    if trees is not None:
+        removed = trees["would_remove"] if dry_run else trees["removed"]
+        lines.append(f"- {'Would remove' if dry_run else 'Removed'} {len(removed)} stale git "
+                     f"worktree(s) (clean, pushed, idle {WORKTREE_IDLE_DAYS}+ days; branches kept)")
+        lines += [f"  - `{wt}`" for wt in removed]
+        lines += [f"  - kept `{wt}`: {reason}" for wt, reason in trees["kept"]]
     verb = "Would merge" if dry_run else "Merged"
     merged = result["would_merge"] if dry_run else [(m["store"], m["parent"]) for m in result["merged"]]
     lines.append(f"- {verb} {len(merged)} orphaned worktree store(s) into their parent repo's store")

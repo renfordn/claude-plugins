@@ -85,7 +85,7 @@ machines from overlapping.
 ## Weekly cleanup
 
 The `nelly-weekly-consolidate` scheduled task runs both plugins' cleanup scripts against the
-shared root. It rolls old session handoffs into `SESSION-HISTORY.md`, merges closed-worktree
+shared root. It removes stale git worktrees (clean, fully pushed, idle 14 days; branches kept), rolls old session handoffs into `SESSION-HISTORY.md`, merges closed-worktree
 stores into their parent repo's store, and condenses finished SDD features into
 `completed/<feature>.md` summaries. Scheduled sessions get no plugin environment variables, so
 the task sets `CLAUDE_PLUGIN_DATA` and `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT` itself. Point

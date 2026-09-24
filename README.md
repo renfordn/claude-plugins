@@ -27,6 +27,14 @@ See [`docs/install-and-verify.md`](./docs/install-and-verify.md) for the full
 install, verification, and troubleshooting walkthrough covering all 7 plugins
 in the `renfordn-plugins` marketplace.
 
+## Checking account plugin versions
+
+If you use the plugins from your Claude account (the Code tab loads them as `<plugin>@inline`),
+`claude plugin update` doesn't manage them. After pushing a release, run
+`python3 scripts/check_account_plugins.py` to compare the desktop app's account copies with this
+repo. It exits 1 and lists any stale copies; re-sync the account's plugin marketplace, restart the
+app, and run it again.
+
 ## Sharing memory across machines
 
 agent-nelly's memory and agent-isdd's SDD state are local to each plugin install and each machine by

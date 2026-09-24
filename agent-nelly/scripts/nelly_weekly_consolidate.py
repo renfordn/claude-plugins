@@ -13,8 +13,9 @@ two entries really describe the same fact needs the LLM judgment
 `agent-nelly` applies via `/nelly-memory consolidate`, which this
 script deliberately does not attempt to replicate.
 
-Before scanning, runs scripts/nelly_cleanup.py's bloat cleanup (orphaned worktree stores merged
-into their parent repo's store, old session-handoff entries rolled up into SESSION-HISTORY.md).
+Before scanning, runs scripts/nelly_cleanup.py's bloat cleanup (stale clean-and-pushed git
+worktrees removed, orphaned worktree stores merged into their parent repo's store, old
+session-handoff entries rolled up into SESSION-HISTORY.md).
 
 Writes a human-readable report to
 `<memory root>/agent-nelly-memory/consolidation-reports/YYYY-MM-DD.md` (the shared_memory_root
@@ -37,7 +38,6 @@ the index -- useful for eyeballing what a real run would do first.
 """
 import argparse
 import datetime
-import difflib
 import os
 import re
 import sys
@@ -50,7 +50,17 @@ from build_index import iter_project_dirs, build_all  # noqa: E402
 import nelly_cleanup  # noqa: E402
 
 STALE_INFERRED_THRESHOLD_DAYS = 90
-NEAR_DUPLICATE_RATIO = 0.72
+# Near-duplicate heuristic (report only): word-set overlap on slug + description, not character
+# similarity -- auto-extracted entries share long slug prefixes (`auto-tests-test-mongo-...`), which
+# made SequenceMatcher flag ~1000 unrelated pairs per run.
+NEAR_DUPLICATE_RATIO = 0.6       # Jaccard overlap of distinctive words
+NEAR_DUPLICATE_MIN_SHARED = 3    # ...and at least this many distinctive words in common
+COMMON_WORD_SHARE = 0.2          # words in more than this share of a store's entries aren't distinctive
+COMMON_WORD_MIN_ENTRIES = 5      # (only applied once a store has this many entries)
+_STOPWORDS = frozenset(
+    "a an the and or of to in on for with is are be by as at it this that from when not no "
+    "use uses using via".split()
+)
 REPORT_DIR = os.path.join(BASE, "consolidation-reports")
 
 CONSOLIDATION_LOG_HEADER = (
@@ -134,27 +144,44 @@ def _days_old(date_str, today):
     return (today - d).days
 
 
-def _similarity(a, b):
-    return difflib.SequenceMatcher(None, a, b).ratio()
+def _words(entry):
+    text = f"{entry['slug']} {entry.get('description') or ''}".lower()
+    return {w for w in re.findall(r"[a-z0-9]+", text) if len(w) > 2 and w not in _STOPWORDS}
 
 
 def _find_near_duplicate_pairs(entries):
-    """Report-only heuristic: flag entry pairs whose slug or description text
-    is highly similar. This never merges anything -- deciding whether two
-    entries really describe the same fact is agent-nelly's judgment
-    call via `/nelly-memory consolidate`, not this script's.
+    """Report-only heuristic: flag entry pairs that likely describe the same fact.
+
+    Two entries are candidates when they have the same `type` and their distinctive words
+    (slug + description, minus stopwords and minus words common across this store) overlap by
+    at least NEAR_DUPLICATE_RATIO (Jaccard) with NEAR_DUPLICATE_MIN_SHARED words in common.
+    Session-handoff entries are skipped -- nelly_cleanup.py rolls those up instead. This never
+    merges anything: deciding whether two entries really describe the same fact is
+    agent-nelly's judgment call via `/nelly-memory consolidate`, not this script's.
     """
+    candidates = [e for e in entries if not e["slug"].startswith("session-handoff-")]
+    words = [_words(e) for e in candidates]
+    common = set()
+    if len(candidates) >= COMMON_WORD_MIN_ENTRIES:
+        counts = {}
+        for ws in words:
+            for w in ws:
+                counts[w] = counts.get(w, 0) + 1
+        common = {w for w, n in counts.items() if n / len(candidates) > COMMON_WORD_SHARE}
+    distinctive = [ws - common for ws in words]
+
     pairs = []
-    for i, a in enumerate(entries):
-        for b in entries[i + 1:]:
-            slug_ratio = _similarity(a["slug"], b["slug"])
-            desc_ratio = (
-                _similarity(a["description"].lower(), b["description"].lower())
-                if a["description"] and b["description"]
-                else 0.0
-            )
-            ratio = max(slug_ratio, desc_ratio)
-            if ratio >= NEAR_DUPLICATE_RATIO:
+    for i, a in enumerate(candidates):
+        for j in range(i + 1, len(candidates)):
+            b = candidates[j]
+            if a.get("type") != b.get("type"):
+                continue
+            wa, wb = distinctive[i], distinctive[j]
+            if not wa or not wb:
+                continue
+            shared = len(wa & wb)
+            ratio = shared / len(wa | wb)
+            if ratio >= NEAR_DUPLICATE_RATIO and shared >= NEAR_DUPLICATE_MIN_SHARED:
                 pairs.append((a, b, ratio))
     return pairs
 
@@ -296,7 +323,8 @@ def _render_report(date_str, threshold_days, project_results, global_dup_pairs, 
         lines.append("")
     lines.append(f"Memory root: `{BASE}`")
     lines.append(f"Stale-inferred threshold: {threshold_days} days.")
-    lines.append(f"Near-duplicate similarity threshold: {NEAR_DUPLICATE_RATIO}.")
+    lines.append(f"Near-duplicate threshold: {NEAR_DUPLICATE_RATIO} word overlap, "
+                 f"{NEAR_DUPLICATE_MIN_SHARED}+ shared distinctive words, same type.")
     lines.append("")
     if cleanup is not None:
         lines.extend(nelly_cleanup.render_cleanup_section(cleanup, dry_run))
@@ -346,7 +374,7 @@ def _render_report(date_str, threshold_days, project_results, global_dup_pairs, 
             lines.append("### Near-duplicate candidates (report only -- needs "
                           "`/nelly-memory consolidate` to merge)")
             for a, b, ratio in r["dup_pairs"]:
-                lines.append(f"- `{a['slug']}` <-> `{b['slug']}` (similarity {ratio:.2f})")
+                lines.append(f"- `{a['slug']}` <-> `{b['slug']}` (overlap {ratio:.2f})")
 
         if r["superseded_anomalies"]:
             lines.append("")
@@ -362,7 +390,7 @@ def _render_report(date_str, threshold_days, project_results, global_dup_pairs, 
     if global_dup_pairs:
         lines.append("## Global tier: near-duplicate candidates (report only)")
         for a, b, ratio in global_dup_pairs:
-            lines.append(f"- `{a['slug']}` <-> `{b['slug']}` (similarity {ratio:.2f})")
+            lines.append(f"- `{a['slug']}` <-> `{b['slug']}` (overlap {ratio:.2f})")
         lines.append("")
 
     if errors:

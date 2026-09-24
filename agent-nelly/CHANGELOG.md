@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.17] - 2026-09-24
+
+- **Feature**: the weekly cleanup removes stale git worktrees. A `<repo>/.claude/worktrees/<name>` worktree of any repo named in memory is removed with plain `git worktree remove` (never `--force`; its branch is kept) when it has no uncommitted or untracked changes, every commit is on a remote, and its last commit and index are 14+ days old. Locked worktrees and repos not on this machine are skipped. Removals are logged in the repo's `CONSOLIDATION-LOG.md` and listed in the report.
+- **Fix**: the weekly consolidation's near-duplicate check compared slugs character by character, so auto-extracted entries with long shared prefixes (`auto-tests-test-mongo-adapter-py-…`) produced ~960 false pairs per run. It now compares distinctive words (slug + description, minus stopwords and words common across the store), only within the same `type`, and skips session handoffs: 0.6 overlap with at least 3 shared words. On the real store, 960 pairs became 1.
+
 ## [0.4.16] - 2026-09-24
 
 - **Feature**: weekly bloat cleanup (`scripts/nelly_cleanup.py`, run first by `nelly_weekly_consolidate.py`). Old `session-handoff-*` entries (beyond the newest 5 per project, 14+ days old) roll up into an append-only `SESSION-HISTORY.md`. A closed worktree's store (worktree path gone and store idle 14 days) merges into its parent repo's store; nested worktree paths map to the matching repo subdir, and clashing entries are kept as `<name>--<worktree>.md`. Both actions are logged in `CONSOLIDATION-LOG.md`, and the report now includes the memory root.

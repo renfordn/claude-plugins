@@ -64,6 +64,37 @@ def test_near_duplicate_pairs_empty_for_distinct_entries():
     assert consolidate._find_near_duplicate_pairs(entries) == []
 
 
+def test_near_duplicate_ignores_shared_slug_prefixes():
+    # Auto-extracted entries share long prefixes; character similarity used to flag these.
+    entries = [
+        {"slug": f"auto-tests-test-mongo-adapter-py-test{name}", "type": "technique",
+         "description": f"pytest failure: tests/test_mongo_adapter.py::Test{name}"}
+        for name in ("findbucketedcandidates", "sizeindexcreation", "upsertfilequalityfields",
+                     "runtimeperformerindexes", "hentainfocontentsidecar", "bulkwrites")
+    ]
+    assert consolidate._find_near_duplicate_pairs(entries) == []
+
+
+def test_near_duplicate_requires_same_type():
+    entries = [
+        {"slug": "retry-http-timeouts", "type": "feedback",
+         "description": "Retry on flaky HTTP timeouts with backoff."},
+        {"slug": "backoff-for-http-timeouts", "type": "project",
+         "description": "Retry on flaky HTTP timeouts with a backoff strategy."},
+    ]
+    assert consolidate._find_near_duplicate_pairs(entries) == []
+
+
+def test_near_duplicate_skips_session_handoffs():
+    entries = [
+        {"slug": "session-handoff-2026-09-24-1127", "type": "technique",
+         "description": "Session ended -- active files: a.py, b.py, c.py"},
+        {"slug": "session-handoff-2026-09-24-1724", "type": "technique",
+         "description": "Session ended -- active files: a.py, b.py, c.py"},
+    ]
+    assert consolidate._find_near_duplicate_pairs(entries) == []
+
+
 # ---------------------------------------------------------------------------
 # _find_stale_inferred
 # ---------------------------------------------------------------------------

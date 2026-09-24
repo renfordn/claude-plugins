@@ -1,6 +1,7 @@
 """Tests for scripts/nelly_cleanup.py: worktree-store merges and session-handoff rollups."""
 import datetime
 import os
+import subprocess
 import sys
 import time
 
@@ -145,3 +146,83 @@ def test_cleanup_section_renders(tmp_path):
     text = "\n".join(nelly_cleanup.render_cleanup_section(result, dry_run=True))
     assert "Would merge 1 orphaned worktree store(s)" in text
     assert "Would roll up 2 old session-handoff entries" in text
+
+
+# --- stale git worktrees -----------------------------------------------------
+
+OLD_DATE = "2026-09-01T12:00:00"  # same moment as OLD; "recent" keeps a fresh index
+
+
+def _git(cwd, *args, env_extra=None):
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t",
+               GIT_COMMITTER_EMAIL="t@t", GIT_AUTHOR_DATE=OLD_DATE, GIT_COMMITTER_DATE=OLD_DATE)
+    env.update(env_extra or {})
+    subprocess.run(["git", "-C", cwd, *args], check=True, capture_output=True, env=env)
+
+
+def _age_index(wt):
+    git_dir = subprocess.run(["git", "-C", wt, "rev-parse", "--absolute-git-dir"],
+                             capture_output=True, text=True, check=True).stdout.strip()
+    os.utime(os.path.join(git_dir, "index"), (OLD, OLD))
+
+
+def _repo_with_worktrees(tmp_path):
+    remote = str(tmp_path / "remote.git")
+    subprocess.run(["git", "init", "-q", "--bare", remote], check=True)
+    repo = str(tmp_path / "repo")
+    subprocess.run(["git", "init", "-q", "-b", "main", repo], check=True)
+    _write(os.path.join(repo, "a.txt"), "a")
+    _git(repo, "add", "a.txt")
+    _git(repo, "commit", "-q", "-m", "init")
+    _git(repo, "remote", "add", "origin", remote)
+    _git(repo, "push", "-q", "origin", "main")
+    trees = {}
+    for name in ("clean", "dirty", "unpushed", "recent"):
+        wt = os.path.join(repo, ".claude", "worktrees", name)
+        _git(repo, "worktree", "add", "-q", "-b", f"wt-{name}", wt)
+        trees[name] = wt
+    _write(os.path.join(trees["dirty"], "a.txt"), "changed")
+    _write(os.path.join(trees["unpushed"], "b.txt"), "b")
+    _git(trees["unpushed"], "add", "b.txt")
+    _git(trees["unpushed"], "commit", "-q", "-m", "local only")
+    for name in ("clean", "dirty", "unpushed"):
+        _age_index(trees[name])
+    base = str(tmp_path / "mem")
+    _store(base, nelly_cleanup.get_project_slug(repo), repo)
+    return repo, trees, base
+
+
+def test_removes_only_clean_pushed_idle_worktrees(tmp_path):
+    repo, trees, base = _repo_with_worktrees(tmp_path)
+    result = nelly_cleanup.prune_stale_worktrees(datetime.date.today(), base=base)
+    assert result["removed"] == [trees["clean"]]
+    assert not os.path.exists(trees["clean"])
+    kept = dict(result["kept"])
+    assert "uncommitted" in kept[trees["dirty"]]
+    assert "not on any remote" in kept[trees["unpushed"]]
+    assert "waits until" in kept[trees["recent"]]
+    branches = subprocess.run(["git", "-C", repo, "branch", "--list", "wt-clean"],
+                              capture_output=True, text=True).stdout
+    assert "wt-clean" in branches  # branch kept, so nothing is lost
+    log = open(os.path.join(base, nelly_cleanup.get_project_slug(repo), "CONSOLIDATION-LOG.md")).read()
+    assert "removed-stale-worktree" in log
+
+
+def test_checking_a_worktree_does_not_make_it_look_active(tmp_path):
+    repo, trees, base = _repo_with_worktrees(tmp_path)
+    today = datetime.date.today()
+    nelly_cleanup.stale_worktree_reason(trees["clean"], today)
+    assert nelly_cleanup.stale_worktree_reason(trees["clean"], today) is None
+
+
+def test_worktree_prune_dry_run_changes_nothing(tmp_path):
+    repo, trees, base = _repo_with_worktrees(tmp_path)
+    result = nelly_cleanup.prune_stale_worktrees(datetime.date.today(), dry_run=True, base=base)
+    assert result["would_remove"] == [trees["clean"]]
+    assert os.path.isdir(trees["clean"])
+
+
+def test_repos_on_other_machines_are_ignored(tmp_path):
+    base = str(tmp_path / "mem")
+    _store(base, "elsewhere", "/nonexistent/machine-b/repo")
+    assert nelly_cleanup.known_repos(base) == []

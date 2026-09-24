@@ -48,6 +48,10 @@ near-duplicates), it runs `scripts/nelly_cleanup.py`:
 - **Session handoffs:** the newest 5 `session-handoff-*` entries per project stay as entries.
   Older ones (14+ days) become one line each in `SESSION-HISTORY.md`, and their entry files are
   removed.
+- **Stale git worktrees:** a `<repo>/.claude/worktrees/<name>` worktree of a repo in memory is
+  removed (plain `git worktree remove`, branch kept) once it has no uncommitted or untracked
+  changes, every commit is on a remote, and nothing has changed in it for 14 days. Dirty, unpushed
+  and locked worktrees are always kept.
 - **Closed worktrees:** a worktree's store is merged into its parent repo's store once the
   worktree no longer exists on this machine and the store has been idle for 14 days. A clashing
   entry is kept as `<name>--<worktree>.md` for `/nelly-memory consolidate` to merge.
