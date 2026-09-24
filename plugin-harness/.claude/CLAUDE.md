@@ -34,7 +34,8 @@
 │  ├─ agent-tdd/INTEROP.md         [Test-driven dev agent]     │
 │  ├─ code-reviewer/INTEROP.md     [Code review agent]         │
 │  ├─ agent-nelly/INTEROP.md       [Memory system (optional)]  │
-│  └─ agent-ux/INTEROP.md          [UI renderer (optional)]    │
+│  ├─ agent-ux/INTEROP.md          [UI renderer (optional)]    │
+│  └─ agent-cache-plugin/INTEROP.md [Caching (optional)]       │
 │                                                                │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -192,7 +193,7 @@ is_valid, error = router.validate_handoff(
 ### Coverage
 - ✅ 206 total tests, all passing
 - ✅ Core workflows (isdd → tdd → reviewer)
-- ✅ Soft dependency handling (nelly absent, ux missing)
+- ✅ Soft dependency handling (nelly absent, ux missing, cache-plugin missing)
 - ✅ Error recovery and graceful degradation
 - ✅ Sub-millisecond SLA compliance verified
 
@@ -208,18 +209,20 @@ Workflow blocks if any hard dependency is unavailable.
 ### Soft Dependencies (Optional)
 - **agent-nelly**: Memory system (optional, improves context)
 - **agent-ux**: UI rendering (optional, nice-to-have)
+- **agent-cache-plugin**: Prompt-caching and context-deduplication (optional, nice-to-have)
 
 Workflow continues if soft dependencies are unavailable—graceful degradation.
 
 ## Cloud Session Bootstrap (Required First Step)
 
-All 5 plugins live together in one repo, `renfordn/claude-plugins` (one subdirectory per
-plugin: `agent-isdd/`, `agent-tdd/`, `code-reviewer/`, `agent-nelly/`, `agent-ux/`), migrated
-there from 5 separate repos specifically to make cloud bootstrap cheaper — see that repo's
-README for why. As an installed plugin, `hooks/bootstrap-plugins.sh` clones it into
-`${CLAUDE_PLUGIN_DATA}/claude-plugins` (plugin-harness's own data directory), and `CapabilityMap()`
-reads from there. When developing *in this repo*, `.claude/settings.json` sets `CLAUDE_PLUGINS_DIR`
-to your existing checkout instead, and both the bootstrap script and `CapabilityMap()` use that.
+All 6 plugins live together in one repo, `renfordn/claude-plugins` (one subdirectory per
+plugin: `agent-isdd/`, `agent-tdd/`, `code-reviewer/`, `agent-nelly/`, `agent-ux/`,
+`agent-cache-plugin/`), migrated there from separate repos specifically to make cloud bootstrap
+cheaper — see that repo's README for why. As an installed plugin, `hooks/bootstrap-plugins.sh`
+clones it into `${CLAUDE_PLUGIN_DATA}/claude-plugins` (plugin-harness's own data directory), and
+`CapabilityMap()` reads from there. When developing *in this repo*, `.claude/settings.json` sets
+`CLAUDE_PLUGINS_DIR` to your existing checkout instead, and both the bootstrap script and
+`CapabilityMap()` use that.
 
 `renfordn/claude-plugins` is currently **public**, so this session's git proxy serves anonymous
 reads (clone/fetch) of it directly — the hook's plain `git clone` succeeds on its own with no
@@ -228,24 +231,25 @@ reports read access already available and attaches nothing).
 
 **If the repo is ever made private**, anonymous reads stop working and this changes: at the
 start of every new cloud session, before relying on the hook's clone having worked, check
-whether the `CLAUDE_PLUGINS_DIR` checkout exists with all 5 plugin subdirectories. If not, call
+whether the `CLAUDE_PLUGINS_DIR` checkout exists with all 6 plugin subdirectories. If not, call
 `add_repo` (owner `renfordn`, repo `claude-plugins`) — this is a session-scoped grant, not a
 persistent whitelist, so it must be called again in *every* fresh session, not just once — then
 `git clone https://github.com/renfordn/claude-plugins "$CLAUDE_PLUGINS_DIR"` directly (not into
 the session's default workspace). `add_repo` grants session-wide git-proxy access, so this one
-clone covers all 5 plugins, and a subsequent hook-issued `git clone`/`pull` to that path will also
+clone covers all 6 plugins, and a subsequent hook-issued `git clone`/`pull` to that path will also
 succeed for the rest of that same session.
 
 Either way, a failed clone no longer aborts the session: `bootstrap-plugins.sh` warns and
-continues for all 5 plugins, hard or soft (only a missing `python3` still hard-fails the hook).
+continues for all 6 plugins, hard or soft (only a missing `python3` still hard-fails the hook).
 It still takes out all 3 hard dependencies — `agent-isdd`, `agent-tdd`, `code-reviewer` — plus
-the soft ones, `agent-nelly` and `agent-ux`, for the rest of that session, since there's no
-partial-success case with one repo; `PluginRouter`/`Subagent_Stop` still enforce hard-dependency
-blocking at handoff time (see "Dependency Analysis" and "Validation Order" below), so a missing
-hard dependency surfaces there instead of at bootstrap.
+the soft ones, `agent-nelly`, `agent-ux`, and `agent-cache-plugin`, for the rest of that session,
+since there's no partial-success case with one repo; `PluginRouter`/`Subagent_Stop` still enforce
+hard-dependency blocking at handoff time (see "Dependency Analysis" and "Validation Order" below),
+so a missing hard dependency surfaces there instead of at bootstrap.
 
 The former per-plugin repos (`renfordn/agent-isdd`, `agent-tdd`, `code-reviewer`, `agent-nelly`,
-`agent-ux`) are archived and no longer updated — do not add_repo or clone those individually.
+`agent-ux`, `agent-cache-plugin`) are archived and no longer updated — do not add_repo or clone
+those individually.
 
 ## Performance Characteristics
 
