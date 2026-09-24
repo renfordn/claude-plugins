@@ -295,16 +295,17 @@ section).
 
 ## `tasks/tasks.md`
 
-**Superseded 2026-09-24:** this template describes the pre-"Phase 2+3" scheme, where `agent-isdd`
-itself wrote and gated `tasks.md` before handoff. That is no longer how it works — per
-`INTEROP.md`'s "→ agent-tdd" section, `agent-isdd` never writes `tasks.md` at all. `agent-tdd`
-produces it during the Design Spec handoff, in its own slice-based schema (see
-`agent-tdd/agents/agent-TDD.md`'s "tasks.md Format (Design Spec Mode Output)" and
-`agent-tdd/references/tasks-schema.json` for the authoritative structure — `## Slice N: <behavior>`
-sections with Risk Tier/Depends On/Files/Test Intent/Validation Target/Ordered Steps, no `## Phase
-Status` block and no `## Phase N:` sections). The template below is kept only as a historical
-reference for the example artifacts under `references/example-feature/` (themselves not yet
-updated to the current schema) — do not scaffold a new `tasks.md` from it.
+> **Superseded 2026-09-24:** `agent-isdd` never writes `tasks.md`. Per the Phase 2+3 revised
+> architecture (see `agent-isdd/INTEROP.md`'s "→ agent-tdd" section and `agent-tdd/INTEROP.md`'s
+> "Design Spec Mode" section), `agent-tdd` produces `tasks.md` entirely on its own during the
+> Design Spec handoff, using a slice-based schema (`## Slice N: <behavior>` with Risk Tier,
+> Depends On, Files, Test Intent, Validation Target, Ordered Steps, no `## Phase Status` block and
+> no `## Phase N:` sections) — not the Phase-based structure below. The authoritative format lives
+> in `agent-tdd/agents/agent-TDD.md`'s "tasks.md Format (Design Spec Mode Output)" section and is
+> schema'd in `agent-tdd/references/tasks-schema.json`. The template below is kept only as
+> historical reference for the old (pre-Phase-2+3) structure; the `references/example-feature/`
+> artifacts have already been reshaped to the current slice-based schema, so nothing else in this
+> repo still models the structure below as current.
 
 ```md
 # Tasks: <feature title>

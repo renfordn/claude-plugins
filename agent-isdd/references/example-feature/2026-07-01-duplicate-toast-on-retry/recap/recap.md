@@ -43,7 +43,7 @@ The bugfix is fully planned through Tasks. The workflow tightened an initially v
 
 ## Next Task
 
-- Confirm whether to hand Phase 1 to `agent-TDD` for implementation.
+- Confirm whether to hand Slice 1 to `agent-TDD` for implementation.
 
 ## What Completed Work Enabled
 
