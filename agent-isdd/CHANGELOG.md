@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [0.1.51] - 2026-09-24
+
+- **Docs**: corrected `skills/workflow-manager/SKILL.md`'s `after-tasks`/`handoff` action-table
+  rows and Native Plan Mode Gate section, and `references/artifact-templates.md`'s `tasks.md`
+  template — all still described a pre-Phase-2+3 scheme where `agent-isdd` itself wrote and
+  gated `tasks.md` before handoff. It doesn't: `agent-tdd` produces `tasks.md` (in its own
+  slice-based schema) during the Design Spec handoff spawn, and runs its own Readiness Check
+  there — there is no separate agent-isdd-evaluated `Tasks` checklist. `handoff`'s trigger is
+  simply "Design approved and implementation requested," matching what
+  `spec-driven-development`'s Implementation Handoff section already spawns on. No behavior
+  change; no code touched.
+
 ## [0.1.50] - 2026-09-22
 
 - **Chore**: deleted `hooks/cache_hook.py` (a pure no-op since 0.1.49) and dropped it from
