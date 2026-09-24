@@ -12,6 +12,7 @@ plugin calls it. Writes are atomic (write-temp-then-rename, matching
 hook_state.py's save_workflow_state/FileStateStore pattern). Reads never
 raise: a missing or malformed file behaves like an empty cache.
 """
+import glob
 import json
 import os
 import tempfile
@@ -37,6 +38,7 @@ class HarnessContextCache:
     """
 
     FILENAME = "context-cache.json"
+    STALE_TMP_SECONDS = 3600
 
     def __init__(self, project_slug: str, base_dir: str = None):
         self.project_slug = project_slug
@@ -77,7 +79,21 @@ class HarnessContextCache:
             with os.fdopen(fd, "w") as tmp_file:
                 json.dump(data, tmp_file, indent=2)
             os.replace(tmp_path, self.path)
-        except BaseException:
-            if os.path.exists(tmp_path):
+        finally:
+            try:
                 os.remove(tmp_path)
-            raise
+            except FileNotFoundError:
+                pass
+        self._sweep_stale_tmp()
+
+    def _sweep_stale_tmp(self) -> None:
+        """Best-effort removal of temp files older than STALE_TMP_SECONDS,
+        orphaned by a process killed mid-write."""
+        cutoff = time.time() - self.STALE_TMP_SECONDS
+        pattern = os.path.join(glob.escape(self.project_dir), f".{glob.escape(self.FILENAME)}-*.tmp")
+        for stale in glob.glob(pattern):
+            try:
+                if os.path.getmtime(stale) < cutoff:
+                    os.remove(stale)
+            except OSError:
+                pass

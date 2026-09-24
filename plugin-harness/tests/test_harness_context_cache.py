@@ -122,5 +122,42 @@ class TestHarnessContextCacheAtomicWrite(unittest.TestCase):
         self.assertIn("nelly_brief", on_disk)
 
 
+
+class TestHarnessContextCacheTempFiles(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmpdir.cleanup)
+        self.cache = HarnessContextCache("my-project-slug", base_dir=self.tmpdir.name)
+
+    def _tmp_files(self):
+        return [f for f in os.listdir(self.cache.project_dir) if f.endswith(".tmp")]
+
+    def test_failed_write_removes_temp_file(self):
+        import unittest.mock
+        with unittest.mock.patch.object(
+            sys.modules[HarnessContextCache.__module__].json, "dump", side_effect=OSError("disk full")
+        ):
+            with self.assertRaises(OSError):
+                self.cache.set("k", "v", ttl_seconds=60)
+        self.assertEqual(self._tmp_files(), [])
+
+    def test_successful_write_sweeps_only_stale_temp_files(self):
+        import time
+        os.makedirs(self.cache.project_dir, exist_ok=True)
+        stale = os.path.join(self.cache.project_dir, f".{HarnessContextCache.FILENAME}-stale.tmp")
+        fresh = os.path.join(self.cache.project_dir, f".{HarnessContextCache.FILENAME}-fresh.tmp")
+        for p in (stale, fresh):
+            with open(p, "w") as f:
+                f.write("{}")
+        old = time.time() - HarnessContextCache.STALE_TMP_SECONDS - 60
+        os.utime(stale, (old, old))
+
+        self.cache.set("k", "v", ttl_seconds=60)
+
+        self.assertFalse(os.path.exists(stale))
+        self.assertTrue(os.path.exists(fresh))
+        self.assertEqual(self.cache.get("k"), "v")
+
+
 if __name__ == "__main__":
     unittest.main()

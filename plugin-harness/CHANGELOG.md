@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.7] - 2026-09-24
+
+- **Fix**: `orchestrator/harness_context_cache.py`'s `set()` now always removes its temp file in a `finally` block. After a successful write it also deletes `.context-cache.json-*.tmp` files older than `STALE_TMP_SECONDS` (1 h). This matches the `FileStateStore` change in 2.1.5.
+
 ## [2.1.6] - 2026-09-24
 
 - **Change**: `hooks/hook_state.py`'s `BASE` now follows agent-isdd's recorded sdd-memory location (`<agent-isdd data dir>/sdd-memory-location.json`, which is its `shared_memory_root` when configured) before falling back to the symlink/registry coordination.
