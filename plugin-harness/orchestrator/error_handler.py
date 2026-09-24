@@ -23,7 +23,7 @@ import copy
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 from orchestrator.interop_parser import CapabilityMap
-from orchestrator.checkpoint import CheckpointManager
+from orchestrator.checkpoint import CheckpointManager, cap_handoff_history
 from orchestrator.nelly_pending import PendingNellyRequestQueue
 
 
@@ -227,6 +227,7 @@ class ErrorHandler:
 
         # Append to history
         workflow_state["orchestration"]["handoff_history"].append(entry)
+        cap_handoff_history(workflow_state)
 
     # ===== Private Recovery Handlers =====
 

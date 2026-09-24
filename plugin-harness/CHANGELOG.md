@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.5] - 2026-09-24
+
+- **Fix**: checkpoint snapshots could still carry derived orchestration history, which is what inflated `workflow-state.json` to 18 GB per file on 2026-09-24. `CheckpointManager` now excludes both `orchestration.checkpoints` and `orchestration.handoff_history` from every `state_snapshot` (`SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS`). `restore_checkpoint()` copies both over from the current state, so saving a restored state no longer drops the checkpoint list or audit log. `prune_old_checkpoints()` also strips nested history from snapshots written by older versions, so an already-bloated file shrinks at its next checkpoint.
+- **Fix**: `orchestration.handoff_history` is now capped at `MAX_HANDOFF_HISTORY` (200, oldest dropped). The cap applies to all three writers: `CheckpointManager.record_handoff`, `ErrorHandler.log_error` and `subagent_stop._log_handoff`. The checkpoint limit is now the `MAX_CHECKPOINTS` constant (10).
+- **Fix**: `FileStateStore.save()` now always removes its temp file in a `finally` block. After a successful write it also deletes this workflow's `.<id>-*.tmp` files that are older than `STALE_TMP_SECONDS` (1 h). Those files are left behind when a process is killed mid-write; 21 of them had used 54 GB.
+
 ## [2.1.4] - 2026-09-24
 
 - **Fix (behaviour change)**: no more guessed data-dir fallback. `hooks/path_resolution.py`'s `get_plugin_data_dir()` now raises `PluginDataDirUnavailable` when `CLAUDE_PLUGIN_DATA` is unset instead of guessing `~/.claude/plugins/data/<plugin>/` (which can point at the wrong install identity). Scripts run from skills/commands/agents now pass `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}"` and use `${CLAUDE_PLUGIN_ROOT}` paths; tests get a temp `CLAUDE_PLUGIN_DATA` via `conftest.py`.

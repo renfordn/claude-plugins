@@ -19,7 +19,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional, Dict, Tuple, List, Union
 from orchestrator.error_handler import ErrorHandler
-from orchestrator.checkpoint import CheckpointManager
+from orchestrator.checkpoint import CheckpointManager, cap_handoff_history
 from orchestrator.interop_parser import CapabilityMap
 from orchestrator.error import OrchestrationError, HookError, HookErrorType
 from orchestrator.error_logger import persist_best_effort, ErrorRegistry
@@ -522,6 +522,7 @@ def _log_handoff(
 
     # Append to handoff history for audit trail
     workflow_state["orchestration"]["handoff_history"].append(handoff_entry)
+    cap_handoff_history(workflow_state)
 
     logger.info(
         f"Handoff logged: {agent_type} → validation={validation_result}, "

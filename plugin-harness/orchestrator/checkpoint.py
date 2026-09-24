@@ -10,7 +10,7 @@ Checkpoint Schema:
             "checkpoint_id": "uuid",
             "label": "before_agent_tdd_spawn",
             "timestamp": "2026-08-25T10:35:00Z",
-            "state_snapshot": { /* full workflow_state copy */ }
+            "state_snapshot": { /* workflow_state copy, minus orchestration.checkpoints/handoff_history */ }
         }
     ]
 
@@ -30,6 +30,45 @@ import copy
 from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import uuid4
+
+# Checkpoints retained in orchestration.checkpoints (oldest pruned first).
+MAX_CHECKPOINTS = 10
+
+# Entries retained in orchestration.handoff_history (oldest dropped first).
+MAX_HANDOFF_HISTORY = 200
+
+# orchestration.* keys that are never copied into a checkpoint's state_snapshot:
+# "checkpoints" is self-referential (each snapshot would nest every prior
+# checkpoint, doubling workflow-state.json per checkpoint -- this filled a
+# 460 GB disk on 2026-09-24), and "handoff_history" is an append-only audit
+# log that should survive a rollback rather than be rewound by it. Restoring
+# a checkpoint carries both over from the *current* state instead.
+SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS = ("checkpoints", "handoff_history")
+
+
+def cap_handoff_history(workflow_state: dict, max_entries: int = MAX_HANDOFF_HISTORY) -> None:
+    """Trim orchestration.handoff_history in-place to its most recent max_entries."""
+    orch = workflow_state.get("orchestration")
+    if not isinstance(orch, dict):
+        return
+    history = orch.get("handoff_history")
+    if isinstance(history, list) and len(history) > max_entries:
+        orch["handoff_history"] = history[-max_entries:]
+
+
+def _strip_snapshot_excluded(state: dict) -> dict:
+    """Shallow copy of state with SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS removed.
+
+    Only state and its "orchestration" dict are copied, so the (otherwise
+    recursive) excluded data is never deep-copied.
+    """
+    stripped = dict(state)
+    orch = stripped.get("orchestration")
+    if isinstance(orch, dict) and any(k in orch for k in SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS):
+        stripped["orchestration"] = {
+            k: v for k, v in orch.items() if k not in SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS
+        }
+    return stripped
 
 
 class CheckpointManager:
@@ -157,6 +196,7 @@ class CheckpointManager:
             **entry,
             "timestamp": self._get_iso_timestamp(),
         })
+        cap_handoff_history(workflow_state)
 
     def get_handoff_history(self, workflow_state: dict) -> List[dict]:
         """
@@ -190,17 +230,16 @@ class CheckpointManager:
         are deep copies, so modifications to original state after checkpoint
         creation do not affect the stored snapshot.
 
-        The snapshot excludes the existing `orchestration.checkpoints` array itself
-        -- otherwise every checkpoint would carry a deep copy of every prior
-        checkpoint's own snapshot (which in turn carries all of *its* prior
-        checkpoints), making workflow-state.json grow exponentially with each
-        handoff. `restore_checkpoint()` never needed that nested history: it
-        restores exactly one snapshot and adds a fresh `rollback_pending` marker.
-        Every other field of workflow_state (including other `orchestration`
-        keys, like `handoff_history`) is preserved as before.
+        The snapshot excludes `SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS`
+        (`orchestration.checkpoints` and `orchestration.handoff_history`) --
+        otherwise every checkpoint would carry a deep copy of every prior
+        checkpoint's own snapshot, making workflow-state.json double in size
+        with each handoff. `restore_checkpoint()` carries both over from the
+        current state instead. Every other field of workflow_state is preserved.
 
-        After appending, old checkpoints are pruned to the last 10 (see
-        `prune_old_checkpoints`) so the array itself stays bounded too.
+        After appending, old checkpoints are pruned to the last
+        `MAX_CHECKPOINTS` (see `prune_old_checkpoints`), which also strips any
+        nested history out of snapshots written by older versions.
 
         Args:
             workflow_state: The workflow state dict to snapshot
@@ -221,22 +260,11 @@ class CheckpointManager:
         checkpoint_id = str(uuid4())
         timestamp = self._get_iso_timestamp()
 
-        # Shallow-copy workflow_state and its "orchestration" sub-dict so we can
-        # blank out "checkpoints" before the (expensive, otherwise-recursive)
-        # deepcopy, rather than deep-copying the whole prior checkpoint history
-        # and then discarding it.
-        state_for_snapshot = dict(workflow_state)
-        orch = state_for_snapshot.get("orchestration")
-        if isinstance(orch, dict) and "checkpoints" in orch:
-            orch_for_snapshot = dict(orch)
-            orch_for_snapshot["checkpoints"] = []
-            state_for_snapshot["orchestration"] = orch_for_snapshot
-
         checkpoint = {
             "checkpoint_id": checkpoint_id,
             "label": checkpoint_label,
             "timestamp": timestamp,
-            "state_snapshot": copy.deepcopy(state_for_snapshot)
+            "state_snapshot": copy.deepcopy(_strip_snapshot_excluded(workflow_state))
         }
 
         workflow_state["orchestration"]["checkpoints"].append(checkpoint)
@@ -253,7 +281,10 @@ class CheckpointManager:
 
         Retrieves a checkpoint by id, or the most recent if id is None. Returns
         a deep copy of the checkpoint's state snapshot with rollback_pending
-        marker added. The marker includes source, checkpoint_restored id,
+        marker added. `orchestration.checkpoints` and
+        `orchestration.handoff_history` are carried over from the current
+        workflow_state (snapshots never contain them), so saving the restored
+        state keeps the checkpoint list and audit log intact. The marker includes source, checkpoint_restored id,
         timestamp, target_phase (default "Design"), and action_required message.
 
         Args:
@@ -283,8 +314,16 @@ class CheckpointManager:
             else:
                 raise ValueError("No checkpoints available in workflow state")
 
-        # Deep copy the snapshot
-        restored_state = copy.deepcopy(checkpoint["state_snapshot"])
+        # Deep copy the snapshot (stripped, in case it predates the exclusion)
+        restored_state = copy.deepcopy(_strip_snapshot_excluded(checkpoint["state_snapshot"]))
+
+        current_orch = workflow_state["orchestration"]
+        restored_orch = restored_state.get("orchestration")
+        if not isinstance(restored_orch, dict):
+            restored_orch = restored_state["orchestration"] = {}
+        for key in SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS:
+            if key in current_orch:
+                restored_orch[key] = copy.deepcopy(current_orch[key])
 
         # Add rollback_pending marker
         restored_state["rollback_pending"] = self._build_rollback_marker(
@@ -342,7 +381,7 @@ class CheckpointManager:
     def prune_old_checkpoints(
         self,
         workflow_state: dict,
-        max_checkpoints: int = 10
+        max_checkpoints: int = MAX_CHECKPOINTS
     ) -> None:
         """
         Keep only N most recent checkpoints.
@@ -355,7 +394,12 @@ class CheckpointManager:
 
         Args:
             workflow_state: Workflow state dict to prune (modified in-place)
-            max_checkpoints: Maximum number of checkpoints to keep (default 10)
+            max_checkpoints: Maximum number of checkpoints to keep
+                (default MAX_CHECKPOINTS)
+
+        Retained snapshots are also stripped of any nested
+        SNAPSHOT_EXCLUDED_ORCHESTRATION_KEYS left by older versions, so a
+        workflow-state.json bloated before the fix shrinks on its next checkpoint.
 
         Example:
             >>> manager.prune_old_checkpoints(workflow_state, max_checkpoints=5)
@@ -366,7 +410,11 @@ class CheckpointManager:
             return
 
         checkpoints = workflow_state["orchestration"]["checkpoints"]
-        if len(checkpoints) <= max_checkpoints:
-            return
+        if len(checkpoints) > max_checkpoints:
+            checkpoints = checkpoints[-max_checkpoints:]
+            workflow_state["orchestration"]["checkpoints"] = checkpoints
 
-        workflow_state["orchestration"]["checkpoints"] = checkpoints[-max_checkpoints:]
+        for cp in checkpoints:
+            snapshot = cp.get("state_snapshot") if isinstance(cp, dict) else None
+            if isinstance(snapshot, dict):
+                cp["state_snapshot"] = _strip_snapshot_excluded(snapshot)

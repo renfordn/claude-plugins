@@ -12,9 +12,11 @@ host - the "distributed workflow state tracking" enhancement.
 """
 
 import copy
+import glob
 import json
 import os
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -62,7 +64,14 @@ class FileStateStore(WorkflowStateStore):
     Writes are atomic (write to a temp file, then os.replace) and
     lock-guarded (advisory flock on the target path) so concurrent writers
     in the same or different processes cannot interleave and corrupt a file.
+
+    A write that fails or is interrupted removes its own temp file. Temp
+    files orphaned by a process killed mid-write (which no finally block can
+    clean up) are swept after the next successful write once they are older
+    than STALE_TMP_SECONDS.
     """
+
+    STALE_TMP_SECONDS = 3600
 
     def __init__(self, directory: str):
         self.directory = directory
@@ -98,13 +107,28 @@ class FileStateStore(WorkflowStateStore):
                     with os.fdopen(fd, "w") as tmp_file:
                         json.dump(state, tmp_file, indent=2)
                     os.replace(tmp_path, path)
-                except BaseException:
-                    if os.path.exists(tmp_path):
+                finally:
+                    # No-op after a successful os.replace; otherwise drops the
+                    # partial temp file (large states once left 54 GB of these).
+                    try:
                         os.remove(tmp_path)
-                    raise
+                    except FileNotFoundError:
+                        pass
+                self._sweep_stale_tmp(workflow_id)
             finally:
                 if fcntl:
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    def _sweep_stale_tmp(self, workflow_id: str) -> None:
+        """Best-effort removal of this workflow's temp files older than STALE_TMP_SECONDS."""
+        cutoff = time.time() - self.STALE_TMP_SECONDS
+        pattern = os.path.join(glob.escape(self.directory), f".{glob.escape(workflow_id)}-*.tmp")
+        for stale in glob.glob(pattern):
+            try:
+                if os.path.getmtime(stale) < cutoff:
+                    os.remove(stale)
+            except OSError:
+                pass
 
 
 class RedisStateStore(WorkflowStateStore):

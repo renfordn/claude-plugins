@@ -111,13 +111,13 @@ class TestCheckpointManagerCreate(unittest.TestCase):
         this checkpoint was appended -- otherwise checkpoint N's snapshot embeds
         checkpoint N-1's full snapshot (which embeds N-2's, ...), and
         workflow_state serializes to an exponentially larger payload with every
-        checkpoint. The snapshot's own "checkpoints" list must be empty.
+        checkpoint. The snapshot must carry no "checkpoints" key at all.
         """
         self.manager.create_checkpoint(self.workflow_state, "first")
         self.manager.create_checkpoint(self.workflow_state, "second")
 
         second_snapshot = self.workflow_state["orchestration"]["checkpoints"][1]["state_snapshot"]
-        self.assertEqual(second_snapshot["orchestration"]["checkpoints"], [])
+        self.assertNotIn("checkpoints", second_snapshot["orchestration"])
 
     def test_state_size_grows_linearly_not_exponentially(self):
         """Regression test for unbounded growth: serialized workflow_state size
