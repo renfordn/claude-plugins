@@ -1,6 +1,13 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.3] - 2026-09-24
+
+- **Docs**: `hooks/before_continue.py` and three `orchestrator/` docstrings cited the legacy bare
+  `~/.claude/sdd-memory/` path in illustrative examples — the real resolution (`get_plugin_data_dir`/
+  `get_legacy_subdir_path` in `path_resolution.py`) never had a bare-path fallback at all, only
+  `${CLAUDE_PLUGIN_DATA}/sdd-memory/...`. No behavior change; illustrative examples corrected.
+
 ## [2.1.2] - 2026-09-22
 
 - **Fix**: the hard-coded `agent-cache-plugin` capability in `interop_parser.py`,
