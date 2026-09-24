@@ -85,6 +85,9 @@ it.
 | target files | array | no | List of repo-relative paths your task plausibly touches; only effective when `surface relevant memory` or `handoff surfacing` set; biases relevance judgment and adds `File relevance:` sub-list in response |
 | error lesson | string | no | Lesson about failed approach to avoid; written as `error-prevention` entry with `metadata.confidence: explicit` |
 | confirm error lesson | string | no | Name of existing `inferred`-confidence `error-prevention` entry to flip to `explicit` |
+| file summaries | array | no | Write/overwrite one `file-summary` entry per item (see "File & Folder Summary Cache") |
+| folder summaries | array | no | Write/overwrite one `folder-summary` entry per item (see "File & Folder Summary Cache") |
+| file summary lookup | array | no | Repo-relative paths to check for a cached summary before searching the repo for them (read-only; see "File & Folder Summary Cache") |
 | handoff surfacing | flag | no | Enable surfacing at handoff points (see "Handoff points" section) |
 | aside task description | string | no | Spinoff aside for potential separate conversation (see "Spinoff context bundles" section) |
 
@@ -121,6 +124,35 @@ alongside `handoff surfacing` to also get the `File relevance:` sub-list.
 a brief call — with or without `handoff surfacing` — that fails, times out, or returns nothing
 MUST be treated by the caller as an empty brief, never a reason to block, retry-loop, or fail the
 caller's own handoff.
+
+## File & Folder Summary Cache
+
+A cheaper alternative to grepping the whole repo for a targeted change: before reading/searching
+a part of the repo your task touches, ask `agent-nelly` whether a summary of it is already
+cached; after reading a file or forming a view of a folder's purpose, hand the summary back so
+the next caller's lookup is a hit.
+
+**Read, before you search:** pass `file summary lookup` with the repo-relative paths you're about
+to look at. For each path the response reports one of:
+- **Cache hit** — an existing `file-summary`'s `description` (≤240 chars) and `git_hash`. Compare
+  `git_hash` against the file's current content hash yourself (`agent-nelly` never shells out to
+  git for this) — a mismatch means treat it as a miss.
+- **Partial hit** — no file-level summary, but the nearest ancestor `folder-summary`'s
+  `description` as coarser context. Folder summaries carry no `git_hash`; don't treat one as
+  guaranteed current.
+- **Cache miss** — nothing cached; fall back to reading/searching the path directly.
+
+**Write, after you read:** pass `file summaries` (list of `{path, summary, exports, constraints,
+dependencies, tech_debt, git_hash}`) and/or `folder summaries` (list of `{folder, summary}`) for
+anything you read that wasn't a fresh cache hit. `summary` is your own one-line "what this
+does" text — `agent-nelly` truncates it to 240 characters if you don't already fit, and denies
+the underlying write outright past that (`hooks/nelly_summary_guard.py`) if it somehow lands on
+disk over-length. A later write for the same path/folder overwrites the earlier one; there is at
+most one summary entry per path.
+
+This capability has no phase/handoff concept of its own — call it from wherever your plugin
+already reads files for a targeted change (a design/research pass, a task-slicing pass, or any
+other file-driven step), independent of `surface relevant memory`/`handoff surfacing` above.
 
 ## Spinoff context bundles
 

@@ -1,6 +1,20 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.18] - 2026-09-24
+
+- **Feature**: File & Folder Summary Cache — two new entry types, `file-summary` (one per file,
+  `metadata.files: [<path>]` + `metadata.git_hash` for staleness) and `folder-summary` (one per
+  directory, `metadata.folder`), each with a `description` capped at 240 characters
+  (`nelly_memory.SUMMARY_CHAR_LIMIT`, structurally enforced by the new `nelly_summary_guard.py`
+  `PreToolUse` hook). New `agent-nelly` request fields `file summaries`/`folder summaries` (write,
+  overwrite-in-place per path) and `file summary lookup` (read-only cache-hit/partial-hit/miss
+  check for a list of paths). `scripts/build_index.py`'s `nelly-index.json` now also indexes
+  `files`/`folder`/`git_hash`, and gains `lookup_by_path()` (+ `--lookup-path` CLI flag) so a
+  lookup never has to open an `entries/*.md` file — the whole point is a smaller, cheap place to
+  check before searching the repo for a targeted change. See `INTEROP.md`'s new "File & Folder
+  Summary Cache" section and `agents/agent-nelly.md`'s section of the same name.
+
 ## [0.4.17] - 2026-09-24
 
 - **Feature**: the weekly cleanup removes stale git worktrees. A `<repo>/.claude/worktrees/<name>` worktree of any repo named in memory is removed with plain `git worktree remove` (never `--force`; its branch is kept) when it has no uncommitted or untracked changes, every commit is on a remote, and its last commit and index are 14+ days old. Locked worktrees and repos not on this machine are skipped. Removals are logged in the repo's `CONSOLIDATION-LOG.md` and listed in the report.

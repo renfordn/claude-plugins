@@ -46,6 +46,18 @@ draft.
    `workflow-manager/SKILL.md`), and pass that brief down to
    `spec-reviewer` the same way `design-author` passes a brief down to `research-consolidator`.
    For a short draft, do the assessment inline.
+
+   **[File & Folder Summary Cache]** If the source material names specific existing files or
+   modules (a ticket that says "update `src/billing/invoice.py`", a PRD referencing a named
+   service), fold those paths into the same `agent-nelly:agent-nelly` call as a `file summary
+   lookup` — a cached one-line summary is often enough to judge whether the ticket's premise
+   still matches the current codebase, without a separate `Read` of every named file just to
+   sanity-check it. This is optional and only worth doing when the material names paths you'd
+   otherwise read cold; most requirements interviews name no files at all, and this step is a
+   no-op then. A cache miss is not a blocker — proceed to `Read` the file as you would have
+   anyway, and nothing here requires writing a summary back (this phase doesn't deep-read code
+   the way `research-consolidator` does, so it isn't the right place to originate new cache
+   entries — that stays Design's job).
 3. Rewrite only the weak sections into EARS-based format — never flatten nuanced constraints
    into generic language.
 4. Present the changed draft, pause for user confirmation or edits.

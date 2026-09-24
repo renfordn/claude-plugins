@@ -26,6 +26,25 @@ matching `type`; entries of other types MUST NOT include them):
     more paths, relative to the project's `cwd` — NEVER absolute, since a
     project can be checked out at different absolute paths across
     machines/worktrees.
+  - `metadata.files` (type: file-summary only): a YAML list containing
+    exactly **one** repo-relative path — one file-summary entry per file,
+    unlike `file-relevance`'s multi-file list. `description` is the file's
+    summary and MUST be at most `SUMMARY_CHAR_LIMIT` (240) characters —
+    `hooks/nelly_summary_guard.py` denies the `Write` outright if it isn't;
+    use `hooks/nelly_memory.py`'s `truncate_summary()` shape as the model
+    for how to shorten one instead of guessing. See "File & Folder Summary
+    Cache" in `agents/agent-nelly.md` for the write/read contract this type
+    exists for.
+  - `metadata.folder` (type: folder-summary only): a single repo-relative
+    directory path this entry summarizes (no trailing slash). `description`
+    is the folder's summary and carries the same 240-character cap as
+    `file-summary`, enforced the same way.
+  - `metadata.git_hash` (type: file-summary only, optional but expected):
+    the file's content hash (e.g. `git hash-object <path>`) at the time this
+    summary was written — the staleness signal a caller compares against the
+    file's current hash before trusting a cache hit. `folder-summary`
+    entries have no `git_hash` — see "File & Folder Summary Cache" for how
+    their staleness is judged instead.
   - `metadata.confidence` (type: error-prevention only): REQUIRED for this
     type, no default. `explicit` means a caller/user affirmatively flagged
     this as a reusable lesson. `inferred` means it was noticed unprompted
@@ -56,10 +75,15 @@ matching `type`; entries of other types MUST NOT include them):
 name: <short-kebab-case-slug>
 description: <one-line summary used for relevance matching against a caller's task description>
 metadata:
-  type: <user | feedback | project | reference | file-relevance | error-prevention | technique | project-defined via types.yaml>
+  type: <user | feedback | project | reference | file-relevance | error-prevention | technique | file-summary | folder-summary | project-defined via types.yaml>
   last_referenced: <YYYY-MM-DD>
   # --- only present when type: file-relevance ---
   files: [<repo-relative path>, ...]      # one or more paths this entry is about
+  # --- only present when type: file-summary ---
+  files: [<single repo-relative path>]    # exactly one path -- one entry per file
+  git_hash: <content hash of the file, e.g. `git hash-object <path>` output>
+  # --- only present when type: folder-summary ---
+  folder: <repo-relative directory path, no trailing slash>            
   # --- only present when type: error-prevention ---
   confidence: <explicit | inferred>        # REQUIRED for this type; no default
   supersedes: <name-of-older-entry|absent> # optional
@@ -93,6 +117,22 @@ For `file-relevance` type entries, structure the body as:
 
 Why these files: <why this fact is tied to the listed files>
 What the fact is: <the fact or detail itself>
+
+For `file-summary` type entries, structure the body as:
+
+Exports: <interfaces/functions/classes this file exposes, or "none">
+Constraints: <what callers must respect, or "none noted">
+Dependencies: <what this file depends on, or "none noted">
+Tech debt: <known issues, or "none noted">
+
+The `description` field carries the one-line "what this file does" summary
+(≤240 chars) — the body's job is the handful of structured facts above it,
+not a restatement of the summary.
+
+For `folder-summary` type entries, structure the body as:
+
+<One short paragraph: what this folder is for, at the level a newcomer
+skimming the repo tree needs — not a file-by-file inventory.>
 
 For `error-prevention` type entries, structure the body as:
 

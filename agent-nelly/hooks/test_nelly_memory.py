@@ -529,3 +529,40 @@ def test_global_dir_respects_claude_plugin_data_env_var(monkeypatch, tmp_path):
     # Verify BASE is in the path
     assert nelly_memory.BASE in d
     assert os.path.basename(d) == "global"
+
+
+# ---------------------------------------------------------------------------
+# truncate_summary -- the 240-char cap for file-summary/folder-summary entries
+# ---------------------------------------------------------------------------
+
+def test_truncate_summary_leaves_short_text_unchanged():
+    text = "Resolves the project slug used to namespace memory on disk."
+    assert nelly_memory.truncate_summary(text) == text
+
+
+def test_truncate_summary_strips_surrounding_whitespace():
+    assert nelly_memory.truncate_summary("  short.  ") == "short."
+
+
+def test_truncate_summary_exactly_at_limit_is_unchanged():
+    text = "x" * nelly_memory.SUMMARY_CHAR_LIMIT
+    assert nelly_memory.truncate_summary(text) == text
+
+
+def test_truncate_summary_over_limit_is_capped_at_exact_length():
+    text = "x" * (nelly_memory.SUMMARY_CHAR_LIMIT + 50)
+    result = nelly_memory.truncate_summary(text)
+    assert len(result) == nelly_memory.SUMMARY_CHAR_LIMIT
+    assert result.endswith("…")
+
+
+def test_truncate_summary_over_limit_preserves_a_prefix_of_original_text():
+    text = "a" * (nelly_memory.SUMMARY_CHAR_LIMIT + 50)
+    result = nelly_memory.truncate_summary(text)
+    assert result[:-1] == text[: nelly_memory.SUMMARY_CHAR_LIMIT - 1]
+
+
+def test_truncate_summary_custom_limit():
+    result = nelly_memory.truncate_summary("abcdefghij", limit=5)
+    assert result == "abcd…"
+    assert len(result) == 5

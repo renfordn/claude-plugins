@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.17] - 2026-09-24
+
+- **Feature**: `agent-TDD` reports a new optional **File Summaries** field (Slice Spec and Design
+  Spec modes) — `{path, summary, git_hash}` items for any file read during slicing/implementation
+  that the spec's pre-fetched summaries didn't already cover, so the caller can persist them to a
+  memory subagent's file/folder summary cache (e.g. agent-nelly's new `file summaries` field)
+  alongside the existing Handoff Facts. See `agents/agent-TDD.md`'s section of that name and
+  `INTEROP.md`'s "Handoff Facts" section.
+
 ## [0.2.16] - 2026-09-24
 
 - **Chore**: `hooks/path_resolution.py` synced with `shared/` (shared memory root helpers). agent-tdd's own state (`agent-tdd-state/`: per-slice progress, stop markers) is short-lived session state, so it deliberately stays in `${CLAUDE_PLUGIN_DATA}`.

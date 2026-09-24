@@ -34,8 +34,16 @@ both outputs instead — eliminating 15-25K tokens of redundant research.
 
 Sweep broadly for candidate touchpoints, optimized with nelly hints:
 
-1. If caller's brief names "Relevant entries" (files touched by prior work):
+1. If caller's brief names "Relevant entries" (files touched by prior work), or the caller
+   separately names files confirmed fresh via agent-nelly's file/folder summary cache lookup
+   (its own `git_hash` check against current content, done before calling you — see
+   `design-author/SKILL.md`'s "Research First" step 1):
    - Skip glob/grep for those files (rely on brief's existing context)
+   - Skip Pass 2's deep-read for a cache-confirmed file too, unless this feature's scope
+     specifically requires re-examining it (e.g. the requirement is to change that exact file) —
+     reuse its cached summary/exports/constraints/dependencies as this file's Design-Ready/
+     Task-Ready finding instead of re-deriving them, and do not include it in your own "File
+     Summaries" output (nothing about it changed, so there's nothing new to persist)
    - Glob ONLY in unknown areas
    - Grep ONLY for specific, high-signal terms (function names, config keys)
 
@@ -110,7 +118,8 @@ Read in full only the files that passed Pass 1. Extract only what constrains des
 ### File Summaries (for agent-nelly cache)
 ```
 - path: <file>
-  - summary: <one line: what this file does>
+  - summary: <one line: what this file does, 240 characters or fewer — agent-nelly's
+    `file-summary` entry type caps `description` there and denies an over-length write>
   - exports: [<interfaces exposed>]
   - constraints: [<what callers must respect>]
   - tech_debt: [<known issues>]
@@ -148,8 +157,11 @@ Per-file findings for slicing:
 
 ### File Summaries (for agent-nelly cache)
 Per-file summaries structured for cross-feature reuse:
-- path, summary, exports, constraints, tech_debt, dependencies
+- path, summary (≤240 characters — see the Pass 2 output spec above), exports, constraints,
+  tech_debt, dependencies
 - test_surface, migration_risks
+- omit a file here entirely when it was a confirmed cache hit skipped in Pass 1/2 above — this
+  section is only for files you actually deep-read this pass
 - line_count (via `Grep` `pattern: "^"`, `output_mode: "count"` — never from `Read`'s own line
   numbering, which truncates for large files)
 - git_hash (for cache invalidation)

@@ -167,6 +167,30 @@ def archive_path(cwd, name):
     return os.path.join(memory_dir(cwd), "archive", _sanitize_name(name) + ".md")
 
 
+# `file-summary`/`folder-summary` entry type character cap (see
+# references/nelly-entry.template.md and nelly_summary_guard.py, which
+# enforces this structurally on every Write to an entries/*.md file of
+# either type). 240 chars keeps a whole screenful of cached summaries
+# scannable at once -- the entire point of the file/folder summary cache is
+# a smaller place to look first instead of grepping the whole repo.
+SUMMARY_CHAR_LIMIT = 240
+
+
+def truncate_summary(text, limit=SUMMARY_CHAR_LIMIT):
+    """Deterministically cap a file-summary/folder-summary `description` at
+    `limit` characters.
+
+    Returns `text` (stripped of leading/trailing whitespace) unchanged when
+    it already fits. Otherwise truncates to `limit - 1` characters and
+    appends a single `…` character (not three ASCII dots), so the result is
+    always exactly `limit` characters long, never `limit + 2`.
+    """
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
 def resolve_repo_relative(cwd, path):
     """Resolve a stored repo-relative path back to an absolute path anchored
     at cwd. Pure path resolution — no entry-file I/O. Used by

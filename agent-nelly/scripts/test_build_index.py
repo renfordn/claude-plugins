@@ -20,7 +20,8 @@ def isolated_base(tmp_path, monkeypatch):
 
 
 def _write_entry(cwd, name, type_="project", description="A test fact.",
-                  confidence=None, tags=None, seen_count=None):
+                  confidence=None, tags=None, seen_count=None,
+                  files=None, folder=None, git_hash=None):
     entries_dir = nelly_memory.ensure_entries_dir(cwd)
     lines = ["---", f"name: {name}", f"description: {description}",
              "metadata:", f"  type: {type_}", "  last_referenced: 2026-08-16"]
@@ -30,6 +31,12 @@ def _write_entry(cwd, name, type_="project", description="A test fact.",
         lines.append(f"  seen_count: {seen_count}")
     if tags is not None:
         lines.append(f"  tags: [{', '.join(tags)}]")
+    if files is not None:
+        lines.append(f"  files: [{', '.join(files)}]")
+    if folder is not None:
+        lines.append(f"  folder: {folder}")
+    if git_hash is not None:
+        lines.append(f"  git_hash: {git_hash}")
     lines += ["---", "", "Body text."]
     path = os.path.join(entries_dir, f"{name}.md")
     with open(path, "w", encoding="utf-8") as fh:
@@ -55,6 +62,9 @@ def test_parse_frontmatter_block_basic_fields():
     assert record["confidence"] is None
     assert record["description"] == "A one-line summary."
     assert record["tags"] == []
+    assert record["files"] == []
+    assert record["folder"] is None
+    assert record["git_hash"] is None
 
 
 def test_parse_frontmatter_block_confidence_and_tags():
@@ -109,6 +119,37 @@ def test_parse_frontmatter_block_seen_count_absent_is_none():
     )
     record = build_index._parse_frontmatter_block(block)
     assert record["seen_count"] is None
+
+
+def test_parse_frontmatter_block_file_summary_fields():
+    block = (
+        "name: file-summary-some-path\n"
+        "description: Resolves plugin data dir paths for agent-nelly.\n"
+        "metadata:\n"
+        "  type: file-summary\n"
+        "  files: [hooks/path_resolution.py]\n"
+        "  git_hash: abc123\n"
+    )
+    record = build_index._parse_frontmatter_block(block)
+    assert record["type"] == "file-summary"
+    assert record["files"] == ["hooks/path_resolution.py"]
+    assert record["git_hash"] == "abc123"
+    assert record["folder"] is None
+
+
+def test_parse_frontmatter_block_folder_summary_fields():
+    block = (
+        "name: folder-summary-hooks\n"
+        "description: PreToolUse/PostToolUse hooks for agent-nelly's memory store.\n"
+        "metadata:\n"
+        "  type: folder-summary\n"
+        "  folder: hooks\n"
+    )
+    record = build_index._parse_frontmatter_block(block)
+    assert record["type"] == "folder-summary"
+    assert record["folder"] == "hooks"
+    assert record["files"] == []
+    assert record["git_hash"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -277,3 +318,73 @@ def test_iter_project_dirs_skips_global_and_hidden(tmp_path):
     dirs = [os.path.basename(p) for p in build_index.iter_project_dirs()]
 
     assert dirs == ["real-project"]
+
+
+# ---------------------------------------------------------------------------
+# lookup_by_path -- the read side of the file/folder summary cache
+# ---------------------------------------------------------------------------
+
+def test_lookup_by_path_finds_exact_file_summary(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "file-summary-a", type_="file-summary",
+                 files=["src/a.py"], git_hash="deadbeef")
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "src/a.py")
+
+    assert result["file"]["slug"] == "file-summary-a"
+    assert result["file"]["git_hash"] == "deadbeef"
+    assert result["folders"] == []
+
+
+def test_lookup_by_path_no_file_summary_returns_none(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "file-summary-a", type_="file-summary", files=["src/a.py"])
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "src/b.py")
+
+    assert result["file"] is None
+
+
+def test_lookup_by_path_matches_ancestor_folder_summaries(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "folder-summary-src", type_="folder-summary", folder="src")
+    _write_entry(cwd, "folder-summary-src-sub", type_="folder-summary", folder="src/sub")
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "src/sub/c.py")
+
+    assert [r["slug"] for r in result["folders"]] == ["folder-summary-src-sub", "folder-summary-src"]
+
+
+def test_lookup_by_path_folder_itself_matches(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "folder-summary-src", type_="folder-summary", folder="src")
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "src")
+
+    assert [r["slug"] for r in result["folders"]] == ["folder-summary-src"]
+
+
+def test_lookup_by_path_sibling_folder_does_not_match(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "folder-summary-src", type_="folder-summary", folder="src")
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "srcish/c.py")
+
+    assert result["folders"] == []
+
+
+def test_lookup_by_path_rejects_absolute_path(tmp_path):
+    cwd = str(tmp_path / "project")
+    with pytest.raises(ValueError):
+        build_index.lookup_by_path(cwd, "/abs/path.py")
+
+
+def test_lookup_by_path_missing_index_returns_empty(tmp_path):
+    cwd = str(tmp_path / "project")
+    result = build_index.lookup_by_path(cwd, "src/a.py")
+    assert result == {"file": None, "folders": []}

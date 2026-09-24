@@ -158,6 +158,13 @@ has a memory subagent, mention it in the Pre-Slice Brief and read the **Handoff 
 `agent-TDD`'s report for anything worth persisting (ownership discovered, weak coverage found, a
 behavior/interface change made) — writing it back is your responsibility, not the agent's.
 
+The same applies to the **File Summaries** field (see `agents/agent-TDD.md`'s section of that
+name) — `agent-TDD` reports `{path, summary, git_hash}` items for any file it read during
+slicing/implementation that the Design/Slice Spec's pre-fetched summaries didn't already cover;
+your orchestrator persists them to your memory subagent (e.g. agent-nelly's `file summaries`
+field) alongside Handoff Facts. `agent-isdd`'s implementation-handoff does exactly this — see its
+`skills/spec-driven-development/references/implementation-handoff.md`.
+
 ## Design Spec Mode (agent-isdd integration, Phase 2+3 revised)
 
 Agent-tdd optionally accepts a **Design Spec** as an alternative to Slice Spec mode. This mode is
