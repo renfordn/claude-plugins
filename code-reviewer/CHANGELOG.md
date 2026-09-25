@@ -1,6 +1,28 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
+- **Feature**: review pipeline for PRs and large diffs (SKILL.md "Review Pipeline").
+  `scripts/review_plan.py plan` ranks changed files by risk and lists changed, removed and new
+  symbols, candidate tests, test gaps, and fan-out groups. Every Standard+ review now greps the
+  whole repo for callers of changed/removed symbols (including untouched files) and checks test
+  gaps function by function. Large diffs (>400 lines or >10 files) fan out to parallel
+  `code-reviewer` agents plus a new read-only `cross-file-reviewer` agent. The verify pass now
+  also covers high/critical findings.
+- **Feature**: `findings.json` (no 32-finding cap) with `followups` (refactor / consolidation /
+  deferred-defect), at `review_plan.py findings-path`, checked by `review_plan.py validate`; the
+  reply ends with a numbered cleanup plan.
+- **Evals**: two scaffolded multi-file cases (`large-pr-contract-break`,
+  `pr-duplicate-consolidation`, `case.yaml` + `scaffold.sh`, run with `--scaffold`). 3 runs each:
+  - The old skill loaded in 1/6 branch reviews; now 6/6. Snippet cases stay at 9/9.
+  - A behavior change with no test (planted in `app/pricing.py`) was flagged 0/3 by the old
+    skill and 0/3 by plain Claude; now 2/3.
+  - The broken unchanged caller, buried off-by-one, broken import and consolidation onto an
+    existing helper were already found by plain Claude at this size, so they guard against
+    regressions rather than show a gain.
+- **Removed**: `Edit` from the skill's tool list (a review never edits).
+
 - **Docs**: dropped the plugin-harness capability-detection note (harness removed).
 
 - **Change**: agent-ux retired. The review dashboard and out-of-scope flags always use
