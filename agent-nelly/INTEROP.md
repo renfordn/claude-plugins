@@ -241,7 +241,8 @@ cross-project tier) and `--entries-path` (ensures `entries/` exists, idempotent)
 
 ## One terminology note: "slug"
 
-This plugin's `project_slug()` (a deterministic hash of an absolute path, used to namespace
+This plugin's `project_slug()` (a deterministic transform of the project's absolute path -- the git toplevel of cwd, or cwd
+outside a repo -- used to namespace
 `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/<project-slug>/`) is unrelated to a "feature slug" as used by
 spec-driven-development (a human-readable spec-folder name like `2026-08-10-my-feature`). They
 share a word, not a concept — if you're integrating a plugin that also uses SDD, don't conflate

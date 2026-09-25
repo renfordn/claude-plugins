@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_memory import memory_dir  # noqa: E402
+from sdd_memory import invocation_cwd, memory_dir  # noqa: E402
 
 STATUSES = ("open", "picked", "done", "dismissed")
 KINDS = ("refactor", "consolidation", "deferred-defect")
@@ -151,7 +151,7 @@ def mark_recorded(cwd, fid):
 
 
 def main(argv):
-    cwd = os.getcwd()
+    cwd = invocation_cwd()
     cmd = argv[0] if argv else "list"
     try:
         if cmd == "ingest":

@@ -38,6 +38,7 @@ hooks.json does) scaffold and discover this state.
 import json
 import os
 import re
+import subprocess
 import sys
 
 # path_resolution.py lives alongside this file (a per-plugin copy -- see its own
@@ -64,9 +65,57 @@ LOCAL_BASE = get_legacy_subdir_path(_plugin_data_dir, "sdd-memory")
 BASE_POINTER_NAME = "sdd-memory-location.json"
 
 
-def project_slug(cwd):
-    """Deterministic collision-resistant slug from an absolute project path."""
+def _repo_root(cwd):
+    """The git toplevel containing cwd, or cwd itself outside a repo (or if git is missing).
+
+    git reports the toplevel as a realpath, so prefer the lexical ancestor of cwd that resolves
+    to it: that keeps cwd's spelling (e.g. /tmp vs /private/tmp on macOS) and so the slug. When
+    cwd was reached through a symlink from outside the repo, no ancestor matches and git's
+    toplevel is used. A linked worktree is its own toplevel, so it keeps its own slug.
+    """
     absp = os.path.abspath(cwd)
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    try:
+        proc = subprocess.run(["git", "-C", absp, "rev-parse", "--show-toplevel"],
+                              capture_output=True, text=True, timeout=5, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return absp
+    top = proc.stdout.strip()
+    if proc.returncode != 0 or not top:
+        return absp
+    real_top = os.path.realpath(top)
+    d = absp
+    while True:
+        if os.path.realpath(d) == real_top:
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return top
+        d = parent
+
+
+def invocation_cwd():
+    """The cwd as the invoking shell spells it: $PWD when it names the same directory as
+    os.getcwd(), else os.getcwd().
+
+    os.getcwd() resolves symlinks (/var -> /private/var on macOS), but hooks get the cwd from
+    Claude Code's payload unresolved; a CLI must use the same spelling to reach the same store.
+    """
+    cwd = os.getcwd()
+    pwd = os.environ.get("PWD")
+    if pwd and os.path.isabs(pwd):
+        try:
+            if os.path.samefile(pwd, cwd):
+                return pwd
+        except OSError:
+            pass
+    return cwd
+
+
+def project_slug(cwd):
+    """Deterministic collision-resistant slug from the project path: the git toplevel of cwd,
+    so a session whose cwd drifts into a repo subdirectory still maps to the repo's store."""
+    absp = _repo_root(cwd)
     slug = re.sub(r"[^A-Za-z0-9]+", "-", absp).strip("-").lower()
     return slug or "root"
 
@@ -156,18 +205,18 @@ def ensure_dir(cwd):
 
 def main(argv):
     if not argv:
-        print(memory_dir(os.getcwd()))
+        print(memory_dir(invocation_cwd()))
         return
     cmd = argv[0]
     rest = [a for a in argv[1:] if not a.startswith("--")]
-    cwd = rest[0] if rest else os.getcwd()
+    cwd = rest[0] if rest else invocation_cwd()
 
     if cmd == "--path":
         print(ensure_dir(cwd))
     elif cmd == "--spec-path":
         positional = [a for a in argv[1:] if not a.startswith("--")]
         slug = positional[0] if positional else None
-        spec_cwd = positional[1] if len(positional) > 1 else os.getcwd()
+        spec_cwd = positional[1] if len(positional) > 1 else invocation_cwd()
         print(spec_dir(spec_cwd, slug))
     else:
         print(memory_dir(cwd))

@@ -27,10 +27,35 @@ HOOKS_DIR = os.path.join(REPO_ROOT, "hooks")
 
 def project_slug_for(path):
     """Mirrors hooks/sdd_memory.py's project_slug() exactly, for building test fixtures
-    at the same location a real hook run would resolve to under a given HOME."""
+    at the same location a real hook run would resolve to under a given HOME (git toplevel of
+    path, or path itself outside a repo)."""
     absp = os.path.abspath(path)
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    proc = subprocess.run(["git", "-C", absp, "rev-parse", "--show-toplevel"],
+                          capture_output=True, text=True, env=env)
+    top = proc.stdout.strip()
+    if proc.returncode == 0 and top:
+        d = absp
+        while os.path.realpath(d) != os.path.realpath(top) and os.path.dirname(d) != d:
+            d = os.path.dirname(d)
+        absp = d if os.path.realpath(d) == os.path.realpath(top) else top
     slug = re.sub(r"[^A-Za-z0-9]+", "-", absp).strip("-").lower()
     return slug or "root"
+
+
+def make_git_repo(root):
+    """git init <root> with one empty commit (so worktrees can be added); returns root."""
+    os.makedirs(root, exist_ok=True)
+    git = ["git", "-C", root, "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(git[:3] + ["init", "-q"], check=True)
+    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "init"], check=True)
+    return root
+
+
+def add_git_worktree(repo, path):
+    """Add a linked worktree of <repo> at <path>; returns path."""
+    subprocess.run(["git", "-C", repo, "worktree", "add", "-q", "--detach", path], check=True)
+    return path
 
 
 def feature_spec_dir(home, cwd, feature_slug="2020-01-01-test-feature"):

@@ -1,5 +1,6 @@
 """Slice 12: agent-nelly documents the `research digest` / `research digest lookup` request
 fields (agent spec + consumer-facing INTEROP)."""
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,7 +33,10 @@ def test_interop_has_consumer_section_with_fields_and_output_keys():
         assert needle in sec, needle
 
 
-def test_changelog_unreleased_mentions_research_digest():
+def test_changelog_documents_research_digest():
+    # The entry lives under [Unreleased] until a release dates it under the plugin.json version.
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    version = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
     unreleased = _section(changelog, "## [Unreleased]", "\n## [")
-    assert "research digest" in unreleased.lower()
+    released = _section(changelog, f"## [{version}]", "\n## [") if f"## [{version}]" in changelog else ""
+    assert "research digest" in (unreleased + released).lower()

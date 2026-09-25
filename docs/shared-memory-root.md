@@ -112,7 +112,9 @@ as the pointer file stay out of the shared root. The old copies are left untouch
 ## Caveat: project slugs come from absolute paths
 
 `<project-slug>` is derived from the project's absolute path, e.g.
-`/Users/jay.nelson/Codebase/x` becomes `users-jay-nelson-codebase-x`. A project only lines up across
+`/Users/jay.nelson/Codebase/x` becomes `users-jay-nelson-codebase-x`. The path is the git toplevel of
+the session's cwd (cwd itself outside a repo), so a session working in `x/scripts/` still uses `x`'s
+store; a linked worktree is its own toplevel and gets its own slug. A project only lines up across
 machines when it's checked out at the same absolute path, which means the same username and the same
 directory. Checkouts at different paths get separate slugs in the shared root, so their memory
 doesn't combine, but nothing breaks.

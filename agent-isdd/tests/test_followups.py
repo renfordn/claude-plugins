@@ -7,6 +7,7 @@ agent-nelly. The CLI moves an item through open -> picked -> done/dismissed.
 import json
 import os
 import subprocess
+import tempfile
 import unittest
 
 import hook_test_utils as h
@@ -32,7 +33,8 @@ def _write_findings(repo, doc=FINDINGS):
 
 
 def _cli(repo, home, *args):
-    env = dict(os.environ, HOME=home, CLAUDE_PLUGIN_DATA=h.plugin_data_for(home))
+    # PWD=repo mimics a shell, which exports the cwd as typed (unresolved symlinks).
+    env = dict(os.environ, HOME=home, CLAUDE_PLUGIN_DATA=h.plugin_data_for(home), PWD=repo)
     return subprocess.run(["python3", os.path.join(h.HOOKS_DIR, "followups.py"), *args], cwd=repo,
                           env=env, capture_output=True, text=True)
 
@@ -42,6 +44,26 @@ def _followups_dir(home, repo):
 
 
 class FollowupsTests(unittest.TestCase):
+    def test_cli_through_symlinked_cwd_shares_the_hooks_store(self):
+        """The hook gets the cwd as Claude Code spells it; the CLI must resolve the same store
+        via $PWD rather than os.getcwd(), which returns the symlink-resolved path."""
+        with h.temp_git_repo() as repo, h.temp_home() as home, tempfile.TemporaryDirectory() as t:
+            link = os.path.join(t, "link")
+            os.symlink(repo, link)
+            _write_findings(repo)
+            self.assertEqual(_cli(link, home, "ingest").returncode, 0)
+            self.assertEqual(_cli(link, home, "set", "warehouse-ids-reused-after-delete", "done").returncode, 0)
+            decision, _ = h.run_hook("session_start.py", {"cwd": link}, cwd=link, env_extra={"HOME": home})
+            self.assertIn("1 open review follow-up from", decision["additionalContext"])
+
+    def test_cli_ignores_stale_pwd(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home, tempfile.TemporaryDirectory() as other:
+            _write_findings(repo)
+            env = dict(os.environ, HOME=home, CLAUDE_PLUGIN_DATA=h.plugin_data_for(home), PWD=other)
+            subprocess.run(["python3", os.path.join(h.HOOKS_DIR, "followups.py"), "ingest"],
+                           cwd=repo, env=env, capture_output=True, text=True)
+            self.assertTrue(os.path.isdir(_followups_dir(home, os.path.realpath(repo))))
+
     def test_session_start_ingests_and_lists_open_items(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             _write_findings(repo)

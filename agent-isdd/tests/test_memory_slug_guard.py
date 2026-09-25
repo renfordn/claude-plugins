@@ -80,6 +80,31 @@ class MemorySlugGuardTests(unittest.TestCase):
             self.assertIsNotNone(decision)
             self.assertEqual(decision["permissionDecision"], "allow")
 
+    def test_subdirectory_cwd_allows_repo_store_and_denies_split_store(self):
+        import tempfile
+        with h.temp_home() as home, tempfile.TemporaryDirectory() as tmp:
+            repo = h.make_git_repo(os.path.join(tmp, "repo"))
+            sub = os.path.join(repo, "agent-nelly")
+            os.makedirs(sub)
+            base = os.path.join(home, ".claude", "plugins", "data", "agent-isdd", "sdd-memory")
+            repo_path = os.path.join(base, h.project_slug_for(repo), "spec", "f", "state.md")
+            decision, rc = h.run_hook(
+                "memory_slug_guard.py",
+                {"tool_input": {"file_path": repo_path}, "cwd": sub},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNone(decision)
+            split_slug = h.project_slug_for(repo) + "-agent-nelly"
+            split_path = os.path.join(base, split_slug, "spec", "f", "state.md")
+            decision, rc = h.run_hook(
+                "memory_slug_guard.py",
+                {"tool_input": {"file_path": split_path}, "cwd": sub},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertEqual(decision["permissionDecision"], "deny")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 """Slice 13 (R10): design-author looks up agent-nelly research digests before research and
 sends one digest per topic after it; agent-isdd INTEROP documents the digest request schema."""
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,7 +38,10 @@ def test_interop_documents_digest_request_schema():
     assert "`research digest lookup`" in sec
 
 
-def test_changelog_unreleased_mentions_research_digest():
+def test_changelog_documents_research_digest():
+    # The entry lives under [Unreleased] until a release dates it under the plugin.json version.
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    version = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
     unreleased = _between(changelog, "## [Unreleased]", "\n## [")
-    assert "research digest" in unreleased.lower()
+    released = _between(changelog, f"## [{version}]", "\n## [") if f"## [{version}]" in changelog else ""
+    assert "research digest" in (unreleased + released).lower()
