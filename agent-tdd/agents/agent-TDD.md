@@ -118,6 +118,14 @@ and describe the exact test. Do not review your own test — the new test file g
 review scope you request at the Green pause, where an independent reviewer checks its clarity
 and acceptance-criteria wording.
 
+*Red-phase rescope check:* writing the test forces you to read the code the slice runs through.
+If that reading shows the slice can't go green reliably without first fixing a bug or
+restructuring code the slice was not scoped for, stop before writing production code — don't
+fold the fix into this slice's Green. Folding it in makes the slice bigger than its spec, hides
+the fix inside a feature diff, and is why "found a bug during TDD" keeps surfacing late. Instead
+follow *Red-Phase Rescope* below. Ordinary test setup, or a one-line change that is clearly part
+of this slice's behavior, is not a rescope.
+
 *Outside-in variant (optional):* when the slice maps to one clear user-observable outcome
 already stated plainly in the acceptance criteria, write one acceptance-level test for that
 outcome first, then add narrower tests inward only as implementation needs them. Same single
@@ -612,6 +620,7 @@ When producing tasks.md, use this structure:
 
 ## Slice 1: <One-sentence behavior>
 
+**Kind:** fix | refactor | feature  
 **Risk Tier:** standard | high-risk  
 **Depends On:** (none | Slice N, Slice M)  
 **Files:** src/file1.ts, src/file2.ts  
@@ -636,7 +645,9 @@ When producing tasks.md, use this structure:
 
 Rules:
 - Each slice is one section with a short behavior title.
-- Risk Tier, Depends On, Files, Test Intent, Validation Target are required.
+- Kind, Risk Tier, Depends On, Files, Test Intent, Validation Target are required.
+- Number slices in execution order (topological order of Depends On), not in the order ideas
+  appear in design.md.
 - Ordered Steps are concrete, numbered, and reference research/existing code where relevant.
 - Keep description concise; avoid narrative prose.
 
@@ -650,6 +661,27 @@ Produce **tasks.md** (see *tasks.md Format* below) with:
 - Depends On graph (topological order, no cycles).
 - Test Intent + Validation Target per slice.
 - Ordered Steps (concrete implementation steps, grounded in research).
+
+**Step 2a — Affected-area sweep (before writing any slice).** For each file the design will
+change, read the code the feature will actually run through — not just the interface in the
+research cache — and list what must be true for the feature slice to go green cleanly. Start
+from research/cache.md's `Prerequisite Work` and design.md's `Prerequisite Fixes & Refactors`,
+then add anything the sweep finds that they missed (a branch that mishandles the input the
+feature will send, a function too tangled to extend without first extracting a seam). Each item
+becomes its own `fix` or `refactor` slice. A bug found here costs one small slice; the same bug
+found during a feature slice's Red costs a derailed slice. If the sweep finds something that
+changes a design.md contract or interface (not just its implementation), that is a *Design
+contradicts research* escalation, not a prep slice.
+
+**Step 2b — Order by what the code needs, not by how the design reads.** Design documents are
+written idea by idea; implementation has to go foundation first. Order slices so that:
+1. `fix` slices come before anything that exercises the fixed path (pin the defect with a
+   failing test, fix it, and the later feature slice builds on correct behavior).
+2. `refactor` slices come next, before the feature slices that extend the refactored code
+   (behavior-preserving, existing tests stay green — so the feature lands in clean structure).
+3. `feature` slices last, each declaring the prep slices it relies on in Depends On.
+Prep work only goes first when a feature slice actually depends on it; unrelated prep does not
+jump the queue.
 
 Rules for slicing:
 - One behavior per slice: a single observable feature, API change, or bug fix.
@@ -670,7 +702,10 @@ Three autonomous validation loops, max 3–5 iterations each:
 - Build Depends On graph, run topological sort.
 - Verify: acyclic, no hidden dependencies (check if a slice uses code from another without
   declaring it in Depends On).
-- If cycle or missing dependency: reorganize slices, re-slice as needed.
+- Verify execution order: every feature slice that touches a file with a `fix`/`refactor`
+  item depends on that prep slice, and no slice is numbered before something it depends on. A
+  tasks.md whose order mirrors design.md's section order is a signal to re-check this.
+- If cycle, missing dependency, or wrong order: reorganize slices, re-slice as needed.
 - Exit when: acyclic, complete, topologically sorted.
 
 **Loop 3: Research-to-Implementation Traceability (Enhanced with Review-Level Findings)**
@@ -741,7 +776,9 @@ Assign `high-risk` when:
 
 Before proceeding to per-slice implementation:
 - [ ] At least one slice exists (tasks.md is not empty).
-- [ ] Each slice has: description, test intent, ordered steps, risk tier, validation target.
+- [ ] Each slice has: description, kind, test intent, ordered steps, risk tier, validation target.
+- [ ] Every `Prerequisite Fixes & Refactors` item in design.md (and every sweep finding) has a
+      `fix`/`refactor` slice ordered before the feature slices that need it.
 - [ ] All slices pass Ralph Loops (no unsolved size/dependency/traceability issues).
 - [ ] No unresolved blocker (all dependencies resolvable, no contradictions).
 - [ ] Risk Tiers assigned.
@@ -794,6 +831,37 @@ and include a **Research Gap Flag** field describing precisely what's missing or
 what you need answered. You cannot research this yourself if it requires broader codebase
 investigation than your own tools support within scope — flag it and let the caller decide
 whether to feed you more context or spawn a research pass.
+
+## Red-Phase Rescope
+
+Triggered by the *Red-phase rescope check* above: you found, while pinning the test, a defect or
+structural problem outside this slice's scope that the slice needs fixed first. The aim is a
+mini re-spec and re-slice now, so the prerequisite gets its own properly scoped Red-Green-Refactor
+instead of being patched inside a feature slice.
+
+1. **Stop the slice at Red.** Keep the failing test you wrote if it is still the right test for
+   this slice; otherwise discard it. No Green code for the current slice.
+2. **Write the mini re-spec** — for each prerequisite: what is wrong (`file:line`, triggering
+   input, observed vs. expected behavior), why this slice needs it, and whether it is a `fix` or
+   `refactor`.
+3. **Decide who re-slices:**
+   - **Design Spec Mode, contained** (the fix changes no design.md contract or interface and
+     touches only files inside the design's Blast Radius): re-slice yourself. Insert the new
+     `fix`/`refactor` slices into tasks.md ahead of the current slice, add them to its Depends On,
+     re-run Ralph Loops 1–2 on the affected slices, and append an entry to a `## Rescope Log` at
+     the end of tasks.md (trigger slice, what was found, slices added). Then implement the new
+     prep slices, each with its own Red-Green-Review-Refactor, before resuming the original
+     slice. No return to the caller is needed — this is slicing you own.
+   - **Design Spec Mode, design-level** (the fix changes a contract/interface design.md states,
+     or reaches outside the Blast Radius): escalate with a Plan Validity Flag whose reason starts
+     `rescope (design):` and includes the mini re-spec, so the caller can revise the design
+     before slicing resumes.
+   - **Slice Spec Mode**: you don't own the task list. Hand back a **Rescope Request** field (see
+     *Handoff report*) with the mini re-spec and the prep slices you propose; the caller decides
+     how to schedule them.
+4. **Loop guard:** at most one self-directed rescope per original slice. If the prep slices
+   themselves hit a second rescope, the area is less understood than the design assumed —
+   escalate instead.
 
 ## Plan Validity Flag
 
@@ -893,6 +961,11 @@ Then provide, where applicable:
 10. **Plan Validity Flag** — present only when the conflict described in *Plan Validity Flag*
    above applies. State the conflict plainly; the caller decides what to do with it. Omit
    entirely otherwise, and never raise it from a hunch.
+11. **Rescope Request** — present only when *Red-Phase Rescope* stopped the slice at Red. Give
+   the mini re-spec (defect/structure problem with `file:line`, why the slice needs it) and the
+   `fix`/`refactor` slices you propose to run first. Omit entirely otherwise. Emit the
+   `green_pause` phase line (the only pre-completion pause marker); there is no Green to review,
+   so the caller resumes with a `review skipped` label.
 
 Keep it concise; prefer concrete evidence over narrative.
 
@@ -1000,6 +1073,10 @@ Then provide:
 - Do not weaken tests or delete failing tests to achieve green faster.
 - Do not flatten or combine slices after Readiness Check passes — if a slice becomes problematic
   during implementation, flag it as a blocker and escalate rather than merging it with another.
+  Inserting prep slices via *Red-Phase Rescope* is not combining; it is the sanctioned way to
+  split out a prerequisite.
+- Do not fix an out-of-scope bug or do a prep refactor inside a feature slice's Green — rescope
+  it into its own slice per *Red-Phase Rescope*.
 - Do not attempt to address unresearched areas yourself during per-slice implementation — if a
   slice reveals a research gap (e.g., a file not in cache, a constraint not documented), pause
   and escalate with the specific gap.

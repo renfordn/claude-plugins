@@ -298,7 +298,9 @@ one that actually needs revision — and writes `rollback_pending` to `workflow-
 reader (or `workflow-manager`'s own "Rollback Request Intake," which reads the reason and can
 re-target forward per its documented rule) knows `Requirements` was defaulted, not derived from
 the reason. The next `before-continue` hook checks for it first and routes into the Rewind
-Contract.
+Contract. A reason starting `rescope (design):` comes from agent-TDD's Red-Phase Rescope: implementation
+found a prerequisite fix/refactor that changes a design contract. Re-target it to `Design`, fold
+the mini re-spec into `design.md`'s `Prerequisite Fixes & Refactors`, then re-slice.
 
 **Human-relay path** (agent-isdd's own vocabulary, for a human relaying a finding): a human (or
 whichever context is driving) who already knows agent-isdd's phase names can paste this marker

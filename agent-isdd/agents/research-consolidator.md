@@ -97,6 +97,21 @@ Read in full only the files that passed Pass 1. Extract only what constrains des
   `git_hash`-keyed file-summary cache). If this file's line count is at or over the ceiling
   resolved in Pass 1b, its Risk line below states that explicitly.
 
+**Assumption audit (for every touchpoint the feature will change or rely on):** a design built on
+"this function already does X" is only as good as that claim, and a wrong claim found later costs
+a TDD slice that has to fix a bug mid-flight. So don't stop at signatures — trace the actual code
+path the feature will run through (callers in, callees out, error/empty/concurrent branches) and
+check each behavior the feature will depend on really holds. Record:
+- **Latent Defects:** bugs, unhandled branches, or wrong behavior on the path the feature will
+  exercise — with `file:line` and the input that triggers it. These are not "tech debt" notes;
+  they are things the feature will trip over.
+- **Prep Refactors:** structural changes the feature needs first to land cleanly (extract a
+  seam to test against, untangle a god-function the feature would extend, unify duplicated
+  logic the feature would otherwise have to change in two places) — each with the reason the
+  feature needs it.
+- **Unverified Assumptions:** behavior you could not confirm from code (no test covers it, path
+  depends on runtime config) — so the design can treat it as a risk rather than a fact.
+
 **Then produce dual output:**
 
 ### Design-Ready Findings
@@ -105,6 +120,9 @@ Read in full only the files that passed Pass 1. Extract only what constrains des
   - Interface: <what it exposes>
   - Constraint: <what the design must respect>
   - Risk: <architectural risk this introduces>
+  - Latent Defect: <file:line — what breaks, triggering input> (omit if none)
+  - Prep Refactor: <change needed before the feature, and why> (omit if none)
+  - Unverified Assumption: <behavior the design relies on that code didn't confirm> (omit if none)
 ```
 
 ### Task-Ready Findings
@@ -147,6 +165,12 @@ Per-file findings for architecture:
 - Touchpoints (modules the design must coordinate)
 - Interfaces (contracts the design must respect)
 - Design risks (tradeoffs, coupling, complexity)
+
+### Prerequisite Work
+Everything the Assumption audit found, in one list the design and task slicing can act on
+directly. One line each, tagged `fix` (Latent Defect), `refactor` (Prep Refactor), or
+`unverified` (Unverified Assumption), with `file:line` and which part of the feature depends on
+it. Write "none found" only after the audit actually ran — an empty list is a claim.
 
 ### Task-Ready Findings
 Per-file findings for slicing:

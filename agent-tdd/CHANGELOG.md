@@ -1,6 +1,16 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: catch prerequisite bugs and refactors before feature slices, not during them.
+  Task slicing now runs an affected-area sweep and turns each defect or needed refactor into its
+  own `fix`/`refactor` slice. Slices are ordered by what the code needs (fix, then refactor,
+  then feature), not by the order the design describes them. `tasks.md` has a new `Kind` field
+  (also in `tasks-schema.json`). Red has a new rescope check: if writing the test shows the slice
+  needs an out-of-scope fix first, agent-TDD stops at Red and writes a mini re-spec. It then
+  re-slices itself (contained), raises a `rescope (design):` Plan Validity Flag (design-level),
+  or returns a Rescope Request (Slice Spec Mode). See `agents/agent-TDD.md`'s "Red-Phase Rescope"
+  and `references/escalation-paths.md` §3.5.
+
 ## [0.2.19] - 2026-09-25
 
 - **Docs**: `references/escalation-paths.md` now says agent-isdd detects the model-escalation
