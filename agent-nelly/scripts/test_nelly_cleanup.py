@@ -108,6 +108,70 @@ def test_worktree_store_merged_into_parent(tmp_path):
     assert "](entries/only-wt.md)" in index and "](entries/shared--wt1.md)" in index
     assert "session-handoff" not in index
     assert "(worktree wt1) — worked in wt" in open(os.path.join(parent, "SESSION-HISTORY.md")).read()
+
+
+def test_worktree_store_merges_summary_subdir_moved_and_newest_wins(tmp_path):
+    """entries/<SUMMARY_SUBDIR>/ (file-summary/folder-summary cache entries) is a nested
+    subdirectory, not a single entry file -- merge_worktree_store's generic per-entry loop
+    would crash on it (filecmp.cmp against a directory). It must instead: move across a name
+    that only exists in one store, and on a clash (same cached path in both), keep whichever
+    copy has the newer mtime rather than renaming one into a duplicate -- a summary is a
+    path-keyed cache (at most one entry per path), not a fact, so two "current" summaries for
+    the same path would be wrong, unlike the generic entries/ clash-rename policy."""
+    base = str(tmp_path / "mem")
+    repo = str(tmp_path / "repo")
+    parent_slug = nelly_cleanup.get_project_slug(repo)
+    parent = _store(base, parent_slug, repo)
+    summary_dir = os.path.join(parent, "entries", nelly_cleanup.SUMMARY_SUBDIR)
+    _write(os.path.join(summary_dir, "file-summary-b.md"),
+           _entry("file-summary-b", "parent: stale"), mtime=OLD)
+
+    wt_path = f"{repo}/.claude/worktrees/wt1"
+    wt = _store(base, nelly_cleanup.get_project_slug(wt_path), wt_path)
+    wt_summary_dir = os.path.join(wt, "entries", nelly_cleanup.SUMMARY_SUBDIR)
+    _write(os.path.join(wt_summary_dir, "file-summary-a.md"),
+           _entry("file-summary-a", "only in wt"), mtime=OLD)
+    _write(os.path.join(wt_summary_dir, "file-summary-b.md"),
+           _entry("file-summary-b", "wt: fresher"), mtime=OLD)
+    for root, _, files in os.walk(wt):
+        for f in files:
+            os.utime(os.path.join(root, f), (OLD, OLD))
+    newer = OLD + 1000  # still far past WORKTREE_IDLE_DAYS, just newer than the parent's copy
+    os.utime(os.path.join(wt_summary_dir, "file-summary-b.md"), (newer, newer))
+
+    result = nelly_cleanup.run_cleanup(TODAY, base=base)
+
+    assert not os.path.exists(wt)
+    assert [m["parent"] for m in result["merged"]] == [parent_slug]
+    assert sorted(os.listdir(summary_dir)) == ["file-summary-a.md", "file-summary-b.md"]
+    assert "only in wt" in open(os.path.join(summary_dir, "file-summary-a.md")).read()
+    assert "wt: fresher" in open(os.path.join(summary_dir, "file-summary-b.md")).read()
+
+
+def test_worktree_store_summary_subdir_keeps_newer_parent_copy_on_clash(tmp_path):
+    base = str(tmp_path / "mem")
+    repo = str(tmp_path / "repo")
+    parent_slug = nelly_cleanup.get_project_slug(repo)
+    parent = _store(base, parent_slug, repo)
+    summary_dir = os.path.join(parent, "entries", nelly_cleanup.SUMMARY_SUBDIR)
+    newer = OLD + 1000
+    _write(os.path.join(summary_dir, "file-summary-b.md"),
+           _entry("file-summary-b", "parent: fresher"), mtime=newer)
+
+    wt_path = f"{repo}/.claude/worktrees/wt1"
+    wt = _store(base, nelly_cleanup.get_project_slug(wt_path), wt_path)
+    wt_summary_dir = os.path.join(wt, "entries", nelly_cleanup.SUMMARY_SUBDIR)
+    _write(os.path.join(wt_summary_dir, "file-summary-b.md"),
+           _entry("file-summary-b", "wt: stale"), mtime=OLD)
+    for root, _, files in os.walk(wt):
+        for f in files:
+            os.utime(os.path.join(root, f), (OLD, OLD))
+
+    nelly_cleanup.run_cleanup(TODAY, base=base)
+
+    assert not os.path.exists(wt)
+    assert os.listdir(summary_dir) == ["file-summary-b.md"]
+    assert "parent: fresher" in open(os.path.join(summary_dir, "file-summary-b.md")).read()
     assert not os.path.exists(os.path.join(parent, "hotspots.json"))
     assert "merged-worktree-store" in open(os.path.join(parent, "CONSOLIDATION-LOG.md")).read()
 

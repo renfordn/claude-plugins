@@ -222,6 +222,36 @@ def test_entry_path_never_escapes_entries_dir(name):
     assert ".." not in os.path.relpath(p, entries_dir)
 
 
+# ---------------------------------------------------------------------------
+# entry_path(..., entry_type=...) — file-summary/folder-summary entries nest
+# under entries/<SUMMARY_SUBDIR>/ instead of directly under entries/; every
+# other entry_type (including the default None) stays flat, unchanged.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("entry_type", ["file-summary", "folder-summary"])
+def test_entry_path_nests_summary_types_under_summary_subdir(entry_type):
+    p = nelly_memory.entry_path(CWD, "my-entry", entry_type=entry_type)
+    expected = os.path.join(
+        nelly_memory.memory_dir(CWD), "entries", nelly_memory.SUMMARY_SUBDIR, "my-entry.md"
+    )
+    assert p == expected
+
+
+@pytest.mark.parametrize("entry_type", [None, "user", "feedback", "project", "error-prevention"])
+def test_entry_path_stays_flat_for_non_summary_types(entry_type):
+    p = nelly_memory.entry_path(CWD, "my-entry", entry_type=entry_type)
+    expected = os.path.join(nelly_memory.memory_dir(CWD), "entries", "my-entry.md")
+    assert p == expected
+
+
+@pytest.mark.parametrize("name", TRAVERSAL_NAMES)
+def test_entry_path_never_escapes_summary_subdir(name):
+    p = nelly_memory.entry_path(CWD, name, entry_type="file-summary")
+    summary_dir = os.path.join(nelly_memory.memory_dir(CWD), "entries", nelly_memory.SUMMARY_SUBDIR)
+    assert os.path.dirname(p) == summary_dir
+    assert ".." not in os.path.relpath(p, summary_dir)
+
+
 def test_archive_path_resolves_ordinary_name_under_archive_dir():
     p = nelly_memory.archive_path(CWD, "my-entry")
     expected = os.path.join(nelly_memory.memory_dir(CWD), "archive", "my-entry.md")
@@ -276,6 +306,32 @@ def test_cli_entries_path_prints_ensure_entries_dir_for_given_cwd(capsys, isolat
     nelly_memory.main(["--entries-path", CWD])
     out = capsys.readouterr().out.strip()
     assert out == nelly_memory.ensure_entries_dir(CWD)
+    assert os.path.isdir(out)
+
+
+def test_ensure_entries_dir_with_summary_type_creates_nested_subdir(isolated_base):
+    cwd = CWD
+    d = nelly_memory.ensure_entries_dir(cwd, entry_type="file-summary")
+    assert os.path.isdir(d)
+    assert d == os.path.join(nelly_memory.memory_dir(cwd), "entries", nelly_memory.SUMMARY_SUBDIR)
+    # The flat entries/ dir must exist too -- the summary subdir nests inside it, not beside it.
+    assert os.path.isdir(os.path.join(nelly_memory.memory_dir(cwd), "entries"))
+
+
+def test_ensure_entries_dir_with_summary_type_does_not_disturb_flat_entries(isolated_base):
+    cwd = CWD
+    nelly_memory.ensure_entries_dir(cwd)
+    with open(os.path.join(nelly_memory.memory_dir(cwd), "entries", "existing.md"),
+              "w", encoding="utf-8") as fh:
+        fh.write("keep me")
+    nelly_memory.ensure_entries_dir(cwd, entry_type="folder-summary")
+    assert os.path.isfile(os.path.join(nelly_memory.memory_dir(cwd), "entries", "existing.md"))
+
+
+def test_cli_summary_entries_path_prints_nested_summary_dir(capsys, isolated_base):
+    nelly_memory.main(["--summary-entries-path", CWD])
+    out = capsys.readouterr().out.strip()
+    assert out == os.path.join(nelly_memory.memory_dir(CWD), "entries", nelly_memory.SUMMARY_SUBDIR)
     assert os.path.isdir(out)
 
 

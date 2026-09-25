@@ -11,7 +11,7 @@ path under BASE (see hooks/nelly_slug_guard.py, Phase 4).
 Phase 2 of the module: project_slug, memory_dir, ensure_dir, read_index,
 global_dir, read_global_index. Phase 3 (this revision) adds the entry-file
 API — entry_path, archive_path, list_entries — and the CLI dispatch surface
-(--path, --global-path, --summary, --entries-path).
+(--path, --global-path, --summary, --entries-path, --summary-entries-path).
 
 ensure_entries_dir(cwd) exists because entry_path()/archive_path() are pure
 path-string builders with no directory-creation side effect, and ensure_dir()
@@ -132,6 +132,17 @@ def read_global_index():
         return ""
 
 
+# file-summary/folder-summary entries nest one level deeper than every other entry type, under
+# entries/<SUMMARY_SUBDIR>/ instead of directly under entries/ -- they're a path-keyed cache
+# (one entry per file/folder, overwritten in place, never archived or promoted -- see "File &
+# Folder Summary Cache" in agents/agent-nelly.md), not a fact, so keeping them out of the flat
+# entries/ listing every other type shares (user/feedback/project/reference/file-relevance/
+# error-prevention/technique) makes that listing legible again as "things Nelly was told", not
+# "things Nelly was told, plus one row per cached file in the repo".
+SUMMARY_SUBDIR = "file-folder-summary"
+SUMMARY_TYPES = ("file-summary", "folder-summary")
+
+
 def _sanitize_name(name):
     """Reduce name to a single safe path segment — never lets '..' or a
     separator (either '/' or '\\', regardless of host OS) escape the
@@ -142,12 +153,21 @@ def _sanitize_name(name):
     return candidates[-1] if candidates else "unnamed"
 
 
-def entry_path(cwd, name):
-    return os.path.join(memory_dir(cwd), "entries", _sanitize_name(name) + ".md")
+def entry_path(cwd, name, entry_type=None):
+    """Resolve an entry's file path. `entry_type` of "file-summary"/"folder-summary" nests the
+    path under entries/<SUMMARY_SUBDIR>/ (see SUMMARY_SUBDIR above); every other type (including
+    the default, `entry_type=None`, used by every existing caller that predates this parameter)
+    stays directly under entries/, unchanged.
+    """
+    base = os.path.join(memory_dir(cwd), "entries")
+    if entry_type in SUMMARY_TYPES:
+        base = os.path.join(base, SUMMARY_SUBDIR)
+    return os.path.join(base, _sanitize_name(name) + ".md")
 
 
-def ensure_entries_dir(cwd):
-    """Guarantee `<memory_dir>/entries/` exists before anything writes into it.
+def ensure_entries_dir(cwd, entry_type=None):
+    """Guarantee `<memory_dir>/entries/` (or, for `entry_type` "file-summary"/"folder-summary",
+    `<memory_dir>/entries/<SUMMARY_SUBDIR>/`) exists before anything writes into it.
 
     ensure_dir() only creates the top-level project dir + MEMORY.md — it never
     touches entries/. Without this, a Write to entry_path(cwd, name) has no
@@ -160,6 +180,9 @@ def ensure_entries_dir(cwd):
     ensure_dir(cwd)
     d = os.path.join(memory_dir(cwd), "entries")
     os.makedirs(d, exist_ok=True)
+    if entry_type in SUMMARY_TYPES:
+        d = os.path.join(d, SUMMARY_SUBDIR)
+        os.makedirs(d, exist_ok=True)
     return d
 
 
@@ -313,6 +336,11 @@ def main(argv=None):
     if "--entries-path" in argv:
         cwd = _extract_cwd_arg(argv, "--entries-path")
         print(ensure_entries_dir(cwd))
+        return
+
+    if "--summary-entries-path" in argv:
+        cwd = _extract_cwd_arg(argv, "--summary-entries-path")
+        print(ensure_entries_dir(cwd, entry_type="file-summary"))
         return
 
     cwd = argv[0] if argv else os.getcwd()

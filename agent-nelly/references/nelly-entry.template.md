@@ -15,9 +15,22 @@ Every file under `<project-slug>/entries/*.md` (and every entry inside
     extension, no path separators — `entry_path()` sanitizes the name to a
     single path segment, so a mismatched `name` field would silently
     disagree with where the file actually lives).
+  - **Exception — `file-summary`/`folder-summary` only**: these two types
+    live one level deeper, at `entries/<SUMMARY_SUBDIR>/<name>.md`
+    (`nelly_memory.SUMMARY_SUBDIR`, currently `file-folder-summary`) —
+    `entry_path(cwd, name, entry_type="file-summary")` (or
+    `"folder-summary"`) resolves there, everything else above still
+    applies unchanged. Kept out of the flat `entries/` listing every other
+    type shares because a path-keyed cache entry (one per file/folder in
+    the repo, overwritten in place — see "File & Folder Summary Cache" in
+    `agents/agent-nelly.md`) isn't a fact, and mixing the two flatly would
+    make `entries/` unreadable as "things Nelly was told" once a
+    medium-sized repo's worth of file summaries piled in alongside them.
 
-Copy this file to `<project-slug>/entries/<name>.md`, fill in the
-frontmatter and body, and delete this comment block.
+Copy this file to `<project-slug>/entries/<name>.md` (or, for a
+`file-summary`/`folder-summary` entry, `entries/<SUMMARY_SUBDIR>/<name>.md`
+— see the exception above), fill in the frontmatter and body, and delete
+this comment block.
 
 New metadata fields (optional, type-conditional — only present for their
 matching `type`; entries of other types MUST NOT include them):

@@ -1,6 +1,25 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Change**: `file-summary`/`folder-summary` entries now live in their own subdirectory,
+  `entries/<SUMMARY_SUBDIR>/` (`nelly_memory.SUMMARY_SUBDIR`, currently `file-folder-summary`),
+  instead of directly under `entries/` alongside every other entry type. `entries/` was
+  otherwise a flat mix of "things Nelly was told" (facts, lessons, preferences) and "one cached
+  row per file in the repo" once the File & Folder Summary Cache (0.4.18) saw real use, making
+  the flat listing hard to read at a glance. `entry_path()`/`ensure_entries_dir()` take an
+  optional `entry_type` to resolve the new location (every other type, including the
+  `entry_type=None` default every existing caller already uses, is unaffected); a new CLI flag
+  `nelly_memory.py --summary-entries-path` mirrors `--entries-path` for the nested directory.
+  `scripts/build_index.py` now also scans one level into `entries/<SUMMARY_SUBDIR>/` (and
+  `upsert_project_entry()` computes its index record's `file_path` via `os.path.relpath()`
+  instead of assuming a flat `entries/<name>.md` join, so it isn't hardcoded to one nesting
+  depth), and `scripts/nelly_cleanup.py`'s worktree-store merge folds the subdirectory across by
+  newest-mtime-wins per cached path rather than the generic per-entry clash-rename (a summary is
+  a path-keyed cache, not a fact — two "current" summaries for the same path would be wrong).
+  Pre-existing flat `entries/<name>.md` file-summary/folder-summary entries from before this
+  change are still indexed and looked up correctly (no migration needed) — only the write
+  location for new/overwritten entries changed.
+
 ## [0.4.18] - 2026-09-24
 
 - **Feature**: File & Folder Summary Cache — two new entry types, `file-summary` (one per file,

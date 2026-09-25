@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse gate: deny a `Write` of a `file-summary`/`folder-summary`
-entry (`entries/<name>.md` under Agent Nelly's memory store) whose
-`description` exceeds `nelly_memory.SUMMARY_CHAR_LIMIT` (240) characters.
+entry (`entries/<SUMMARY_SUBDIR>/<name>.md` under Agent Nelly's memory
+store) whose `description` exceeds `nelly_memory.SUMMARY_CHAR_LIMIT` (240)
+characters.
 
 Rationale: the whole point of the file/folder summary cache (see
 references/nelly-entry.template.md and agent-nelly.md's "File & Folder
