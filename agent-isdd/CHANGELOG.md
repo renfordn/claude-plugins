@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.1.60] - 2026-09-25
+
+- **Fix**: `doc-consistency-auditor`'s first commit-gate run against this project found three
+  files (`skills/design-author/SKILL.md`, `skills/doc-consistency-auditor/SKILL.md`,
+  `skills/spec-driven-development/references/review-levels.md`) citing a bare, nonexistent
+  `code-reviewer/SKILL.md` path. Corrected to the real
+  `code-reviewer/skills/code-reviewer/SKILL.md` path in all three.
+
 ## [0.1.59] - 2026-09-24
 
 - **Fix**: `hooks/sdd_state.py`'s `find_state_files()`/`active_state_file()` now skip features whose `workflow-state.md` has `Workflow Status: Complete` (new `is_complete_state()`). Before, the newest workflow-state.md stayed "active" after completion, so hooks such as `subagent_report.py` kept appending to its `recap/subagent-reports.md` in unrelated sessions. When every feature is Complete, discovery now returns no active workflow. In-progress and paused features resolve as before.

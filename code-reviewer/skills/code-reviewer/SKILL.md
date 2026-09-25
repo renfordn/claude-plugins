@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review code changes against evidence tiers and a required decision model, rendering findings visually via ReportFindings (and an optional review dashboard for larger passes). Per-file review state persists to a caller-supplied location if given, or stays ephemeral for a single pass otherwise. Invoked directly by the user, mid-TDD-loop by an orchestrating skill, or pre-commit. Also supports a `research-brief` mode for when the user wants to understand or be walked through how existing code works, rather than review a change: produces a visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a human reader, with no decision model and no ReportFindings call. Use this mode whenever the user asks to explain, visualize, diagram, or walk through how code or a system works. Independent of any other plugin.
+description: Review code changes against evidence tiers and a required decision model, rendering findings visually via ReportFindings (and an optional review dashboard for larger passes). Per-file review state persists to a caller-supplied location if given, or stays ephemeral for a single pass otherwise. Invoked directly by the user, mid-TDD-loop by an orchestrating skill, or pre-commit. Also supports a `research-brief` mode for when the user wants to understand or be walked through how existing code works, rather than review a change — it produces a visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a human reader, with no decision model and no ReportFindings call. Use this mode whenever the user asks to explain, visualize, diagram, or walk through how code or a system works. Independent of any other plugin.
 ---
 
 # Code Reviewer
@@ -256,8 +256,9 @@ field anywhere in the output, no `ReportFindings` call, and nothing written to
 `REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md` — those all exist to gate a future
 commit or track an outstanding fix, and a research brief gates nothing.
 
-**Structure** — build one Artifact (load `artifact-design` for the page contract and
-`artifact-diagramming` for the diagram mechanics before writing it) with:
+**Structure** — build one Artifact (load `artifact-design` for the page contract,
+`artifact-diagramming` for the diagram mechanics, and `frontend-design` for the visual design pass
+before writing it) with:
 
 1. **Overview** — two or three sentences: what this subsystem/feature does and why it's shaped
    the way it is.
@@ -275,6 +276,15 @@ commit or track an outstanding fix, and a research brief gates nothing.
    than folded silently into the confident narrative. This is the one piece of the Evidence Tier
    Model's rigor this mode keeps in full, because a reader trusting a diagram needs to know which
    parts of it to double-check themselves.
+
+**Design bar**: this mode's whole purpose is a reader building understanding, so a generic-looking
+diagram defeats it as surely as a wrong one. Run `frontend-design`'s plan-then-build pass: ground
+palette, type, and diagram style in the subsystem's own vernacular (a queueing pipeline, a UI
+component tree, and a crypto handshake should not produce the same-looking boxes-and-arrows), and
+avoid the tells `frontend-design` calls out — generic SaaS-card chrome, tracked-out ALL-CAPS
+eyebrows, a monospace face for labels just because they're technical, uniform drop-shadows and
+border-radius applied regardless of hierarchy. One diagram idiom deliberately chosen for this
+subsystem beats a default flowchart template reused across every brief.
 
 **Delegation**: `code-reviewer` owns this Artifact directly, the same way it owns the review
 dashboard — no `agent-ux` dependency. Diagrams are deliberately outside `agent-ux`'s scope (it
