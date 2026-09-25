@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-25
+
+- **Fix**: `sdd_memory.project_slug()` (and so `memory_slug_guard.py`) now resolves the slug from
+  the git toplevel of cwd, so a session whose cwd drifts into a repo subdirectory (`agent-nelly/`,
+  `scripts/`) maps to the repo's store instead of a split `<repo>-<subdir>` one and is no longer
+  refused writes to the real feature folder. A linked worktree is its own toplevel and keeps its
+  own `-claude-worktrees-<name>` slug; outside a repo the cwd is used as before.
+  Existing `<repo>-<subdir>` stores are not migrated automatically; merge them into the repo's
+  store by hand (they are no longer read, and the slug guard now refuses writes to them).
+- **Fix**: the `followups.py` and `sdd_memory.py` CLIs resolve cwd from `$PWD` when it names the
+  same directory as `os.getcwd()`, so a symlinked cwd (e.g. macOS `/var` -> `/private/var`) maps to
+  the same store the hooks use; `os.getcwd()` returns the resolved path, which gave a different slug.
+
 ## [0.2.0] - 2026-09-25
 
 - **Feature**: review follow-up queue (`hooks/followups.py`). SessionStart ingests code-reviewer's

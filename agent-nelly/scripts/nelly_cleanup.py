@@ -3,7 +3,7 @@
 
 Two deterministic passes, no LLM:
 
-1. Orphaned worktree stores. A project slug comes from the absolute path, so every git worktree
+1. Orphaned worktree stores. A project slug comes from the git toplevel's absolute path, so every git worktree
    (`<repo>/.claude/worktrees/<name>`) gets its own store, which outlives the worktree. A store
    whose slug contains `-claude-worktrees-` is merged into its parent repo's store (the slug
    prefix before that marker) once the worktree path no longer exists on this machine AND
@@ -216,7 +216,8 @@ def find_orphaned_worktree_stores(base, today, idle_days=WORKTREE_IDLE_DAYS):
         parent, label = parts
         path = _worktree_path(store)
         if path and "/.claude/worktrees/" in path:
-            # `<repo>/.claude/worktrees/<name>[/<sub>]` belongs to `<repo>[/<sub>]`.
+            # `<repo>/.claude/worktrees/<name>[/<sub>]` belongs to `<repo>[/<sub>]`; get_project_slug
+            # collapses `<repo>/<sub>` to `<repo>` when that subdirectory exists in the main checkout.
             repo, rest = path.split("/.claude/worktrees/", 1)
             sub = rest.split("/", 1)[1] if "/" in rest else ""
             parent = get_project_slug(repo + ("/" + sub if sub else ""))

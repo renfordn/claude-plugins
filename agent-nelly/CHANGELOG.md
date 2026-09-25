@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-25
+
+- **Fix**: `shared_slug.get_project_slug()` (used by `nelly_memory.project_slug()`,
+  `nelly_slug_guard.py`, and `nelly_cleanup.py`) resolves the slug from the git toplevel of cwd,
+  so repo subdirectories no longer get split `<repo>-<subdir>` stores. Worktrees keep their own
+  `-claude-worktrees-<name>` slug, which cleanup still merges as before.
+  Existing `<repo>-<subdir>` stores are not migrated automatically; merge them into the repo's
+  store by hand (they are no longer read, and the slug guard now refuses writes to them).
+
 ## [0.5.0] - 2026-09-25
 
 - **Docs**: INTEROP documents how agent-isdd hands over code-reviewer follow-ups (as `file-relevance`

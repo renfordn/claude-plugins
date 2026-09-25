@@ -38,6 +38,44 @@ class ProjectSlugTests(unittest.TestCase):
         )
 
 
+class RepoRootSlugTests(unittest.TestCase):
+    """A repo subdirectory shares the repo's slug; a linked worktree keeps its own."""
+
+    def setUp(self):
+        import subprocess
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = os.path.join(self._tmp.name, "repo")
+        os.makedirs(os.path.join(self.repo, "agent-tdd"))
+        self.git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", self.repo]
+        subprocess.run(self.git + ["init", "-q"], check=True)
+        subprocess.run(self.git + ["commit", "-q", "--allow-empty", "-m", "init"], check=True)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_subdirectory_maps_to_repo_slug(self):
+        self.assertEqual(tdd_state.project_slug(os.path.join(self.repo, "agent-tdd")),
+                         tdd_state.project_slug(self.repo))
+
+    def test_symlinked_cwd_into_repo_subdir_maps_to_repo(self):
+        link = os.path.join(self._tmp.name, "link")
+        os.symlink(os.path.join(self.repo, "agent-tdd"), link)
+        self.assertEqual(tdd_state.project_slug(link),
+                         tdd_state.project_slug(os.path.realpath(self.repo)))
+
+    def test_missing_dir_falls_back_to_cwd(self):
+        missing = os.path.join(self._tmp.name, "no", "such", "dir")
+        self.assertTrue(tdd_state.project_slug(missing).endswith("-no-such-dir"))
+
+    def test_worktree_keeps_own_slug(self):
+        import subprocess
+        wt = os.path.join(self.repo, ".claude", "worktrees", "wt1")
+        subprocess.run(self.git + ["worktree", "add", "-q", "--detach", wt], check=True)
+        os.makedirs(os.path.join(wt, "sub"))
+        slug = tdd_state.project_slug(os.path.join(wt, "sub"))
+        self.assertTrue(slug.endswith("-repo-claude-worktrees-wt1"))
+
+
 class TddMemoryDirTests(unittest.TestCase):
     def test_memory_dir_contains_base_and_slug(self):
         d = tdd_state.tdd_memory_dir("/some/project")
