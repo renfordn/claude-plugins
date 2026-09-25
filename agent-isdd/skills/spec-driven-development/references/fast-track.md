@@ -14,11 +14,7 @@ described in full where they apply:
   Spec instead of a Design Spec, with `Review handoff mode: skip` — no `tasks.md` is ever
   produced. The **inline status line** this skill renders itself (see "Visible Progress" in the
   main SKILL.md) omits the `Tasks` segment for `Track: Fast` (`Requirements [✓] → Design [✓] →
-  Implementation [▶]`) rather than showing it as permanently pending. The `agent-ux:ux-agent`-
-  rendered phase-transition breadcrumb is a separate contract owned by `agent-ux` (fixed
-  4-segment order, see its own `agents/ux-agent.md`) and is unchanged by this feature — a known
-  cosmetic mismatch (`Tasks` shows as pending, not skipped, on that path) left for a future
-  cross-plugin update rather than modified here.
+  Implementation [▶]`) rather than showing it as permanently pending.
 
 **Escape hatch**: if `requirements-agent` or `design-author` discovers mid-flight that the
 change is bigger than the initial classification assumed (real interface/architecture

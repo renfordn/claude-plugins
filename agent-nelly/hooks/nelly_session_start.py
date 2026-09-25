@@ -197,6 +197,7 @@ def main():
     # under this path are auto-approved by hooks/nelly_memory_permission.py.
     mem = memory_dir(cwd)
     lines.append(f"Agent Nelly memory for this project: {mem}")
+    lines.append("When a reply uses or writes this memory, prefix that line with 🧠 so the user can see it.")
     if SHARED_ROOT:
         lines.append(f"(shared memory root: {SHARED_ROOT})")
         _refresh_shared_indexes(cwd)

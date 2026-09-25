@@ -1,11 +1,6 @@
-FROM python:3.11-slim AS python-base
+FROM python:3.11-slim
 
-# Install Node.js 20 for agent-cache-plugin tests
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+RUN apt-get update && apt-get install -y --no-install-recommends git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repo
@@ -19,8 +14,5 @@ RUN pip install --no-cache-dir pytest
 RUN git config --global user.email "test@example.com" \
     && git config --global user.name "Docker Test Runner"
 
-# Node deps for agent-cache-plugin
-RUN cd agent-cache-plugin && npm ci --ignore-scripts
-
-# Default: run all Python tests then Node tests
-CMD bash -c "python -m pytest agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer -q && cd agent-cache-plugin && npm test"
+# One pytest process per plugin (see README "Running tests")
+CMD bash -c "for p in agent-isdd agent-tdd agent-nelly shared code-reviewer; do python -m pytest \$p -q || exit 1; done"

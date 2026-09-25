@@ -1,6 +1,54 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
+
+- **Feature**: `scripts/review_loop.py`, a sweep-until-dry driver. It runs fresh read-only
+  reviewer passes (`review_headless.sh`), briefs each with the plan and the findings so far, and
+  stops when a pass adds nothing (max 3). The skill runs it for large diffs and Deep/Ultra
+  reviews. Measured directly on `large-pr-buried-defects` (the eval sandbox here can't run
+  shell): first pass 5, 6, 5 of 6 planted defects; after the loop 6/6 in all 3 runs (3 passes
+  each). One later pass also found an unplanted real bug (warehouse ids reused after deletion).
+- **Removed**: `agents/cross-file-reviewer.md` and plan `groups`. The model never spawned the
+  fan-out in any eval run; the loop replaces it.
+
+- **Evals**: `large-pr-buried-defects` — 31 files, ~2,100 changed lines of logging/type-hint
+  churn hiding six defects. Defects found per run (3 runs each, out of 6): plain Claude 4.3, old
+  skill 4.3 (never loaded), new skill 4.7–5.0. The misses differ from run to run; the union of 3
+  runs finds 5–6. The model did not follow the fan-out or sweep instructions in any run (0 agent
+  spawns even when told it must), so multi-pass review needs a driver outside the model's
+  discretion rather than more instructions.
+- **Change**: "Start Here" sizing note and a sibling-consistency check (a new handler missing the
+  guard/validation its neighbours have).
+
+## [0.3.0] - 2026-09-25
+
+- **Feature**: review pipeline for PRs and large diffs (SKILL.md "Review Pipeline").
+  `scripts/review_plan.py plan` ranks changed files by risk and lists changed, removed and new
+  symbols, candidate tests, test gaps, and fan-out groups. Every Standard+ review now greps the
+  whole repo for callers of changed/removed symbols (including untouched files) and checks test
+  gaps function by function. Large diffs (>400 lines or >10 files) fan out to parallel
+  `code-reviewer` agents plus a new read-only `cross-file-reviewer` agent. The verify pass now
+  also covers high/critical findings.
+- **Feature**: `findings.json` (no 32-finding cap) with `followups` (refactor / consolidation /
+  deferred-defect), at `review_plan.py findings-path`, checked by `review_plan.py validate`; the
+  reply ends with a numbered cleanup plan.
+- **Evals**: two scaffolded multi-file cases (`large-pr-contract-break`,
+  `pr-duplicate-consolidation`, `case.yaml` + `scaffold.sh`, run with `--scaffold`). 3 runs each:
+  - The old skill loaded in 1/6 branch reviews; now 6/6. Snippet cases stay at 9/9.
+  - A behavior change with no test (planted in `app/pricing.py`) was flagged 0/3 by the old
+    skill and 0/3 by plain Claude; now 2/3.
+  - The broken unchanged caller, buried off-by-one, broken import and consolidation onto an
+    existing helper were already found by plain Claude at this size, so they guard against
+    regressions rather than show a gain.
+- **Removed**: `Edit` from the skill's tool list (a review never edits).
+
+- **Docs**: dropped the plugin-harness capability-detection note (harness removed).
+
+- **Change**: agent-ux retired. The review dashboard and out-of-scope flags always use
+  `Artifact`/`spawn_task` directly; the `phase_state` input (which only gated agent-ux
+  delegation) is removed.
+
 ## [0.2.0] - 2026-09-25
 
 - **Fix**: the skill didn't load for casual review requests. Its description listed internals

@@ -30,8 +30,7 @@ one is installed under. Options are stored per plugin id in `pluginConfigs`, so 
 
 `~` and `$VARS` are expanded. A relative path is rejected with a clear error instead of being
 resolved against whatever directory a hook happens to run in. Start a new session after changing
-the option, because hooks resolve it at startup. plugin-harness needs no option of its own: it
-follows the location agent-isdd records in its `${CLAUDE_PLUGIN_DATA}/sdd-memory-location.json`.
+the option, because hooks resolve it at startup.
 
 ## Layout
 

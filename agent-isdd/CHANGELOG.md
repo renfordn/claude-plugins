@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
+- **Feature**: review follow-up queue (`hooks/followups.py`). SessionStart ingests code-reviewer's
+  findings.json `followups` into `<sdd memory>/<project>/followups/`, lists open items, and asks
+  Claude to record unrecorded ones in agent-nelly as `file-relevance` entries. The Start Protocol
+  offers open items as feature candidates (`set <id> picked`, then `done` after implementation).
+
+- **Change**: plugin-harness removed from the collection. The model-escalation message now tells
+  the caller to re-spawn agent-TDD with the lower-tier report's findings in the prompt, instead of
+  calling the harness's `get_spawn_context` MCP tool (whose server never reliably started).
+
+- **Feature**: `references/ux-conventions.md` adds the 🧠 marker for agent-nelly memory use.
+
+- **Change**: agent-ux retired. Skills now call `mark_chapter`, `Artifact` and the task tools
+  directly per the new `references/ux-conventions.md`, instead of spawning `agent-ux:ux-agent`
+  (~2K tokens per event for one tool call). Fast-track breadcrumb mismatch is gone with it.
+  agent-cache-plugin removed from the collection; INTEROP notes updated.
+
 ## [0.1.63] - 2026-09-25
 
 - **Feature**: ground designs in the code they change. `research-consolidator` runs an

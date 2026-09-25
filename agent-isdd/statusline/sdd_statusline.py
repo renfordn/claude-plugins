@@ -11,8 +11,7 @@ Wire it in ~/.claude/settings.json:
 
 Prints e.g.  SDD ▸ Design ▸ Awaiting Confirmation   (nothing when no workflow).
 This is the terse always-on macro breadcrumb; the fuller per-phase/slice tick
-list lives in the harness's own task tracker (see INTEROP.md's "-> agent-ux
-(UX rendering)" section), not here.
+list lives in the harness's own task tracker (see references/ux-conventions.md), not here.
 """
 import glob
 import json

@@ -1,0 +1,46 @@
+schema_version: "1"
+name: pr-duplicate-consolidation
+description: PR that duplicates an existing helper twice and removes a function an unchanged module still imports.
+tags: [large-pr, cross-file, refactor]
+runs: 3
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Skill, Agent, Read, Grep, Glob]
+  prompt: |
+    Can you review the `feature` branch (checked out here) against `main`? I'd also like to know
+    what should be cleaned up or consolidated. No shell is available; the diff is in `PR.diff`
+    and every file in the repo is readable.
+
+    End your final message with one line per finding in the form
+    `<path>:<line> — <severity> — <summary>`, or the single line `No findings.` if there are none.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:code-reviewer:)?code-reviewer"'
+  - name: finds-broken-import
+    type: llm
+    criteria: |
+      PASS if the response reports that `app/contacts.py` (unchanged by the PR) still does
+      `from app.legacy import parse_phone`, which now fails with ImportError because the PR removed
+      `parse_phone` from `app/legacy.py` (moved to `app/phone.py` as `normalize_phone`).
+      FAIL if it doesn't identify that broken import.
+  - name: cites-broken-import
+    type: regex
+    pattern: 'app/contacts\.py:\d+'
+  - name: consolidates-on-existing-helper
+    type: llm
+    criteria: |
+      PASS if the response identifies that `_clean_email` in `app/invites.py` and `sanitize_address`
+      in `app/newsletter.py` duplicate the existing `normalize_email` in `app/validation.py`, and
+      recommends replacing both with that existing helper (not writing a new shared one).
+      FAIL if it misses the existing `app/validation.py` helper or only flags one of the two copies.
+  - name: gives-ordered-cleanup-plan
+    type: llm
+    criteria: |
+      PASS if the response gives a concrete, ordered cleanup/consolidation plan (numbered or
+      sequenced steps naming files and functions), beyond a flat list of findings.
+      FAIL if cleanup advice is absent or only generic ("consider refactoring").

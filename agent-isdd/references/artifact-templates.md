@@ -87,7 +87,7 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 Use `workflow-state.md` as a compact machine-readable summary for the workflow.
 
-- `Current Phase` is the primary continuation pointer, and is what the top-level breadcrumb (rendered by `agent-ux:ux-agent`, see `INTEROP.md`'s "→ agent-ux (UX rendering)" section) reads directly — no separate progress field exists or should be invented.
+- `Current Phase` is the primary continuation pointer, and is what the top-level breadcrumb (see `references/ux-conventions.md`) reads directly — no separate progress field exists or should be invented.
 - **`Tasks` (added 2026-09-24, clarifying long-standing but undocumented behavior)**: originally
   meant a distinct phase where `agent-isdd` itself authored an agent-friendly task breakdown from
   `design.md` — superseded once `agent-tdd` took over task slicing internally during the Design
@@ -203,8 +203,7 @@ Each `Approval Checkpoint` / `Phase Completion` line above is also the exact
 item set the calling skill mirrors into the harness's `TaskCreate` checklist
 on entry to this phase — the markdown checklist is the single source of
 truth; the task list is only a rendering of it. This is driven directly by
-the calling skill (not `agent-ux:ux-agent` — see `INTEROP.md`'s "→ agent-ux (UX rendering)"
-section).
+the calling skill (see `references/ux-conventions.md`).
 
 ## `design/design.md`
 

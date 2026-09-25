@@ -5,6 +5,7 @@ import datetime
 import glob
 import json
 import os
+import shlex
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -13,6 +14,48 @@ from sdd_memory import (  # noqa: E402
     SHARED_ROOT, memory_dir, local_state_dir, ensure_shared_root, write_base_pointer,
     pending_nelly_summaries,
 )
+import followups  # noqa: E402
+
+
+def _followups_cmd():
+    """Shell command for followups.py with this hook's resolved env, so a later Bash call hits
+    the same memory dir."""
+    env = [f"CLAUDE_PLUGIN_DATA={shlex.quote(os.environ.get('CLAUDE_PLUGIN_DATA', ''))}"]
+    if SHARED_ROOT:
+        env.append(f"CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT={shlex.quote(SHARED_ROOT)}")
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "followups.py")
+    return " ".join(env + ["python3", shlex.quote(script)])
+
+
+def _followup_lines(cwd):
+    try:
+        followups.ingest(cwd)
+    except OSError:
+        pass  # best-effort, like the rest of SessionStart
+    lines = []
+    cmd = _followups_cmd()
+    open_ = followups.open_items(cwd)
+    if open_:
+        lines += ["", f"{len(open_)} open review follow-up{'' if len(open_) == 1 else 's'} from "
+                  f"code-reviewer (refactor / consolidation / deferred defect), in "
+                  f"{followups.followups_dir(cwd)}:"]
+        for fid, _, fm, title in open_[:5]:
+            files = fm.get("files", "").replace(";", ", ")
+            lines.append(f"- [{fm.get('kind', '?')}] {title}" + (f" — {files}" if files else "") + f" (id: {fid})")
+        if len(open_) > 5:
+            lines.append(f"- …and {len(open_) - 5} more (`{cmd} list`)")
+        lines.append(f"When the user starts new work or asks what's next, offer these as candidates. "
+                     f"Starting one: `{cmd} set <id> picked`; finished or rejected: "
+                     f"`{cmd} set <id> done` / `dismissed`.")
+    pending = followups.pending_nelly(cwd)
+    if pending:
+        lines += ["", f"{len(pending)} review follow-up{'' if len(pending) == 1 else 's'} not yet in Agent "
+                  f"Nelly memory. If agent-nelly:agent-nelly is available, pass them in one `new facts` "
+                  f"batch as `file-relevance` entries (files from each item's `files:` line), each "
+                  f"labelled `Source: code-reviewer follow-up <path>` and noting that the file's "
+                  f"`status:` says whether it is still open; then run `{cmd} recorded <id>` for each:"]
+        lines += [f"- {path}" for _, path, _, _ in pending]
+    return lines
 
 
 def _interruption_note(cwd):
@@ -79,6 +122,8 @@ def main():
             f"`nelly_recorded: no` to `nelly_recorded: yes` in each summary's frontmatter:"
         )
         lines.extend(f"- {p}" for p in pending)
+
+    lines.extend(_followup_lines(cwd))
 
     note = _interruption_note(cwd)
     if note:

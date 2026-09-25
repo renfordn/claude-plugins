@@ -6,7 +6,7 @@ specific to spec-driven-development (SDD) — SDD is simply its first real consu
 `agent-isdd`'s `spec-driven-development` skill's soft dependency on `agent-nelly` (see that
 skill's Availability Check). **Corrected 2026-09-24**: this used to name `memory-orchestrator`,
 a capability inside the old, single `spec-driven-development` plugin before it was split into
-today's agent-isdd/agent-tdd/agent-nelly/agent-ux/code-reviewer/plugin-harness — the name
+today's agent-isdd/agent-tdd/agent-nelly/code-reviewer — the name
 doesn't resolve to anything in the current repo (see `agent-isdd/hooks/memory_slug_guard.py`'s
 docstring for the historical "memory-orchestrator slug bug" this plugin's own
 `doc-consistency-auditor` skill still references by that name — that's a historical incident
@@ -243,17 +243,14 @@ Everything above assumes your consumer can invoke the `agent-nelly` subagent (vi
 `SubagentStop`, etc.) is a blocking subprocess with no `Agent`-tool access, so code running
 inside one can never call `agent-nelly` directly, no matter how it's invoked.
 
-`plugin-harness` hits exactly this — its `ErrorHandler.nelly_workaround_lookup` (inside the
-`SubagentStop` hook) needs a known-issue workaround from Agent Nelly's memory, but can't ask for
-one itself. Its resolution pattern, for any other hook-bound consumer in the same situation:
+The resolution pattern for a hook-bound consumer:
 
 1. The hook enqueues a request (its own pending-queue, not part of this plugin) and surfaces it
    to the user/main session via whatever the hook contract allows (a `systemMessage` for
    `SubagentStop`, injected prompt context for `PreToolUse`).
 2. The **main session** — which does have `Agent`-tool access — notices the surfaced request,
    calls `agent-nelly` for a real answer (exactly as described above), and writes the
-   result back into the consumer's own state via whatever mechanism the consumer provides (for
-   `plugin-harness`, `hooks/resolve_nelly_request.py`).
+   result back into the consumer's own state via whatever mechanism the consumer provides.
 3. The consumer's *next* hook invocation reads the now-resolved result from its own state.
 
 Agent Nelly's part of this is unchanged — it still only ever answers `agent-nelly` calls
@@ -274,3 +271,10 @@ For a concrete, illustrative (not wired-up) walkthrough of a structurally differ
 a personal-assistant plugin with independent skills and no workflow-phase concept at all —
 integrating against this contract, see
 [`references/example-consumer-pa-jay.md`](references/example-consumer-pa-jay.md).
+
+## Review follow-ups (from agent-isdd)
+
+agent-isdd's SessionStart may pass code-reviewer follow-ups (refactor / consolidation / deferred
+defect) as a `new facts` batch labelled `Source: code-reviewer follow-up <path>`. Record each as a
+`file-relevance` entry over its files, noting the source file's `status:` decides whether it is
+still open, so editing those files later surfaces it (with the 🧠 marker).

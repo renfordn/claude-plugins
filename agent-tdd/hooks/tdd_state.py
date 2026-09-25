@@ -4,13 +4,11 @@
 Owns:
   - TDD memory directory derivation (${CLAUDE_PLUGIN_DATA}/agent-tdd-state/<project-slug>/)
   - tdd-progress.json read/write (slice tracking)
-  - last-stop.json write (session boundary marker)
 
 Intentionally self-contained: slug algorithm is copied verbatim from
 agent-isdd/hooks/sdd_memory.py rather than imported, to avoid a cross-plugin
 dependency. The two modules must stay in sync if the slug algorithm ever changes.
 """
-import datetime
 import json
 import os
 import re
@@ -63,15 +61,3 @@ def write_tdd_progress(cwd, data):
         json.dump(data, fh, indent=2)
         fh.write("\n")
 
-
-def write_last_stop(cwd):
-    """Write last-stop.json as a session-boundary mtime marker. Best-effort: silently
-    ignores all OSError so a disk-full or permission error never blocks the Stop hook."""
-    try:
-        d = tdd_memory_dir(cwd)
-        os.makedirs(d, exist_ok=True)
-        path = os.path.join(d, "last-stop.json")
-        with open(path, "w", encoding="utf-8") as fh:
-            json.dump({"timestamp": datetime.datetime.now().isoformat()}, fh)
-    except OSError:
-        pass

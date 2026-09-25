@@ -64,15 +64,11 @@ escape hatch back to `Track: Standard`.
 Two distinct rendering paths — use the right one based on whether a phase transition is occurring:
 
 **Phase transitions** (Requirements → Design → Tasks → Implementation, or a restart/rewind):
-delegate to `agent-ux:ux-agent` (via the `Agent` tool) with a `phase_transition` event envelope
-(`caller: agent-isdd`, `event_type: phase_transition`, `phase_state`) so it can mark a session
-chapter and update the spec-canvas Artifact. See `INTEROP.md`'s "→ agent-ux (UX rendering)"
-section for the envelope contract and the unavailability fallback. Never drive `Artifact`/
-`mark_chapter` directly from this skill — those are `agent-ux:ux-agent`'s job.
+call `mark_chapter` directly, then render the breadcrumb below. See
+`references/ux-conventions.md` (plugin root) for chapter and breadcrumb rules.
 
-**Status responses that are not a phase transition** (formerly `breadcrumb_only` delegations):
-render a progress line **inline** — no `Agent` tool call. A one-line string does not warrant a
-full subagent spawn. Format:
+**Status responses that are not a phase transition**: render the progress line **inline** —
+no chapter mark. Format:
 
 ```
 **SDD** Requirements [✓] → Design [▶] → Tasks [·] → Implementation [·]
@@ -81,14 +77,10 @@ full subagent spawn. Format:
 Use `workflow-state.md` to determine each phase's status marker: `✓` approved/complete,
 `▶` in progress, `✗` blocked, `·` pending. Emit the line before the rest of the response.
 
-The phase `TaskCreate` checklist is different: ux-agent cannot reach `TaskCreate`/`TaskUpdate`/
-`TaskList` from its subagent context (see `agent-ux:ux-agent`). Render/refresh the checklist
-**directly from this skill instead**, in the same response: self-load the three
+Render/refresh the phase `TaskCreate` checklist in the same response: self-load the three
 tools via `ToolSearch` (`select:TaskCreate,TaskUpdate,TaskList`) once per session if not already
 loaded, call `TaskList` to check for existing items before creating, then `TaskCreate`/
-`TaskUpdate` per `agent-ux`'s `references/ux-conventions.md`'s Phase tick list conventions (the
-convention itself, driven by the calling skill and not `agent-ux:ux-agent`, is unchanged by the
-extraction — only where it's documented moved).
+`TaskUpdate` per `references/ux-conventions.md`'s Phase tick list rules.
 
 ## Goal-Aware Memory
 
@@ -104,6 +96,11 @@ contract at phase boundaries.
 
 ## Start Protocol
 
+0. **Review follow-ups.** If SessionStart listed open review follow-ups and the request is vague
+   ("what's next?", "clean things up") or overlaps an item's files, offer the matching items as
+   candidates in one line each. If the user picks one, run the `set <id> picked` command
+   SessionStart printed and hand that item's file to `requirements-agent` as an existing ticket
+   (step 7) — its steps and files are the draft. Record `Follow-up: <id>` in `workflow-state.md`.
 1. Use `workflow-manager` to identify or derive the feature title and slug, and to scaffold or
    locate the per-feature artifact structure (including `intent/` directory).
 2. If `agent-nelly:agent-nelly` is available, call it to read the project's stored
@@ -139,7 +136,8 @@ contract at phase boundaries.
    handoff in this turn** (same constraint applies). Do not end your turn after approving design
    — proceed to handoff without stopping.
 10. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
-    transfers to `agent-tdd`.)
+    transfers to `agent-tdd`.) If `workflow-state.md` has a `Follow-up: <id>`, mark it `done` with
+    the same `followups.py set` command once the implementation is reported complete.
 
 ## Continue Protocol
 
@@ -216,12 +214,6 @@ workflow:
   for a goal-aware brief (Intent, Relevant entries, Intent alignment, Written); it is
   the sole writer into agent-nelly's own memory store, which agent-isdd never reads or writes
   directly. **[Phase 2+3]** Also used to query and cache file summaries for cross-feature reuse.
-- `agent-ux:ux-agent` — an external peer-plugin subagent, delegate at every **phase transition**
-  for chapter markers and the spec-canvas Artifact, via the UX Event Envelope (`caller:
-  agent-isdd`, `event_type: phase_transition`, `phase_state`, `delta`, `artifact_path` — see
-  `INTEROP.md`'s "→ agent-ux (UX rendering)" section). Status breadcrumbs between transitions
-  are rendered inline (see "Visible Progress" above). It does not own the `TaskCreate` checklist
-  — see "Task Tracker Sync" below.
 
 Delegation rules:
 - Prefer the subagent over inlining these when the task is well-scoped.
@@ -291,9 +283,8 @@ Phase gating, auto-advance rules, pause conditions, and state repair are governe
 
 `workflow-manager` owns entering native plan mode (`EnterPlanMode`) at `before-design` and
 exiting it (`ExitPlanMode`) at `after-tasks` once the `Tasks` checklist passes — see its "Native
-Plan Mode Gate" section for the full contract. This stays here in the orchestrator rather than
-delegated to `agent-ux:ux-agent` because it is a user-facing approval checkpoint (`agent-ux:ux-agent`
-never talks to the user).
+Plan Mode Gate" section for the full contract. This stays here in the orchestrator because it is a
+user-facing approval checkpoint.
 Requesting approval this way is in addition to the phase gates above, not instead of them —
 `ExitPlanMode` is only ever called once the Tasks checklist has already passed.
 

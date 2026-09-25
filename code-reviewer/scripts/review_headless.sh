@@ -17,10 +17,10 @@ agent="${agent//'${CLAUDE_PLUGIN_ROOT}'/$root}"
 
 exec claude -p "$agent
 
-Headless run: only Read, Grep, Glob and read-only git (diff/log/show/status) are permitted here.
+Headless run: only Read, Grep, Glob and read-only git (grep/diff/log/show/status) are permitted here.
 Tests cannot be run, so evidence that would need execution caps at tier-2.
 
 ## Brief
 $brief" \
-  --allowedTools Read Grep Glob "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(git status:*)" \
+  --allowedTools Read Grep Glob "Bash(git grep:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(git status:*)" \
   --disallowedTools Edit Write NotebookEdit Agent

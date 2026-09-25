@@ -36,19 +36,19 @@ Input (pass inline, same fields as a normal Design Spec): `requirements.md`, `de
 `research/cache.md`, `recap.md` (optional), pre-fetched file summaries (optional).
 
 Run exactly agent-TDD's Design Spec Mode **Phase 1 (Research Validation)** through **Phase 5
-(Readiness Check)** — see `agents/agent-TDD.md:135-254` for the full procedure (unchanged, reuse
+(Readiness Check)** — see `agents/agent-TDD.md`'s "Design Spec workflow" steps 1–5 for the full procedure (unchanged, reuse
 verbatim): research completeness check, slicing into TDD-sized phases, the three Ralph Loops
 (Slice Size, Dependency Correctness, Research-to-Implementation Traceability), and Risk Tier
 assignment.
 
 **Stop after Phase 5, unconditionally** — this is the one structural difference from Design Spec
 Mode. Do not continue into per-slice implementation regardless of whether any slice is
-high-risk (Design Spec Mode's "one or more high-risk slices" pause in `agent-TDD.md:274-282`
+high-risk (Design Spec Mode's "one or more high-risk slices" pause in `agent-TDD.md`'s "Design Spec workflow" step 5
 does not apply here, because the caller is about to drive every slice individually anyway).
 
 Return:
-- `tasks.md` (per `agents/agent-TDD.md:156-192`'s format).
-- Verdict: `ready` or the specific Escalation Path that fired (`agent-TDD.md:256-264`) —
+- `tasks.md` (per `agents/agent-TDD.md`'s tasks.md format).
+- Verdict: `ready` or the specific Escalation Path that fired (`agent-TDD.md`'s "Escalation Paths (Design Spec Mode)") —
   identical semantics to Design Spec Mode's escalation, same caller handling (pause, surface
   reason, resume via re-entry once addressed).
 
@@ -77,17 +77,17 @@ Input: the slice's full entry from `tasks.md` (Task description, Test Intent, Va
 Ordered Steps, Files, Risk Tier), plus — only for a high-risk slice — the test file and failure
 confirmation `test-author` mode just returned.
 
-Run agent-TDD's existing Plan → Red → Green procedure (`agents/agent-TDD.md:90-121`) for this one
+Run agent-TDD's existing Plan → Red → Green procedure (`agents/agent-TDD.md`'s "Slice workflow", including the `tdd_check.py` red/green evidence) for this one
 slice:
 - `standard` tier: write Red yourself, then Green.
 - `high-risk` tier: take the supplied test as Red (do not re-author it), then Green.
 - If the real code diverges materially from the slice's Data Contracts/Files assumptions, stop
-  and return a **Research Gap Flag** instead of guessing — same rule as `agent-TDD.md:290-299`.
+  and return a **Research Gap Flag** instead of guessing — same rule as `agent-TDD.md`'s "Mid-Slice Research Request".
 - If Green work reveals the *task* itself conflicts with existing tested behavior, return a
-  **Plan Validity Flag** instead — same rule as `agent-TDD.md:301-317`.
+  **Plan Validity Flag** instead — same rule as `agent-TDD.md`'s "Plan Validity Flag".
 
 **Stop after Green, unconditionally** — do not proceed to Refactor. Return a handoff report
-mirroring Slice Spec Mode's "Handoff report" fields (`agent-TDD.md:327` onward): behavior
+mirroring Slice Spec Mode's "Handoff report" fields (`agent-TDD.md`'s "Handoff report"): behavior
 implemented, files touched, test run output, Risk Tier, any Research Gap Flag / Plan Validity
 Flag, and explicit confirmation the change is a minimal Green with Refactor still pending.
 
@@ -98,14 +98,14 @@ calling this skill again for the same slice's `refactor` mode.
 
 Only call after the caller's own review (see "Caller-owned loop" below) found no blocking
 finding for this slice. Run agent-TDD's Refactor → Validate steps
-(`agents/agent-TDD.md:126-131`) for this slice only: clarity/structure improvements, behavior
+(`agents/agent-TDD.md`'s "Slice workflow") for this slice only: clarity/structure improvements, behavior
 unchanged, re-run the slice's Validation Target. Return confirmation of what was refactored and
 what validation ran.
 
 ### `summary`
 
 Call once, after every slice in `tasks.md` has completed `refactor` mode. Produce the same
-overall handoff shape Design Spec Mode returns at full completion (`agent-TDD.md:380` onward's
+overall handoff shape Design Spec Mode returns at full completion (`agent-TDD.md`'s "Design Spec workflow"
 Design Spec Mode fields) — summary of all slices, Handoff Facts for the caller's memory store if
 any, final validation state.
 
@@ -193,7 +193,7 @@ later session mistake a direct-mode run for a normal handoff:
   `agent-isdd`'s own escalation review loses the same independence for the identical reason.
   Code review does not: the headless reviewer above runs in its own process.
 - **Loop prevention is caller-enforced, not agent-enforced.** Design Spec Mode's "stop after 2
-  identical fix attempts" rule (`agent-TDD.md:84-88`) depends on a single agent instance tracking
+  identical fix attempts" rule (`agent-TDD.md`'s "Loop prevention") depends on a single agent instance tracking
   its own attempt count across a slice. Split across separate `slice` mode calls, the caller must
   track and enforce this itself via `direct-mode-state.json` if a slice needs more than one Green
   attempt.

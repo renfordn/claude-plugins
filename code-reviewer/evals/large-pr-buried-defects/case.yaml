@@ -1,0 +1,62 @@
+schema_version: "1"
+name: large-pr-buried-defects
+description: ~30-file, ~2,100-line PR where six defects hide among mechanical logging/type-hint churn.
+tags: [large-pr, cross-file, xl]
+runs: 3
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 80
+  timeout_seconds: 1800
+  allowed_tools: [Skill, Agent, Read, Grep, Glob]
+  prompt: |
+    Please review the `feature` branch (checked out here) against `main` — it's a big one
+    (warehouse-scoped stock, prices moved to cents, logging everywhere). No shell is available;
+    the full diff is in `PR.diff` and every file in the repo is readable.
+
+    End your final message with one line per finding in the form
+    `<path>:<line> — <severity> — <summary>`, or the single line `No findings.` if there are none.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:code-reviewer:)?code-reviewer"'
+  - name: finds-untouched-caller
+    type: llm
+    criteria: |
+      PASS if the response reports that `app/jobs/reorder.py` (not changed by the PR) still calls
+      `stock.get_stock(...)`, which the PR removed/renamed to `fetch_stock(sku, warehouse)`, so the
+      reorder job fails at runtime. FAIL otherwise.
+  - name: cites-untouched-caller
+    type: regex
+    pattern: 'app/jobs/reorder\.py:\d+'
+  - name: finds-cents-export
+    type: llm
+    criteria: |
+      PASS if the response reports that `export_row` in `app/api/export.py` formats `price_cents`
+      as if it were dollars (`{p.price_cents:.2f}`), so exported prices are 100x too high, and
+      suggests dividing by 100 / using a cents formatter. FAIL otherwise.
+  - name: finds-missing-admin-check
+    type: llm
+    criteria: |
+      PASS if the response reports that the new `delete_warehouse` in `app/api/admin.py` lacks the
+      `@require_role("admin")` decorator the other admin handlers have, letting any caller delete a
+      warehouse. FAIL otherwise.
+  - name: finds-skipped-batch
+    type: llm
+    criteria: |
+      PASS if the response reports that `import_batches` in `app/jobs/batch_import.py` now loops
+      `range(1, total)`, so the first batch is never imported. FAIL otherwise.
+  - name: finds-tax-rounding-untested
+    type: llm
+    criteria: |
+      PASS if the response reports that `tax_cents` in `app/services/tax.py` changed rounding
+      (Decimal ROUND_HALF_UP replaced by float `round()`, i.e. banker's rounding / float error, e.g.
+      half-cent amounts now round down) AND that no test covers the new rounding. FAIL if either
+      part is missing.
+  - name: finds-duplicate-formatter
+    type: llm
+    criteria: |
+      PASS if the response points out that the new `cents_to_str` in `app/utils/money.py`
+      duplicates the existing `format_cents` in `app/utils/formatting.py` and recommends using the
+      existing one. FAIL otherwise.

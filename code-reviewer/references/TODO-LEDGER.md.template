@@ -23,7 +23,5 @@
   the durable record; `dismiss_task` only affects the live chip).
 - This file exists independently of `REVIEW-STATE.md`/`REVIEW-HISTORY.md` — it tracks
   out-of-scope items flagged *during* a review, not the reviewed files themselves.
-- `agent-ux:ux-agent`'s `todo_digest` event (see its own `INTEROP.md`) reads this file verbatim
-  to render a dashboard — `code-reviewer` is this file's only writer; `agent-ux` never writes to
-  it, only reads.
+- `code-reviewer` is this file's only writer.
 ```

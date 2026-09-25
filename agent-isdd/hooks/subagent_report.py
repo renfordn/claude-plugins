@@ -4,8 +4,7 @@ active feature's recap log, so the delegation loop is never lost.
 
 Only logs when (a) an SDD workflow is active and (b) the subagent's final message
 looks like a phase-worker report (spec-reviewer) -- keeps unrelated
-subagents, and the plugin's own mechanical helper (research-consolidator, the
-cross-plugin agent-ux:ux-agent), from adding recap noise. Implementation-phase
+subagents, and the plugin's own mechanical helper (research-consolidator), from adding recap noise. Implementation-phase
 reports (agent-TDD / test-author) are out of scope for this plugin -- they
 belong to the separate agent-tdd plugin.
 """

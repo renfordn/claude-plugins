@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""SessionStart hook: surface pending review slices at session startup."""
+"""SessionStart hook: surface slices awaiting review. Silent when there are none, so projects
+that don't use agent-TDD pay nothing."""
 import json
 import os
 import sys
@@ -15,13 +16,13 @@ def main():
         payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
-    lines = [f"agent-TDD state for this project: {tdd_memory_dir(cwd)}"]
-
     data = read_tdd_progress(cwd)
     pending = [s for s in data["slices"] if s.get("status") == "green_pending_review"]
+    if not pending:
+        sys.exit(0)
 
+    lines = [f"agent-TDD state for this project: {tdd_memory_dir(cwd)}", ""]
     if pending:
-        lines.append("")
         lines.append(f"Slices awaiting review resume ({len(pending)}):")
         for s in pending:
             lines.append(f"  - [{s['id']}] {s['description']}")

@@ -18,7 +18,6 @@ not the author. Either way, pass:
 | Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. |
 | review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
 | review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
-| phase_state | string | no | Compact phase token (e.g. `Design`, `TDD:green`) if your workflow has one. Unlocks `agent-ux:ux-agent` delegation for review dashboard if installed. Omit for standalone/pre-commit pass |
 
 ## Pairing with an implementer agent (e.g. `agent-tdd`)
 
@@ -56,6 +55,11 @@ each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-R
    reported — the handoff, `REVIEW-HISTORY.md`, and the implementer's resume message. Never let
    a self-review pass as independent.
 
+**Large diffs** (`review_plan.py plan` reports `large`) and `Deep`/`Ultra`: run
+`scripts/review_loop.py` instead of a single reviewer. It repeats fresh headless reviewer passes,
+each briefed with the findings so far, until one adds nothing (max 3), and prints the merged
+payload — see SKILL.md's "Review Pipeline" step 3.
+
 The reviewer returns the `ReportFindings` payload as JSON; the caller renders it, because
 `ReportFindings` and the dashboard Artifact belong to the main thread (README's "Why this is a
 skill, not an agent").
@@ -64,9 +68,9 @@ skill, not an agent").
 
 A second context tries to disprove the findings that matter, so false positives don't block work.
 
-**When**: the review has any finding with `decision: block` or `workflow_action` of
-`block_commit` / `pause_for_review`, or `review_level` is `Ultra`. Verify those gating findings
-(every finding at `Ultra`). Otherwise skip it.
+**When**: the review has any finding with `decision: block`, `workflow_action` of
+`block_commit` / `pause_for_review`, or `severity` of `high` / `critical`, or `review_level` is
+`Ultra`. Verify those findings (every finding at `Ultra`). Otherwise skip it.
 
 **How**: same path order as the review. Spawn `code-reviewer:finding-verifier`
 (`agents/finding-verifier.md`), else run `scripts/review_headless.sh --agent finding-verifier
@@ -113,7 +117,7 @@ missing):
    to `Ultra` without explicit request.
 4. **Never block**: User always gets some review; review never fails silently or returns an error.
 
-This pattern follows existing `agent-tdd` and `agent-ux` capability-gating practices (check once,
+This pattern follows existing `agent-tdd` capability-gating practices (check once,
 degrade, notify, proceed).
 
 ## Strategic Review Placement by ISDD Phase
@@ -150,12 +154,6 @@ Review-level findings feed into ralph loops validation:
 
 See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
 
-**Capability Detection Note:**
-
-This INTEROP.md is parsed by `plugin-harness` for capability detection. The substring
-**"Integrating Code Reviewer"** (present in this document's title and section headings) is required
-for auto-detection to succeed. See `plugin-harness/tests/test_smoke_e2e.py` for verification.
-
 **Cross-references:**
 
 - **Phase-by-Phase Guidance**: **corrected 2026-09-24** — `code-reviewer/skills/code-reviewer/
@@ -183,23 +181,21 @@ Model's fields.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | findings | array (ReportFindings) | yes | All review findings with full details |
-| review_dashboard | Artifact | no | Visual dashboard rendered by skill or agent-ux; present above 5-finding/1-file threshold |
+| review_dashboard | Artifact | no | Visual dashboard rendered by the skill; present above 5-finding/1-file threshold |
+| findings.json | file | no | Every finding (no 32 cap) plus `followups` (refactor / consolidation / deferred-defect items), at `review_plan.py findings-path`. Schema: SKILL.md "findings.json". agent-isdd's SessionStart ingests `followups` into its follow-up queue (its INTEROP.md "← code-reviewer") |
 
 **Finding fields:**
 - `evidence_tier` (integer 1-5): Verification confidence for each finding
 - `review_level` (string, optional): Analysis depth (Quick/Standard/Deep/Ultra)
 
-See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. No separate machine-readable summary is returned beyond what `ReportFindings`/dashboard already show.
+See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. findings.json is the machine-readable summary; `review_plan.py validate` checks it.
 
 ## Out-of-scope items (`TODO-LEDGER.md`)
 
 If you supplied a review-state directory, `code-reviewer` also maintains a `TODO-LEDGER.md`
 there (`references/TODO-LEDGER.md.template`) — one row per out-of-scope item it flags during a
 pass, independent of `REVIEW-STATE.md`/`REVIEW-HISTORY.md`. `code-reviewer` is this file's only
-writer. If `agent-ux:ux-agent` is installed, you can ask `code-reviewer` to surface it as a
-dashboard: it sends a `todo_digest` envelope (see `agent-ux`'s own `INTEROP.md`) that reads the
-ledger and publishes/redeploys it — `agent-ux` never tracks this state itself, only renders what
-`code-reviewer` already wrote.
+writer.
 
 ## Cross-project or cross-feature memory
 

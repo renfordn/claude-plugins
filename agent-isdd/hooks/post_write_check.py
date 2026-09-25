@@ -125,11 +125,9 @@ def main():
     print(json.dumps({
         "systemMessage": (
             "SDD: a phase/slice artifact was written. On phase transitions, "
-            "delegate to agent-ux:ux-agent (phase_transition envelope). Sync "
-            "the TaskCreate/TaskUpdate/TaskList checklist directly from the "
-            "calling skill (agent-ux:ux-agent's subagent context can't reach "
-            "those deferred tools) — see INTEROP.md's \"-> agent-ux (UX "
-            "rendering)\" section."
+            "call mark_chapter and render the breadcrumb. Sync the "
+            "TaskCreate/TaskUpdate/TaskList checklist directly — see "
+            "references/ux-conventions.md."
         )
     }))
     sys.exit(0)

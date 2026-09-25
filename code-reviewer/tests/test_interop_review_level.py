@@ -20,14 +20,6 @@ def test_review_level_parameter_in_contract():
     assert "review_level" in content, "review_level parameter not documented in INTEROP.md contract"
 
 
-def test_capability_detection_substring_preserved():
-    """Test that capability-detection substring is preserved."""
-    content = read_interop_md()
-    # Must have at least one of these substrings for plugin-harness detection
-    has_substring = ("Integrating Code Reviewer" in content) or ("code-reviewer INTEROP" in content)
-    assert has_substring, "Capability-detection substring ('Integrating Code Reviewer' or 'code-reviewer INTEROP') not found in INTEROP.md"
-
-
 def test_evidence_tier_orthogonality_documented():
     """Test that Evidence Tier orthogonality is documented."""
     content = read_interop_md()

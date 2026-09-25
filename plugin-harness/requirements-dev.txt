@@ -1,5 +1,0 @@
-# Dev/test-only dependencies. The production hooks (before_continue.py,
-# subagent_stop.py) only ever use FileStateStore and have zero third-party
-# dependencies. redis is needed only to run the full test suite (RedisStateStore
-# unit tests) or to actually wire up RedisStateStore in a deployment that wants it.
-redis>=5.0,<9

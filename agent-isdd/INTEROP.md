@@ -16,7 +16,7 @@ for both agent-isdd's own maintainers and the sibling plugins' maintainers to cr
 cached research findings, and pre-fetched file summaries, then spawns `agent-tdd` for research
 validation, task slicing, and implementation.
 
-**Design Spec** includes (validated by plugin-harness):
+**Design Spec** includes:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -329,26 +329,22 @@ constituent skills — particularly `design-author` — invoke it at appropriate
 responsibility (per `agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever 
 context is driving implementation after the handoff above.
 
-## → agent-ux (UX rendering)
+## ← code-reviewer (review follow-ups)
 
-At every phase transition, section-confirmation checkpoint, review-dashboard threshold, and
-out-of-scope-task flag, `agent-isdd` delegates to `agent-ux:ux-agent` instead of an in-process
-agent, constructing the UX Event Envelope (`caller: agent-isdd`, `event_type`, `phase_state`,
-`delta`, `artifact_path`) defined in `agent-ux`'s own `INTEROP.md` — that document is the
-authoritative schema (envelope shape, the five per-`event_type` delta shapes, and the
-pull-over-push invariant); this section only states how `agent-isdd` uses it, not a duplicate
-definition.
+code-reviewer writes refactor / consolidation / deferred-defect items as `followups` in its
+findings.json (default `<git dir>/code-review/findings.json`; schema in code-reviewer's SKILL.md
+"findings.json"). agent-isdd's SessionStart ingests them into
+`<sdd memory>/<project>/followups/<id>.md` (one file each, frontmatter `kind`, `status:
+open|picked|done|dismissed`, `nelly_recorded`, `files`), lists the open ones, and hands
+unrecorded ones to agent-nelly as `file-relevance` entries, so editing one of those files later
+surfaces the item. `hooks/followups.py` moves items through their states; the Start Protocol offers
+open items as feature candidates. Neither plugin imports the other: findings.json is the contract.
 
-`agent-ux:ux-agent` is a **soft dependency**, same pattern as `agent-nelly` below: if it is not
-installed or otherwise unreachable, `agent-isdd` catches the missing-plugin condition, surfaces
-one plain notice for the session (not one per event), and continues without blocking — see
-`agent-ux`'s `INTEROP.md` "Unavailability and fallback contract" section for the full generic
-contract (including its own internal fallback when a specific rendering tool like `Artifact` is
-unavailable), referenced here by name rather than restated.
+## → agent-ux (removed)
 
-The `TaskCreate`/`TaskUpdate`/`TaskList` checklist is not part of this delegation — `agent-ux`'s
-isolated subagent context cannot reach deferred tools, so the calling skill renders/refreshes the
-checklist directly, unchanged from today's local-agent behavior.
+agent-ux was retired: its subagent cost ~2K tokens per event to make one `mark_chapter` or
+`Artifact` call. The calling skills now make those calls directly, per
+`references/ux-conventions.md`.
 
 ## → agent-nelly (memory)
 
@@ -450,29 +446,10 @@ continues without pre-loaded file context (slower, but correct). This is documen
 contract both plugins can cross-check; agent-nelly's own `INTEROP.md` is authoritative for its
 side of the contract.
 
-## → agent-cache-plugin (no direct integration)
+## → agent-cache-plugin (removed)
 
-agent-isdd does **not** exchange any data with agent-cache-plugin directly, and never has.
-
-Until 0.1.48, `hooks/cache_hook.py` and `hooks/ux_render.py` POSTed phase state to an
-agent-cache-plugin HTTP server on `localhost:7771`. That server never existed — agent-cache-plugin
-has no `bin` entry and no listener anywhere — so every request failed and was swallowed as
-"graceful degradation". 0.1.49 removed the HTTP code; 0.1.50 removed `cache_hook.py` entirely.
-`ux_render.py` now renders the breadcrumb straight from `workflow-state.json` (the source of
-truth for phase state) and never emits a `phase_transition` delegation — the
-`spec-driven-development` skill does that itself at every phase change.
-
-**What agent-cache-plugin does for agent-isdd anyway**: its automatic `PreToolUse`/`PostToolUse`
-hooks on the `Agent` tool cache every subagent output in the session (including agent-isdd's
-`planning-agent`, `research-consolidator`, `spec-reviewer` spawns) with no caller action — see
-agent-cache-plugin's `STRUCTURE.md` → "Capabilities" → `agent_output_cache`. That is the only
-integration surface, and it needs nothing from this plugin.
-
-**Why no explicit integration**: agent-cache-plugin's other surfaces — two subagents reachable
-only via the `Agent` tool, CLI commands with no store/retrieve verb, and a Node-only in-process
-JS API — are not callable from a Python hook process. If a reachable transport ever appears,
-wire it as a new module in `hooks/subagent_dispatch.MODULES` between `subagent_report` and
-`ux_render`.
+agent-cache-plugin was removed from the collection: its hooks read camelCase fields Claude Code
+never sends, so it never stored or served anything. agent-isdd never exchanged data with it.
 
 ---
 

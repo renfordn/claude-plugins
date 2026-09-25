@@ -1,7 +1,7 @@
 {
   "name": "agent-tdd",
-  "version": "0.2.20",
-  "description": "Design Spec orchestrator + strict Red-Green-Refactor TDD for Claude Code. Accepts full requirements/design/research from agent-isdd, validates research, slices into TDD-sized phases with Ralph Loops, then executes Red-Green-Refactor with optional test-author split for high-risk. Token-efficient (30-60% savings via caching and early escalation).",
+  "version": "0.3.0",
+  "description": "Strict Red-Green-Refactor TDD for Claude Code: an agent that writes a failing test, makes it pass, pauses for an independent review, then refactors. Takes a Slice Spec from /tdd or agent-isdd's Design Spec.",
   "author": {
     "name": "Renford Nelson"
   },

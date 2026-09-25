@@ -14,9 +14,7 @@ implementation agents. SDD is its first consumer, not its only one.
 Unlike `agent-tdd`'s `agent-TDD`/`test-author` (Task-tool subagents run in isolated context),
 `code-reviewer` is invoked as a plain skill in the main thread. That's deliberate: it needs to
 call `ReportFindings` and open a review-dashboard `Artifact` in the *same turn* it runs in, and
-those are host-native tools a subagent can't reliably reach the way the calling skill can. It's
-also why this plugin doesn't need any `ux-agent`-style delegation for its own dashboard rendering
-— it owns that directly.
+those are host-native tools a subagent can't reliably reach the way the calling skill can.
 
 The one exception is reviewing code an agent just wrote. There, the judging runs in a fresh
 context — the `agents/code-reviewer.md` agent, or `scripts/review_headless.sh` when spawning
@@ -76,15 +74,32 @@ multi-plugin install/verify guide.
 (off-by-one, unchecked `None`, SQL injection at `Ultra`) and grades whether the review reports
 it at the right line; `clean-no-false-positive` checks a correct file doesn't get a blocking
 finding. The `trigger-*` cases ask casually ("any bugs in this?") and check the skill
-actually loads. Run it from the repo root after changing the skill's review rules:
+actually loads. The two `case.yaml` cases build a real repo with a `feature` branch and grade
+cross-file defects: an unchanged caller broken by a signature change, a removed function still
+imported, an untested behavior change, and duplicate logic that should use an existing helper.
+Run it from the repo root after changing the skill's review rules:
 
 ```bash
-claude plugin eval ./code-reviewer --trust-plugin
+claude plugin eval ./code-reviewer --trust-plugin --scaffold
 ```
+
+`--scaffold` runs the multi-file cases' `scaffold.sh` (it only builds a git repo in the run's
+temp workspace).
 
 By default each case runs 3 times, with and without the plugin, so the report shows what the
 skill adds over plain Claude. Add `--ablation none --runs 1` for a cheap check. It costs tokens,
 so CI only checks the suite's structure (`tests/test_evals_structure.py`).
+
+## Large PRs
+
+Every review at `Standard` or above starts from `scripts/review_plan.py plan`, which ranks the
+changed files by risk and lists changed/removed symbols, candidate tests and test gaps. The
+reviewer then searches the whole repo for callers of anything whose signature changed or that
+was removed. On a large diff (>400 changed lines or >10 files) or at Deep/Ultra, the skill runs
+`scripts/review_loop.py`: fresh headless reviewer passes, each told what earlier passes found,
+until one adds nothing (max 3). On the 31-file `large-pr-buried-defects` fixture one pass found
+5 of 6 planted defects on average and the loop found 6 of 6 in all three runs. Results land in
+`findings.json` (see SKILL.md), including `followups` for refactor and consolidation work.
 
 ## Using Code Reviewer from another plugin
 

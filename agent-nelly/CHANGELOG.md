@@ -1,6 +1,16 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-25
+
+- **Docs**: INTEROP documents how agent-isdd hands over code-reviewer follow-ups (as `file-relevance`
+  entries, so editing those files surfaces them).
+
+- **Docs**: INTEROP and entry template no longer reference plugin-harness (removed).
+
+- **Feature**: session-start context now asks Claude to prefix any reply line that uses or writes
+  Nelly memory with 🧠, so memory use is visible.
+
 - **Change**: `file-summary`/`folder-summary` entries now live in their own subdirectory,
   `entries/<SUMMARY_SUBDIR>/` (`nelly_memory.SUMMARY_SUBDIR`, currently `file-folder-summary`),
   instead of directly under `entries/` alongside every other entry type. `entries/` was

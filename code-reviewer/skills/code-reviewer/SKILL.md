@@ -1,11 +1,19 @@
 ---
 name: code-reviewer
-description: Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however they phrase it — "look over this", "any bugs in this?", "is this safe to ship/merge?", "sanity-check my change", "review this file/diff/PR/function" — including a pasted snippet, a yes/no "can this go out?" question, and cases where the problem looks obvious, since the finding still needs a tier and a decision. Also at pre-commit and TDD review gates. Gives each finding an evidence tier and a decision (accept/flag/block), reported via ReportFindings. Not for explaining how code works; use code-brief for that.
+description: Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however they phrase it — "look over this", "any bugs in this?", "is this safe to ship/merge?", "sanity-check my change", "review this file/diff/PR/branch/function" — including a pasted snippet, a yes/no "can this go out?" question, and cases where the problem looks obvious, since the finding still needs a tier and a decision. For a PR or branch, use it rather than reviewing directly: it also finds callers of changed code across the repo, behavior changes no test covers, and gives a cleanup/consolidation plan. Also at pre-commit and TDD review gates. Gives each finding an evidence tier and a decision (accept/flag/block), reported via ReportFindings. Not for explaining how code works; use code-brief for that.
 ---
 
 # Code Reviewer
 
-Claude-native review skill. Tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location and `phase_state`.
+Claude-native review skill. Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (findings.json only), `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location.
+
+## Start Here
+
+Before reading any code, size the change (Review Pipeline step 1). On a `large` diff (>400
+changed lines or >10 files), or at `Deep`/`Ultra`, run the review loop (step 3) instead of
+reviewing in one pass: a single read of a long diff skims the repetitive parts, and which defect
+slips through changes from pass to pass. On a 31-file, 2,100-line test PR, one pass found 4–5 of
+6 planted defects; the loop found 6 of 6 in every run. Then follow the Review Pipeline in order.
 
 ## Use This Skill When
 
@@ -33,6 +41,69 @@ decision.
 Triggered immediately before a commit, by whatever mechanism the calling workflow uses to gate
 commits, or by explicit user request. Scope: the full staged diff. Any `tier-1`/`tier-2` finding
 with `workflow_action: block_commit` prevents the commit until resolved or explicitly overridden.
+
+## Review Pipeline
+
+Most real defects in a PR sit where the diff meets code it didn't touch: a caller still using the
+old signature, an import of something that moved, logic that already exists elsewhere, behavior
+that changed with no test watching it. Reading the diff alone misses all of them, and on a large
+PR a single pass skims. So every review at `Standard` or above runs these
+steps (`Quick` does 1, 5 and 6–8 only):
+
+1. **Plan.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_plan.py" plan [--base <ref>]`
+   (`--diff-file <path>` for a saved diff). It prints files ranked by risk, symbols that changed
+   signature, were removed, or are new, candidate tests per source file, `test_gaps`, and whether the diff is
+   `large` (>400 changed lines or >10 files, docs/lockfiles excluded). No shell? Derive the same by reading the diff: changed files, `def`/`class`/
+   `function` lines added, removed or altered, and the test files beside each source file. Treat
+   the diff as `large` on the same thresholds (count `+`/`-` lines and files).
+2. **Context step.** For every changed signature and removed symbol, search the *whole repo*
+   (`Grep` for the name) for callers and importers, including files the diff never touched, and
+   read each call site. A caller left on the old shape is a `correctness` finding at tier-1/2,
+   since you read both sides. Read the candidate tests for each reviewed file too.
+3. **Review loop** (`large` diffs, `Deep`/`Ultra`). Run
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_loop.py" [--base <ref>] --level <level>` via
+   `Bash` with a long timeout (a few minutes per pass). It runs fresh read-only reviewers, each
+   briefed with the plan and the findings so far, until a pass adds nothing new (max 3), and
+   prints the merged findings as JSON; continue from step 4 with them. Can't run it (no `Bash`,
+   no `claude` CLI)? Do the passes yourself: review, then re-read every changed hunk file by file
+   asking only "what haven't I reported?", until a pass adds nothing (max 3). Say how many passes
+   ran and what each added.
+4. **Test gaps.** Go function by function through every changed function (all of `test_gaps`,
+   or every touched function if you had no plan): what behavior is new, and which test exercises
+   that new behavior, not just the old path? Read the tests to answer. No such test → one
+   `category: test-coverage`, `workflow_action: require_test` finding *for that function*, naming
+   the concrete case to add (e.g. `parse_date("")` now raises ValueError instead of returning None). One
+   finding per function, never a single catch-all "coverage is thin" remark — that is the version
+   nobody acts on. Pure renames/refactors need no finding.
+5. **Merge and dedupe** across reviewers per the anti-blur rules; rank most-severe first.
+6. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
+7. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
+   consolidation steps. Before proposing a new shared helper, search for an existing one that
+   already does the job and consolidate onto it. Each item becomes a `followups` entry in
+   findings.json and a numbered **Cleanup plan** in your reply.
+8. **Write findings.json** (below), then render.
+
+## findings.json
+
+The machine-readable record of a pass, for whatever acts on it next (a follow-up queue, CI, a
+later review). Path: `review_plan.py findings-path [--state-dir <review-state dir>]` — the
+review-state directory if one was supplied, else `<git dir>/code-review/findings.json` (never
+committed). Overwrite it each pass, then check it with `review_plan.py validate <path>`.
+
+```json
+{"scope": "main...HEAD", "level": "Standard", "generated_at": "2026-09-25T10:00:00Z",
+ "findings": [{"id": "F1", "file": "app/reports.py", "line": 7, "title": "Caller not updated",
+   "summary": "…", "failure_scenario": "…", "category": "correctness", "severity": "high",
+   "evidence_tier": "tier-1", "decision": "block", "workflow_action": "block_commit",
+   "confidence": "high", "verdict": "CONFIRMED", "evidence": "read users.py:1 and reports.py:7"}],
+ "followups": [{"kind": "consolidation", "title": "Use validation.normalize_email everywhere",
+   "files": ["app/invites.py", "app/newsletter.py"], "why": "…",
+   "steps": ["Replace _clean_email with normalize_email", "Delete sanitize_address"]}]}
+```
+
+`kind` is `refactor`, `consolidation`, or `deferred-defect` (a real defect deliberately left out
+of this PR). No 32-finding cap here: `ReportFindings` gets the top 32, the file keeps everything.
+No git repo and no review-state directory, or no `Write` tool: skip the file and say so in one line.
 
 ## Parameters
 
@@ -72,10 +143,13 @@ Each level defines checks performed, skipped checks, and output style, ordered b
     "design coherence"
   - Separation of concerns problems, as their own named check
   - Duplicated logic that should be consolidated into a shared function, method, or class —
-    scoped to the diff/file under review (not project-wide; project-wide duplicate detection
-    stays exclusive to Level 4/Ultra below)
+    within the diff, and against existing helpers the context step turns up
+  - Callers and importers of changed or removed symbols (Review Pipeline step 2)
+  - Sibling consistency: a new or changed function that lacks what its neighbours in the same
+    file or module all have — an auth/permission decorator, input validation, a transaction or
+    lock, error handling, a unit conversion — is a finding; copy-paste additions miss these most
   - Obvious bugs and edge cases
-  - Test coverage basics (are obvious test cases covered?)
+  - Test gaps (Review Pipeline step 4)
 - **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, module-wide coherence, and broader refactoring suggestions beyond the narrow duplicate-consolidation check above (those stay a Level 3/Deep concern)
 - **Output Style**: Organized by finding type (correctness, naming, design); severity-tiered; typical current behavior
 
@@ -145,35 +219,24 @@ If a level is unavailable (e.g., `Ultra` without multi-agent): degrade to next-l
   redeployable review-dashboard (findings as resolvable cards next to their diff hunks). This is
   what makes the review something the user resolves *with* the agent, turn by turn, instead of
   reading a static list: as findings get discussed and resolved in the conversation, redeploy the
-  same dashboard in place to reflect the current state, rather than reposting it. **This is the
-  canonical definition of the 5-finding/1-file threshold** — `agent-ux`
-  (`references/ux-conventions.md`'s "Review dashboard (Artifact)" section, and
-  `agents/ux-agent.md`'s `review_threshold` dispatch) and `agent-isdd`
-  (`doc-consistency-auditor/SKILL.md`'s documented override) both reference this exact value —
-  `agent-ux` mirrors it, while `doc-consistency-auditor` cites it only to explicitly opt out
-  (always `ReportFindings`-only) — rather than choosing their own; if it changes here, update
-  those to match.
-  - **Delegate to `agent-ux:ux-agent`** when `phase_state` was supplied AND `agent-ux:ux-agent` is available this session: construct a `review_threshold` envelope — see INTEROP.md "→ agent-ux" for the full envelope contract and field list.
-  - **Otherwise, open the Artifact directly** — correct behavior for standalone passes; `code-reviewer` never blocks on `agent-ux`'s absence.
+  same dashboard in place to reflect the current state, rather than reposting it. Open it directly with the `Artifact` tool. **This is the
+  canonical definition of the 5-finding/1-file threshold** — `agent-isdd`'s
+  `doc-consistency-auditor/SKILL.md` cites it only to explicitly opt out (always
+  `ReportFindings`-only); if it changes here, update that note to match.
 - Below the threshold, `ReportFindings` alone is sufficient visual structure — do not open a
-  dashboard (directly or via `agent-ux`) just for its own sake; that's exactly the token cost the
+  dashboard just for its own sake; that's exactly the token cost the
   threshold exists to avoid.
 - If review turns up something concrete but genuinely outside the diff's scope (dead code, a
   stale doc, a confirmed TODO unrelated to this change) — not a finding against the change
   itself — flag it. Only for issues you've already confirmed are real and out of scope; never for
-  a low-confidence hunch. Two ways to flag, same rule for choosing between them as the dashboard
-  above:
-  - **`agent-ux:ux-agent` available and `phase_state` was supplied**: delegate via `out_of_scope_flag` envelope (see INTEROP.md for contract). Otherwise call `spawn_task` directly.
-  - **Either way**, if a review-state directory was supplied, append a row to that directory's
+  a low-confidence hunch. Call `spawn_task` directly.
+  - If a review-state directory was supplied, append a row to that directory's
     `TODO-LEDGER.md` (`references/TODO-LEDGER.md.template`) immediately after the call returns
-    its `task_id` — this is `code-reviewer`'s own record, independent of which path spawned the
-    task, and it's the only writer of this file (`agent-ux` only ever reads it, never writes it —
-    see `agent-ux`'s own `INTEROP.md` "Rendering, not tracking"). No review-state directory: skip
-    the ledger, same ephemeral-pass discipline as `REVIEW-STATE.md`.
+    its `task_id` — `code-reviewer` is the only writer of this file. No review-state directory:
+    skip the ledger, same ephemeral-pass discipline as `REVIEW-STATE.md`.
   - If a later pass finds a ledger row's item stale, superseded, or already handled: call
     `dismiss_task` with its `task_id`, then flip that row's `Status` to `dismissed` in place
     (never delete the row).
-  - If open items and `agent-ux:ux-agent` available: send `todo_digest` envelope (see INTEROP.md). No `agent-ux` or no review-state directory: skip.
 
 ## Evidence Tier Model
 
@@ -320,7 +383,7 @@ Before calling:
 
 1. Count every `short_summary` — if any is over 60, rewrite it shorter (don't just chop mid-word).
 2. More than 32 findings? Merge `nit`/`low` items per the anti-blur rules, and move the rest to
-   the dashboard (which the >5-finding threshold already requires).
+   the dashboard (which the >5-finding threshold already requires); findings.json keeps all.
 3. If the call still fails with a validation error, read the `path` in the error (e.g.
    `findings.1.short_summary`), fix that field, and call again. Don't give up and dump findings
    as prose — a failed handover means the caller gets nothing structured.

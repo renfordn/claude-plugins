@@ -103,30 +103,6 @@ class WriteTddProgressTests(unittest.TestCase):
             self.assertTrue(content.endswith(b"\n"))
 
 
-class WriteLastStopTests(unittest.TestCase):
-    def test_writes_timestamp_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tdd_state.write_last_stop(tmp)
-            path = os.path.join(tdd_state.tdd_memory_dir(tmp), "last-stop.json")
-            self.assertTrue(os.path.isfile(path))
-            with open(path) as f:
-                data = json.load(f)
-            self.assertIn("timestamp", data)
-
-    def test_oserror_is_silently_ignored(self):
-        # Write to a path where the parent cannot be created (root-owned dir)
-        # Simulate by monkey-patching makedirs
-        original = os.makedirs
-
-        def raise_os_error(*args, **kwargs):
-            raise OSError("simulated permission error")
-
-        os.makedirs = raise_os_error
-        try:
-            tdd_state.write_last_stop("/some/path")  # must not raise
-        finally:
-            os.makedirs = original
-
 
 class ClaudePluginDataEnvVarTests(unittest.TestCase):
     """Tests for ${CLAUDE_PLUGIN_DATA} env var support (Task 4.2).

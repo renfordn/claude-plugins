@@ -46,7 +46,7 @@ class EscalationDetectionTests(unittest.TestCase):
             self.assertEqual(pending["reason"], "async ordering too subtle")
             self.assertEqual((pending["from_model"], pending["to_model"]), ("Haiku", "Sonnet"))
             self.assertIn("detected_at", pending)
-            self.assertIn("get_spawn_context", msg)
+            self.assertIn("Re-spawn `agent-TDD`", msg)
             self.assertIn("Sonnet", msg)
 
     def test_respawn_that_escalates_again_closes_old_and_opens_new(self):

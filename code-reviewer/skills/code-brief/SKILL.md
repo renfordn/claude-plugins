@@ -64,8 +64,7 @@ just because they're technical, uniform drop-shadows and border-radius applied r
 hierarchy. One diagram idiom deliberately chosen for this subsystem beats a default flowchart
 template reused across every brief.
 
-**Ownership**: this skill owns the Artifact directly — no `agent-ux` dependency. Diagrams are
-outside `agent-ux`'s scope (it renders progress/findings state, not explanatory visuals).
+**Ownership**: this skill owns the Artifact directly.
 
 ## Guardrails
 
