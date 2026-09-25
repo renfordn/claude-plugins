@@ -65,14 +65,6 @@ class StopHookTests(unittest.TestCase):
             self.assertIn("Slice B", msg)
             self.assertIn("2 slice(s)", msg)
 
-    def test_writes_last_stop_json(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            _run(tmp)
-            path = os.path.join(tdd_state.tdd_memory_dir(tmp), "last-stop.json")
-            self.assertTrue(os.path.isfile(path))
-            with open(path) as f:
-                data = json.load(f)
-            self.assertIn("timestamp", data)
 
 
 if __name__ == "__main__":

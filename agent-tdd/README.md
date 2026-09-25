@@ -76,8 +76,7 @@ Agent TDD stores workflow progress and session state in the Claude Code plugin d
 ```
 ${CLAUDE_PLUGIN_DATA}/agent-tdd-state/
 └── <project-slug>/
-    ├── tdd-progress.json      # TDD slice tracking and progress
-    └── last-stop.json         # Session boundary marker
+    └── tdd-progress.json      # TDD slice tracking and progress
 ```
 
 Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-tdd/` when running in Claude Code.

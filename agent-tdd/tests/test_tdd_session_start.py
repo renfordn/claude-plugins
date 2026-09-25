@@ -34,7 +34,7 @@ def _run(cwd, slices=None):
 class SessionStartOutputTests(unittest.TestCase):
     def test_output_uses_hook_specific_output_envelope(self):
         with tempfile.TemporaryDirectory() as tmp:
-            out, rc = _run(tmp)
+            out, rc = _run(tmp, slices=[{"id": 1, "description": "A", "status": "green_pending_review"}])
             self.assertEqual(rc, 0)
             self.assertIsNotNone(out)
             self.assertIn("hookSpecificOutput", out)
@@ -42,12 +42,11 @@ class SessionStartOutputTests(unittest.TestCase):
             self.assertEqual(envelope["hookEventName"], "SessionStart")
             self.assertIn("additionalContext", envelope)
 
-    def test_no_pending_slices_includes_state_path(self):
+    def test_silent_without_pending_slices(self):
         with tempfile.TemporaryDirectory() as tmp:
             out, rc = _run(tmp)
-            ctx = out["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("agent-TDD state", ctx)
-            self.assertNotIn("awaiting review", ctx)
+            self.assertEqual(rc, 0)
+            self.assertIsNone(out)
 
     def test_pending_slices_listed_in_context(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,9 +76,7 @@ class SessionStartOutputTests(unittest.TestCase):
                 {"id": 1, "description": "Done slice", "status": "refactor_complete"},
             ]
             out, rc = _run(tmp, slices=slices)
-            ctx = out["hookSpecificOutput"]["additionalContext"]
-            self.assertNotIn("Done slice", ctx)
-            self.assertNotIn("awaiting review", ctx)
+            self.assertIsNone(out)
 
     def test_malformed_payload_still_outputs_valid_json(self):
         result = subprocess.run(
@@ -89,8 +86,7 @@ class SessionStartOutputTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0)
-        out = json.loads(result.stdout.strip())
-        self.assertIn("hookSpecificOutput", out)
+        self.assertEqual(result.stdout.strip(), "")
 
 
 if __name__ == "__main__":

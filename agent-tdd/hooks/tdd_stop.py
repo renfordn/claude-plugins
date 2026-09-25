@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Stop hook: write last-stop.json and warn if any slices are pending review."""
+"""Stop hook: warn if any slices are pending review."""
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tdd_state import read_tdd_progress, write_last_stop  # noqa: E402
+from tdd_state import read_tdd_progress  # noqa: E402
 
 
 def main():
@@ -15,8 +15,6 @@ def main():
         payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
-
-    write_last_stop(cwd)  # best-effort, silently ignores OSError
 
     data = read_tdd_progress(cwd)
     pending = [s for s in data["slices"] if s.get("status") == "green_pending_review"]

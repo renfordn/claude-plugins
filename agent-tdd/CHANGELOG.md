@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Removal**: dead parts — the root `SKILL.md` (outside `skills/`, never loaded), the internal
+  `task-slicer` skill (README already said it was retired), `hooks/direct_mode_state.py` (no
+  importer), the unread `last-stop.json` write, and the unmeasured "30-60% savings" claim.
+- **Change**: SessionStart is silent unless slices await review, so projects that don't use TDD
+  get no injected context.
+
 - **Docs**: escalation path and INTEROP no longer reference plugin-harness (removed).
 
 - **Removal**: `hooks/ux_render.py` and its SubagentStop entry. It never fired (it exited when
