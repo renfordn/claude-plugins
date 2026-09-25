@@ -1,6 +1,29 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-25
+
+- **Feature**: research digest cache. New request fields `research digest` (write a subagent's
+  multi-file findings: `{topic, summary, paths}`) and `research digest lookup` (every digest
+  covering a path, `fresh` or `stale` with the `changed` sources). New
+  `scripts/research_digest.py` (`write`/`lookup`) stores one markdown file per digest under
+  `entries/research-digest/`, keyed by topic + path set, with git-blob hashes computed in Python,
+  a 2,000-character body cap (deterministic line-boundary truncation), at most 30 sources, and
+  atomic writes (`nelly_memory.atomic_write`). Lookups use `nelly-index.json` when it matches the
+  files on disk and otherwise scan the directory. New `hooks/nelly_digest_guard.py` (PreToolUse)
+  denies a hand-written digest body over 2,000 characters. `nelly_memory.py --digest-entries-path`
+  added.
+
+- **Fix**: the file/folder summary cache never returned hits for entries written as
+  `type: file_summary`/`folder_summary`; `scripts/build_index.py` now indexes them as
+  `file-summary`/`folder-summary` (no rewrite of files on disk).
+
+- **Change**: `scripts/build_index.py` indexes `entries/research-digest/` (records gain
+  `topic`/`sources`/`updated`) and skips iCloud conflict copies (`<name> 2.md`) in both the full
+  rescan and single-entry upserts (`build_index.is_conflict_copy`). `scripts/nelly_cleanup.py`'s
+  worktree merge folds `entries/research-digest/` per file by newest mtime, like the summary
+  cache, and leaves lock/temp/`.DS_Store` churn behind.
+
 ## [0.5.1] - 2026-09-25
 
 - **Fix**: `shared_slug.get_project_slug()` (used by `nelly_memory.project_slug()`,

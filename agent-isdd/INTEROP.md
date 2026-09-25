@@ -441,6 +441,25 @@ the full read/write contract and `agent-nelly/INTEROP.md`'s section of the same 
 consumer-facing summary. `git_hash` validity is always checked by the *caller* (`git hash-object
 <path>` against the stored value) — agent-nelly itself never shells out to git.
 
+**[Research Digest Cache]** Alongside file summaries, `design-author` stores
+`research-consolidator`'s multi-file findings as agent-nelly `research digest` items and checks
+them before the next research pass. Request schema per item (agent-nelly's own `INTEROP.md`
+"Research Digest Cache" section is authoritative):
+
+```json
+{
+  "topic": "nelly-research-digest-cache: index rescan",
+  "summary": "Multi-file findings, at most 2,000 characters (agent-nelly truncates longer text)",
+  "paths": ["agent-nelly/scripts/build_index.py", "agent-nelly/hooks/nelly_memory.py"]
+}
+```
+
+`paths` are repo-relative, at most 30 per digest (split by top-level directory beyond that).
+Same `topic` + path set overwrites the earlier digest. Agent-nelly hashes the sources itself, so
+there is no `git_hash` field. `research digest lookup` (a list of repo-relative paths) returns
+each covering digest as `fresh`, or `stale` with `changed` paths; see `design-author/SKILL.md`'s
+"Research First" steps 1 and 2 for how both results are used.
+
 Agent-nelly's file cache is optional and transparent to agent-isdd: if unavailable, agent-isdd
 continues without pre-loaded file context (slower, but correct). This is documented here as the
 contract both plugins can cross-check; agent-nelly's own `INTEROP.md` is authoritative for its

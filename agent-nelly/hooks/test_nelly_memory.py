@@ -622,3 +622,92 @@ def test_truncate_summary_custom_limit():
     result = nelly_memory.truncate_summary("abcdefghij", limit=5)
     assert result == "abcd…"
     assert len(result) == 5
+
+
+# ---------------------------------------------------------------------------
+# research-digest entries nest under entries/<DIGEST_SUBDIR>/, like summaries
+# nest under entries/<SUMMARY_SUBDIR>/.
+# ---------------------------------------------------------------------------
+
+def test_digest_constants():
+    assert nelly_memory.DIGEST_SUBDIR == "research-digest"
+    assert nelly_memory.DIGEST_TYPE == "research-digest"
+    assert nelly_memory.DIGEST_CHAR_LIMIT == 2000
+    assert nelly_memory.DIGEST_MAX_SOURCES == 30
+
+
+def test_entry_path_nests_digest_type_under_digest_subdir():
+    p = nelly_memory.entry_path(CWD, "digest-x", entry_type=nelly_memory.DIGEST_TYPE)
+    assert p == os.path.join(
+        nelly_memory.memory_dir(CWD), "entries", nelly_memory.DIGEST_SUBDIR, "digest-x.md")
+
+
+@pytest.mark.parametrize("name", TRAVERSAL_NAMES)
+def test_entry_path_never_escapes_digest_subdir(name):
+    p = nelly_memory.entry_path(CWD, name, entry_type=nelly_memory.DIGEST_TYPE)
+    digest_dir = os.path.join(nelly_memory.memory_dir(CWD), "entries", nelly_memory.DIGEST_SUBDIR)
+    assert os.path.dirname(p) == digest_dir
+
+
+def test_ensure_entries_dir_with_digest_type_creates_nested_subdir(isolated_base):
+    d = nelly_memory.ensure_entries_dir(CWD, entry_type=nelly_memory.DIGEST_TYPE)
+    assert d == os.path.join(nelly_memory.memory_dir(CWD), "entries", nelly_memory.DIGEST_SUBDIR)
+    assert os.path.isdir(d)
+
+
+def test_cli_digest_entries_path_prints_nested_digest_dir(capsys, isolated_base):
+    nelly_memory.main(["--digest-entries-path", CWD])
+    out = capsys.readouterr().out.strip()
+    assert out == os.path.join(nelly_memory.memory_dir(CWD), "entries", nelly_memory.DIGEST_SUBDIR)
+    assert os.path.isdir(out)
+
+
+# ---------------------------------------------------------------------------
+# atomic_write -- temp file in the target dir, then os.replace, so iCloud and
+# concurrent readers never see a partial file.
+# ---------------------------------------------------------------------------
+
+def test_atomic_write_creates_file_with_exact_content(tmp_path):
+    target = tmp_path / "d" / "x.md"
+    target.parent.mkdir()
+    nelly_memory.atomic_write(str(target), "héllo\nworld\n")
+    assert target.read_text(encoding="utf-8") == "héllo\nworld\n"
+    assert os.listdir(target.parent) == ["x.md"]
+
+
+def test_atomic_write_overwrites_existing_file(tmp_path):
+    target = tmp_path / "x.md"
+    target.write_text("old", encoding="utf-8")
+    nelly_memory.atomic_write(str(target), "new")
+    assert target.read_text(encoding="utf-8") == "new"
+    assert os.listdir(tmp_path) == ["x.md"]
+
+
+def test_atomic_write_failure_keeps_original_and_leaves_no_temp(tmp_path, monkeypatch):
+    target = tmp_path / "x.md"
+    target.write_text("original", encoding="utf-8")
+
+    def boom(src, dst):
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(nelly_memory.os, "replace", boom)
+    with pytest.raises(OSError):
+        nelly_memory.atomic_write(str(target), "new")
+    assert target.read_text(encoding="utf-8") == "original"
+    assert os.listdir(tmp_path) == ["x.md"]
+
+
+def test_atomic_write_new_file_gets_umask_default_mode(tmp_path):
+    umask = os.umask(0)
+    os.umask(umask)
+    target = tmp_path / "x.md"
+    nelly_memory.atomic_write(str(target), "x")
+    assert (os.stat(target).st_mode & 0o777) == (0o666 & ~umask)
+
+
+def test_atomic_write_overwrite_keeps_existing_mode(tmp_path):
+    target = tmp_path / "x.md"
+    target.write_text("old", encoding="utf-8")
+    os.chmod(target, 0o640)
+    nelly_memory.atomic_write(str(target), "new")
+    assert (os.stat(target).st_mode & 0o777) == 0o640

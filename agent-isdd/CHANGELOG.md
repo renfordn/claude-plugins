@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
+- **Feature**: design-author reuses agent-nelly research digests. Research First step 1 passes
+  `research digest lookup` for the feature's files (`fresh` digests become known context; for
+  `stale` ones only the `changed` files are re-read), and step 2 sends one `research digest`
+  (`{topic, summary, paths}`, at most 30 paths, split by top-level directory) per feature topic.
+  INTEROP "→ agent-nelly" documents the digest request schema.
+
+- **Fix**: design-author's outputs list now names the agent-nelly summary type `file-summary`
+  (it said `file_summary`, which agent-nelly's lookup never matched).
+
 ## [0.2.1] - 2026-09-25
 
 - **Fix**: `sdd_memory.project_slug()` (and so `memory_slug_guard.py`) now resolves the slug from
