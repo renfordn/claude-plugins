@@ -327,6 +327,17 @@ constituent skills — particularly `design-author` — invoke it at appropriate
 responsibility (per `agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever 
 context is driving implementation after the handoff above.
 
+## ← code-reviewer (review follow-ups)
+
+code-reviewer writes refactor / consolidation / deferred-defect items as `followups` in its
+findings.json (default `<git dir>/code-review/findings.json`; schema in code-reviewer's SKILL.md
+"findings.json"). agent-isdd's SessionStart ingests them into
+`<sdd memory>/<project>/followups/<id>.md` (one file each, frontmatter `kind`, `status:
+open|picked|done|dismissed`, `nelly_recorded`, `files`), lists the open ones, and hands
+unrecorded ones to agent-nelly as `file-relevance` entries, so editing one of those files later
+surfaces the item. `hooks/followups.py` moves items through their states; the Start Protocol offers
+open items as feature candidates. Neither plugin imports the other: findings.json is the contract.
+
 ## → agent-ux (removed)
 
 agent-ux was retired: its subagent cost ~2K tokens per event to make one `mark_chapter` or

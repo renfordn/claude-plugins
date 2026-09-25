@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- **Feature**: review follow-up queue (`hooks/followups.py`). SessionStart ingests code-reviewer's
+  findings.json `followups` into `<sdd memory>/<project>/followups/`, lists open items, and asks
+  Claude to record unrecorded ones in agent-nelly as `file-relevance` entries. The Start Protocol
+  offers open items as feature candidates (`set <id> picked`, then `done` after implementation).
+
 - **Change**: plugin-harness removed from the collection. The model-escalation message now tells
   the caller to re-spawn agent-TDD with the lower-tier report's findings in the prompt, instead of
   calling the harness's `get_spawn_context` MCP tool (whose server never reliably started).

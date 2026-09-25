@@ -271,3 +271,10 @@ For a concrete, illustrative (not wired-up) walkthrough of a structurally differ
 a personal-assistant plugin with independent skills and no workflow-phase concept at all —
 integrating against this contract, see
 [`references/example-consumer-pa-jay.md`](references/example-consumer-pa-jay.md).
+
+## Review follow-ups (from agent-isdd)
+
+agent-isdd's SessionStart may pass code-reviewer follow-ups (refactor / consolidation / deferred
+defect) as a `new facts` batch labelled `Source: code-reviewer follow-up <path>`. Record each as a
+`file-relevance` entry over its files, noting the source file's `status:` decides whether it is
+still open, so editing those files later surfaces it (with the 🧠 marker).

@@ -182,7 +182,7 @@ Model's fields.
 |-------|------|----------|-------------|
 | findings | array (ReportFindings) | yes | All review findings with full details |
 | review_dashboard | Artifact | no | Visual dashboard rendered by the skill; present above 5-finding/1-file threshold |
-| findings.json | file | no | Every finding (no 32 cap) plus `followups` (refactor / consolidation / deferred-defect items), at `review_plan.py findings-path`. Schema: SKILL.md "findings.json" |
+| findings.json | file | no | Every finding (no 32 cap) plus `followups` (refactor / consolidation / deferred-defect items), at `review_plan.py findings-path`. Schema: SKILL.md "findings.json". agent-isdd's SessionStart ingests `followups` into its follow-up queue (its INTEROP.md "← code-reviewer") |
 
 **Finding fields:**
 - `evidence_tier` (integer 1-5): Verification confidence for each finding

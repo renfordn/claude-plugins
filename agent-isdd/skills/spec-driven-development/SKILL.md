@@ -96,6 +96,11 @@ contract at phase boundaries.
 
 ## Start Protocol
 
+0. **Review follow-ups.** If SessionStart listed open review follow-ups and the request is vague
+   ("what's next?", "clean things up") or overlaps an item's files, offer the matching items as
+   candidates in one line each. If the user picks one, run the `set <id> picked` command
+   SessionStart printed and hand that item's file to `requirements-agent` as an existing ticket
+   (step 7) — its steps and files are the draft. Record `Follow-up: <id>` in `workflow-state.md`.
 1. Use `workflow-manager` to identify or derive the feature title and slug, and to scaffold or
    locate the per-feature artifact structure (including `intent/` directory).
 2. If `agent-nelly:agent-nelly` is available, call it to read the project's stored
@@ -131,7 +136,8 @@ contract at phase boundaries.
    handoff in this turn** (same constraint applies). Do not end your turn after approving design
    — proceed to handoff without stopping.
 10. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
-    transfers to `agent-tdd`.)
+    transfers to `agent-tdd`.) If `workflow-state.md` has a `Follow-up: <id>`, mark it `done` with
+    the same `followups.py set` command once the implementation is reported complete.
 
 ## Continue Protocol
 

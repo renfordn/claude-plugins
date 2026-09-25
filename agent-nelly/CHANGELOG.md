@@ -1,6 +1,9 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Docs**: INTEROP documents how agent-isdd hands over code-reviewer follow-ups (as `file-relevance`
+  entries, so editing those files surfaces them).
+
 - **Docs**: INTEROP and entry template no longer reference plugin-harness (removed).
 
 - **Feature**: session-start context now asks Claude to prefix any reply line that uses or writes
