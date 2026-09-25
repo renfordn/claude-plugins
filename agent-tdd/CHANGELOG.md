@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.19] - 2026-09-25
+
 - **Docs**: `references/escalation-paths.md` now says agent-isdd detects the model-escalation
   marker when agent-TDD stops, not in its before-continue hook.
 

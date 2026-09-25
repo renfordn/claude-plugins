@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.62] - 2026-09-25
+
 - **Fix**: model escalation was effectively never detected. `before_continue.py` looked for
   agent-TDD's `MODEL-ESCALATE` marker in the parent session's last assistant message, but the
   report reaches the parent as a tool result. `subagent_report.py` now detects it at agent-TDD's

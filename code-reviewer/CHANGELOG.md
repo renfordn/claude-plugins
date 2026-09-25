@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
 - **Fix**: the skill didn't load for casual review requests. Its description listed internals
   (evidence tiers, decision model) instead of what users ask for. Measured with new
   `evals/trigger-*` cases ("look over this", "any bugs in this?", "is this safe to ship?"), 3
