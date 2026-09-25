@@ -44,3 +44,10 @@ alone (file paths, enough context to act). Dismiss with the returned id if it go
 
 ✅ complete · ▸ current · ○ not started · ⚠ needs attention · 🎯 goal-alignment (agent-nelly only).
 One or two per message where they aid scanning, never decoration.
+
+## 🧠 agent-nelly in use
+
+Prefix a line with 🧠 whenever it comes from, or goes to, agent-nelly memory — a brief or Intent
+from `agent-nelly:agent-nelly`, a surfaced entry, or a memory write — so the user can see when
+memory is shaping the answer (e.g. `🧠 Nelly: prior fix — retry wrapper in api/client.py`).
+Once per memory use, not on every line of the brief.

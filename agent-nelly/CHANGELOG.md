@@ -1,6 +1,9 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: session-start context now asks Claude to prefix any reply line that uses or writes
+  Nelly memory with 🧠, so memory use is visible.
+
 - **Change**: `file-summary`/`folder-summary` entries now live in their own subdirectory,
   `entries/<SUMMARY_SUBDIR>/` (`nelly_memory.SUMMARY_SUBDIR`, currently `file-folder-summary`),
   instead of directly under `entries/` alongside every other entry type. `entries/` was

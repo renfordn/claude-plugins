@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **Feature**: `references/ux-conventions.md` adds the 🧠 marker for agent-nelly memory use.
+
 - **Change**: agent-ux retired. Skills now call `mark_chapter`, `Artifact` and the task tools
   directly per the new `references/ux-conventions.md`, instead of spawning `agent-ux:ux-agent`
   (~2K tokens per event for one tool call). Fast-track breadcrumb mismatch is gone with it.
