@@ -6,6 +6,7 @@ Monorepo for Renford Nelson's personal Claude Code plugins:
 - `agent-tdd/` — test-driven implementation agent
 - `code-reviewer/` — code review skill
 - `agent-nelly/` — memory system
+- `focus-ux/` — ADHD-friendly output style + visual-brief skill
 
 Each subdirectory is a standalone plugin (own `.claude-plugin/plugin.json`,
 `INTEROP.md`, etc.) migrated here as a fresh snapshot — commit history prior
@@ -19,7 +20,7 @@ to the migration lives in the original per-plugin repos:
 ## Installing the plugins
 
 See [`docs/install-and-verify.md`](./docs/install-and-verify.md) for the full
-install, verification, and troubleshooting walkthrough covering all 4 plugins
+install, verification, and troubleshooting walkthrough covering all 5 plugins
 in the `renfordn-plugins` marketplace.
 
 ## Checking account plugin versions

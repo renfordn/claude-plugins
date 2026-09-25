@@ -1,0 +1,10 @@
+{
+  "name": "focus-ux-private",
+  "description": "Renford Nelson's private marketplace for the focus-ux plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "focus-ux", "source": "./" }
+  ]
+}

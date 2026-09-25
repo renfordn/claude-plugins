@@ -1,6 +1,6 @@
 # Install and Verify — Claude Plugin Collection
 
-This guide walks through installing all 4 plugins from the `renfordn-plugins` marketplace,
+This guide walks through installing all 5 plugins from the `renfordn-plugins` marketplace,
 verifying they are working, and troubleshooting common issues. All plugins can be used
 standalone or in any combination.
 
@@ -13,7 +13,7 @@ standalone or in any combination.
 
 ## Add the Marketplace
 
-All 4 plugins are published from one marketplace, `renfordn-plugins`, backed by the
+All 5 plugins are published from one marketplace, `renfordn-plugins`, backed by the
 `renfordn/claude-plugins` GitHub repo. Add it once, before any `claude plugin install`
 below — every `@renfordn-plugins` install fails with an unknown-marketplace error until
 this step has run:
@@ -40,6 +40,7 @@ claude plugin install agent-isdd@renfordn-plugins
 
 ```bash
 claude plugin install code-reviewer@renfordn-plugins
+claude plugin install focus-ux@renfordn-plugins
 ```
 
 ---
@@ -52,7 +53,7 @@ After installing, confirm all plugins are present and enabled:
 claude plugin list
 ```
 
-Expected output: all 4 plugins listed with `Status: ✔ enabled`.
+Expected output: all 5 plugins listed with `Status: ✔ enabled`.
 
 ---
 
@@ -102,6 +103,16 @@ claude --print "Use the code-reviewer skill to list its four evidence tiers."
 Expected: a brief description naming tier-1 through tier-5 evidence tiers. (Claude Code's
 own built-in `/code-review` command is a separate thing — this plugin's skill is
 `code-reviewer:code-reviewer`, invoked by name or by asking for a code review.)
+
+### focus-ux
+
+```bash
+claude --print "Walk me through the 3 steps to add a new plugin to this repo."
+```
+
+Expected: the reply opens with a `▸ Step 1/3` position line and a `🎯 Goal:` line (the forced
+**Focus** output style). `claude plugin details focus-ux@renfordn-plugins` should list the
+`Focus` output style and the `visual-brief` skill.
 
 ---
 
@@ -163,7 +174,7 @@ The install command is idempotent — re-running it replaces a broken install cl
 Run this checklist on a clean machine before marking the release complete:
 
 - [ ] `claude plugin marketplace add renfordn/claude-plugins` succeeds
-- [ ] All 4 plugins install without errors
+- [ ] All 5 plugins install without errors
 - [ ] `claude plugin list` shows all 4 with `Status: ✔ enabled`
 - [ ] `agent-nelly` smoke test returns a response (even "not yet captured")
 - [ ] `agent-tdd` `claude plugin details` lists its agents/skills

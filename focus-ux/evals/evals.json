@@ -1,0 +1,51 @@
+{
+  "skill_name": "visual-brief",
+  "evals": [
+    {
+      "id": 1,
+      "name": "audit-findings",
+      "prompt": "ok the test-suite audit finished across the plugins, here's the raw dump. can you tell me what matters?\n\nagent-isdd: 212 tests, 3 flaky (test_post_write_check::test_race, test_commit_audit_gate::test_timeout, test_subagent_report::test_empty), 1 skipped since June, 41s runtime\nagent-nelly: 188 tests, 0 flaky, 12 tests hardcode /Users/jay.nelson paths (fail on CI linux), 9s\nagent-tdd: 97 tests, 1 flaky (test_tdd_check::test_red_detect), runtime jumped 6s -> 38s after 0.3.0 because tdd_check spawns pytest per test\ncode-reviewer: 140 tests, 0 flaky, evals not run in CI (by design), 12s\nshared: 55 tests, bare-module name collision if run together with agent-nelly (path_resolution.py)\nfocus-ux: 4 tests, 0s\nCI: last 10 runs 7 green 3 red, all 3 reds were agent-isdd flakies",
+      "expected_output": "Headline conclusion first; findings ranked by impact (isdd flakies causing all CI reds, nelly hardcoded paths, tdd runtime regression, shared collision); a visual (ranked findings / matrix / chart) with callouts; recommended next action.",
+      "files": [],
+      "assertions": [
+        "Reply opens with a one-sentence headline/conclusion or recommendation within the first 3 non-empty lines",
+        "Reply (or brief.html/widget.html) contains at least one diagram, timeline, matrix, or chart (code-block ASCII/Unicode drawing, table, or SVG/HTML visual)",
+        "Reply ends with (or clearly contains) a concrete next action or decision with a recommendation",
+        "Chat reply is 45 lines or fewer",
+        "Findings are ranked, and agent-isdd flaky tests (cause of all 3 CI reds) are ranked first",
+        "Reply uses numbered callouts or ranked markers (e.g. ①②③ or 1/2/3 with severity)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "phased-plan-with-position",
+      "prompt": "we're moving agent-cache's useful ideas into agent-nelly. rough plan in my head: 1) research-digest cache entries keyed by git hash of files read 2) hit/miss + tokens-saved counters 3) session-start warming of hot files 4) visual /nelly-memory view. phase 1 is basically done (entry type + write path merged yesterday), we're midway through phase 2 - counters exist but nothing reports them yet. lay out the plan and where we are so i don't lose track",
+      "expected_output": "Clear position (Phase 2/4, mid-step), a timeline/progress map of 4 phases with done/current/pending markers, per-phase goal, what's achieved in phase 1, what's next concretely.",
+      "files": [],
+      "assertions": [
+        "Reply opens with a one-sentence headline/conclusion or recommendation within the first 3 non-empty lines",
+        "Reply (or brief.html/widget.html) contains at least one diagram, timeline, matrix, or chart (code-block ASCII/Unicode drawing, table, or SVG/HTML visual)",
+        "Reply ends with (or clearly contains) a concrete next action or decision with a recommendation",
+        "Chat reply is 45 lines or fewer",
+        "Reply shows position explicitly as Phase 2 of 4 (e.g. 'Phase 2/4')",
+        "Each of the 4 phases has a visible status marker (done/current/pending)",
+        "Phase 1 achievements are stated concretely (entry type + write path merged)"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "storage-comparison",
+      "prompt": "for nelly's research digest cache i can't decide how to store it. options: (a) one markdown file per digest in entries/ like everything else, (b) sqlite db in the plugin data dir, (c) a single digests.json index. it needs to sync across machines via the icloud shared memory root, be greppable, survive concurrent sessions writing, and stay cheap to look up by file path. what should i do?",
+      "expected_output": "A recommendation up front; a comparison matrix of 3 options x 4 criteria with a verdict; the key tradeoff (sqlite + iCloud sync corruption risk; single json concurrent writes) stated plainly.",
+      "files": [],
+      "assertions": [
+        "Reply opens with a one-sentence headline/conclusion or recommendation within the first 3 non-empty lines",
+        "Reply (or brief.html/widget.html) contains at least one diagram, timeline, matrix, or chart (code-block ASCII/Unicode drawing, table, or SVG/HTML visual)",
+        "Reply ends with (or clearly contains) a concrete next action or decision with a recommendation",
+        "Chat reply is 45 lines or fewer",
+        "Contains a comparison matrix covering all 3 options against the 4 stated criteria (sync, greppable, concurrent writes, lookup by path)",
+        "Names the SQLite-over-iCloud sync/corruption risk or single-JSON concurrent-write risk explicitly"
+      ]
+    }
+  ]
+}

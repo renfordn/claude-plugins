@@ -20,7 +20,7 @@ jobs:
       matrix:
         # Every plugin with test_*.py files, discovered recursively by pytest regardless of
         # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd) or hooks/ + scripts/ (agent-nelly).
-        plugin: [agent-isdd, agent-tdd, agent-nelly, shared, code-reviewer]
+        plugin: [agent-isdd, agent-tdd, agent-nelly, shared, code-reviewer, focus-ux]
     steps:
       - uses: actions/checkout@v4
 
