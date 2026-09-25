@@ -7,6 +7,14 @@ description: Review code for bugs and risks before it's merged, shipped, or comm
 
 Claude-native review skill. Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (findings.json only), `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location.
 
+## Start Here
+
+Before reading any code, size the change (Review Pipeline step 1). On a `large` diff (>400
+changed lines or >10 files) one pass is not enough, and you must run the sweep in step 6: a
+single read of a long diff skims the repetitive parts, and which defect slips through changes
+from pass to pass (a handler missing its siblings' guard, a one-character loop bound in a
+refactor). Then follow the Review Pipeline in order.
+
 ## Use This Skill When
 
 - The user explicitly asks for a code review (`direct-review`).
@@ -40,14 +48,16 @@ Most real defects in a PR sit where the diff meets code it didn't touch: a calle
 old signature, an import of something that moved, logic that already exists elsewhere, behavior
 that changed with no test watching it. Reading the diff alone misses all of them, and on a large
 PR one context can't hold everything anyway. So every review at `Standard` or above runs these
-steps (`Quick` does 1 and 5–8 only):
+steps (`Quick` does 1, 5 and 7–9 only):
 
 1. **Plan.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_plan.py" plan [--base <ref>]`
    (`--diff-file <path>` for a saved diff). It prints files ranked by risk, symbols that changed
    signature, were removed, or are new, candidate tests per source file, `test_gaps`, review
    `groups`, and whether the diff is `large` (>400 changed lines or >10 files, docs/lockfiles
    excluded). No shell? Derive the same by reading the diff: changed files, `def`/`class`/
-   `function` lines added, removed or altered, and the test files beside each source file.
+   `function` lines added, removed or altered, and the test files beside each source file. Treat
+   the diff as `large` on the same thresholds (count `+`/`-` lines and files), and group files by
+   directory, riskiest first.
 2. **Context step.** For every changed signature and removed symbol, search the *whole repo*
    (`Grep` for the name) for callers and importers, including files the diff never touched, and
    read each call site. A caller left on the old shape is a `correctness` finding at tier-1/2,
@@ -55,7 +65,7 @@ steps (`Quick` does 1 and 5–8 only):
 3. **Fan out when `large`.** Spawn one `code-reviewer:code-reviewer` agent per group, all in one
    message so they run in parallel; brief each with its group's files, the plan entries for those
    files, and `review_level`. Then spawn `code-reviewer:cross-file-reviewer` with the full plan and
-   each group's finding titles; it owns steps 2 and 7 across groups. Not large: one reviewer does
+   each group's finding titles; it owns steps 2 and 8 across groups. Not large: one reviewer does
    everything. If agents can't be spawned, review the groups in sequence yourself, riskiest first.
 4. **Test gaps.** Go function by function through every changed function (all of `test_gaps`,
    or every touched function if you had no plan): what behavior is new, and which test exercises
@@ -65,12 +75,18 @@ steps (`Quick` does 1 and 5–8 only):
    finding per function, never a single catch-all "coverage is thin" remark — that is the version
    nobody acts on. Pure renames/refactors need no finding.
 5. **Merge and dedupe** across reviewers per the anti-blur rules; rank most-severe first.
-6. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
-7. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
+6. **Sweep until dry** (`large` diffs, and any `Deep`/`Ultra` review). Go back over the diff one
+   file at a time — every changed hunk, especially the ones that looked mechanical — asking only
+   "what here haven't I reported?". Best done by a fresh `code-reviewer:code-reviewer` agent
+   briefed with the scope plus the titles of the findings so far and told to report only new
+   ones; otherwise do it yourself, file by file, without skipping. Repeat while a sweep adds a
+   finding, at most 3 sweeps. Say in one line how many sweeps ran and what each added.
+7. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
+8. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
    consolidation steps. Before proposing a new shared helper, search for an existing one that
    already does the job and consolidate onto it. Each item becomes a `followups` entry in
    findings.json and a numbered **Cleanup plan** in your reply.
-8. **Write findings.json** (below), then render.
+9. **Write findings.json** (below), then render.
 
 ## findings.json
 
@@ -134,6 +150,9 @@ Each level defines checks performed, skipped checks, and output style, ordered b
   - Duplicated logic that should be consolidated into a shared function, method, or class —
     within the diff, and against existing helpers the context step turns up
   - Callers and importers of changed or removed symbols (Review Pipeline step 2)
+  - Sibling consistency: a new or changed function that lacks what its neighbours in the same
+    file or module all have — an auth/permission decorator, input validation, a transaction or
+    lock, error handling, a unit conversion — is a finding; copy-paste additions miss these most
   - Obvious bugs and edge cases
   - Test gaps (Review Pipeline step 4)
 - **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, module-wide coherence, and broader refactoring suggestions beyond the narrow duplicate-consolidation check above (those stay a Level 3/Deep concern)

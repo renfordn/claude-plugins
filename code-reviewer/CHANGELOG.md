@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Evals**: `large-pr-buried-defects` — 31 files, ~2,100 changed lines of logging/type-hint
+  churn hiding six defects. Defects found per run (3 runs each, out of 6): plain Claude 4.3, old
+  skill 4.3 (never loaded), new skill 4.7–5.0. The misses differ from run to run; the union of 3
+  runs finds 5–6. The model did not follow the fan-out or sweep instructions in any run (0 agent
+  spawns even when told it must), so multi-pass review needs a driver outside the model's
+  discretion rather than more instructions.
+- **Change**: "Start Here" sizing note, a sibling-consistency check (a new handler missing the
+  guard/validation its neighbours have), and a sweep-until-dry step for large diffs.
+
 ## [0.3.0] - 2026-09-25
 
 - **Feature**: review pipeline for PRs and large diffs (SKILL.md "Review Pipeline").
