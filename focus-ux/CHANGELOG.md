@@ -1,6 +1,18 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
+- **Feature**: Brief Board. One living Artifact page (`assets/brief-board.html`, `db` capability,
+  owner-only writes) shows every brief newest first, grouped by day and filterable by project,
+  and updates live. Adding a brief is one `ArtifactData` write of the JSON, with no HTML and no
+  page publish. The skill then opens the board (`Artifact action: "open"`) so the new brief is
+  seen. `build_brief.py --board` builds it, and `--check` validates a brief before writing.
+- **Change**: the richer visual style replaces the plain template (IBM Plex; eyebrow + lede,
+  tone pills, numbered phase stepper, ranked finding cards with "So what", status-dot `grid`
+  section). One JS renderer now serves both the board and standalone pages (`build_brief.py`
+  embeds the JSON), so there's one design to maintain. `assets/brief-template.html` is removed.
+
 ## [0.1.0] - 2026-09-25
 
 - **Feature**: new plugin. The `Focus` output style (forced on, keeps coding instructions) adds

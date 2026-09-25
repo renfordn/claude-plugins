@@ -25,8 +25,8 @@ Focus decides *how* they're shown.
 
 Any plugin that ends in a large human-facing result (research summary, review findings, plan,
 memory view) can say "present with `focus-ux:visual-brief`" instead of defining its own rendering.
-The skill picks the shape (timeline, flow, map, matrix, chart) and the medium (inline, widget,
-Artifact) itself. `code-reviewer:code-brief` stays the specialist for explaining code.
+The skill picks the shape (timeline, flow, map, matrix, chart) and where it goes (inline in chat,
+plus a Brief Board entry when the result earns a page) itself. `code-reviewer:code-brief` stays the specialist for explaining code.
 
 ## If focus-ux isn't installed
 
