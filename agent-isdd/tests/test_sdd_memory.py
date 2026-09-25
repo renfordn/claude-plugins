@@ -147,5 +147,57 @@ class ClaudePluginDataEnvVarTests(unittest.TestCase):
         self.assertTrue(d.endswith(slug))
 
 
+class RepoRootSlugTests(unittest.TestCase):
+    """A subdirectory of a git repo shares the repo's slug; a linked worktree keeps its own."""
+
+    def setUp(self):
+        import tempfile
+        self._tmp = tempfile.TemporaryDirectory()
+        self.repo = h.make_git_repo(os.path.join(self._tmp.name, "repo"))
+        self.sub = os.path.join(self.repo, "agent-nelly", "hooks")
+        os.makedirs(self.sub)
+        self.module = _load_sdd_memory_module()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_subdirectory_maps_to_repo_slug(self):
+        self.assertEqual(self.module.project_slug(self.sub), self.module.project_slug(self.repo))
+
+    def test_repo_slug_is_unchanged_path_transform(self):
+        self.assertEqual(self.module.project_slug(self.repo), h.project_slug_for(self.repo))
+        self.assertTrue(self.module.project_slug(self.repo).endswith("-repo"))
+
+    def test_worktree_keeps_own_slug(self):
+        wt = h.add_git_worktree(self.repo, os.path.join(self.repo, ".claude", "worktrees", "wt1"))
+        wt_sub = os.path.join(wt, "scripts")
+        os.makedirs(wt_sub)
+        slug = self.module.project_slug(wt_sub)
+        self.assertEqual(slug, self.module.project_slug(wt))
+        self.assertTrue(slug.endswith("-repo-claude-worktrees-wt1"))
+
+    def test_symlinked_cwd_into_repo_subdir_maps_to_repo(self):
+        link = os.path.join(self._tmp.name, "link")
+        os.symlink(self.sub, link)
+        self.assertEqual(self.module.project_slug(link),
+                         self.module.project_slug(os.path.realpath(self.repo)))
+
+    def test_missing_dir_falls_back_to_cwd(self):
+        missing = os.path.join(self._tmp.name, "no", "such", "dir")
+        self.assertTrue(self.module.project_slug(missing).endswith("-no-such-dir"))
+
+    def test_non_repo_dir_falls_back_to_cwd(self):
+        plain = os.path.join(self._tmp.name, "plain", "sub")
+        os.makedirs(plain)
+        self.assertTrue(self.module.project_slug(plain).endswith("-plain-sub"))
+
+    def test_path_cli_from_subdirectory_resolves_repo_store(self):
+        with h.temp_home() as home:
+            out_sub, rc1 = h.run_sdd_memory_cli(["--path"], cwd=self.sub, env_extra={"HOME": home})
+            out_root, rc2 = h.run_sdd_memory_cli(["--path"], cwd=self.repo, env_extra={"HOME": home})
+            self.assertEqual((rc1, rc2), (0, 0))
+            self.assertEqual(out_sub, out_root)
+
+
 if __name__ == "__main__":
     unittest.main()

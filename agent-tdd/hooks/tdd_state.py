@@ -12,6 +12,7 @@ dependency. The two modules must stay in sync if the slug algorithm ever changes
 import json
 import os
 import re
+import subprocess
 import sys
 
 # path_resolution.py lives alongside this file (a per-plugin copy -- see its own
@@ -26,11 +27,40 @@ _plugin_data_dir = get_plugin_data_dir("agent-tdd")
 BASE = get_legacy_subdir_path(_plugin_data_dir, "agent-tdd-state")
 
 
-def project_slug(cwd):
-    """Deterministic collision-resistant slug from an absolute project path.
-    Algorithm is identical to agent-isdd/hooks/sdd_memory.py — kept in sync manually.
+def _repo_root(cwd):
+    """The git toplevel containing cwd, or cwd itself outside a repo (or if git is missing).
+
+    git reports the toplevel as a realpath, so prefer the lexical ancestor of cwd that resolves
+    to it: that keeps cwd's spelling (e.g. /tmp vs /private/tmp on macOS) and so the slug. When
+    cwd was reached through a symlink from outside the repo, no ancestor matches and git's
+    toplevel is used. A linked worktree is its own toplevel, so it keeps its own slug.
     """
     absp = os.path.abspath(cwd)
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    try:
+        proc = subprocess.run(["git", "-C", absp, "rev-parse", "--show-toplevel"],
+                              capture_output=True, text=True, timeout=5, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return absp
+    top = proc.stdout.strip()
+    if proc.returncode != 0 or not top:
+        return absp
+    real_top = os.path.realpath(top)
+    d = absp
+    while True:
+        if os.path.realpath(d) == real_top:
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return top
+        d = parent
+
+
+def project_slug(cwd):
+    """Deterministic collision-resistant slug from the project path (git toplevel of cwd).
+    Algorithm is identical to agent-isdd/hooks/sdd_memory.py — kept in sync manually.
+    """
+    absp = _repo_root(cwd)
     slug = re.sub(r"[^A-Za-z0-9]+", "-", absp).strip("-").lower()
     return slug or "root"
 

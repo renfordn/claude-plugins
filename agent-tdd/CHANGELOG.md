@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-25
+
+- **Fix**: `tdd_state.project_slug()` resolves the slug from the git toplevel of cwd, matching
+  agent-isdd, so repo subdirectories share the repo's tdd state. Worktrees keep their own slug.
+
 ## [0.3.0] - 2026-09-25
 
 - **Feature**: `/tdd <behavior>` command — Slice Spec from the conversation, agent-TDD, independent
