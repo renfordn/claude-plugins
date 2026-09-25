@@ -29,6 +29,11 @@
             "type": "string",
             "description": "One-sentence behavior description (e.g., 'Add login form validation')"
           },
+          "kind": {
+            "type": "string",
+            "enum": ["fix", "refactor", "feature"],
+            "description": "Slice kind. fix and refactor slices are preparatory: they put the affected code in shape (latent defects fixed, structure ready) before the feature slices that build on it, and are ordered ahead of them via depends_on. Omitted means feature."
+          },
           "risk_tier": {
             "type": "string",
             "enum": ["standard", "high-risk"],

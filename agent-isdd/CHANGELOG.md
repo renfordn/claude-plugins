@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.63] - 2026-09-25
+
+- **Feature**: ground designs in the code they change. `research-consolidator` runs an
+  Assumption audit: it traces the code path the feature will use and returns a
+  `Prerequisite Work` list of latent defects, prep refactors and unverified assumptions.
+  `design-author` carries that list into a new `design.md` section, `Prerequisite Fixes &
+  Refactors`, and designs against the code as it will be after those fixes. The Design Gate
+  checks this. `INTEROP.md` routes agent-TDD's `rescope (design):` flag back to Design.
+  The audit records one item per underlying problem (not a `fix` and a `refactor` for the same
+  defect), and only records `unverified` items a requirement depends on (roughly 5 at most).
+
 ## [0.1.62] - 2026-09-25
 
 - **Fix**: model escalation was effectively never detected. `before_continue.py` looked for

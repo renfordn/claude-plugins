@@ -214,6 +214,25 @@ instead. Slice 3 implementation blocked until this gap is clarified.
 
 ---
 
+#### 3.5 Prerequisite Found While Writing Red (Red-Phase Rescope)
+**Trigger**: Writing the slice's test shows it can't go green reliably without first fixing a
+bug or restructuring code the slice wasn't scoped for.
+
+**Example**: Slice 4 adds retry to `fetchOrders()`; writing its test shows `httpClient.get()`
+swallows 5xx errors and returns `null`, so there is nothing to retry on.
+
+**Agent-tdd Action** (see `agents/agent-TDD.md`'s "Red-Phase Rescope"):
+- Stop at Red; write a mini re-spec (`file:line`, triggering input, why the slice needs it)
+- Design Spec Mode, contained: insert `fix`/`refactor` slices ahead of the current slice in
+  tasks.md, re-run Ralph Loops 1–2, log it under `## Rescope Log`, implement them, then resume
+- Design Spec Mode, design-level: Plan Validity Flag with reason `rescope (design): ...`
+- Slice Spec Mode: **Rescope Request** field in the handoff report
+
+**Agent-isdd Action**: for `rescope (design)`, revise design.md (re-target the rollback to
+Design); for a Rescope Request, schedule the proposed prep slices before re-running the slice.
+
+---
+
 ## Escalation Summary Table
 
 | Phase | Escalation Type | Root Cause | Agent-TDD Action | Agent-ISDD Action | Resume? |
@@ -225,6 +244,7 @@ instead. Slice 3 implementation blocked until this gap is clarified.
 | Per-Slice Red/Green | Research Gap | Code structure different from design | Stop, emit flag | Provide clarification | Yes |
 | Per-Slice Red/Green | Plan Validity | Task requirements conflict | Stop, emit flag | Replan requirements | Yes |
 | Per-Slice Red/Green | Blocker | Cannot satisfy test | Surface blocker, pause | Adjust design or prerequisites | Yes |
+| Per-Slice Red | Rescope | Prerequisite fix/refactor found writing Red | Stop at Red; re-slice (contained) or flag | Revise design or schedule prep slices | Yes |
 | Per-Slice Red/Green | Model Escalation | Lower-tier model insufficient | Emit marker with reason, pause | Re-spawn at higher tier with cached context | Yes |
 
 ---

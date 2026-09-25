@@ -75,6 +75,15 @@ Before drafting, delegate to subagents rather than relying only on what's alread
 
    After `research-consolidator` returns:
    - Use `design_findings` to draft design.md
+   - Carry every `Prerequisite Work` item into `design.md`'s `Prerequisite Fixes & Refactors`
+     section, and design the feature against the code *as it will be after* those items land —
+     not as you hoped it already was. If a `fix` item changes what the feature can assume (e.g.
+     the function it calls turns out to swallow errors), say so in the affected design section.
+     An `unverified` item either gets verified (a quick targeted read or asking the user) or goes
+     into `Risks And Tradeoffs` as a named risk. This is what keeps the design grounded: bugs and
+     awkward code found now become sequenced prep work, instead of surprises a TDD slice has to
+     absorb.
+   - Also cache the `Prerequisite Work` list in `research/cache.md` so task slicing sees it.
    - Cache `task_findings` in `research/cache.md` (for agent-tdd to reuse)
    - Persist `file_summaries` to agent-nelly's `file summaries` field (see its
      `agents/agent-nelly.md`'s "File & Folder Summary Cache" section) — **not** for a file that
@@ -120,6 +129,9 @@ Move forward only when all of the following are true:
 - key tradeoffs are visible
 - no unresolved contradiction remains
 - **[Phase 2+3]** research cache created (research/cache.md with design_findings + task_findings)
+- `Prerequisite Fixes & Refactors` lists every `Prerequisite Work` item `research-consolidator`
+  returned (or states "none found" because its audit found none), each saying which part of the
+  design depends on it — and no design section still assumes the pre-fix behavior
 - **[Phase 2+3]** a `Refactor & Reduction Opportunities` bullet exists for every touchpoint file
   `research-consolidator` reported at or over the resolved line-count ceiling — non-blocking
   (recording the recommendation gates approval; resolving it doesn't)
