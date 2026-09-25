@@ -14,6 +14,7 @@ _PLUGIN = Path(__file__).resolve().parent.parent
 _REPO = _PLUGIN.parent
 _AGENT = _PLUGIN / "agents" / "code-reviewer.md"
 _VERIFIER = _PLUGIN / "agents" / "finding-verifier.md"
+_CROSS = _PLUGIN / "agents" / "cross-file-reviewer.md"
 _SCRIPT = _PLUGIN / "scripts" / "review_headless.sh"
 _EDIT_TOOLS = {"Edit", "Write", "NotebookEdit"}
 
@@ -25,7 +26,7 @@ def _frontmatter_tools(path: Path) -> set:
 
 
 def test_reviewer_and_verifier_agents_are_read_only():
-    for agent in (_AGENT, _VERIFIER):
+    for agent in (_AGENT, _VERIFIER, _CROSS):
         tools = _frontmatter_tools(agent)
         assert not tools & _EDIT_TOOLS, f"{agent.name} can edit files: {tools & _EDIT_TOOLS}"
         assert "Agent" not in tools

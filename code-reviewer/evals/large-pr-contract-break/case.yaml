@@ -1,0 +1,45 @@
+schema_version: "1"
+name: large-pr-contract-break
+description: Multi-file PR with a broken unchanged caller, a buried off-by-one, and an untested behavior change.
+tags: [large-pr, cross-file]
+runs: 3
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Skill, Agent, Read, Grep, Glob]
+  prompt: |
+    Review the PR on branch `feature` (checked out here) against `main` before I merge it.
+    There's no shell in this environment, so the full diff is already saved in `PR.diff`;
+    every file in the repo is readable.
+
+    End your final message with one line per finding in the form
+    `<path>:<line> — <severity> — <summary>`, or the single line `No findings.` if there are none.
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:code-reviewer:)?code-reviewer"'
+  - name: finds-broken-caller
+    type: llm
+    criteria: |
+      PASS if the response reports that `app/reports.py` (not changed by the PR) still calls
+      `users.get_user(conn, uid)` with two arguments, which now raises TypeError because the PR
+      made `include_deleted` a required parameter of `get_user` (or recommends giving it a default).
+      FAIL if it doesn't identify that unchanged caller as broken.
+  - name: cites-broken-caller
+    type: regex
+    pattern: 'app/reports\.py:\d+'
+  - name: finds-pagination-off-by-one
+    type: llm
+    criteria: |
+      PASS if the response reports that `paginate` in `app/pagination.py` now computes
+      `start = page * size`, so page 1 skips the first page of items (should stay `(page - 1) * size`).
+      FAIL if it doesn't report this defect.
+  - name: finds-pricing-test-gap
+    type: llm
+    criteria: |
+      PASS if the response points out that `apply_discount`'s behavior changed (50% cap and/or
+      rounding) without any test covering the new behavior, and asks for or suggests such a test.
+      FAIL if it doesn't mention missing test coverage for the pricing change.

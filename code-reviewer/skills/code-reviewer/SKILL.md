@@ -5,7 +5,7 @@ description: Review code for bugs and risks before it's merged, shipped, or comm
 
 # Code Reviewer
 
-Claude-native review skill. Tools: `Bash`, `Read`, `Edit`, `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location and `phase_state`.
+Claude-native review skill. Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (findings.json only), `ReportFindings`, `Artifact`, `Agent` (delegation only). Invocable directly, mid-TDD, or pre-commit. No hard dependency on any plugin — standalone-capable with an optional review-state location.
 
 ## Use This Skill When
 
@@ -33,6 +33,62 @@ decision.
 Triggered immediately before a commit, by whatever mechanism the calling workflow uses to gate
 commits, or by explicit user request. Scope: the full staged diff. Any `tier-1`/`tier-2` finding
 with `workflow_action: block_commit` prevents the commit until resolved or explicitly overridden.
+
+## Review Pipeline
+
+Most real defects in a PR sit where the diff meets code it didn't touch: a caller still using the
+old signature, an import of something that moved, logic that already exists elsewhere, behavior
+that changed with no test watching it. Reading the diff alone misses all of them, and on a large
+PR one context can't hold everything anyway. So every review at `Standard` or above runs these
+steps (`Quick` does 1 and 5–8 only):
+
+1. **Plan.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_plan.py" plan [--base <ref>]`
+   (`--diff-file <path>` for a saved diff). It prints files ranked by risk, symbols that changed
+   signature, were removed, or are new, candidate tests per source file, `test_gaps`, review
+   `groups`, and whether the diff is `large` (>400 changed lines or >10 files, docs/lockfiles
+   excluded). No shell? Derive the same by reading the diff: changed files, `def`/`class`/
+   `function` lines added, removed or altered, and the test files beside each source file.
+2. **Context step.** For every changed signature and removed symbol, search the *whole repo*
+   (`Grep` for the name) for callers and importers, including files the diff never touched, and
+   read each call site. A caller left on the old shape is a `correctness` finding at tier-1/2,
+   since you read both sides. Read the candidate tests for each reviewed file too.
+3. **Fan out when `large`.** Spawn one `code-reviewer:code-reviewer` agent per group, all in one
+   message so they run in parallel; brief each with its group's files, the plan entries for those
+   files, and `review_level`. Then spawn `code-reviewer:cross-file-reviewer` with the full plan and
+   each group's finding titles; it owns steps 2 and 7 across groups. Not large: one reviewer does
+   everything. If agents can't be spawned, review the groups in sequence yourself, riskiest first.
+4. **Test gaps.** For each `test_gaps` file, decide whether behavior changed. If it did and no
+   test pins the new behavior, report `category: test-coverage`, `workflow_action: require_test`,
+   naming the function and the case to add. Pure renames/refactors need no finding.
+5. **Merge and dedupe** across reviewers per the anti-blur rules; rank most-severe first.
+6. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
+7. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
+   consolidation steps. Before proposing a new shared helper, search for an existing one that
+   already does the job and consolidate onto it. Each item becomes a `followups` entry in
+   findings.json and a numbered **Cleanup plan** in your reply.
+8. **Write findings.json** (below), then render.
+
+## findings.json
+
+The machine-readable record of a pass, for whatever acts on it next (a follow-up queue, CI, a
+later review). Path: `review_plan.py findings-path [--state-dir <review-state dir>]` — the
+review-state directory if one was supplied, else `<git dir>/code-review/findings.json` (never
+committed). Overwrite it each pass, then check it with `review_plan.py validate <path>`.
+
+```json
+{"scope": "main...HEAD", "level": "Standard", "generated_at": "2026-09-25T10:00:00Z",
+ "findings": [{"id": "F1", "file": "app/reports.py", "line": 7, "title": "Caller not updated",
+   "summary": "…", "failure_scenario": "…", "category": "correctness", "severity": "high",
+   "evidence_tier": "tier-1", "decision": "block", "workflow_action": "block_commit",
+   "confidence": "high", "verdict": "CONFIRMED", "evidence": "read users.py:1 and reports.py:7"}],
+ "followups": [{"kind": "consolidation", "title": "Use validation.normalize_email everywhere",
+   "files": ["app/invites.py", "app/newsletter.py"], "why": "…",
+   "steps": ["Replace _clean_email with normalize_email", "Delete sanitize_address"]}]}
+```
+
+`kind` is `refactor`, `consolidation`, or `deferred-defect` (a real defect deliberately left out
+of this PR). No 32-finding cap here: `ReportFindings` gets the top 32, the file keeps everything.
+No git repo and no review-state directory, or no `Write` tool: skip the file and say so in one line.
 
 ## Parameters
 
@@ -72,10 +128,10 @@ Each level defines checks performed, skipped checks, and output style, ordered b
     "design coherence"
   - Separation of concerns problems, as their own named check
   - Duplicated logic that should be consolidated into a shared function, method, or class —
-    scoped to the diff/file under review (not project-wide; project-wide duplicate detection
-    stays exclusive to Level 4/Ultra below)
+    within the diff, and against existing helpers the context step turns up
+  - Callers and importers of changed or removed symbols (Review Pipeline step 2)
   - Obvious bugs and edge cases
-  - Test coverage basics (are obvious test cases covered?)
+  - Test gaps (Review Pipeline step 4)
 - **Skipped Checks**: Security vulnerabilities, performance profiling, regression risk analysis, module-wide coherence, and broader refactoring suggestions beyond the narrow duplicate-consolidation check above (those stay a Level 3/Deep concern)
 - **Output Style**: Organized by finding type (correctness, naming, design); severity-tiered; typical current behavior
 
@@ -309,7 +365,7 @@ Before calling:
 
 1. Count every `short_summary` — if any is over 60, rewrite it shorter (don't just chop mid-word).
 2. More than 32 findings? Merge `nit`/`low` items per the anti-blur rules, and move the rest to
-   the dashboard (which the >5-finding threshold already requires).
+   the dashboard (which the >5-finding threshold already requires); findings.json keeps all.
 3. If the call still fails with a validation error, read the `path` in the error (e.g.
    `findings.1.short_summary`), fix that field, and call again. Don't give up and dump findings
    as prose — a failed handover means the caller gets nothing structured.

@@ -16,9 +16,14 @@ implementer's reasoning is deliberately withheld from you.
    Levels, Evidence Tier Model, Decision Model, anti-blur rules and ReportFindings Payload
    section are your rules. Its Visual Review, Review State and Resume Contract sections are the
    caller's job, not yours.
-2. From the brief, take: mode, `review_level`, scope (files or diff), and acceptance criteria if
-   given. Missing `review_level` → apply the skill's Auto-Detection Rules.
-3. Review the scope. `git diff`, `git log`, `git show` and running the existing tests are fine
+2. From the brief, take: mode, `review_level`, scope (files, diff, or one fan-out group plus its
+   plan entries), and acceptance criteria if given. Missing `review_level` → apply the skill's
+   Auto-Detection Rules.
+3. At `Standard` and above, do the skill's Review Pipeline steps 2 and 4 for your scope before
+   judging it: grep the whole repo for callers/importers of every changed or removed symbol and
+   read them, read the candidate tests, and decide each test gap. No plan in the brief? Run
+   `review_plan.py plan` yourself, or read the diff for the same facts.
+4. Review the scope. `git diff`, `git log`, `git show` and running the existing tests are fine
    for tier-1 evidence. Never edit, write, stage, commit, or run anything that changes files.
 
 ## Return this report
@@ -34,6 +39,9 @@ First line, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
 - **Review record** — per finding: `id` (`F1`, `F2`, … in payload order), `evidence_tier`, `decision`, `severity`, `category`,
   `workflow_action`, `confidence`, and one line of `evidence`. The caller needs these for review
   state and gate decisions; they don't fit in the payload.
+- **Cleanup candidates** — duplicate logic or design problems worth a refactor/consolidation
+  step: one line each with files, the existing helper to consolidate onto if you found one, and
+  the steps. The caller turns these into findings.json `followups`.
 - **Clarifying question** — only if a finding is `pause_for_review`: the single question the
   caller should put to the user, per the skill's Resume Contract.
 

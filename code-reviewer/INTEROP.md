@@ -55,6 +55,11 @@ each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-R
    reported — the handoff, `REVIEW-HISTORY.md`, and the implementer's resume message. Never let
    a self-review pass as independent.
 
+**Large diffs** (`review_plan.py plan` reports `large`): spawn one reviewer per plan group in a
+single message so they run in parallel, then `code-reviewer:cross-file-reviewer` with the full
+plan and the groups' finding titles, then merge — see SKILL.md's "Review Pipeline". Each spawn
+falls back to headless the same way (`--agent cross-file-reviewer` for the cross-file pass).
+
 The reviewer returns the `ReportFindings` payload as JSON; the caller renders it, because
 `ReportFindings` and the dashboard Artifact belong to the main thread (README's "Why this is a
 skill, not an agent").
@@ -63,9 +68,9 @@ skill, not an agent").
 
 A second context tries to disprove the findings that matter, so false positives don't block work.
 
-**When**: the review has any finding with `decision: block` or `workflow_action` of
-`block_commit` / `pause_for_review`, or `review_level` is `Ultra`. Verify those gating findings
-(every finding at `Ultra`). Otherwise skip it.
+**When**: the review has any finding with `decision: block`, `workflow_action` of
+`block_commit` / `pause_for_review`, or `severity` of `high` / `critical`, or `review_level` is
+`Ultra`. Verify those findings (every finding at `Ultra`). Otherwise skip it.
 
 **How**: same path order as the review. Spawn `code-reviewer:finding-verifier`
 (`agents/finding-verifier.md`), else run `scripts/review_headless.sh --agent finding-verifier
@@ -177,12 +182,13 @@ Model's fields.
 |-------|------|----------|-------------|
 | findings | array (ReportFindings) | yes | All review findings with full details |
 | review_dashboard | Artifact | no | Visual dashboard rendered by the skill; present above 5-finding/1-file threshold |
+| findings.json | file | no | Every finding (no 32 cap) plus `followups` (refactor / consolidation / deferred-defect items), at `review_plan.py findings-path`. Schema: SKILL.md "findings.json" |
 
 **Finding fields:**
 - `evidence_tier` (integer 1-5): Verification confidence for each finding
 - `review_level` (string, optional): Analysis depth (Quick/Standard/Deep/Ultra)
 
-See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. No separate machine-readable summary is returned beyond what `ReportFindings`/dashboard already show.
+See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. findings.json is the machine-readable summary; `review_plan.py validate` checks it.
 
 ## Out-of-scope items (`TODO-LEDGER.md`)
 
