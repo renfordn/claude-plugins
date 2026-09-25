@@ -13,7 +13,7 @@ phase's concerns.
 | Implementation (per-slice, Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
 | Implementation (post-slices coherence) | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if majority high-risk) |
 
-**Review Level Definitions** (see `code-reviewer/SKILL.md` for full details):
+**Review Level Definitions** (see `code-reviewer/skills/code-reviewer/SKILL.md` for full details):
 
 - **Quick**: Minimal checks, fact-finding, test clarity — < 50k tokens
 - **Standard**: Comprehensive checks, impact analysis — 50-150k tokens (default)

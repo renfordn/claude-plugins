@@ -63,7 +63,7 @@ picked up automatically). Look for exactly five finding classes:
    - Confirm the quoted or paraphrased claim still holds (e.g. `agent-isdd`'s own
      `doc-consistency-auditor` SKILL.md claims elsewhere in this file that `code-reviewer`'s
      `SKILL.md` scopes reviews to a caller-named diff/file set — verify that's still what
-     `code-reviewer/SKILL.md` says, not what it said historically).
+     `code-reviewer`'s `SKILL.md` says, not what it said historically).
    - A **mirrored value** (the same literal threshold/constant intentionally duplicated across
      plugins, e.g. the 5-finding/1-file dashboard threshold declared once in `code-reviewer`'s
      `SKILL.md` and mirrored by `agent-ux`'s `ux-conventions.md`/`ux-agent.md` and

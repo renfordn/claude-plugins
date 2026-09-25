@@ -36,6 +36,11 @@ findings for an implementation agent to act on. It reuses the same evidence-tier
 writes nothing to review state — there's no commit to gate. See SKILL.md's "Research Brief
 Output" section for the exact shape.
 
+Trigger it directly with `/code-reviewer:code-brief <file, feature, or subsystem>` instead of
+phrasing a request by hand. The Artifact itself gets a real design pass — SKILL.md's "Design bar"
+loads the `frontend-design` skill and grounds the diagram idiom, palette, and type in the
+subsystem being explained, rather than reusing one generic diagram template across every brief.
+
 ## Review state is opt-in
 
 This skill has no memory location of its own. Pass it a review-state directory if you want

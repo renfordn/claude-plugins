@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.16] - 2026-09-25
+
+- **Feature**: new `/code-reviewer:code-brief` command — invokes `research-brief` mode directly
+  (`commands/code-brief.md`) instead of requiring a hand-phrased request.
+- **Docs**: `research-brief`'s "Research Brief Output" section in SKILL.md now has a "Design bar"
+  step — loads `frontend-design` for the Artifact's visual design pass and grounds diagram idiom,
+  palette, and type in the subsystem being explained, so the output doesn't default to one
+  reused diagram template. README updated to point at the new command.
+
 ## [0.1.15] - 2026-09-24
 
 - **Feature**: new `research-brief` invocation mode — triggered explicitly when the user wants to

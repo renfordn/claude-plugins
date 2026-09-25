@@ -202,7 +202,7 @@ was skipped or has already exited).
 
 **Rationale**: This upfront Deep review catches wrong-shape designs early, before task slicing 
 and implementation, reducing rework during Red-Green-Refactor cycles. See 
-`code-reviewer/SKILL.md`'s "Review Levels" section for Deep level definition.
+`code-reviewer/skills/code-reviewer/SKILL.md`'s "Review Levels" section for Deep level definition.
 
 ## Required Output
 
