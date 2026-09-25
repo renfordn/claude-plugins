@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Removal**: `hooks/ux_render.py` and its SubagentStop entry. It never fired (it exited when
+  `state_path` was absent, which real SubagentStop payloads never carry) and targeted the
+  retired agent-ux/agent-cache plugins.
+
 ## [0.2.19] - 2026-09-25
 
 - **Docs**: `references/escalation-paths.md` now says agent-isdd detects the model-escalation

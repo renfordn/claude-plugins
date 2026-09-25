@@ -147,26 +147,6 @@ re-evaluate the target against the reason text at intake) — that translation l
 If you have no such mechanism, a Plan Validity Flag is safe to surface to a human and otherwise
 ignore — it's advisory, never a blocking condition on its own.
 
-## Rendering TDD-stage progress with `agent-ux` (optional)
-
-If your ecosystem also uses the `agent-ux:ux-agent` rendering plugin and your orchestrator is the
-one resuming/monitoring an `agent-TDD` instance across its stages (Plan → Red → Green → Review →
-Refactor → Validate) — `agent-TDD` itself never can be, having no `Agent` tool (see "The harness
-constraint" above) — you may construct a `phase_transition` envelope yourself at each stage
-boundary you observe from `agent-TDD`'s reports (its `<!--AGENT-TDD-PHASE:...-->` marker, plus
-your own knowledge of which stage just started), using **your own plugin's identity** as the
-envelope's `caller` (never `agent-tdd` — this plugin can't be a caller, since it never invokes
-anything), and a `phase_state` of the form `TDD:<stage>` (e.g. `TDD:green`). Per `agent-ux`'s own
-`INTEROP.md`, any `phase_state` matching that `TDD:` prefix is excluded from chapter marking
-regardless of `caller` — only the breadcrumb renders — so you don't need a caller-specific rule of
-your own to get that behavior; `agent-ux` already applies it based on the phase_state shape alone.
-
-This is genuinely optional and orthogonal to everything else in this contract — omitting it costs
-you TDD-stage visual progress, nothing else. No plugin in this ecosystem does this today (`SDD`'s
-own handoff is deliberately one-directional and doesn't monitor past the initial spawn — see
-`agent-isdd`'s own `INTEROP.md`); this section exists so a *different* orchestrator that does want
-to drive the full loop has a documented recipe rather than having to invent one.
-
 ## Handoff Facts (optional memory integration)
 
 Neither agent has an `Agent` tool or any file-based memory store of its own. If your ecosystem

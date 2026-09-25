@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Change**: agent-ux retired. The review dashboard and out-of-scope flags always use
+  `Artifact`/`spawn_task` directly; the `phase_state` input (which only gated agent-ux
+  delegation) is removed.
+
 ## [0.2.0] - 2026-09-25
 
 - **Fix**: the skill didn't load for casual review requests. Its description listed internals

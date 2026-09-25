@@ -7,8 +7,8 @@ modifying any files**.
 
 Locate the active feature's `workflow-state.md` under the project's central SDD memory dir's
 `spec/<date-slug>/` (resolve the memory dir via `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py"
---path`; use the most recently updated feature folder if several exist). Delegate to
-`agent-ux:ux-agent` for the breadcrumb line, then summarize concisely:
+--path`; use the most recently updated feature folder if several exist). Render the
+breadcrumb line inline (see `references/ux-conventions.md`), then summarize concisely:
 
 - Feature title, slug, and Goal
 - Track (Fast or Standard — Standard if the field is absent) and, for Fast, that no `tasks.md`

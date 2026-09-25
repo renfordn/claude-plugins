@@ -327,26 +327,11 @@ constituent skills — particularly `design-author` — invoke it at appropriate
 responsibility (per `agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever 
 context is driving implementation after the handoff above.
 
-## → agent-ux (UX rendering)
+## → agent-ux (removed)
 
-At every phase transition, section-confirmation checkpoint, review-dashboard threshold, and
-out-of-scope-task flag, `agent-isdd` delegates to `agent-ux:ux-agent` instead of an in-process
-agent, constructing the UX Event Envelope (`caller: agent-isdd`, `event_type`, `phase_state`,
-`delta`, `artifact_path`) defined in `agent-ux`'s own `INTEROP.md` — that document is the
-authoritative schema (envelope shape, the five per-`event_type` delta shapes, and the
-pull-over-push invariant); this section only states how `agent-isdd` uses it, not a duplicate
-definition.
-
-`agent-ux:ux-agent` is a **soft dependency**, same pattern as `agent-nelly` below: if it is not
-installed or otherwise unreachable, `agent-isdd` catches the missing-plugin condition, surfaces
-one plain notice for the session (not one per event), and continues without blocking — see
-`agent-ux`'s `INTEROP.md` "Unavailability and fallback contract" section for the full generic
-contract (including its own internal fallback when a specific rendering tool like `Artifact` is
-unavailable), referenced here by name rather than restated.
-
-The `TaskCreate`/`TaskUpdate`/`TaskList` checklist is not part of this delegation — `agent-ux`'s
-isolated subagent context cannot reach deferred tools, so the calling skill renders/refreshes the
-checklist directly, unchanged from today's local-agent behavior.
+agent-ux was retired: its subagent cost ~2K tokens per event to make one `mark_chapter` or
+`Artifact` call. The calling skills now make those calls directly, per
+`references/ux-conventions.md`.
 
 ## → agent-nelly (memory)
 

@@ -21,7 +21,7 @@ jobs:
         # Every plugin with test_*.py files, discovered recursively by pytest regardless of
         # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd,
         # plugin-harness) or hooks/ + scripts/ (agent-nelly).
-        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-harness, shared, agent-ux, code-reviewer]
+        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-harness, shared, code-reviewer]
     steps:
       - uses: actions/checkout@v4
 
@@ -99,7 +99,7 @@ jobs:
         # ImportError the moment two diverge (as agent-isdd's and plugin-harness's did).
         # Matches python-tests' per-plugin matrix, which never combines processes either.
         run: |
-          for plugin in agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer; do
+          for plugin in agent-isdd agent-tdd agent-nelly plugin-harness shared code-reviewer; do
             python -m pytest "$plugin" -q --tb=short
           done
 

@@ -103,12 +103,10 @@ expressed in EARS ruleset format where applicable.
 
 ## Live Spec Canvas
 
-Delegate to `agent-ux:ux-agent` at each section-confirmation checkpoint (a section just got
-locked or materially changed) with a `section_checkpoint` event envelope
-(`section_name`, `section_body`, `remaining_section_names`, `open_gaps`, `artifact_path`) so it
-can publish/redeploy the spec-canvas Artifact — see `INTEROP.md`'s "→ agent-ux (UX rendering)"
-section. Do not redeploy on every message; that's `agent-ux:ux-agent`'s job to gate, but this
-skill is what tells it a checkpoint occurred. The plain markdown draft stays the inline,
+At each section-confirmation checkpoint (a section just got locked or materially changed),
+publish/redeploy the spec-canvas Artifact directly with the `Artifact` tool, same file path every
+time — see `references/ux-conventions.md` (plugin root) "Spec canvas". Do not redeploy on every
+message. The plain markdown draft stays the inline,
 always-available fallback regardless of Artifact availability.
 
 ## Output Shape

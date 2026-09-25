@@ -1,6 +1,6 @@
 # Install and Verify — Claude Plugin Collection
 
-This guide walks through installing all 6 plugins from the `renfordn-plugins` marketplace,
+This guide walks through installing all 5 plugins from the `renfordn-plugins` marketplace,
 verifying they are working, and troubleshooting common issues. All plugins can be used
 standalone or in any combination.
 
@@ -13,7 +13,7 @@ standalone or in any combination.
 
 ## Add the Marketplace
 
-All 6 plugins are published from one marketplace, `renfordn-plugins`, backed by the
+All 5 plugins are published from one marketplace, `renfordn-plugins`, backed by the
 `renfordn/claude-plugins` GitHub repo. Add it once, before any `claude plugin install`
 below — every `@renfordn-plugins` install fails with an unknown-marketplace error until
 this step has run:
@@ -22,16 +22,12 @@ this step has run:
 claude plugin marketplace add renfordn/claude-plugins
 ```
 
-## Install All 6 Plugins
+## Install All 5 Plugins
 
 Install in dependency order (`plugin-harness` should come last):
 
 ```bash
 claude plugin install agent-nelly@renfordn-plugins
-```
-
-```bash
-claude plugin install agent-ux@renfordn-plugins
 ```
 
 ```bash
@@ -60,7 +56,7 @@ After installing, confirm all plugins are present and enabled:
 claude plugin list
 ```
 
-Expected output: all 6 plugins listed with `Status: ✔ enabled`.
+Expected output: all 5 plugins listed with `Status: ✔ enabled`.
 
 ---
 
@@ -77,17 +73,6 @@ claude --print "Use the agent-nelly:agent-nelly subagent to fetch the project In
 
 Expected: a short response mentioning the project Intent (may be "not yet captured" on a
 fresh machine — that is correct).
-
-### agent-ux
-
-`agent-ux` has no slash command or skill of its own — it's a subagent (`agent-ux:ux-agent`)
-that other plugins delegate rendering to. Confirm it installed correctly instead:
-
-```bash
-claude plugin details agent-ux@renfordn-plugins
-```
-
-Expected: a component inventory listing the `ux-agent` agent.
 
 ### agent-tdd
 
@@ -145,8 +130,7 @@ Each plugin works without the others. Minimal standalone setups:
 | TDD implementation only | `agent-tdd` |
 | Code review only | `code-reviewer` |
 | AI memory across sessions | `agent-nelly` |
-| UX rendering for specs | `agent-ux` |
-| Full orchestrated workflow | All 6 |
+| Full orchestrated workflow | All 5 |
 
 ---
 
@@ -158,8 +142,7 @@ The recommended combination for a full design → implement → review workflow:
 2. `agent-tdd` — research validation, task slicing, Red-Green-Refactor
 3. `code-reviewer` — automated review at each Green→Refactor pause
 4. `agent-nelly` — persistent memory across sessions (optional but improves context)
-5. `agent-ux` — live spec canvas Artifacts (optional)
-6. `plugin-harness` — routes handoffs between plugins (enhances multi-plugin flows)
+5. `plugin-harness` — routes handoffs between plugins (enhances multi-plugin flows)
 
 Start with: `claude --print "/isdd Your feature description here"`
 
@@ -214,10 +197,10 @@ The install command is idempotent — re-running it replaces a broken install cl
 Run this checklist on a clean machine before marking the release complete:
 
 - [ ] `claude plugin marketplace add renfordn/claude-plugins` succeeds
-- [ ] All 6 plugins install without errors
-- [ ] `claude plugin list` shows all 6 with `Status: ✔ enabled`
+- [ ] All 5 plugins install without errors
+- [ ] `claude plugin list` shows all 5 with `Status: ✔ enabled`
 - [ ] `agent-nelly` smoke test returns a response (even "not yet captured")
-- [ ] `agent-ux` and `agent-tdd` `claude plugin details` calls list their agents/skills
+- [ ] `agent-tdd` `claude plugin details` lists its agents/skills
 - [ ] `code-reviewer` smoke test returns tier descriptions
 - [ ] `plugin-harness` appears in `claude mcp list`
 - [ ] `/isdd-status` responds (no active workflow, on a fresh project)

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- **Change**: agent-ux retired. Skills now call `mark_chapter`, `Artifact` and the task tools
+  directly per the new `references/ux-conventions.md`, instead of spawning `agent-ux:ux-agent`
+  (~2K tokens per event for one tool call). Fast-track breadcrumb mismatch is gone with it.
+  agent-cache-plugin removed from the collection; INTEROP notes updated.
+
 ## [0.1.62] - 2026-09-25
 
 - **Fix**: model escalation was effectively never detected. `before_continue.py` looked for

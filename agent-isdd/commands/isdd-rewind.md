@@ -18,9 +18,8 @@ This command does not implement rewind logic itself. Delegate entirely to the
 3. If the target phase is later than `Current Phase`, or does not exist, refuse the rewind and
    surface the contract's pause reason — do not guess or force it.
 
-After the contract runs, delegate to `agent-ux:ux-agent` to refresh the breadcrumb, then sync
-the `TaskCreate`/`TaskUpdate` checklist directly (`agent-ux:ux-agent` cannot reach deferred
-tools), then report back to the user:
+After the contract runs, call `mark_chapter` for the rewind, render the breadcrumb inline, sync
+the `TaskCreate`/`TaskUpdate` checklist, then report back to the user:
 
 - The from-phase and to-phase of the rewind.
 - The resulting `Current Phase` and `Workflow Status`.

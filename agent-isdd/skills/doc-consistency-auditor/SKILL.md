@@ -38,7 +38,7 @@ picked up automatically). Look for exactly five finding classes:
 1. **Duplicated or contradictory responsibility claims** — two or more files claiming the same
    capability without an explicit "this is a documented shared split" note, or two files stating
    opposite rules for the same thing (Agent Responsibility Cleanup's canonical example: one
-   section of a file delegating the `TaskCreate` checklist to `ux-agent`, another section of the
+   section of a file delegating the `TaskCreate` checklist to a subagent, another section of the
    *same* file saying the opposite).
 2. **Near-verbatim duplicated prose** — the same explanation or rule restated almost word-for-
    word across two or more files instead of stated once and referenced (token-cost duplication,
@@ -66,8 +66,7 @@ picked up automatically). Look for exactly five finding classes:
      `code-reviewer`'s `SKILL.md` says, not what it said historically).
    - A **mirrored value** (the same literal threshold/constant intentionally duplicated across
      plugins, e.g. the 5-finding/1-file dashboard threshold declared once in `code-reviewer`'s
-     `SKILL.md` and mirrored by `agent-ux`'s `ux-conventions.md`/`ux-agent.md` and
-     `agent-isdd`'s own override note) drifts the moment the values disagree — diff the literal
+     `SKILL.md` and mirrored by `agent-isdd`'s own override note) drifts the moment the values disagree — diff the literal
      values, don't just confirm each file parses.
    - A documented, explained deviation (like this skill's own "Visual Review" override above) is
      not drift — only flag a mismatch that is *not* already acknowledged as intentional in both
@@ -101,9 +100,7 @@ Cleanup's Phases 3-7 were actually carried out by hand.
 
 ## Visual Review — deliberate override of code-reviewer's threshold
 
-`code-reviewer`'s rule (its `SKILL.md`'s "Visual Review" section — the canonical definition,
-also mirrored by `agent-ux`'s `ux-conventions.md`/`ux-agent.md` for its own separate
-`review_threshold` event): open a review-dashboard Artifact above 5 findings or more than 1
+`code-reviewer`'s rule (its `SKILL.md`'s "Visual Review" section — the canonical definition): open a review-dashboard Artifact above 5 findings or more than 1
 touched file. This skill is *inherently* multi-file by design (see Scope above), so
 applying that rule literally would make the dashboard Artifact the default rendering for every
 single commit attempt — heavyweight for a background gate, not an interactive review session.

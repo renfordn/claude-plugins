@@ -15,4 +15,4 @@ RUN git config --global user.email "test@example.com" \
     && git config --global user.name "Docker Test Runner"
 
 # One pytest process per plugin (see README "Running tests")
-CMD bash -c "for p in agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer; do python -m pytest \$p -q || exit 1; done"
+CMD bash -c "for p in agent-isdd agent-tdd agent-nelly plugin-harness shared code-reviewer; do python -m pytest \$p -q || exit 1; done"

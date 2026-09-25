@@ -145,35 +145,24 @@ If a level is unavailable (e.g., `Ultra` without multi-agent): degrade to next-l
   redeployable review-dashboard (findings as resolvable cards next to their diff hunks). This is
   what makes the review something the user resolves *with* the agent, turn by turn, instead of
   reading a static list: as findings get discussed and resolved in the conversation, redeploy the
-  same dashboard in place to reflect the current state, rather than reposting it. **This is the
-  canonical definition of the 5-finding/1-file threshold** — `agent-ux`
-  (`references/ux-conventions.md`'s "Review dashboard (Artifact)" section, and
-  `agents/ux-agent.md`'s `review_threshold` dispatch) and `agent-isdd`
-  (`doc-consistency-auditor/SKILL.md`'s documented override) both reference this exact value —
-  `agent-ux` mirrors it, while `doc-consistency-auditor` cites it only to explicitly opt out
-  (always `ReportFindings`-only) — rather than choosing their own; if it changes here, update
-  those to match.
-  - **Delegate to `agent-ux:ux-agent`** when `phase_state` was supplied AND `agent-ux:ux-agent` is available this session: construct a `review_threshold` envelope — see INTEROP.md "→ agent-ux" for the full envelope contract and field list.
-  - **Otherwise, open the Artifact directly** — correct behavior for standalone passes; `code-reviewer` never blocks on `agent-ux`'s absence.
+  same dashboard in place to reflect the current state, rather than reposting it. Open it directly with the `Artifact` tool. **This is the
+  canonical definition of the 5-finding/1-file threshold** — `agent-isdd`'s
+  `doc-consistency-auditor/SKILL.md` cites it only to explicitly opt out (always
+  `ReportFindings`-only); if it changes here, update that note to match.
 - Below the threshold, `ReportFindings` alone is sufficient visual structure — do not open a
-  dashboard (directly or via `agent-ux`) just for its own sake; that's exactly the token cost the
+  dashboard just for its own sake; that's exactly the token cost the
   threshold exists to avoid.
 - If review turns up something concrete but genuinely outside the diff's scope (dead code, a
   stale doc, a confirmed TODO unrelated to this change) — not a finding against the change
   itself — flag it. Only for issues you've already confirmed are real and out of scope; never for
-  a low-confidence hunch. Two ways to flag, same rule for choosing between them as the dashboard
-  above:
-  - **`agent-ux:ux-agent` available and `phase_state` was supplied**: delegate via `out_of_scope_flag` envelope (see INTEROP.md for contract). Otherwise call `spawn_task` directly.
-  - **Either way**, if a review-state directory was supplied, append a row to that directory's
+  a low-confidence hunch. Call `spawn_task` directly.
+  - If a review-state directory was supplied, append a row to that directory's
     `TODO-LEDGER.md` (`references/TODO-LEDGER.md.template`) immediately after the call returns
-    its `task_id` — this is `code-reviewer`'s own record, independent of which path spawned the
-    task, and it's the only writer of this file (`agent-ux` only ever reads it, never writes it —
-    see `agent-ux`'s own `INTEROP.md` "Rendering, not tracking"). No review-state directory: skip
-    the ledger, same ephemeral-pass discipline as `REVIEW-STATE.md`.
+    its `task_id` — `code-reviewer` is the only writer of this file. No review-state directory:
+    skip the ledger, same ephemeral-pass discipline as `REVIEW-STATE.md`.
   - If a later pass finds a ledger row's item stale, superseded, or already handled: call
     `dismiss_task` with its `task_id`, then flip that row's `Status` to `dismissed` in place
     (never delete the row).
-  - If open items and `agent-ux:ux-agent` available: send `todo_digest` envelope (see INTEROP.md). No `agent-ux` or no review-state directory: skip.
 
 ## Evidence Tier Model
 

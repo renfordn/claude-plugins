@@ -14,9 +14,7 @@ implementation agents. SDD is its first consumer, not its only one.
 Unlike `agent-tdd`'s `agent-TDD`/`test-author` (Task-tool subagents run in isolated context),
 `code-reviewer` is invoked as a plain skill in the main thread. That's deliberate: it needs to
 call `ReportFindings` and open a review-dashboard `Artifact` in the *same turn* it runs in, and
-those are host-native tools a subagent can't reliably reach the way the calling skill can. It's
-also why this plugin doesn't need any `ux-agent`-style delegation for its own dashboard rendering
-— it owns that directly.
+those are host-native tools a subagent can't reliably reach the way the calling skill can.
 
 The one exception is reviewing code an agent just wrote. There, the judging runs in a fresh
 context — the `agents/code-reviewer.md` agent, or `scripts/review_headless.sh` when spawning

@@ -284,13 +284,11 @@ distinct `recap.md` logging conventions for a rollback vs. a routine rewind.
 
 ## Task Tracker Sync
 
-The breadcrumb is rendered inline by the calling skill for status responses, and by
-`agent-ux:ux-agent` as part of a `phase_transition` envelope (see `spec-driven-development`'s
-Visible Progress section); the `TaskCreate`/`TaskUpdate`/`TaskList` checklist is never
-`agent-ux:ux-agent`'s job either way — it cannot reach those from its subagent context. Call
-`TaskCreate`/`TaskUpdate`/`TaskList` directly, self-loaded via `ToolSearch` first.
+The breadcrumb and chapter marks are rendered by the calling skill (see
+`spec-driven-development`'s Visible Progress section). Call `TaskCreate`/`TaskUpdate`/`TaskList`
+directly, self-loaded via `ToolSearch` first.
 `hooks/post_write_check.py` fires a reminder on every `workflow-state.md`/`tasks.md` write as a
-backstop — on that reminder, sync the checklist directly rather than delegating.
+backstop — on that reminder, sync the checklist directly.
 
 ## Guardrails
 

@@ -18,7 +18,6 @@ not the author. Either way, pass:
 | Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. |
 | review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
 | review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
-| phase_state | string | no | Compact phase token (e.g. `Design`, `TDD:green`) if your workflow has one. Unlocks `agent-ux:ux-agent` delegation for review dashboard if installed. Omit for standalone/pre-commit pass |
 
 ## Pairing with an implementer agent (e.g. `agent-tdd`)
 
@@ -113,7 +112,7 @@ missing):
    to `Ultra` without explicit request.
 4. **Never block**: User always gets some review; review never fails silently or returns an error.
 
-This pattern follows existing `agent-tdd` and `agent-ux` capability-gating practices (check once,
+This pattern follows existing `agent-tdd` capability-gating practices (check once,
 degrade, notify, proceed).
 
 ## Strategic Review Placement by ISDD Phase
@@ -183,7 +182,7 @@ Model's fields.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | findings | array (ReportFindings) | yes | All review findings with full details |
-| review_dashboard | Artifact | no | Visual dashboard rendered by skill or agent-ux; present above 5-finding/1-file threshold |
+| review_dashboard | Artifact | no | Visual dashboard rendered by the skill; present above 5-finding/1-file threshold |
 
 **Finding fields:**
 - `evidence_tier` (integer 1-5): Verification confidence for each finding
@@ -196,10 +195,7 @@ See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes i
 If you supplied a review-state directory, `code-reviewer` also maintains a `TODO-LEDGER.md`
 there (`references/TODO-LEDGER.md.template`) — one row per out-of-scope item it flags during a
 pass, independent of `REVIEW-STATE.md`/`REVIEW-HISTORY.md`. `code-reviewer` is this file's only
-writer. If `agent-ux:ux-agent` is installed, you can ask `code-reviewer` to surface it as a
-dashboard: it sends a `todo_digest` envelope (see `agent-ux`'s own `INTEROP.md`) that reads the
-ledger and publishes/redeploys it — `agent-ux` never tracks this state itself, only renders what
-`code-reviewer` already wrote.
+writer.
 
 ## Cross-project or cross-feature memory
 

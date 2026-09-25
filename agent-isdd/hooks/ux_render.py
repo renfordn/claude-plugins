@@ -4,8 +4,7 @@ Agent-UX rendering hook (SubagentStop) -- inline breadcrumb refresh.
 
 Reads the current phase from workflow-state.json and emits a cheap breadcrumb-refresh
 systemMessage. Phase *transitions* are not detected or rendered here: the
-spec-driven-development skill delegates the `phase_transition` envelope to agent-ux:ux-agent
-itself at every phase change, so this hook only ever needs the same-phase path.
+spec-driven-development skill calls mark_chapter itself at every phase change, so this hook only ever needs the same-phase path.
 
 Note: an earlier version tried to read/write a "previous phase" via agent-cache-plugin over
 HTTP (localhost:7771) to detect transitions. That server never existed (see INTEROP.md ->
