@@ -48,7 +48,7 @@ This is a **one-directional handoff**: agent-isdd does not resume or monitor age
 the initial spawn, with two scoped exceptions — Test-Author Gate (immediately below) and Model
 Escalation (**corrected 2026-09-24**: this used to say "one scoped exception," stale since
 `hooks/model_escalate_marker.py` added automatic re-spawn-at-higher-tier handling in 0.1.39; see
-`hooks/before_continue.py`'s model-escalation detection and `agent-tdd/references/
+`hooks/subagent_report.py`'s model-escalation detection (at agent-TDD's SubagentStop) and `agent-tdd/references/
 escalation-paths.md`'s "Model Insufficiency (Model Escalation)" section for the marker `agent-tdd`
 emits — note the marker vocabulary and resume flow are documented on the `agent-tdd` side and in
 this hook's own docstring, not elsewhere in this file). Task slicing happens inside agent-tdd

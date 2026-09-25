@@ -20,12 +20,16 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import active_state_file, parse_state, parse_state_json  # noqa: E402
 from subagent_report import extract_last_assistant_text  # noqa: E402
-from model_escalate_marker import detect_model_escalate_in_report  # noqa: E402
+from model_escalate_marker import detect_model_escalate_in_report, escalation_message  # noqa: E402
 
 
 def _detect_model_escalate_marker(transcript_path):
     """Detect a MODEL-ESCALATE marker in the transcript's last assistant
     message, using Task 7's isolated parsing utility (model_escalate_marker.py).
+
+    Fallback only: this is the parent session's transcript, where agent-TDD's report arrives as
+    a tool result, not an assistant message. The primary detection is subagent_report.py's, at
+    agent-TDD's own SubagentStop.
 
     Marker format: <!--AGENT-TDD-MODEL-ESCALATE: reason="..." from_model="..." to_model="..."-->
 
@@ -129,21 +133,7 @@ def main():
         except Exception:
             pass  # Silent failure — don't block user
 
-        reason = escalation.get("reason", "unknown issue")
-        from_model = escalation.get("from_model", "Haiku")
-        to_model = escalation.get("to_model", "Sonnet")
-
-        message = (
-            f"🚀 **Model Escalation Detected**\n\n"
-            f"**Issue:** {reason}\n\n"
-            f"**Action:** Call the `get_spawn_context` tool from plugin-harness's bundled "
-            f"`spawn-context` MCP server (args: agent_type=\"agent-tdd\", cwd=this project) to "
-            f"pull accumulated context from the {from_model}-tier attempt, then re-spawn "
-            f"`agent-TDD` at **{to_model}** tier with that context so it can continue from where "
-            f"the lower tier left off. The tool's exact callable name is harness-prefixed (not "
-            f"the bare string `get_spawn_context`) — if it isn't already visible, use ToolSearch "
-            f"with query \"get_spawn_context\" to find and load it before calling it.\n"
-        )
+        message = escalation_message(escalation)
 
         print(json.dumps({"systemMessage": message}))
         sys.exit(0)

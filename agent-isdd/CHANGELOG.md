@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Fix**: model escalation was effectively never detected. `before_continue.py` looked for
+  agent-TDD's `MODEL-ESCALATE` marker in the parent session's last assistant message, but the
+  report reaches the parent as a tool result. `subagent_report.py` now detects it at agent-TDD's
+  own SubagentStop, records `escalation_pending`, and shows the re-spawn instructions right
+  away. A re-spawn that escalates again closes the old entry as `failed` and opens a new one.
+  `before_continue`'s scan stays as a fallback; the message text is now shared
+  (`model_escalate_marker.escalation_message`). New test:
+  `tests/test_subagent_report_escalation_detection.py`.
+
 - **Fix**: `subagent_report.py` and `high_risk_reviewer.py` read the stopping subagent's report
   from `transcript_path`, which on current Claude Code is the parent session's transcript, so
   SDD report logging, rollback markers, and the high-risk test-author pause likely never fired.

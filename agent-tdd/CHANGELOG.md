@@ -1,6 +1,9 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Docs**: `references/escalation-paths.md` now says agent-isdd detects the model-escalation
+  marker when agent-TDD stops, not in its before-continue hook.
+
 - **Feature**: review gate (`hooks/review_gate.py`). A `SendMessage` resuming an `agent-TDD`
   paused at `green_pause` is now denied until a review is recorded: a code-reviewer agent report,
   a `review_headless.sh` report, or an explicit `self-reviewed` / `review skipped` /

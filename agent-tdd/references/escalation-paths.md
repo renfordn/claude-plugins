@@ -201,7 +201,8 @@ instead. Slice 3 implementation blocked until this gap is clarified.
 - `attempted_at_haiku=true` is accepted as shorthand for `from_model="haiku"`
 
 **Agent-isdd Action**:
-- Detect the Model Escalation Marker in agent-tdd's handoff report via before-continue hook
+- Detect the Model Escalation Marker in agent-tdd's handoff report when agent-TDD stops
+  (agent-isdd's `subagent_report.py` SubagentStop hook records `escalation_pending`)
 - Invoke the `get_spawn_context` tool from plugin-harness's bundled `spawn-context` MCP
   server to retrieve accumulated context (prior test attempts, error messages, code so far) —
   its exact callable name is harness-prefixed, not the bare string `get_spawn_context`; use

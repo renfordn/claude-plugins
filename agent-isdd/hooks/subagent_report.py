@@ -20,9 +20,10 @@ from sdd_state import (  # noqa: E402
     active_state_file,
     read_escalation_pending,
     write_escalation_outcome,
+    write_escalation_pending,
     write_rollback_pending,
 )
-from model_escalate_marker import detect_model_escalate_in_report  # noqa: E402
+from model_escalate_marker import detect_model_escalate_in_report, escalation_message  # noqa: E402
 
 # Marker recognizing an agent-tdd report shape, per design.md's edge case: only classify an
 # escalation outcome when the report carries agent-tdd's own phase marker -- an unrelated
@@ -261,6 +262,16 @@ def main(payload=None):
                      resolved_at=datetime.datetime.now().isoformat())
         write_escalation_outcome(json_path, entry)
         escalation_msg = f"Escalation resolved: {outcome}"
+
+    # A new MODEL-ESCALATE marker in this report: record it now, where agent-TDD's report is
+    # actually visible, so the caller learns to re-spawn at a higher tier before it acts.
+    new_escalation = detect_model_escalate_in_report(report)
+    if new_escalation:
+        pending = {k: new_escalation.get(k) for k in ("reason", "from_model", "to_model")}
+        pending["detected_at"] = datetime.datetime.now().isoformat()
+        write_escalation_pending(json_path, pending)
+        respawn_msg = escalation_message(pending)
+        escalation_msg = f"{escalation_msg}.\n\n{respawn_msg}" if escalation_msg else respawn_msg
 
     # Human-relay marker takes priority if somehow both are present in the same report --
     # it names an explicit target, which is strictly more information than the automatic

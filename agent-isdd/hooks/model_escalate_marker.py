@@ -66,6 +66,24 @@ def parse_model_escalate_marker(marker_text):
     }
 
 
+def escalation_message(escalation):
+    """The systemMessage telling the caller how to re-spawn agent-TDD at the higher tier."""
+    reason = escalation.get("reason") or "unknown issue"
+    from_model = escalation.get("from_model") or "Haiku"
+    to_model = escalation.get("to_model") or "Sonnet"
+    return (
+        f"🚀 **Model Escalation Detected**\n\n"
+        f"**Issue:** {reason}\n\n"
+        f"**Action:** Call the `get_spawn_context` tool from plugin-harness's bundled "
+        f"`spawn-context` MCP server (args: agent_type=\"agent-tdd\", cwd=this project) to "
+        f"pull accumulated context from the {from_model}-tier attempt, then re-spawn "
+        f"`agent-TDD` at **{to_model}** tier with that context so it can continue from where "
+        f"the lower tier left off. The tool's exact callable name is harness-prefixed (not "
+        f"the bare string `get_spawn_context`) — if it isn't already visible, use ToolSearch "
+        f"with query \"get_spawn_context\" to find and load it before calling it.\n"
+    )
+
+
 def detect_model_escalate_in_report(handoff_text):
     """Find and parse the first MODEL-ESCALATE marker in a free-text report.
 

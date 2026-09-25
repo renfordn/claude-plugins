@@ -144,6 +144,13 @@ def read_escalation_pending(path):
     return parse_state_json(path).get("escalation_pending")
 
 
+def write_escalation_pending(path, escalation):
+    """Set workflow-state.json's escalation_pending field, preserving other fields."""
+    data = parse_state_json(path)
+    data["escalation_pending"] = escalation
+    write_state_json(path, data)
+
+
 def clear_escalation_pending(path):
     """Remove escalation_pending from workflow-state.json. No-op if file or field is missing."""
     data = parse_state_json(path)
