@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- **Docs**: `high_risk_reviewer`'s checkpoint message no longer says there's no enforcement; it
+  points at agent-tdd's new review gate.
+
 ## [0.1.61] - 2026-09-25
 
 - **Docs**: the Code-Review Gate and the direct-implementation fallback's review step now use

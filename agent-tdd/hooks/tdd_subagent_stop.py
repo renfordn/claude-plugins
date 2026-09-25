@@ -151,12 +151,14 @@ def main():
         sys.exit(0)
 
     cwd = payload.get("cwd") or os.getcwd()
-    transcript_path = payload.get("transcript_path", "")
-
-    if not transcript_path:
-        sys.exit(0)
-
-    text, truncated = _extract_last_assistant_text(transcript_path)
+    # transcript_path is the parent session's transcript; the subagent's report is in
+    # last_assistant_message (or agent_transcript_path) on current Claude Code.
+    text, truncated = payload.get("last_assistant_message") or "", False
+    if not text:
+        transcript_path = payload.get("agent_transcript_path") or payload.get("transcript_path", "")
+        if not transcript_path:
+            sys.exit(0)
+        text, truncated = _extract_last_assistant_text(transcript_path)
 
     if REPORT_MARKER not in text:
         # Truncation warning only when transcript has content but marker wasn't found

@@ -90,6 +90,18 @@ What you do with that pause:
 If you genuinely have no reviewer available this session, that's a deliberate choice you make
 explicit via Review handoff mode — not a silent default.
 
+**The review gate enforces this** (`hooks/review_gate.py`). When `agent-TDD` stops at
+`green_pause`, a `SendMessage` to that agent is denied until one of these is recorded:
+
+- the `code-reviewer:code-reviewer` agent returned a `<!--CODE-REVIEWER-REPORT-->`, or
+- code-reviewer's `scripts/review_headless.sh` printed one, or
+- the resume message itself says `self-reviewed`, `review skipped`, or `reviewed by: <who>` (a
+  human or another reviewer). Those resumes go through, and the label stays in the transcript.
+
+The denial message tells the caller what to do. State lives in `review-gate.json` next to
+`tdd-progress.json`. The gate covers the Green pause only, not the coherence review, and it
+fails open if the hook itself errors.
+
 ## Keeping spawn prompts token-efficient
 
 Both agents run in an isolated context and pay for every token you put in their spawn prompt —

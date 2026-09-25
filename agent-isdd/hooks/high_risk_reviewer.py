@@ -294,7 +294,8 @@ def get_code_reviewer_checkpoint(feature_dir):
                 f"**Pending Review**: {len(unreviewed)}\n\n"
                 f"Recommended: Run `code-reviewer` on these high-risk slices if not already done:\n"
             ) + "\n".join(f"- {p}" for p in unreviewed) +
-                f"\n\nNo automatic enforcement yet — this is a documented expectation."
+                f"\n\nagent-tdd's review gate blocks resuming a paused agent-TDD until a review "
+                f"is recorded; this list only tracks which high-risk slices have been reviewed."
         }
 
     return {

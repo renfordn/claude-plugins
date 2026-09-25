@@ -328,3 +328,25 @@ class DefaultPhaseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LastAssistantMessageTest(unittest.TestCase):
+    """Current Claude Code puts the subagent's report in last_assistant_message; transcript_path
+    is the parent session's transcript, where the report never appears."""
+
+    def test_report_read_from_last_assistant_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = os.path.join(tmp, "parent.jsonl")
+            with open(parent, "wb") as f:
+                f.write(_make_jsonl("parent session text, no report here"))
+            payload = {
+                "cwd": tmp,
+                "transcript_path": parent,
+                "last_assistant_message": "<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:green_pause-->\n**Plan**\nadd retry",
+            }
+            env = dict(os.environ, CLAUDE_PLUGIN_DATA=os.path.join(tmp, "data"))
+            result = subprocess.run([sys.executable, HOOK], input=json.dumps(payload),
+                                    capture_output=True, text=True, env=env)
+            msg = json.loads(result.stdout)["systemMessage"]
+            self.assertIn("green_pending_review", msg)
+            self.assertIn("add retry", msg)

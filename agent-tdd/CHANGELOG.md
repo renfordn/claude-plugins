@@ -1,6 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: review gate (`hooks/review_gate.py`). A `SendMessage` resuming an `agent-TDD`
+  paused at `green_pause` is now denied until a review is recorded: a code-reviewer agent report,
+  a `review_headless.sh` report, or an explicit `self-reviewed` / `review skipped` /
+  `reviewed by:` label in the resume message. Tested end to end in a live session. See
+  INTEROP.md's mandatory review pause. New test: `tests/test_review_gate.py`.
+- **Fix**: `tdd_subagent_stop.py` read agent-TDD's report from `transcript_path`, which on current
+  Claude Code is the parent session's transcript, so it never found the report. It now reads
+  `last_assistant_message`, then `agent_transcript_path`, then `transcript_path`.
+
 ## [0.2.18] - 2026-09-25
 
 - **Fix**: `agent-TDD` was told to invoke `/code-reviewer` on its own test, implementation, and
