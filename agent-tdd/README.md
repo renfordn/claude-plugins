@@ -23,6 +23,13 @@ duplicated. Retired rather than kept as a documented-but-dead alternative — se
 
 ## What's in this plugin
 
+- **`/tdd <behavior>`** — the entry point: builds a Slice Spec from the conversation, spawns
+  `agent-TDD`, runs an independent review at the Green pause, resumes it, and reports.
+- **`scripts/tdd_check.py`** — runs the slice's test command for Red (must fail) and Green (must
+  pass after a confirmed Red), logs each run in `<git dir>/agent-tdd/evidence.jsonl`, and prints a
+  `TDD-EVIDENCE` token. The SubagentStop hook checks the report's tokens against that log and
+  shows `red=verified green=verified`, or a warning when either is missing or invented.
+
 - **`agent-TDD`** — implements a Slice Spec or a Design Spec (see above); Plan → Red → Green →
   (mandatory caller-driven review pause) → Refactor → Validate per slice.
 - **`test-author`** — for `high-risk`-tier slices only, writes just the failing Red test from the

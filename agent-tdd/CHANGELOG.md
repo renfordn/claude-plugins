@@ -1,6 +1,19 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: `/tdd <behavior>` command — Slice Spec from the conversation, agent-TDD, independent
+  review at the Green pause, resume, report.
+- **Feature**: `scripts/tdd_check.py` records Red (must fail) and Green (must pass after a confirmed
+  Red) in `<git dir>/agent-tdd/evidence.jsonl` and prints `TDD-EVIDENCE` tokens; the SubagentStop
+  hook checks a report's tokens against the log and warns when Red→Green wasn't observed.
+- **Change**: `agents/agent-TDD.md` cut from 1,005 to ~235 lines (about 12k → 3k tokens per spawn).
+  Dropped the review-level auto-detection, coherence-gate procedure and review-coverage
+  bookkeeping the agent couldn't act on (it has no Agent tool; code-reviewer owns review levels).
+  The report contract (markers and fields the hooks parse) is unchanged, and the previously
+  undocumented MODEL-ESCALATE marker is now in the agent's instructions.
+- **Removal**: five test files (~2,000 lines) that only asserted on logic written inside the tests
+  themselves; replaced by tests of the real script, hook and agent contract.
+
 - **Removal**: dead parts — the root `SKILL.md` (outside `skills/`, never loaded), the internal
   `task-slicer` skill (README already said it was retired), `hooks/direct_mode_state.py` (no
   importer), the unread `last-stop.json` write, and the unmeasured "30-60% savings" claim.

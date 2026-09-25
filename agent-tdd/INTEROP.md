@@ -362,7 +362,6 @@ are genuinely lost (not just relocated) versus a real `agent-TDD`/`test-author` 
 
 Unlike the isdd → agent-tdd handoff above (one spawn, one big handoff report), agent-tdd's
 relationship with `code-reviewer` is synchronous and per-slice, not a single end-of-phase
-handoff: `agent-TDD.md`'s "Automatic Code-Reviewer Invocation" section invokes `/code-reviewer`
-after each slice's Red (Quick), Green (Standard or Deep for high-risk), and Refactor-intent
-(Quick) steps, plus once more for Deep/Ultra post-slices coherence review after
-`all_slices_complete`.
+handoff: at each slice's Green pause `agent-TDD` stops with a Review Request (`Standard`, or
+`Deep` for high-risk) and the caller runs an independent code-reviewer before resuming it; after
+`all_slices_complete` it requests one `Deep` coherence review over every changed file.

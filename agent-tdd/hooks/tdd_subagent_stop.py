@@ -16,7 +16,11 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 from tdd_state import read_tdd_progress, write_tdd_progress  # noqa: E402
+import tdd_check  # noqa: E402
+
+EVIDENCE_RE = re.compile(r"TDD-EVIDENCE (red|green) ([0-9a-f]{8})")
 
 REPORT_MARKER = "<!--AGENT-TDD-REPORT-->"
 PHASE_RE = re.compile(r"<!--AGENT-TDD-PHASE:(\w+)-->")
@@ -134,6 +138,7 @@ def _parse_report(text):
     has_handoff_facts = bool(facts_text) and facts_text.lower() not in ("", "none", "n/a")
 
     return {
+        "evidence": {},
         "description": description or "(no description)",
         "status": status,
         "acceptance_criteria_status": ac_status,
@@ -142,6 +147,26 @@ def _parse_report(text):
         "has_handoff_facts": has_handoff_facts,
         "timestamp": datetime.datetime.now().isoformat(),
     }
+
+
+def _evidence(text, cwd):
+    """{"red": "verified"|"not confirmed"|"unrecorded"|"missing", "green": ...} from the report's
+    TDD-EVIDENCE tokens, checked against scripts/tdd_check.py's log (the last token per phase wins)."""
+    tokens = {}
+    for phase, token in EVIDENCE_RE.findall(text):
+        tokens[phase] = token
+    logged = tdd_check.verify(list(tokens.values()), cwd) if tokens else {}
+    out = {}
+    for phase in ("red", "green"):
+        t = tokens.get(phase)
+        e = logged.get(t) if t else None
+        if not t:
+            out[phase] = "missing"
+        elif e is None or e.get("phase") != phase:
+            out[phase] = "unrecorded"
+        else:
+            out[phase] = "verified" if e.get("confirmed") else "not confirmed"
+    return out
 
 
 def main():
@@ -171,6 +196,7 @@ def main():
         sys.exit(0)
 
     entry = _parse_report(text)
+    entry["evidence"] = _evidence(text, cwd)
 
     # Read existing progress; update in-place if same description + green_pending_review
     data = read_tdd_progress(cwd)
@@ -191,10 +217,15 @@ def main():
     gap = "yes" if entry["has_research_gap"] else "no"
     plan_flag = "yes" if entry["has_plan_validity_flag"] else "no"
     facts = "yes" if entry["has_handoff_facts"] else "no"
+    ev = entry["evidence"]
+    evidence = f"red={ev['red']} green={ev['green']}"
+    warn = "" if ev == {"red": "verified", "green": "verified"} else (
+        " — ⚠ Red→Green was not verified by scripts/tdd_check.py; treat the TDD claim as unproven "
+        "and check the tests yourself before accepting the slice.")
     print(json.dumps({"systemMessage": (
         f"agent-TDD [{entry['status']}]: {entry['description']} "
         f"| AC: {entry['acceptance_criteria_status']} "
-        f"| gap={gap} | plan_flag={plan_flag} | facts={facts}"
+        f"| gap={gap} | plan_flag={plan_flag} | facts={facts} | {evidence}{warn}"
     )}))
     sys.exit(0)
 
