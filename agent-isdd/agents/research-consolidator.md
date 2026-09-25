@@ -110,7 +110,15 @@ check each behavior the feature will depend on really holds. Record:
   logic the feature would otherwise have to change in two places) — each with the reason the
   feature needs it.
 - **Unverified Assumptions:** behavior you could not confirm from code (no test covers it, path
-  depends on runtime config) — so the design can treat it as a risk rather than a fact.
+  depends on runtime config) — so the design can treat it as a risk rather than a fact. Only
+  record one when a requirement's outcome depends on it; a behavior the feature never exercises,
+  or a question the requirements already answer, is noise. Product questions ("should X also
+  retry?") go under Open Questions, not here.
+
+One item per underlying problem. If the same defect needs a structural change to fix, record it
+once — as `fix` when behavior is wrong, `refactor` when behavior is right but the structure is in
+the way — and describe the remedy in that one item. Two items for one problem become two slices
+for one change.
 
 **Then produce dual output:**
 
@@ -169,8 +177,10 @@ Per-file findings for architecture:
 ### Prerequisite Work
 Everything the Assumption audit found, in one list the design and task slicing can act on
 directly. One line each, tagged `fix` (Latent Defect), `refactor` (Prep Refactor), or
-`unverified` (Unverified Assumption), with `file:line` and which part of the feature depends on
-it. Write "none found" only after the audit actually ran — an empty list is a claim.
+`unverified` (Unverified Assumption), with `file:line` and which requirement depends on it —
+one item per underlying problem (see the Assumption audit above). If more than ~5 `unverified`
+items remain, keep the ones whose failure would change the design and move the rest to Research
+Quality Notes as "assumed". Write "none found" only after the audit actually ran — an empty list is a claim.
 
 ### Task-Ready Findings
 Per-file findings for slicing:
