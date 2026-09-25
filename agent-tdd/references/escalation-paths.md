@@ -203,12 +203,9 @@ instead. Slice 3 implementation blocked until this gap is clarified.
 **Agent-isdd Action**:
 - Detect the Model Escalation Marker in agent-tdd's handoff report when agent-TDD stops
   (agent-isdd's `subagent_report.py` SubagentStop hook records `escalation_pending`)
-- Invoke the `get_spawn_context` tool from plugin-harness's bundled `spawn-context` MCP
-  server to retrieve accumulated context (prior test attempts, error messages, code so far) —
-  its exact callable name is harness-prefixed, not the bare string `get_spawn_context`; use
-  ToolSearch with query "get_spawn_context" to find and load it if it isn't already visible
-- Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with cached context
-- Pass context to continue where lower-tier agent left off
+- Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with the same Slice Spec plus
+  the lower-tier report's findings (tests written, failing output, files touched, escalation
+  reason) pasted into the prompt, so it continues where the lower-tier agent left off
 - Higher-tier agent reuses scaffolding (test definitions, error patterns) but re-reasons solution
 
 ---

@@ -19,7 +19,6 @@ COPIES = [
     "agent-isdd/hooks/path_resolution.py",
     "agent-nelly/hooks/path_resolution.py",
     "agent-tdd/hooks/path_resolution.py",
-    "plugin-harness/hooks/path_resolution.py",
 ]
 _BLOCK_RE = re.compile(
     r"# --- shared memory root .*?# --- end shared memory root ---", re.S

@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Docs**: dropped the plugin-harness capability-detection note (harness removed).
+
 - **Change**: agent-ux retired. The review dashboard and out-of-scope flags always use
   `Artifact`/`spawn_task` directly; the `phase_state` input (which only gated agent-ux
   delegation) is removed.

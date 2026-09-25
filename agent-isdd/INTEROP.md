@@ -16,7 +16,7 @@ for both agent-isdd's own maintainers and the sibling plugins' maintainers to cr
 cached research findings, and pre-fetched file summaries, then spawns `agent-tdd` for research
 validation, task slicing, and implementation.
 
-**Design Spec** includes (validated by plugin-harness):
+**Design Spec** includes:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

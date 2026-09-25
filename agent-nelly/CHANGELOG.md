@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Docs**: INTEROP and entry template no longer reference plugin-harness (removed).
+
 - **Feature**: session-start context now asks Claude to prefix any reply line that uses or writes
   Nelly memory with 🧠, so memory use is visible.
 

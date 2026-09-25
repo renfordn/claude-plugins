@@ -74,13 +74,10 @@ def escalation_message(escalation):
     return (
         f"🚀 **Model Escalation Detected**\n\n"
         f"**Issue:** {reason}\n\n"
-        f"**Action:** Call the `get_spawn_context` tool from plugin-harness's bundled "
-        f"`spawn-context` MCP server (args: agent_type=\"agent-tdd\", cwd=this project) to "
-        f"pull accumulated context from the {from_model}-tier attempt, then re-spawn "
-        f"`agent-TDD` at **{to_model}** tier with that context so it can continue from where "
-        f"the lower tier left off. The tool's exact callable name is harness-prefixed (not "
-        f"the bare string `get_spawn_context`) — if it isn't already visible, use ToolSearch "
-        f"with query \"get_spawn_context\" to find and load it before calling it.\n"
+        f"**Action:** Re-spawn `agent-TDD` at **{to_model}** tier with the same Slice Spec, "
+        f"plus the {from_model}-tier report's findings (tests written, failing output, files "
+        f"touched, the escalation reason) pasted into the prompt, so it continues from where "
+        f"the lower tier left off instead of starting over.\n"
     )
 
 

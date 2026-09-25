@@ -190,15 +190,14 @@ above) and `<!--AGENT-TDD-PHASE:...-->`.
 A second, modular implementation (`skills/design-spec/SKILL.md`, orchestrating five separate
 subagents — `research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, `readiness-check`,
 one phase each) existed alongside it, emitting its own incompatible escalation-marker vocabulary
-recognized only by `plugin-harness`'s `SubagentStop` hook, never by `agent-isdd`'s own
-`hooks/subagent_report.py`. No known caller ever invoked it — `agent-isdd` always bypassed it in
+that `agent-isdd`'s `hooks/subagent_report.py` never recognized. No known caller ever invoked it — `agent-isdd` always bypassed it in
 favor of the inline path above — so it was removed rather than kept as a documented-but-dead
 alternative. If you want its per-phase token-accounting/resume-caching behavior back, that's a
 fresh design decision, not something to resurrect from `git log`.
 
 ### Design Spec Input Format
 
-Pass a **Design Spec** inline in the spawn prompt (exact field names required for plugin-harness validation):
+Pass a **Design Spec** inline in the spawn prompt (exact field names required):
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -207,15 +206,6 @@ Pass a **Design Spec** inline in the spawn prompt (exact field names required fo
 | research_cache | object | yes | Research findings: design_findings, task_findings, file_summaries (keyed by path), git_hashes |
 | recap_md | string | yes | Summary, known risks, blockers, Goal alignment notes (summarized, not full history) |
 | nelly_brief_cache | object | no | Pre-fetched cached context from agent-nelly (if available) |
-
-**modelPreference (capability metadata, not a spawn-prompt field):** plugin-harness's
-`CapabilityMap` records `{"min_tier": "haiku", "preferred_tier": "sonnet"}` against this
-capability (`agent-tdd`'s `design_spec_slicing`) — task slicing and Ralph Loop validation are
-judgment-heavy enough to warrant at least `haiku`, with `sonnet` preferred. This is advisory
-metadata `plugin-harness` uses to resolve a suggested model tier (via
-`CapabilityMap.get_available_models()` / `resolve_model_tier()`), not something a caller sets
-when spawning `agent-TDD` directly — see the Slice Spec's `modelTier` field above for the
-per-slice caller-facing equivalent.
 
 ### Research Validation Phase
 
@@ -375,8 +365,4 @@ relationship with `code-reviewer` is synchronous and per-slice, not a single end
 handoff: `agent-TDD.md`'s "Automatic Code-Reviewer Invocation" section invokes `/code-reviewer`
 after each slice's Red (Quick), Green (Standard or Deep for high-risk), and Refactor-intent
 (Quick) steps, plus once more for Deep/Ultra post-slices coherence review after
-`all_slices_complete`. `plugin-harness`'s `orchestrator/routing_table.json` models the
-net effect of that whole per-slice loop as the single phase transition
-`(agent-tdd, red_green_refactor_complete) -> code-reviewer` for its own routing-table validation
-— this section exists so that route has a real handoff target to validate against, matching
-what `agent-TDD.md` actually does rather than introducing a second, competing handoff shape.
+`all_slices_complete`.

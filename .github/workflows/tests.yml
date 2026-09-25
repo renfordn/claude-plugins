@@ -19,9 +19,8 @@ jobs:
     strategy:
       matrix:
         # Every plugin with test_*.py files, discovered recursively by pytest regardless of
-        # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd,
-        # plugin-harness) or hooks/ + scripts/ (agent-nelly).
-        plugin: [agent-isdd, agent-tdd, agent-nelly, plugin-harness, shared, code-reviewer]
+        # whether the plugin's own tests live under tests/ (agent-isdd, agent-tdd) or hooks/ + scripts/ (agent-nelly).
+        plugin: [agent-isdd, agent-tdd, agent-nelly, shared, code-reviewer]
     steps:
       - uses: actions/checkout@v4
 
@@ -44,34 +43,6 @@ jobs:
 
       - name: Run ${{ matrix.plugin }} tests
         run: python -m pytest ${{ matrix.plugin }} -q
-
-  interop-drift:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2  # need HEAD^ to diff against
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Check INTEROP.md schema drift
-        run: |
-          python -c "
-          import sys, os
-          sys.path.insert(0, 'plugin-harness')
-          from pathlib import Path
-          from orchestrator.interop_drift_validator import InteropDriftValidator
-          validator = InteropDriftValidator(repo_root=Path('.'))
-          is_valid, errors = validator.validate_drift()
-          if not is_valid:
-              print('INTEROP drift detected:', file=sys.stderr)
-              for e in errors:
-                  print(e, file=sys.stderr)
-              sys.exit(1)
-          print('No INTEROP drift.')
-          "
 
   smoke-install:
     runs-on: ubuntu-latest
@@ -96,10 +67,10 @@ jobs:
         # module, not a package). A single process's sys.modules cache is keyed by that
         # bare name, so whichever plugin's copy imports first wins for every plugin
         # collected afterward -- harmless while the copies are identical, but a hard
-        # ImportError the moment two diverge (as agent-isdd's and plugin-harness's did).
+        # ImportError the moment two diverge (as two plugins' copies once did).
         # Matches python-tests' per-plugin matrix, which never combines processes either.
         run: |
-          for plugin in agent-isdd agent-tdd agent-nelly plugin-harness shared code-reviewer; do
+          for plugin in agent-isdd agent-tdd agent-nelly shared code-reviewer; do
             python -m pytest "$plugin" -q --tb=short
           done
 

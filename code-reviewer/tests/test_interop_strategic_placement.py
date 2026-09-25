@@ -76,11 +76,6 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
         # Must have "Integrating Code Reviewer" substring
         self.assertIn("Integrating Code Reviewer", self.interop_content)
 
-    def test_capability_detection_note_present(self):
-        """Capability Detection Note section should be present."""
-        self.assertIn("Capability Detection Note:", self.interop_content)
-        self.assertIn("plugin-harness", self.interop_content)
-
     def test_cross_references_section_present(self):
         """Cross-references to other documentation should be present."""
         self.assertIn("Cross-references:", self.interop_content)
@@ -96,10 +91,6 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
     def test_design_md_referenced(self):
         """design.md should be referenced."""
         self.assertIn("design.md", self.interop_content)
-
-    def test_plugin_harness_test_referenced(self):
-        """plugin-harness test should be referenced."""
-        self.assertIn("plugin-harness/tests/test_smoke_e2e.py", self.interop_content)
 
 
 class TestStrategicPlacementTableStructure(unittest.TestCase):

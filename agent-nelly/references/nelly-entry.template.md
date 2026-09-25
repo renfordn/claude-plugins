@@ -68,9 +68,8 @@ matching `type`; entries of other types MUST NOT include them):
   - `metadata.error_type` / `metadata.source_plugin` / `metadata.target_plugin`
     (type: error-prevention only, all optional, all-or-nothing): structured
     match keys for an *orchestration-error workaround* entry — one written
-    specifically to resolve a `plugin-harness` `known_issue` recovery
-    lookup (see that plugin's `orchestrator/error_handler.py` and
-    `hooks/resolve_nelly_request.py`). `error_type` uses
+    specifically to resolve an orchestration `known_issue` recovery
+    lookup (its original consumer, plugin-harness, has been removed). `error_type` uses
     `OrchestrationError.VALID_ERROR_TYPES`' vocabulary (`handoff_validation`,
     `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`, `interop_parse_failure`) —
     NOT `ErrorHandler`'s internal classification vocabulary

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **Change**: plugin-harness removed from the collection. The model-escalation message now tells
+  the caller to re-spawn agent-TDD with the lower-tier report's findings in the prompt, instead of
+  calling the harness's `get_spawn_context` MCP tool (whose server never reliably started).
+
 - **Feature**: `references/ux-conventions.md` adds the 🧠 marker for agent-nelly memory use.
 
 - **Change**: agent-ux retired. Skills now call `mark_chapter`, `Artifact` and the task tools

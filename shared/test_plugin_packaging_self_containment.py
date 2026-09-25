@@ -28,7 +28,6 @@ PLUGIN_HOOKS_DIRS = [
     "agent-isdd/hooks",
     "agent-tdd/hooks",
     "agent-nelly/hooks",
-    "plugin-harness/hooks",
 ]
 
 
