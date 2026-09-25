@@ -8,7 +8,8 @@
 - **Feature**: `scripts/tdd_check.py` records Red (must fail) and Green (must pass after a confirmed
   Red) in `<git dir>/agent-tdd/evidence.jsonl` and prints `TDD-EVIDENCE` tokens; the SubagentStop
   hook checks a report's tokens against the log and warns when Red→Green wasn't observed.
-- **Change**: `agents/agent-TDD.md` cut from 1,005 to ~235 lines (about 12k → 3k tokens per spawn).
+- **Change**: `agents/agent-TDD.md` cut from ~1,080 to ~280 lines (about 12k → 3.5k tokens per spawn),
+  keeping 0.2.20's Red-Phase Rescope, prep-slice sweep and `Kind` field in condensed form.
   Dropped the review-level auto-detection, coherence-gate procedure and review-coverage
   bookkeeping the agent couldn't act on (it has no Agent tool; code-reviewer owns review levels).
   The report contract (markers and fields the hooks parse) is unchanged, and the previously
@@ -27,6 +28,18 @@
 - **Removal**: `hooks/ux_render.py` and its SubagentStop entry. It never fired (it exited when
   `state_path` was absent, which real SubagentStop payloads never carry) and targeted the
   retired agent-ux/agent-cache plugins.
+
+## [0.2.20] - 2026-09-25
+
+- **Feature**: catch prerequisite bugs and refactors before feature slices, not during them.
+  Task slicing now runs an affected-area sweep and turns each defect or needed refactor into its
+  own `fix`/`refactor` slice. Slices are ordered by what the code needs (fix, then refactor,
+  then feature), not by the order the design describes them. `tasks.md` has a new `Kind` field
+  (also in `tasks-schema.json`). Red has a new rescope check: if writing the test shows the slice
+  needs an out-of-scope fix first, agent-TDD stops at Red and writes a mini re-spec. It then
+  re-slices itself (contained), raises a `rescope (design):` Plan Validity Flag (design-level),
+  or returns a Rescope Request (Slice Spec Mode). See `agents/agent-TDD.md`'s "Red-Phase Rescope"
+  and `references/escalation-paths.md` §3.5.
 
 ## [0.2.19] - 2026-09-25
 

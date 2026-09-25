@@ -73,6 +73,13 @@ confirm it fails *for the intended reason* (read the output — an import error 
 Optional outside-in: when the acceptance criteria name one clear user-observable outcome, write
 that acceptance-level test first and add narrower tests only as needed.
 
+*Rescope check:* writing the test makes you read the code the slice runs through. If that shows
+the slice can't go green reliably without first fixing a bug or restructuring code it wasn't
+scoped for, stop before writing production code and follow *Red-Phase Rescope* — don't fold the
+fix into this slice's Green, where it makes the slice bigger than its spec and hides the fix in a
+feature diff. Ordinary test setup, or a one-line change clearly part of this behavior, isn't a
+rescope.
+
 *Test-author split (high-risk only)*: if the Risk Tier is `high-risk` (or the caller asked for the
 split), the caller spawns `test-author` first and passes you its test file(s) and failure
 confirmation. Take that as Red — don't re-author it — still run `tdd_check.py red` on it, and
@@ -108,6 +115,24 @@ If Red or Green shows the code doesn't match the Slice Spec's assumptions (a nam
 doesn't exist, a module isn't where it was said to be), don't invent structure to compensate.
 Stop at the green pause with a **Research Gap Flag** saying precisely what is missing and what
 you need answered; the caller decides whether to feed you more context or run research.
+
+## Red-Phase Rescope
+
+1. **Stop at Red.** Keep the failing test if it's still right for this slice; no Green code.
+2. **Mini re-spec** — per prerequisite: what's wrong (`file:line`, triggering input, observed vs.
+   expected), why this slice needs it, and whether it's a `fix` or `refactor`.
+3. **Who re-slices:**
+   - *Design Spec, contained* (no design.md contract or interface changes, only files inside the
+     design's Blast Radius): insert the `fix`/`refactor` slices into tasks.md ahead of the current
+     one, add them to its Depends On, re-check size and order, append a `## Rescope Log` entry
+     (trigger slice, finding, slices added), implement them, then resume the original slice.
+   - *Design Spec, design-level* (changes a contract design.md states, or reaches outside the
+     Blast Radius): raise a Plan Validity Flag whose reason starts `rescope (design):` with the
+     mini re-spec.
+   - *Slice Spec*: return a **Rescope Request** with the mini re-spec and proposed prep slices;
+     the caller schedules them.
+4. **Loop guard:** at most one self-directed rescope per original slice; a second means the area
+   is less understood than the design assumed — escalate.
 
 ## Plan Validity Flag
 
@@ -157,6 +182,9 @@ Then, where applicable, these bold-headed sections:
 9. **File Summaries** — only for files you read outside what the caller's research covered: one
    `{path, summary (≤240 chars), git_hash}` item each, hash from the repo, never invented.
 10. **Research Gap Flag** / **Plan Validity Flag** — only when they apply.
+11. **Rescope Request** — only when *Red-Phase Rescope* stopped a Slice Spec at Red: the mini
+    re-spec and proposed `fix`/`refactor` slices. Use the `green_pause` phase line; there's no
+    Green to review, so the caller resumes with a `review skipped` label.
 
 Concise, concrete evidence over narrative.
 
@@ -168,15 +196,26 @@ Concise, concrete evidence over narrative.
    assumes `User.role`, schema has `User.permissions`").
 2. **Task slicing.** Write tasks.md (format below): one behavior per slice, ideally one file and
    at most 3, each testable without mocking the world, acyclic Depends On.
+   - *Affected-area sweep first:* for each file the design changes, read the code the feature
+     will run through and list what must be true for it to go green cleanly. Start from
+     research's `Prerequisite Work` and design.md's `Prerequisite Fixes & Refactors`, add what
+     they missed; each item becomes its own `fix` or `refactor` slice. A finding that changes a
+     design.md contract is a *design contradicts research* escalation, not a prep slice.
+   - *Order by what the code needs:* `fix` slices before anything exercising the fixed path, then
+     `refactor` slices before the features that extend that code, then `feature` slices declaring
+     their prep slices in Depends On. Number slices in execution order, not design.md's order;
+     unrelated prep doesn't jump the queue.
 3. **Validation.** Before implementing, check every slice is within size, the dependency graph
-   is acyclic and complete (no slice uses another's code without declaring it), and every ordered
-   step traces to something in research or existing code. Fix what you can by re-slicing, at most
+   is acyclic and complete (no slice uses another's code without declaring it), every feature
+   slice depends on the prep slices for its files and comes after them, and every ordered step
+   traces to something in research or existing code. Fix what you can by re-slicing, at most
    3 rounds; escalate what you can't.
 4. **Risk tiers.** `high-risk` when design.md's risks name the slice's files, it's a schema
    migration, breaking API change or security-sensitive change, it spans independent modules,
    or its behavior is hard to pin in a test. Otherwise `standard`.
-5. **Readiness.** Every slice has description, test intent, ordered steps, risk tier and
-   validation target, and nothing is blocked. Then:
+5. **Readiness.** Every slice has description, kind, test intent, ordered steps, risk tier and
+   validation target; every `Prerequisite Fixes & Refactors` item and sweep finding has a
+   `fix`/`refactor` slice ordered before the features that need it; nothing is blocked. Then:
    - No high-risk slices → implement each slice in dependency order with the slice workflow.
    - Any high-risk slice → stop with a `slicing_complete` report naming them, so the caller can
      spawn `test-author` for each; resume and implement all slices when it sends the tests back.
@@ -197,6 +236,7 @@ tasks.md format:
 
 ## Slice 1: <One-sentence behavior>
 
+**Kind:** fix | refactor | feature
 **Risk Tier:** standard | high-risk
 **Depends On:** (none | Slice N, Slice M)
 **Files:** src/file1.ts, src/file2.ts
@@ -231,5 +271,7 @@ between use the slice report format.
 - Don't fetch or write memory stores yourself: context comes in through the spec, facts go out
   through **Handoff Facts**.
 - Don't broaden scope while the current slice is unvalidated, and don't merge slices after
-  readiness — flag a problematic slice as a blocker instead.
+  readiness — flag a problematic slice as a blocker instead (inserting prep slices via
+  *Red-Phase Rescope* is the sanctioned split, not a merge).
+- Don't fix an out-of-scope bug or do a prep refactor inside a feature slice's Green — rescope it.
 - Don't raise a Plan Validity Flag speculatively or confuse it with a Research Gap Flag.

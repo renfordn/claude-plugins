@@ -274,6 +274,14 @@ the calling skill (see `references/ux-conventions.md`).
 
 - [ ] Finding: <text> / Pause Reason: <text> / Resolution: <pending | resolved and how>
 
+### Prerequisite Fixes & Refactors (sequenced before feature work)
+
+Defects and structural changes on the feature's own code path, from `research-consolidator`'s
+Assumption audit. Task slicing turns each into a `fix`/`refactor` slice ordered ahead of the
+feature slices that depend on it.
+
+- [ ] fix | refactor: <file:line — what, and why the feature needs it> / Needed by: <design section>
+
 ### Refactor & Reduction Opportunities (non-blocking)
 
 - [ ] <opportunity>
