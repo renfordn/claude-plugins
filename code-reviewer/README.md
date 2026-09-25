@@ -18,12 +18,17 @@ those are host-native tools a subagent can't reliably reach the way the calling 
 also why this plugin doesn't need any `ux-agent`-style delegation for its own dashboard rendering
 — it owns that directly.
 
+The one exception is reviewing code an agent just wrote. There, the judging runs in a fresh
+context — the `agents/code-reviewer.md` agent, or `scripts/review_headless.sh` when spawning
+fails — that applies this skill's rules and hands the payload back; the main thread still does
+the rendering. See INTEROP.md's "Independent review (reviewer ≠ author)".
+
 ## Using it with `agent-tdd`
 
 `agent-tdd`'s `agent-TDD` agent always pauses after Green for a mandatory caller-driven review
-(see [`agent-tdd`'s INTEROP.md](../agent-tdd/INTEROP.md)). This skill is a natural fit for that
-pause — run it in `review-improve` mode, scoped to the files `agent-TDD` named, then resume
-`agent-TDD` with the outcome. Neither plugin hard-depends on the other; you can use `agent-tdd`
+(see [`agent-tdd`'s INTEROP.md](../agent-tdd/INTEROP.md)). This plugin is a natural fit for that
+pause — run an independent review in `review-improve` mode, scoped to the files `agent-TDD`
+named, then resume `agent-TDD` with the outcome. Neither plugin hard-depends on the other; you can use `agent-tdd`
 with a different reviewer, or use this skill with a different (or no) TDD implementer.
 
 ## Research briefs: explaining code, not reviewing it

@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: independent review, so the context that wrote a change never judges it. New
+  read-only `agents/code-reviewer.md` agent (spawned by the main-thread caller) and
+  `scripts/review_headless.sh` fallback (fresh `claude -p` process, for sessions where `Agent`
+  spawns fail). Both apply SKILL.md's rules and return the `ReportFindings` payload as JSON for
+  the caller to render. If both fail, the caller self-reviews and must label it `self-reviewed`.
+  See INTEROP.md's "Independent review (reviewer ≠ author)". New test:
+  `tests/test_independent_review.py`.
+
 ## [0.1.16] - 2026-09-25
 
 - **Feature**: new `/code-reviewer:code-brief` command — invokes `research-brief` mode directly

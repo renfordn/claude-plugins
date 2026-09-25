@@ -74,10 +74,14 @@ fields) rather than proceeding to Refactor — unless your Slice Spec explicitly
 handoff mode to skip. This is deliberate: it preserves "no unreviewed refactor" as a property of
 the agent regardless of what reviewer (or non-reviewer) you have available.
 
-What you do with that pause is up to you:
+What you do with that pause:
 
-- Run your own reviewer (a `code-reviewer`-style agent, a lint pass, a human) scoped to the files
-  `agent-TDD` named in its handoff.
+- Review the handoff's Review Request (level, scope, refactor intent) with a reviewer that is not
+  `agent-TDD` and did not see its reasoning. With `code-reviewer` installed, follow its
+  INTEROP.md "Independent review (reviewer ≠ author)": spawn `code-reviewer:code-reviewer`, fall
+  back to its headless script if spawning fails, and label anything else `self-reviewed`. Any
+  other independent reviewer (a different agent, a human) is fine too. `agent-TDD` never reviews
+  itself.
 - Resume the same `agent-TDD` instance (e.g. via `SendMessage` to its agent id) once review
   clears, telling it to proceed to Refactor. If your reviewer surfaced a blocking finding, pass
   that back on resume — `agent-TDD` will not proceed to Refactor until it hears the finding is

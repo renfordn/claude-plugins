@@ -12,9 +12,11 @@ violated rules found during manual doc review of this plugin repo:
    state this explicitly). Only an orchestrating skill in the main thread
    may invoke another skill.
 
-2. A caller must not describe invoking `code-reviewer` as a subprocess/CLI
-   call or a Task-tool subagent spawn — code-reviewer/SKILL.md is explicit
-   that it is invoked as a plain Skill-tool call, never a subagent.
+2. A caller must not describe invoking the `code-reviewer` *skill* as a
+   subprocess/CLI call or a Task-tool subagent spawn — the skill is a plain
+   Skill-tool call. Independent review of agent-written code goes through
+   code-reviewer's separate agent (agents/code-reviewer.md) or its headless
+   script instead (code-reviewer/INTEROP.md, "Independent review").
 
 Exit code is non-zero (and violations are printed) if either rule is
 violated anywhere in the repo. Run from anywhere; paths are resolved

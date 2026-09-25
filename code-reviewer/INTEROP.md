@@ -8,8 +8,9 @@ it.
 
 ## How to invoke it
 
-Invoke the `code-reviewer` skill directly (it is a skill, not a Task-tool subagent — see
-README's "Why this is a skill, not an agent"). Tell it:
+For a user asking for a review of their own work, invoke the `code-reviewer` skill directly.
+To review code an agent just wrote, use the independent review below instead, so the reviewer is
+not the author. Either way, pass:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -26,13 +27,38 @@ does), you are the one driving both sides — no subagent in this harness can in
 subagent, so the calling skill in the main thread must run this review and then resume the
 implementer itself:
 
-1. Run `code-reviewer` in `review-improve` mode, scoped to the files the implementer named.
-2. If a finding's `workflow_action` is `pause_for_review`, resolve `code-reviewer`'s single
+1. Run an **independent review** (next section) in `review-improve` mode, scoped to the files
+   the implementer named. Render the returned payload with `ReportFindings` (and the dashboard
+   above its threshold) yourself.
+2. If a finding's `workflow_action` is `pause_for_review`, resolve the reviewer's single
    clarifying question with the user yourself before proceeding.
 3. Do not resume the implementer into Refactor while any finding is `needs_detailed_review` in
    your review-state directory's `REVIEW-STATE.md` (if you supplied one), or otherwise unresolved
    for this pass.
 4. Resume the implementer once clear, passing along whether/what review found.
+
+## Independent review (reviewer ≠ author)
+
+The context that wrote a change must not be the one that judges it. Only the main thread can
+start a reviewer (subagents can't spawn subagents), so the orchestrating caller runs this, trying
+each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-REPORT-->` report:
+
+1. **Spawn** the `code-reviewer:code-reviewer` agent (`agents/code-reviewer.md`). Brief it with
+   mode, `review_level`, scope and acceptance criteria only — never the implementer's reasoning
+   or handoff narrative.
+2. **Headless**, when the `Agent` call fails at the tool-call layer (agent type not found, or the
+   2026-09-15 PreToolUse schema error described in `agent-isdd/INTEROP.md`'s "Fallback — Direct
+   Implementation"): run `scripts/review_headless.sh "<same brief>"` via `Bash` with a long
+   timeout (Deep/Ultra can take minutes). It starts a fresh `claude -p` process with read-only
+   tools, so it doesn't depend on the `Agent` tool at all. Requires the `claude` CLI on `PATH`.
+3. **Self-review**, only when both fail: run the skill in your own context, and label the result
+   `self-reviewed (no independent reviewer available: <reason>)` wherever the review outcome is
+   reported — the handoff, `REVIEW-HISTORY.md`, and the implementer's resume message. Never let
+   a self-review pass as independent.
+
+The reviewer returns the `ReportFindings` payload as JSON; the caller renders it, because
+`ReportFindings` and the dashboard Artifact belong to the main thread (README's "Why this is a
+skill, not an agent").
 
 ## Evidence Tier Model (Orthogonal to Review Level)
 

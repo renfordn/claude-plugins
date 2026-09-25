@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **Docs**: the Code-Review Gate and the direct-implementation fallback's review step now use
+  code-reviewer's independent review (spawned agent → headless script → labelled self-review)
+  instead of running `/code-reviewer` in the same context that implemented the slice.
+
 ## [0.1.60] - 2026-09-25
 
 - **Fix**: `doc-consistency-auditor`'s first commit-gate run against this project found three

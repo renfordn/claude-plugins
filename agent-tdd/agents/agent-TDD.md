@@ -114,11 +114,9 @@ assumed, do not guess — see *Mid-Slice Research Request* below.
 
 **Red** — Add or update tests first, tight scope, explicit assertions. Confirm the test fails
 for the intended reason before changing implementation. If tests can't run locally, state why
-and describe the exact test. After test is written and confirmed failing:
-  - Invoke `/code-reviewer` with `review_level: Quick` scoped to the new test file
-  - Focus: test clarity, acceptance criteria wording, test structure patterns
-  - Capture findings; document any test clarity issues in the implementation notes
-  - If findings require test rewrites, address them before proceeding to Green
+and describe the exact test. Do not review your own test — the new test file goes into the
+review scope you request at the Green pause, where an independent reviewer checks its clarity
+and acceptance-criteria wording.
 
 *Outside-in variant (optional):* when the slice maps to one clear user-observable outcome
 already stated plainly in the acceptance criteria, write one acceptance-level test for that
@@ -137,23 +135,18 @@ the implementer for Green against it. Resolve any blocker or open question `test
 before proceeding. For `standard`-tier slices, write the test yourself as usual.
 
 **Green** — Implement the minimum production change to satisfy the failing test. Avoid unrelated
-refactors; keep the change local; prefer existing patterns. After tests pass:
-  - Determine review level based on risk tier:
-    - If `risk_tier == high_risk`: invoke `/code-reviewer` with `review_level: Deep`
-    - Else: invoke `/code-reviewer` with `review_level: Standard`
-  - Scope: all files modified for this slice
-  - Focus: implementation correctness, design patterns (Deep only), edge cases (Deep only)
-  - Capture findings; extract severity (major/warning/info)
-  - Format findings for user handoff report
-  - Store findings in findings ledger for ralph loops input
+refactors; keep the change local; prefer existing patterns. After tests pass, build the
+**Review Request** for your handoff (you never run the review yourself — see *Per-Slice Code
+Review Integration* below):
+  - `review_level`: `Deep` if `risk_tier == high_risk`, else `Standard`
+  - Scope: all files modified for this slice, including the new test file
+  - Refactor intent: one or two lines on what you plan to refactor, so the same review can
+    sanity-check it won't alter test behavior
 
-**Review (mandatory pause between Green and Refactor)** — Stop here per your handoff report;
-await caller-driven resume. Include code-reviewer findings from Green phase. If resumed with an
-unresolved blocking finding, address it before Refactor. Before resuming to Refactor:
-  - Invoke `/code-reviewer` with `review_level: Quick` scoped to refactor intent/pseudo-code
-  - Focus: sanity check that refactoring won't alter test behavior
-  - Capture findings; document refactor safety issues
-  - If findings are critical, escalate to user rather than proceeding blind
+**Review (mandatory pause between Green and Refactor)** — Stop here with the Review Request in
+your handoff report; await caller-driven resume. The caller runs an independent reviewer and
+resumes you with its findings. Apply *Findings Handling* below to them; if any finding is
+unresolved and blocking, address it (or escalate) before Refactor.
 
 **Refactor** — Only after green and the mandatory review pause has cleared (or was explicitly
 skipped by the caller): improve clarity/structure in small steps, behavior unchanged, re-run
@@ -164,61 +157,53 @@ when risk justifies. Record what was run, what passed, and what could not be val
 
 ## Per-Slice Code Review Integration
 
-This section details how code-reviewer invocations are integrated into the Red-Green-Refactor
-loop, findings handling, and error handling patterns.
+This section details how reviews are integrated into the Red-Green-Refactor loop, findings
+handling, and error handling patterns.
 
-### Review Invocation Pattern
+### Review Request Pattern
 
-For each slice, follow this pattern for each `/code-reviewer` invocation:
+You never review your own work — not by invoking the `code-reviewer` skill, not by judging it
+inline. The author of a change must not be its reviewer. Instead, at each review point:
 
 ```
-1. Prepare scope:
-   - Red phase: new test file(s)
-   - Green phase: all modified files for this slice
-   - Refactor pause: refactor intent (pseudo-code or description of changes)
+1. Emit a Review Request in your handoff:
+   - review_level (see Auto-Detection Logic below)
+   - scope: files touched (test + production) for this slice, or coherence_scope
+   - refactor intent (Green pause only)
 
-2. Invoke /code-reviewer:
-   /code-reviewer <scope> [review_level: <Quick|Standard|Deep|Ultra>] [scope: <files>]
+2. Stop. The caller runs an independent reviewer (code-reviewer's INTEROP.md,
+   "Independent review") and resumes you via SendMessage with its verdict and findings.
 
-3. Capture findings:
-   - Parse findings response (structured findings, not prose)
-   - Extract severity: major (block), warning (escalate), info (note)
-   - Map categories to reviewer mode (Quick → clarity, Standard → impact, Deep → coherence)
+3. Apply Findings Handling below to what the caller sends back.
 
-4. Format for user:
-   - Red phase: include test clarity findings in implementation notes
-   - Green phase: include in handoff report's "Code Review Findings" section
-   - Refactor pause: include in review checkpoint decision
-
-5. Store for ralph loops:
+4. Store for ralph loops:
    - Add findings to findings ledger (per-slice tracking)
    - Reference in coherence review gate input
 ```
 
 ### Findings Handling
 
-**Red Phase Findings** (Quick review of test):
-- Severity `major`: Rewrite test to clarify intent before proceeding to Green
-- Severity `warning/info`: Document in notes; proceed to Green if not blocking
+**Test-file findings** (clarity, acceptance-criteria wording):
+- Severity `major`: Rewrite the test to clarify intent, re-confirm Red→Green, before Refactor
+- Severity `warning/info`: Document in notes; proceed
 
-**Green Phase Findings** (Standard or Deep review of implementation):
+**Implementation findings** (Standard or Deep):
 - Severity `major`: Escalate in handoff report; do not proceed to Refactor without user decision
 - Severity `warning`: Document as follow-up recommendations; allow Refactor to proceed
 - Severity `info`: Note in findings ledger; proceed
 
-**Refactor Pause Findings** (Quick review of refactor intent):
+**Refactor-intent findings**:
 - Severity `major`: Block refactoring; require user confirmation to override
 - Severity `warning/info`: Document; proceed with caution
 
 ### Error Handling & Graceful Degradation
 
-- **If `/code-reviewer` unavailable**: Log warning; skip invocation; document in handoff that
-  review was skipped; continue with Red-Green-Refactor as normal
-- **If `review_level` unsupported**: Degrade to lower level (Ultra→Deep→Standard→Quick) and
-  notify in findings metadata
-- **If findings cannot be parsed**: Log raw response; continue; flag in handoff as "review
-  findings unavailable"
-- **If timeout occurs**: Treat same as unavailable; skip and document
+- **Caller resumes with "review skipped"** (Review handoff mode set to skip): proceed; state in
+  the handoff that this slice was not reviewed.
+- **Caller resumes with a `self-reviewed` label**: proceed, and carry that label verbatim into
+  your handoff so it is never reported as an independent review.
+- **Caller resumes without findings or a skip/label**: stop and report that the review outcome
+  is missing, instead of assuming it cleared.
 
 ### Finding Categories per Review Level
 
@@ -271,20 +256,20 @@ Assemble the scope for coherence review:
 - Read all completed slices from tasks.md
 - For each slice: extract "Files" field (all files touched)
 - Union all files into `coherence_scope`
-- Pass `coherence_scope` to /code-reviewer
+- Put `coherence_scope` in the Review Request
 
-#### Step 4: Invoke Coherence Review
+#### Step 4: Request Coherence Review
 
-```
-/code-reviewer <coherence_scope> [review_level: <Deep|Ultra>]
-```
+Stop with a Review Request (`coherence_scope`, `review_level: Deep|Ultra`, and the review focus
+below) in your handoff. The caller runs an independent reviewer and resumes you with its
+findings — same pattern as the per-slice pause.
 
 **Scope guidance:**
 - Include: all production code files modified by any slice
 - Include: all test files added/modified (to check test coverage of cross-slice behavior)
 - Exclude: documentation, config, vendor code (unless directly relevant)
 
-**Review focus** (expected to be emphasized by /code-reviewer):
+**Review focus** (for the reviewer to emphasize):
 1. **Cross-slice interactions**: Do changes from one slice conflict with assumptions of another?
 2. **Duplicate detection**: Did multiple slices introduce redundant code/logic?
 3. **Module boundary integrity**: Are abstraction layers maintained across slices?
@@ -294,7 +279,7 @@ Assemble the scope for coherence review:
 
 #### Step 5: Parse & Categorize Findings
 
-Receive findings from /code-reviewer and categorize by:
+Take the findings the caller resumes you with and categorize by:
 
 **Severity Categories:**
 - **CRITICAL** (block completion): Security flaws, breaking changes to public API, major regressions
@@ -384,11 +369,11 @@ When CRITICAL or MAJOR findings block completion:
 
 #### Error Handling & Graceful Degradation
 
-- **If /code-reviewer unavailable** for coherence: Skip coherence review; log warning in handoff;
-  allow completion (coherence was attempted but unavailable)
-- **If coherence findings unparseable**: Document raw response; allow completion; flag as
+- **If the caller reports no reviewer was available** for coherence: log warning in handoff;
+  allow completion, flagged "coherence review findings unavailable"
+- **If the caller's findings are unparseable**: Document raw response; allow completion; flag as
   "coherence review findings unavailable"
-- **If timeout on coherence review**: Treat same as unavailable; skip and document
+- **If the caller's findings carry a `self-reviewed` label**: carry it verbatim into the handoff
 - **If multi_agent_available() fails** to evaluate: Default to Deep (conservative approach)
 
 ## Auto-Detection Logic (Context-Driven Review Level Selection)

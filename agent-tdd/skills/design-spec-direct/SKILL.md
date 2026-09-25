@@ -122,7 +122,7 @@ for each slice in tasks.md (dependency order):
     if slice.risk_tier == high-risk:
         test-author <slice-id>        → failing test
     slice <slice-id>                  → "Implementation Complete" handoff
-    caller reviews (code-reviewer skill, scoped to files this slice touched)
+    caller runs independent review    (headless path, scoped to files this slice touched)
     if review has a blocking finding:
         pause — surface finding, do not call refactor, do not advance to next slice
     else:
@@ -130,6 +130,13 @@ for each slice in tasks.md (dependency order):
         continue to next slice
 summary                               → final handoff, log recap.md, mark Workflow Status: Complete
 ```
+
+The review step matters more here than anywhere: this conversation just wrote the code, so
+reviewing it with the `code-reviewer` skill inline would be self-review. The `Agent` tool is
+already known broken in this session, so skip the spawn attempt and go straight to path 2 of
+`code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠ author)" — its headless script,
+which runs in a separate process. Only if that also fails, review inline and label it
+`self-reviewed` per path 3.
 
 This is the loop from `agent-isdd/INTEROP.md`'s Fallback section, made concrete. Persist
 progress in the feature's `direct-mode-state.json` (sibling to `workflow-state.json`) so a
@@ -184,6 +191,7 @@ later session mistake a direct-mode run for a normal handoff:
   from the `test-author` call) is a real mitigation, not a full substitute — a careful reader of
   the transcript could still infer intent that true isolation would have prevented.
   `agent-isdd`'s own escalation review loses the same independence for the identical reason.
+  Code review does not: the headless reviewer above runs in its own process.
 - **Loop prevention is caller-enforced, not agent-enforced.** Design Spec Mode's "stop after 2
   identical fix attempts" rule (`agent-TDD.md:84-88`) depends on a single agent instance tracking
   its own attempt count across a slice. Split across separate `slice` mode calls, the caller must

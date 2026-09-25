@@ -90,7 +90,9 @@ its own `INTEROP.md`.
 
 What actually happens, matching `agent-tdd`'s own generic guidance ("What you do with that
 pause is up to you" / resume via `SendMessage`): the user (or whichever context is driving)
-runs `/code-reviewer` themselves, then manually resumes the still-live `agent-tdd` session —
+runs an independent review (`code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠
+author)": spawn the reviewer agent, else its headless script, else a labelled self-review), then
+manually resumes the still-live `agent-tdd` session —
 via `SendMessage` to its agent id, in the *same* session — passing along whether/what review
 found. This is a same-session, live-agent-id operation; it has no relationship to
 `/isdd-continue` or `workflow-state.json`, both of which resume the SDD *workflow* across
@@ -245,8 +247,11 @@ instead of trusting an isolated subagent to run it unsupervised:
    (passing only Task description/Test Intent/Data Contracts — see that skill's own prompt-
    hygiene rule for why), then call `slice <slice-id>` → "Implementation Complete" handoff
    (Red confirmed, Green done, Refactor still pending).
-3. Review that slice's touched files via the `code-reviewer` skill (the same Review Gate this
-   handoff would otherwise require — see "Auto Code-Reviewer Invocation" below).
+3. Review that slice's touched files with the headless independent reviewer
+   (`code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠ author)", path 2 — skip the
+   spawn attempt, it's already known broken here). Reviewing inline with the skill would be this
+   same conversation grading its own code; do that only if the headless run also fails, labelled
+   `self-reviewed`.
 4. No blocking finding → call `refactor <slice-id>`, mark the slice done, advance to the next
    slice. Blocking finding → pause on this slice; do not call `refactor` and do not advance.
 5. Once every slice is `done`, call `summary` → final handoff. Run the full regression suite

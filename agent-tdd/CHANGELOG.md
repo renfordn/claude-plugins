@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Fix**: `agent-TDD` was told to invoke `/code-reviewer` on its own test, implementation, and
+  refactor intent, which it can't do (no `Skill`/`Agent` tool) and which would be self-review if
+  it could. It now puts a **Review Request** (level, scope including the test file, refactor
+  intent) in its Green-pause and coherence-gate handoffs, and applies the findings the caller
+  resumes it with. `INTEROP.md`'s mandatory review pause and `design-spec-direct` now point
+  callers at code-reviewer's independent review; direct mode goes straight to the headless
+  reviewer since spawning is already known broken there.
+
 ## [0.2.17] - 2026-09-24
 
 - **Feature**: `agent-TDD` reports a new optional **File Summaries** field (Slice Spec and Design
