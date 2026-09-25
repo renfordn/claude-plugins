@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-25
+
 - **Feature**: `/tdd <behavior>` command — Slice Spec from the conversation, agent-TDD, independent
   review at the Green pause, resume, report.
 - **Feature**: `scripts/tdd_check.py` records Red (must fail) and Green (must pass after a confirmed

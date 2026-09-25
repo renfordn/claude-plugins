@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-25
+
 - **Feature**: `scripts/review_loop.py`, a sweep-until-dry driver. It runs fresh read-only
   reviewer passes (`review_headless.sh`), briefs each with the plan and the findings so far, and
   stops when a pass adds nothing (max 3). The skill runs it for large diffs and Deep/Ultra

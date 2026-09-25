@@ -1,6 +1,6 @@
 {
   "name": "agent-tdd",
-  "version": "0.2.19",
+  "version": "0.3.0",
   "description": "Strict Red-Green-Refactor TDD for Claude Code: an agent that writes a failing test, makes it pass, pauses for an independent review, then refactors. Takes a Slice Spec from /tdd or agent-isdd's Design Spec.",
   "author": {
     "name": "Renford Nelson"

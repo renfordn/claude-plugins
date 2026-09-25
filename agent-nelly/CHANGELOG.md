@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-25
+
 - **Docs**: INTEROP documents how agent-isdd hands over code-reviewer follow-ups (as `file-relevance`
   entries, so editing those files surfaces them).
 

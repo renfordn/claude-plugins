@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-25
+
 - **Feature**: review follow-up queue (`hooks/followups.py`). SessionStart ingests code-reviewer's
   findings.json `followups` into `<sdd memory>/<project>/followups/`, lists open items, and asks
   Claude to record unrecorded ones in agent-nelly as `file-relevance` entries. The Start Protocol
