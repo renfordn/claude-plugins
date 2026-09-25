@@ -75,7 +75,8 @@ multi-plugin install/verify guide.
 `evals/` is a `claude plugin eval` suite. Each case plants one known bug in a small fixture
 (off-by-one, unchecked `None`, SQL injection at `Ultra`) and grades whether the review reports
 it at the right line; `clean-no-false-positive` checks a correct file doesn't get a blocking
-finding. Run it from the repo root after changing the skill's review rules:
+finding. The `trigger-*` cases ask casually ("any bugs in this?") and check the skill
+actually loads. Run it from the repo root after changing the skill's review rules:
 
 ```bash
 claude plugin eval ./code-reviewer --trust-plugin

@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review code changes against evidence tiers and a required decision model, rendering findings visually via ReportFindings (and an optional review dashboard for larger passes). Per-file review state persists to a caller-supplied location if given, or stays ephemeral for a single pass otherwise. Invoked directly by the user, mid-TDD-loop by an orchestrating skill, or pre-commit. For explaining how code works rather than reviewing a change, use the code-brief skill instead. Independent of any other plugin.
+description: Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however they phrase it — "look over this", "any bugs in this?", "is this safe to ship/merge?", "sanity-check my change", "review this file/diff/PR/function" — including a pasted snippet, a yes/no "can this go out?" question, and cases where the problem looks obvious, since the finding still needs a tier and a decision. Also at pre-commit and TDD review gates. Gives each finding an evidence tier and a decision (accept/flag/block), reported via ReportFindings. Not for explaining how code works; use code-brief for that.
 ---
 
 # Code Reviewer

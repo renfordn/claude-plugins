@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Fix**: the skill didn't load for casual review requests. Its description listed internals
+  (evidence tiers, decision model) instead of what users ask for. Measured with new
+  `evals/trigger-*` cases ("look over this", "any bugs in this?", "is this safe to ship?"), 3
+  runs each: the skill loaded 0/9 times before and 9/9 after, and 12/12 on the existing cases
+  (was 11/12). Every planted bug was found in every run either way.
+
 - **Feature**: verify pass. New read-only `agents/finding-verifier.md` tries to disprove each
   gating finding (block / block_commit / pause_for_review, or every finding at Ultra) and returns
   upheld / refuted / downgraded. The caller drops refuted findings and sets `verdict` from the
