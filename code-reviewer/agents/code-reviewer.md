@@ -28,9 +28,10 @@ First line, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
 - **Verdict** — `clear` (no finding with `decision: block` or `workflow_action` of
   `block_commit`/`pause_for_review`) or `blocked` (list the finding ids that block).
 - **Findings payload** — one fenced `json` block holding the exact `ReportFindings` input
-  (`findings` + `level`), budgeted per the skill's ReportFindings Payload limits. Empty
-  `findings` array if nothing survived.
-- **Review record** — per finding: `id`, `evidence_tier`, `decision`, `severity`, `category`,
+  (`findings` + `level`), budgeted per the skill's ReportFindings Payload limits, in the same
+  order as the review record. Leave `verdict` out; the caller sets it after the verify pass.
+  Empty `findings` array if nothing survived.
+- **Review record** — per finding: `id` (`F1`, `F2`, … in payload order), `evidence_tier`, `decision`, `severity`, `category`,
   `workflow_action`, `confidence`, and one line of `evidence`. The caller needs these for review
   state and gate decisions; they don't fit in the payload.
 - **Clarifying question** — only if a finding is `pause_for_review`: the single question the

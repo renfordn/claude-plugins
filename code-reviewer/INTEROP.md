@@ -14,8 +14,8 @@ not the author. Either way, pass:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| Mode | string | yes | `direct-review`, `review-improve`, `pre-commit`, or `research-brief` (see SKILL.md's Invocation Modes) |
-| Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. For `research-brief`, the subsystem/feature/file set the caller wants explained |
+| Mode | string | yes | `direct-review`, `review-improve`, or `pre-commit` (see SKILL.md's Invocation Modes) |
+| Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. |
 | review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
 | review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
 | phase_state | string | no | Compact phase token (e.g. `Design`, `TDD:green`) if your workflow has one. Unlocks `agent-ux:ux-agent` delegation for review dashboard if installed. Omit for standalone/pre-commit pass |
@@ -59,6 +59,31 @@ each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-R
 The reviewer returns the `ReportFindings` payload as JSON; the caller renders it, because
 `ReportFindings` and the dashboard Artifact belong to the main thread (README's "Why this is a
 skill, not an agent").
+
+### Verify pass (before rendering)
+
+A second context tries to disprove the findings that matter, so false positives don't block work.
+
+**When**: the review has any finding with `decision: block` or `workflow_action` of
+`block_commit` / `pause_for_review`, or `review_level` is `Ultra`. Verify those gating findings
+(every finding at `Ultra`). Otherwise skip it.
+
+**How**: same path order as the review. Spawn `code-reviewer:finding-verifier`
+(`agents/finding-verifier.md`), else run `scripts/review_headless.sh --agent finding-verifier
+"<brief>"`. Brief it with the scope and, per finding, its `id`, `file`, `line`, `summary`,
+`failure_scenario`, and tier. No self-verification: if both paths fail, skip the pass and say
+so, rather than having the reviewer's or implementer's context check its own findings.
+
+**Apply** each result, then render:
+
+| Outcome | What the caller does |
+|---|---|
+| `upheld` | `verdict: CONFIRMED` |
+| `refuted` | Drop the finding from the payload. Say how many were refuted in one line, and log them in `REVIEW-HISTORY.md` if a review-state directory was supplied |
+| `downgraded` | Apply the new tier/severity, `verdict: PLAUSIBLE`, and re-derive `decision`/`workflow_action` — a finding downgraded to tier-3 or lower can't `block` on its own |
+
+Findings the pass didn't cover get `verdict: PLAUSIBLE`. If no verify pass ran, leave `verdict`
+off every finding — `ReportFindings` reserves it for verified reviews.
 
 ## Evidence Tier Model (Orthogonal to Review Level)
 
@@ -144,18 +169,16 @@ for auto-detection to succeed. See `plugin-harness/tests/test_smoke_e2e.py` for 
   `~/.claude/sdd-memory/`, not the repo); see `agent-isdd/INTEROP.md`'s "Strategic Review
   Placement via Review Levels" section for the live reasoning instead
 
-## `research-brief` mode: a different contract
+## Explaining code: the `code-brief` skill
 
-`research-brief` is not a review — it produces a visual explanation of how existing code works
-for a human reader, not a verdict for a caller to act on. It returns **no `findings` array and
-never calls `ReportFindings`**; the only thing handed back is a single Artifact (diagram(s) plus
-narrative walkthrough — see SKILL.md's "Research Brief Output" for the shape). Nothing is
-persisted to `REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md` for this mode, and there
-is no `workflow_action` to gate a commit on. Do not route this mode's output into a
-`review_threshold`-style downstream consumer expecting the Decision Model's fields — there aren't
-any.
+Explaining how existing code works is a separate skill, `code-brief`
+(`skills/code-brief/SKILL.md`, `/code-reviewer:code-brief`), not a mode of this one. It returns a
+single Artifact for a human reader — no `findings` array, no `ReportFindings` call, nothing
+persisted to `REVIEW-STATE.md`, `REVIEW-HISTORY.md`, or `TODO-LEDGER.md`, and no
+`workflow_action` to gate on. Don't route its output into a consumer expecting the Decision
+Model's fields.
 
-## What you get back (`direct-review` / `review-improve` / `pre-commit`)
+## What you get back
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

@@ -7,11 +7,13 @@ self-review) and that agent-TDD requests reviews instead of running them itself.
 
 import os
 import re
+import subprocess
 from pathlib import Path
 
 _PLUGIN = Path(__file__).resolve().parent.parent
 _REPO = _PLUGIN.parent
 _AGENT = _PLUGIN / "agents" / "code-reviewer.md"
+_VERIFIER = _PLUGIN / "agents" / "finding-verifier.md"
 _SCRIPT = _PLUGIN / "scripts" / "review_headless.sh"
 _EDIT_TOOLS = {"Edit", "Write", "NotebookEdit"}
 
@@ -22,10 +24,33 @@ def _frontmatter_tools(path: Path) -> set:
     return {t.strip() for t in match.group(1).split(",")}
 
 
-def test_reviewer_agent_is_read_only():
-    tools = _frontmatter_tools(_AGENT)
-    assert not tools & _EDIT_TOOLS, f"reviewer agent can edit files: {tools & _EDIT_TOOLS}"
-    assert "Agent" not in tools
+def test_reviewer_and_verifier_agents_are_read_only():
+    for agent in (_AGENT, _VERIFIER):
+        tools = _frontmatter_tools(agent)
+        assert not tools & _EDIT_TOOLS, f"{agent.name} can edit files: {tools & _EDIT_TOOLS}"
+        assert "Agent" not in tools
+
+
+def test_verifier_returns_marker_and_all_three_outcomes():
+    text = _VERIFIER.read_text()
+    assert "<!--FINDING-VERIFIER-REPORT-->" in text
+    for outcome in ("upheld", "refuted", "downgraded"):
+        assert f"`{outcome}`" in text
+
+
+def test_interop_verify_pass_rules():
+    text = (_PLUGIN / "INTEROP.md").read_text()
+    section = re.search(r"### Verify pass.*?(?=\n## |\Z)", text, re.S).group(0)
+    assert "code-reviewer:finding-verifier" in section
+    assert "--agent finding-verifier" in section
+    assert "No self-verification" in section
+    assert "leave `verdict`" in section
+
+
+def test_skill_only_sets_verdict_after_verify_pass():
+    skill = (_PLUGIN / "skills" / "code-reviewer" / "SKILL.md").read_text()
+    row = next(line for line in skill.splitlines() if line.startswith("| `verdict`"))
+    assert "verify pass" in row and "Omit" in row
 
 
 def test_reviewer_agent_returns_marker_and_payload():
@@ -40,6 +65,12 @@ def test_headless_script_is_executable_and_read_only():
     assert "claude -p" in text
     disallowed = re.search(r"--disallowedTools\s+(.+)", text).group(1).split()
     assert _EDIT_TOOLS <= set(disallowed)
+
+
+def test_headless_script_rejects_path_like_agent_names():
+    result = subprocess.run([str(_SCRIPT), "--agent", "../README", "x"], capture_output=True, text=True)
+    assert result.returncode == 2
+    assert "bad agent name" in result.stderr
 
 
 def test_interop_documents_all_three_paths_in_order():

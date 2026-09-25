@@ -33,17 +33,15 @@ with a different reviewer, or use this skill with a different (or no) TDD implem
 
 ## Research briefs: explaining code, not reviewing it
 
-`research-brief` is a fourth invocation mode, separate from the three review modes above. Ask
-for it explicitly when you want to understand or be walked through how existing code works — a
-visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a person, not
-findings for an implementation agent to act on. It reuses the same evidence-tier grounding
-(claims still need tier-1..5 backing) but has no Decision Model, no `ReportFindings` call, and
-writes nothing to review state — there's no commit to gate. See SKILL.md's "Research Brief
-Output" section for the exact shape.
+The separate `code-brief` skill (`skills/code-brief/SKILL.md`) explains how existing code works
+— a visual Artifact (structure/timeline diagrams plus a narrative walkthrough) for a person, not
+findings for an implementation agent to act on. It keeps evidence-tier grounding (claims still
+need tier-1..5 backing) but has no Decision Model, no `ReportFindings` call, and writes nothing
+to review state — there's no commit to gate.
 
-Trigger it directly with `/code-reviewer:code-brief <file, feature, or subsystem>` instead of
-phrasing a request by hand. The Artifact itself gets a real design pass — SKILL.md's "Design bar"
-loads the `frontend-design` skill and grounds the diagram idiom, palette, and type in the
+Trigger it with `/code-reviewer:code-brief <file, feature, or subsystem>`, or just ask Claude to
+explain or diagram how something works. The Artifact gets a real design pass — the skill's
+"Design bar" loads `frontend-design` and grounds the diagram idiom, palette, and type in the
 subsystem being explained, rather than reusing one generic diagram template across every brief.
 
 ## Review state is opt-in
@@ -71,6 +69,21 @@ own built-in `/code-review` command is a separate thing — this plugin is the
 `code-reviewer:code-reviewer` skill, invoked by name or by asking for a code review.) See
 [docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
 multi-plugin install/verify guide.
+
+## Evals: does the review actually catch bugs?
+
+`evals/` is a `claude plugin eval` suite. Each case plants one known bug in a small fixture
+(off-by-one, unchecked `None`, SQL injection at `Ultra`) and grades whether the review reports
+it at the right line; `clean-no-false-positive` checks a correct file doesn't get a blocking
+finding. Run it from the repo root after changing the skill's review rules:
+
+```bash
+claude plugin eval ./code-reviewer --trust-plugin
+```
+
+By default each case runs 3 times, with and without the plugin, so the report shows what the
+skill adds over plain Claude. Add `--ablation none --runs 1` for a cheap check. It costs tokens,
+so CI only checks the suite's structure (`tests/test_evals_structure.py`).
 
 ## Using Code Reviewer from another plugin
 

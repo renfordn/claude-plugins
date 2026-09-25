@@ -1,6 +1,24 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: verify pass. New read-only `agents/finding-verifier.md` tries to disprove each
+  gating finding (block / block_commit / pause_for_review, or every finding at Ultra) and returns
+  upheld / refuted / downgraded. The caller drops refuted findings and sets `verdict` from the
+  result. `verdict` is now omitted when no verify pass ran, as `ReportFindings` intends; it used
+  to be derived from tier alone. `scripts/review_headless.sh` gains `--agent finding-verifier`
+  and rejects path-like agent names. See INTEROP.md's "Verify pass".
+- **Feature**: `evals/`, a `claude plugin eval` suite with planted-bug fixtures (off-by-one,
+  unchecked `None`, SQL injection at Ultra) and a clean-file false-positive case. Fixtures are
+  inline in each prompt with line numbers, because `context.add_dirs` mounted nothing in Claude
+  Code 2.1.282. First run (1 run/case, no baseline): every planted bug found at the right line,
+  no false positive, but the skill didn't fire on the off-by-one case. CI checks the suite's
+  structure (`tests/test_evals_structure.py`); run it with `claude plugin eval ./code-reviewer`.
+- **Breaking**: `research-brief` is no longer a mode of the `code-reviewer` skill. It's the
+  separate `code-brief` skill (`skills/code-brief/SKILL.md`), which replaces
+  `commands/code-brief.md` — `/code-reviewer:code-brief` works as before. `code-reviewer`'s
+  SKILL.md drops from 414 to 340 lines.
+- **Fix**: `first-class.json` no longer declares `agents` absent.
+
 ## [0.1.17] - 2026-09-25
 
 - **Feature**: independent review, so the context that wrote a change never judges it. New

@@ -1,7 +1,6 @@
 {
   "declared_absent": [
     "hooks",
-    "commands",
-    "agents"
+    "commands"
   ]
 }
