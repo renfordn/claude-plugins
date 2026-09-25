@@ -11,6 +11,9 @@
   own `-claude-worktrees-<name>` slug; outside a repo the cwd is used as before.
   Existing `<repo>-<subdir>` stores are not migrated automatically; merge them into the repo's
   store by hand (they are no longer read, and the slug guard now refuses writes to them).
+- **Fix**: the `followups.py` and `sdd_memory.py` CLIs resolve cwd from `$PWD` when it names the
+  same directory as `os.getcwd()`, so a symlinked cwd (e.g. macOS `/var` -> `/private/var`) maps to
+  the same store the hooks use; `os.getcwd()` returns the resolved path, which gave a different slug.
 
 ## [0.2.0] - 2026-09-25
 

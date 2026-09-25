@@ -94,6 +94,24 @@ def _repo_root(cwd):
         d = parent
 
 
+def invocation_cwd():
+    """The cwd as the invoking shell spells it: $PWD when it names the same directory as
+    os.getcwd(), else os.getcwd().
+
+    os.getcwd() resolves symlinks (/var -> /private/var on macOS), but hooks get the cwd from
+    Claude Code's payload unresolved; a CLI must use the same spelling to reach the same store.
+    """
+    cwd = os.getcwd()
+    pwd = os.environ.get("PWD")
+    if pwd and os.path.isabs(pwd):
+        try:
+            if os.path.samefile(pwd, cwd):
+                return pwd
+        except OSError:
+            pass
+    return cwd
+
+
 def project_slug(cwd):
     """Deterministic collision-resistant slug from the project path: the git toplevel of cwd,
     so a session whose cwd drifts into a repo subdirectory still maps to the repo's store."""
@@ -187,18 +205,18 @@ def ensure_dir(cwd):
 
 def main(argv):
     if not argv:
-        print(memory_dir(os.getcwd()))
+        print(memory_dir(invocation_cwd()))
         return
     cmd = argv[0]
     rest = [a for a in argv[1:] if not a.startswith("--")]
-    cwd = rest[0] if rest else os.getcwd()
+    cwd = rest[0] if rest else invocation_cwd()
 
     if cmd == "--path":
         print(ensure_dir(cwd))
     elif cmd == "--spec-path":
         positional = [a for a in argv[1:] if not a.startswith("--")]
         slug = positional[0] if positional else None
-        spec_cwd = positional[1] if len(positional) > 1 else os.getcwd()
+        spec_cwd = positional[1] if len(positional) > 1 else invocation_cwd()
         print(spec_dir(spec_cwd, slug))
     else:
         print(memory_dir(cwd))

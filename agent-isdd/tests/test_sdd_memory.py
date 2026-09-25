@@ -182,6 +182,14 @@ class RepoRootSlugTests(unittest.TestCase):
         self.assertEqual(self.module.project_slug(link),
                          self.module.project_slug(os.path.realpath(self.repo)))
 
+    def test_path_cli_through_symlinked_cwd_uses_pwd_spelling(self):
+        link = os.path.join(self._tmp.name, "link")
+        os.symlink(self.repo, link)
+        with h.temp_home() as home:
+            out, rc = h.run_sdd_memory_cli(["--path"], cwd=link, env_extra={"HOME": home, "PWD": link})
+            self.assertEqual(rc, 0)
+            self.assertEqual(os.path.basename(out), self.module.project_slug(link))
+
     def test_missing_dir_falls_back_to_cwd(self):
         missing = os.path.join(self._tmp.name, "no", "such", "dir")
         self.assertTrue(self.module.project_slug(missing).endswith("-no-such-dir"))
