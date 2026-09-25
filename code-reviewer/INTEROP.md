@@ -55,10 +55,10 @@ each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-R
    reported — the handoff, `REVIEW-HISTORY.md`, and the implementer's resume message. Never let
    a self-review pass as independent.
 
-**Large diffs** (`review_plan.py plan` reports `large`): spawn one reviewer per plan group in a
-single message so they run in parallel, then `code-reviewer:cross-file-reviewer` with the full
-plan and the groups' finding titles, then merge — see SKILL.md's "Review Pipeline". Each spawn
-falls back to headless the same way (`--agent cross-file-reviewer` for the cross-file pass).
+**Large diffs** (`review_plan.py plan` reports `large`) and `Deep`/`Ultra`: run
+`scripts/review_loop.py` instead of a single reviewer. It repeats fresh headless reviewer passes,
+each briefed with the findings so far, until one adds nothing (max 3), and prints the merged
+payload — see SKILL.md's "Review Pipeline" step 3.
 
 The reviewer returns the `ReportFindings` payload as JSON; the caller renders it, because
 `ReportFindings` and the dashboard Artifact belong to the main thread (README's "Why this is a

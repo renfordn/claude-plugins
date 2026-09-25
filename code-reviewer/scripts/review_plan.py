@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Deterministic review planning for code-reviewer. Stdlib only.
 
-  review_plan.py plan [--base REF] [--diff-file PATH] [--group-lines N]
+  review_plan.py plan [--base REF] [--diff-file PATH]
       Parse the diff and print a JSON plan: per-file kind/churn/risk, changed and removed
-      symbols, candidate tests, test gaps, and review groups for fan-out on large diffs.
+      symbols, candidate tests, test gaps, and whether the diff is large.
       Diff source: --diff-file, else `git diff <base>...HEAD` (base defaults to the merge-base
       with origin/main or main), else the working tree against HEAD.
   review_plan.py findings-path [--state-dir DIR]
@@ -22,7 +22,6 @@ import sys
 
 LARGE_LINES = 400
 LARGE_FILES = 10
-GROUP_LINES = 300
 
 _DEF_RES = [
     re.compile(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\("),              # python
@@ -166,28 +165,7 @@ def candidate_tests(path, all_files):
     return sorted(f for f in all_files if _TEST_RE.search(f) and stem in os.path.basename(f) and f != path)
 
 
-def make_groups(files, group_lines):
-    """Greedy-pack reviewable files into groups of ~group_lines changed lines, keeping each
-    directory's files together and the riskiest directories first."""
-    by_dir = {}
-    for f in files:
-        by_dir.setdefault(os.path.dirname(f["path"]), []).append(f)
-    dirs = sorted(by_dir.values(), key=lambda fs: -max(f["risk"] for f in fs))
-    groups, cur, size = [], [], 0
-    for fs in dirs:
-        for f in sorted(fs, key=lambda f: -f["risk"]):
-            churn = f["added"] + f["removed"]
-            if cur and size + churn > group_lines:
-                groups.append(cur)
-                cur, size = [], 0
-            cur.append(f["path"])
-            size += churn
-    if cur:
-        groups.append(cur)
-    return groups
-
-
-def build_plan(diff_text, source, group_lines=GROUP_LINES, root="."):
+def build_plan(diff_text, source, root="."):
     parsed = parse_diff(diff_text)
     all_files = repo_files(root)
     changed_tests = {p for p in parsed if classify(p) == "test"}
@@ -240,7 +218,6 @@ def build_plan(diff_text, source, group_lines=GROUP_LINES, root="."):
         "removed_symbols": sorted(removed_symbols, key=lambda s: s["symbol"]),
         "new_symbols": sorted(new_symbols, key=lambda s: s["symbol"]),
         "test_gaps": test_gaps,
-        "groups": make_groups(files, group_lines) if large else [[f["path"] for f in files]],
     }
 
 
@@ -296,7 +273,6 @@ def main(argv=None):
     p = sub.add_parser("plan")
     p.add_argument("--base")
     p.add_argument("--diff-file")
-    p.add_argument("--group-lines", type=int, default=GROUP_LINES)
     f = sub.add_parser("findings-path")
     f.add_argument("--state-dir")
     v = sub.add_parser("validate")
@@ -305,7 +281,7 @@ def main(argv=None):
 
     if a.cmd == "plan":
         text, source = read_diff(a.base, a.diff_file)
-        print(json.dumps(build_plan(text, source, a.group_lines), indent=2))
+        print(json.dumps(build_plan(text, source), indent=2))
     elif a.cmd == "findings-path":
         print(findings_path(a.state_dir))
     else:

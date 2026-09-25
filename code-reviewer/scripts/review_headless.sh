@@ -2,7 +2,7 @@
 # Run one of this plugin's agents in a fresh `claude -p` process, for when the Agent tool can't spawn.
 set -euo pipefail
 
-usage='usage: review_headless.sh [--agent code-reviewer|finding-verifier|cross-file-reviewer] "<brief>"'
+usage='usage: review_headless.sh [--agent code-reviewer|finding-verifier] "<brief>"'
 agent_name=code-reviewer
 if [[ "${1:-}" == --agent ]]; then agent_name="${2:?$usage}"; shift 2; fi
 [[ "$agent_name" =~ ^[a-z-]+$ ]] || { echo "review_headless: bad agent name '$agent_name'" >&2; exit 2; }

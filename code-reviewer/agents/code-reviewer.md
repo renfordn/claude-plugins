@@ -16,8 +16,8 @@ implementer's reasoning is deliberately withheld from you.
    Levels, Evidence Tier Model, Decision Model, anti-blur rules and ReportFindings Payload
    section are your rules. Its Visual Review, Review State and Resume Contract sections are the
    caller's job, not yours.
-2. From the brief, take: mode, `review_level`, scope (files, diff, or one fan-out group plus its
-   plan entries), and acceptance criteria if given. Missing `review_level` → apply the skill's
+2. From the brief, take: mode, `review_level`, scope (files or diff, plus plan facts and earlier
+   passes' findings when the review loop briefs you — then report only new findings), and acceptance criteria if given. Missing `review_level` → apply the skill's
    Auto-Detection Rules.
 3. At `Standard` and above, do the skill's Review Pipeline steps 2 and 4 for your scope before
    judging it: grep the whole repo for callers/importers of every changed or removed symbol and

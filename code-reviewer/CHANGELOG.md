@@ -1,14 +1,23 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Feature**: `scripts/review_loop.py`, a sweep-until-dry driver. It runs fresh read-only
+  reviewer passes (`review_headless.sh`), briefs each with the plan and the findings so far, and
+  stops when a pass adds nothing (max 3). The skill runs it for large diffs and Deep/Ultra
+  reviews. Measured directly on `large-pr-buried-defects` (the eval sandbox here can't run
+  shell): first pass 5, 6, 5 of 6 planted defects; after the loop 6/6 in all 3 runs (3 passes
+  each). One later pass also found an unplanted real bug (warehouse ids reused after deletion).
+- **Removed**: `agents/cross-file-reviewer.md` and plan `groups`. The model never spawned the
+  fan-out in any eval run; the loop replaces it.
+
 - **Evals**: `large-pr-buried-defects` — 31 files, ~2,100 changed lines of logging/type-hint
   churn hiding six defects. Defects found per run (3 runs each, out of 6): plain Claude 4.3, old
   skill 4.3 (never loaded), new skill 4.7–5.0. The misses differ from run to run; the union of 3
   runs finds 5–6. The model did not follow the fan-out or sweep instructions in any run (0 agent
   spawns even when told it must), so multi-pass review needs a driver outside the model's
   discretion rather than more instructions.
-- **Change**: "Start Here" sizing note, a sibling-consistency check (a new handler missing the
-  guard/validation its neighbours have), and a sweep-until-dry step for large diffs.
+- **Change**: "Start Here" sizing note and a sibling-consistency check (a new handler missing the
+  guard/validation its neighbours have).
 
 ## [0.3.0] - 2026-09-25
 

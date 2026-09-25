@@ -10,10 +10,10 @@ Claude-native review skill. Tools: `Bash`, `Read`, `Grep`, `Glob`, `Write` (find
 ## Start Here
 
 Before reading any code, size the change (Review Pipeline step 1). On a `large` diff (>400
-changed lines or >10 files) one pass is not enough, and you must run the sweep in step 6: a
-single read of a long diff skims the repetitive parts, and which defect slips through changes
-from pass to pass (a handler missing its siblings' guard, a one-character loop bound in a
-refactor). Then follow the Review Pipeline in order.
+changed lines or >10 files), or at `Deep`/`Ultra`, run the review loop (step 3) instead of
+reviewing in one pass: a single read of a long diff skims the repetitive parts, and which defect
+slips through changes from pass to pass. On a 31-file, 2,100-line test PR, one pass found 4–5 of
+6 planted defects; the loop found 6 of 6 in every run. Then follow the Review Pipeline in order.
 
 ## Use This Skill When
 
@@ -47,26 +47,27 @@ with `workflow_action: block_commit` prevents the commit until resolved or expli
 Most real defects in a PR sit where the diff meets code it didn't touch: a caller still using the
 old signature, an import of something that moved, logic that already exists elsewhere, behavior
 that changed with no test watching it. Reading the diff alone misses all of them, and on a large
-PR one context can't hold everything anyway. So every review at `Standard` or above runs these
-steps (`Quick` does 1, 5 and 7–9 only):
+PR a single pass skims. So every review at `Standard` or above runs these
+steps (`Quick` does 1, 5 and 6–8 only):
 
 1. **Plan.** Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_plan.py" plan [--base <ref>]`
    (`--diff-file <path>` for a saved diff). It prints files ranked by risk, symbols that changed
-   signature, were removed, or are new, candidate tests per source file, `test_gaps`, review
-   `groups`, and whether the diff is `large` (>400 changed lines or >10 files, docs/lockfiles
-   excluded). No shell? Derive the same by reading the diff: changed files, `def`/`class`/
+   signature, were removed, or are new, candidate tests per source file, `test_gaps`, and whether the diff is
+   `large` (>400 changed lines or >10 files, docs/lockfiles excluded). No shell? Derive the same by reading the diff: changed files, `def`/`class`/
    `function` lines added, removed or altered, and the test files beside each source file. Treat
-   the diff as `large` on the same thresholds (count `+`/`-` lines and files), and group files by
-   directory, riskiest first.
+   the diff as `large` on the same thresholds (count `+`/`-` lines and files).
 2. **Context step.** For every changed signature and removed symbol, search the *whole repo*
    (`Grep` for the name) for callers and importers, including files the diff never touched, and
    read each call site. A caller left on the old shape is a `correctness` finding at tier-1/2,
    since you read both sides. Read the candidate tests for each reviewed file too.
-3. **Fan out when `large`.** Spawn one `code-reviewer:code-reviewer` agent per group, all in one
-   message so they run in parallel; brief each with its group's files, the plan entries for those
-   files, and `review_level`. Then spawn `code-reviewer:cross-file-reviewer` with the full plan and
-   each group's finding titles; it owns steps 2 and 8 across groups. Not large: one reviewer does
-   everything. If agents can't be spawned, review the groups in sequence yourself, riskiest first.
+3. **Review loop** (`large` diffs, `Deep`/`Ultra`). Run
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review_loop.py" [--base <ref>] --level <level>` via
+   `Bash` with a long timeout (a few minutes per pass). It runs fresh read-only reviewers, each
+   briefed with the plan and the findings so far, until a pass adds nothing new (max 3), and
+   prints the merged findings as JSON; continue from step 4 with them. Can't run it (no `Bash`,
+   no `claude` CLI)? Do the passes yourself: review, then re-read every changed hunk file by file
+   asking only "what haven't I reported?", until a pass adds nothing (max 3). Say how many passes
+   ran and what each added.
 4. **Test gaps.** Go function by function through every changed function (all of `test_gaps`,
    or every touched function if you had no plan): what behavior is new, and which test exercises
    that new behavior, not just the old path? Read the tests to answer. No such test → one
@@ -75,18 +76,12 @@ steps (`Quick` does 1, 5 and 7–9 only):
    finding per function, never a single catch-all "coverage is thin" remark — that is the version
    nobody acts on. Pure renames/refactors need no finding.
 5. **Merge and dedupe** across reviewers per the anti-blur rules; rank most-severe first.
-6. **Sweep until dry** (`large` diffs, and any `Deep`/`Ultra` review). Go back over the diff one
-   file at a time — every changed hunk, especially the ones that looked mechanical — asking only
-   "what here haven't I reported?". Best done by a fresh `code-reviewer:code-reviewer` agent
-   briefed with the scope plus the titles of the findings so far and told to report only new
-   ones; otherwise do it yourself, file by file, without skipping. Repeat while a sweep adds a
-   finding, at most 3 sweeps. Say in one line how many sweeps ran and what each added.
-7. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
-8. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
+6. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
+7. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
    consolidation steps. Before proposing a new shared helper, search for an existing one that
    already does the job and consolidate onto it. Each item becomes a `followups` entry in
    findings.json and a numbered **Cleanup plan** in your reply.
-9. **Write findings.json** (below), then render.
+8. **Write findings.json** (below), then render.
 
 ## findings.json
 

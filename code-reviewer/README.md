@@ -95,8 +95,10 @@ so CI only checks the suite's structure (`tests/test_evals_structure.py`).
 Every review at `Standard` or above starts from `scripts/review_plan.py plan`, which ranks the
 changed files by risk and lists changed/removed symbols, candidate tests and test gaps. The
 reviewer then searches the whole repo for callers of anything whose signature changed or that
-was removed. On a large diff (>400 changed lines or >10 files) the work fans out to one reviewer
-per group plus a `cross-file-reviewer` for what falls between groups. Results land in
+was removed. On a large diff (>400 changed lines or >10 files) or at Deep/Ultra, the skill runs
+`scripts/review_loop.py`: fresh headless reviewer passes, each told what earlier passes found,
+until one adds nothing (max 3). On the 31-file `large-pr-buried-defects` fixture one pass found
+5 of 6 planted defects on average and the loop found 6 of 6 in all three runs. Results land in
 `findings.json` (see SKILL.md), including `followups` for refactor and consolidation work.
 
 ## Using Code Reviewer from another plugin

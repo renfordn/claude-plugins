@@ -96,16 +96,11 @@ def test_diff_file_matches_git_mode(pr_repo):
     assert from_file["test_gaps"] == from_git["test_gaps"]
 
 
-def test_small_diff_is_one_group_large_diff_fans_out(pr_repo, monkeypatch):
-    plan = _plan()
-    assert plan["large"] is False and len(plan["groups"]) == 1
+def test_large_flag_follows_thresholds(pr_repo, monkeypatch):
+    assert _plan()["large"] is False
     monkeypatch.setattr(review_plan, "LARGE_LINES", 1)
-    text, source = review_plan.read_diff()
-    big = review_plan.build_plan(text, source, group_lines=3)
-    assert big["large"] is True and len(big["groups"]) > 1
-    grouped = [p for g in big["groups"] for p in g]
-    assert sorted(grouped) == sorted(f["path"] for f in big["files"])
-    assert big["groups"][0][0] == big["files"][0]["path"], "riskiest file should lead"
+    assert _plan()["large"] is True
+    assert _plan()["files"][0]["risk"] >= _plan()["files"][-1]["risk"], "files ranked riskiest first"
 
 
 def test_sql_comment_removal_is_not_a_header(tmp_path):
