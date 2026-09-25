@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- **Fix**: `subagent_report.py` and `high_risk_reviewer.py` read the stopping subagent's report
+  from `transcript_path`, which on current Claude Code is the parent session's transcript, so
+  SDD report logging, rollback markers, and the high-risk test-author pause likely never fired.
+  Both now read `last_assistant_message`, then `agent_transcript_path`, then `transcript_path`
+  (new shared helper `report_text_from_payload`). Regression test for each.
+
 - **Docs**: `high_risk_reviewer`'s checkpoint message no longer says there's no enforcement; it
   points at agent-tdd's new review gate.
 

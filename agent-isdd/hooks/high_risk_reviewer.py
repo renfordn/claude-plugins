@@ -26,10 +26,10 @@ except ImportError:
         pass
 
 try:
-    from subagent_report import extract_last_assistant_text
+    from subagent_report import report_text_from_payload
 except ImportError:
-    def extract_last_assistant_text(transcript_path, tail_bytes=16384):
-        return ""
+    def report_text_from_payload(payload):
+        return payload.get("last_assistant_message") or ""
 
 
 # Regex patterns for markdown parsing
@@ -802,7 +802,7 @@ def main(payload=None):
     # test_author_pending so the caller's Implementation Handoff step can spawn test-author
     # and resume. Zero high-risk slices: no write (inertness), fall through to the existing
     # green_pause checkpoint logic below unchanged.
-    report_text = extract_last_assistant_text(payload.get("transcript_path", ""))
+    report_text = report_text_from_payload(payload)
     if report_text:
         _, phase_name = parse_agent_tdd_phase(report_text)
         if phase_name == "slicing_complete" and high_risk:

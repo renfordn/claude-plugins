@@ -68,6 +68,25 @@ class SubagentReportTests(unittest.TestCase):
                 logged = fh.read()
             self.assertIn("Implemented the thing.", logged)
 
+    def test_report_in_last_assistant_message_not_parent_transcript(self):
+        """Current Claude Code: transcript_path is the parent session's transcript; the
+        subagent's report only arrives in last_assistant_message."""
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            parent = os.path.join(home, "parent.jsonl")
+            _write_transcript(parent, [_assistant_line("Delegating to spec-reviewer.")])
+            msg, rc = h.run_hook_message(
+                "subagent_report.py",
+                {"cwd": repo, "transcript_path": parent,
+                 "last_assistant_message": "<!--SDD-REPORT:spec-reviewer-->\nGap analysis done."},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(msg)
+            with open(self._log_path(feature_dir)) as fh:
+                self.assertIn("Gap analysis done.", fh.read())
+
     def test_complete_feature_is_not_written_to(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)

@@ -1904,6 +1904,33 @@ class MainSlicingCompleteTests(unittest.TestCase):
             self.assertEqual(pending["slices"][0]["files"], ["src/migrate.py"])
             self.assertIn("detected_at", pending)
 
+    def test_report_in_last_assistant_message_not_parent_transcript(self):
+        """Current Claude Code: transcript_path is the parent session's transcript; the
+        subagent's report only arrives in last_assistant_message."""
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Risky migration
+
+**Risk Tier:** high-risk
+**Files:** `src/migrate.py`
+""")
+            parent = os.path.join(home, "parent.jsonl")
+            self._write_transcript(parent, "Spawning agent-TDD now.")
+            msg, rc = h.run_hook_message(
+                "high_risk_reviewer.py",
+                {"cwd": repo, "transcript_path": parent,
+                 "last_assistant_message": "<!--AGENT-TDD-REPORT-->\n"
+                                           "<!--AGENT-TDD-PHASE:slicing_complete-->\nReady."},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("Risky migration", msg or "")
+            with open(os.path.join(feature_dir, "workflow-state.json"), encoding="utf-8") as fh:
+                self.assertIn("test_author_pending", json.load(fh))
+
     def test_slicing_complete_with_zero_high_risk_makes_no_write(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)

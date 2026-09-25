@@ -214,6 +214,16 @@ def extract_last_assistant_text(transcript_path, tail_bytes=16384):
     return blocks[-1].strip() if blocks else ""
 
 
+def report_text_from_payload(payload):
+    """The stopping subagent's final message. transcript_path is the parent session's
+    transcript on current Claude Code, so it's only the last fallback."""
+    text = payload.get("last_assistant_message")
+    if text:
+        return text.strip()
+    return extract_last_assistant_text(
+        payload.get("agent_transcript_path") or payload.get("transcript_path", ""))
+
+
 def main(payload=None):
     """Returns the systemMessage text (or None) instead of printing it directly, so
     subagent_dispatch.py can run this alongside the other SubagentStop hooks in one process
@@ -231,7 +241,7 @@ def main(payload=None):
     if not state:
         return None
 
-    report = extract_last_assistant_text(payload.get("transcript_path", ""))
+    report = report_text_from_payload(payload)
     if not report:
         return None
 
