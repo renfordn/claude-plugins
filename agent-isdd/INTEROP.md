@@ -448,29 +448,10 @@ continues without pre-loaded file context (slower, but correct). This is documen
 contract both plugins can cross-check; agent-nelly's own `INTEROP.md` is authoritative for its
 side of the contract.
 
-## → agent-cache-plugin (no direct integration)
+## → agent-cache-plugin (removed)
 
-agent-isdd does **not** exchange any data with agent-cache-plugin directly, and never has.
-
-Until 0.1.48, `hooks/cache_hook.py` and `hooks/ux_render.py` POSTed phase state to an
-agent-cache-plugin HTTP server on `localhost:7771`. That server never existed — agent-cache-plugin
-has no `bin` entry and no listener anywhere — so every request failed and was swallowed as
-"graceful degradation". 0.1.49 removed the HTTP code; 0.1.50 removed `cache_hook.py` entirely.
-`ux_render.py` now renders the breadcrumb straight from `workflow-state.json` (the source of
-truth for phase state) and never emits a `phase_transition` delegation — the
-`spec-driven-development` skill does that itself at every phase change.
-
-**What agent-cache-plugin does for agent-isdd anyway**: its automatic `PreToolUse`/`PostToolUse`
-hooks on the `Agent` tool cache every subagent output in the session (including agent-isdd's
-`planning-agent`, `research-consolidator`, `spec-reviewer` spawns) with no caller action — see
-agent-cache-plugin's `STRUCTURE.md` → "Capabilities" → `agent_output_cache`. That is the only
-integration surface, and it needs nothing from this plugin.
-
-**Why no explicit integration**: agent-cache-plugin's other surfaces — two subagents reachable
-only via the `Agent` tool, CLI commands with no store/retrieve verb, and a Node-only in-process
-JS API — are not callable from a Python hook process. If a reachable transport ever appears,
-wire it as a new module in `hooks/subagent_dispatch.MODULES` between `subagent_report` and
-`ux_render`.
+agent-cache-plugin was removed from the collection: its hooks read camelCase fields Claude Code
+never sends, so it never stored or served anything. agent-isdd never exchanged data with it.
 
 ---
 

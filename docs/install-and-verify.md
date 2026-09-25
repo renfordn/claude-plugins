@@ -1,6 +1,6 @@
 # Install and Verify — Claude Plugin Collection
 
-This guide walks through installing all 7 plugins from the `renfordn-plugins` marketplace,
+This guide walks through installing all 6 plugins from the `renfordn-plugins` marketplace,
 verifying they are working, and troubleshooting common issues. All plugins can be used
 standalone or in any combination.
 
@@ -8,14 +8,12 @@ standalone or in any combination.
 
 - Claude Code (claude CLI) installed and authenticated
 - Internet access for plugin download
-- For `agent-cache-plugin` only: Node.js ≥ 18 and a working C++ toolchain for native
-  `better-sqlite3` compilation (see [Troubleshooting](#troubleshooting) if this step fails)
 
 ---
 
 ## Add the Marketplace
 
-All 7 plugins are published from one marketplace, `renfordn-plugins`, backed by the
+All 6 plugins are published from one marketplace, `renfordn-plugins`, backed by the
 `renfordn/claude-plugins` GitHub repo. Add it once, before any `claude plugin install`
 below — every `@renfordn-plugins` install fails with an unknown-marketplace error until
 this step has run:
@@ -24,10 +22,9 @@ this step has run:
 claude plugin marketplace add renfordn/claude-plugins
 ```
 
-## Install All 7 Plugins
+## Install All 6 Plugins
 
-Install in dependency order (the first five are independent; `agent-cache-plugin` and
-`plugin-harness` should come last):
+Install in dependency order (`plugin-harness` should come last):
 
 ```bash
 claude plugin install agent-nelly@renfordn-plugins
@@ -50,10 +47,6 @@ claude plugin install code-reviewer@renfordn-plugins
 ```
 
 ```bash
-claude plugin install agent-cache-plugin@renfordn-plugins
-```
-
-```bash
 claude plugin install plugin-harness@renfordn-plugins
 ```
 
@@ -67,7 +60,7 @@ After installing, confirm all plugins are present and enabled:
 claude plugin list
 ```
 
-Expected output: all 7 plugins listed with `Status: ✔ enabled`.
+Expected output: all 6 plugins listed with `Status: ✔ enabled`.
 
 ---
 
@@ -129,27 +122,6 @@ Expected: a brief description naming tier-1 through tier-5 evidence tiers. (Clau
 own built-in `/code-review` command is a separate thing — this plugin's skill is
 `code-reviewer:code-reviewer`, invoked by name or by asking for a code review.)
 
-### agent-cache-plugin
-
-`claude plugin install` does not run `npm install` for you, and `agent-cache-plugin` needs
-its native `better-sqlite3` dependency built before its hooks or CLI can do anything other
-than fail safe. Do this once, right after installing:
-
-```bash
-CACHE_PLUGIN_DIR=$(find ~/.claude/plugins/cache/renfordn-plugins/agent-cache-plugin \
-  -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-cd "$CACHE_PLUGIN_DIR" && npm install
-```
-
-Then smoke-test it:
-
-```bash
-node "$CACHE_PLUGIN_DIR/scripts/cache-command.js" status
-```
-
-Expected: exit code 0 and a status summary (cache may be empty on first run — that is
-correct).
-
 ### plugin-harness
 
 The plugin-harness MCP server starts automatically on session launch once installed.
@@ -174,8 +146,7 @@ Each plugin works without the others. Minimal standalone setups:
 | Code review only | `code-reviewer` |
 | AI memory across sessions | `agent-nelly` |
 | UX rendering for specs | `agent-ux` |
-| Cache agent context | `agent-cache-plugin` |
-| Full orchestrated workflow | All 7 |
+| Full orchestrated workflow | All 6 |
 
 ---
 
@@ -188,36 +159,13 @@ The recommended combination for a full design → implement → review workflow:
 3. `code-reviewer` — automated review at each Green→Refactor pause
 4. `agent-nelly` — persistent memory across sessions (optional but improves context)
 5. `agent-ux` — live spec canvas Artifacts (optional)
-6. `agent-cache-plugin` — context caching for long workflows (optional)
-7. `plugin-harness` — routes handoffs between plugins (enhances multi-plugin flows)
+6. `plugin-harness` — routes handoffs between plugins (enhances multi-plugin flows)
 
 Start with: `claude --print "/isdd Your feature description here"`
 
 ---
 
 ## Troubleshooting
-
-### `agent-cache-plugin` — `better-sqlite3` native build failure
-
-`better-sqlite3` requires a C++ toolchain and Python 3 to compile its native addon.
-
-**macOS:**
-```bash
-xcode-select --install
-```
-Then re-install the plugin.
-
-**Ubuntu / Debian:**
-```bash
-sudo apt-get install -y build-essential python3
-```
-Then re-install the plugin.
-
-**Verify the build succeeded:** re-run the `npm install` and `cache-status` steps in the
-[agent-cache-plugin smoke test](#agent-cache-plugin) above.
-
-If the build still fails, check that your Node.js version is ≥ 18 (`node --version`) and
-that npm can reach the internet to download `better-sqlite3` binaries for your platform.
 
 ### `plugin-harness` MCP server not appearing in `claude mcp list`
 
@@ -266,12 +214,11 @@ The install command is idempotent — re-running it replaces a broken install cl
 Run this checklist on a clean machine before marking the release complete:
 
 - [ ] `claude plugin marketplace add renfordn/claude-plugins` succeeds
-- [ ] All 7 plugins install without errors
-- [ ] `claude plugin list` shows all 7 with `Status: ✔ enabled`
+- [ ] All 6 plugins install without errors
+- [ ] `claude plugin list` shows all 6 with `Status: ✔ enabled`
 - [ ] `agent-nelly` smoke test returns a response (even "not yet captured")
 - [ ] `agent-ux` and `agent-tdd` `claude plugin details` calls list their agents/skills
 - [ ] `code-reviewer` smoke test returns tier descriptions
-- [ ] `agent-cache-plugin`'s `npm install` succeeds and `cache-status` exits 0
 - [ ] `plugin-harness` appears in `claude mcp list`
 - [ ] `/isdd-status` responds (no active workflow, on a fresh project)
 - [ ] `/isdd Your feature` starts an ISDD workflow

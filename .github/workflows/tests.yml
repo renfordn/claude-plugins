@@ -82,13 +82,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - uses: actions/setup-node@v4
-        with:
-          # 22, not 20: better-sqlite3@13.x's native addon segfaults on Node 20
-          # (confirmed both macOS arm64 and this job's own Linux runner --
-          # SIGSEGV, not an ABI mismatch); 22 and later are unaffected.
-          node-version: "22"
-
       - name: Configure git identity
         run: |
           git config --global user.email "ci@example.com"
@@ -97,7 +90,7 @@ jobs:
       - name: Install Python test dependencies
         run: pip install pytest
 
-      - name: Smoke — Python plugins (all 7)
+      - name: Smoke — Python plugins
         # One pytest invocation per plugin, not a single combined run: several plugins
         # ship their own private, same-named hooks/path_resolution.py (bare top-level
         # module, not a package). A single process's sys.modules cache is keyed by that
@@ -109,12 +102,6 @@ jobs:
           for plugin in agent-isdd agent-tdd agent-nelly plugin-harness shared agent-ux code-reviewer; do
             python -m pytest "$plugin" -q --tb=short
           done
-
-      - name: Smoke — agent-cache-plugin (Node.js)
-        working-directory: agent-cache-plugin
-        run: |
-          npm ci
-          npm test
 
       - name: Smoke — plugin.json schemas valid
         run: |
@@ -148,27 +135,6 @@ jobs:
               sys.exit(1)
           print(f"plugin.json OK for {len(plugins)} plugins")
           EOF
-
-  agent-cache-plugin:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: agent-cache-plugin
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          # See smoke-install's node-version comment: better-sqlite3@13.x segfaults on Node 20.
-          node-version: "22"
-
-      - run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Run lint
-        run: npm run lint
 
   first-class-check:
     # Independent of python-tests: a first-class-check FAIL is a collection

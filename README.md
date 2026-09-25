@@ -9,7 +9,6 @@ Monorepo for Renford Nelson's personal Claude Code plugins, used together by
 - `code-reviewer/` — code review skill (hard dependency)
 - `agent-nelly/` — memory system (soft dependency)
 - `agent-ux/` — UI rendering (soft dependency)
-- `agent-cache-plugin/` — prompt-caching and context-deduplication (soft dependency)
 
 Each subdirectory is a standalone plugin (own `.claude-plugin/plugin.json`,
 `INTEROP.md`, etc.) migrated here as a fresh snapshot — commit history prior
@@ -18,13 +17,12 @@ to the migration lives in the original per-plugin repos:
 [agent-tdd](https://github.com/renfordn/agent-tdd),
 [code-reviewer](https://github.com/renfordn/code-reviewer),
 [agent-nelly](https://github.com/renfordn/agent-nelly),
-[agent-ux](https://github.com/renfordn/agent-ux) (archived),
-[agent-cache-plugin](https://github.com/renfordn/agent-cache-plugin).
+[agent-ux](https://github.com/renfordn/agent-ux) (archived).
 
 ## Installing the plugins
 
 See [`docs/install-and-verify.md`](./docs/install-and-verify.md) for the full
-install, verification, and troubleshooting walkthrough covering all 7 plugins
+install, verification, and troubleshooting walkthrough covering all 6 plugins
 in the `renfordn-plugins` marketplace.
 
 ## Checking account plugin versions

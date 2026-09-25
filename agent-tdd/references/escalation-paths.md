@@ -209,7 +209,6 @@ instead. Slice 3 implementation blocked until this gap is clarified.
   ToolSearch with query "get_spawn_context" to find and load it if it isn't already visible
 - Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with cached context
 - Pass context to continue where lower-tier agent left off
-- agent-cache-plugin detects escalation marker in prompt context, adds model-aware cache invalidation
 - Higher-tier agent reuses scaffolding (test definitions, error patterns) but re-reasons solution
 
 ---

@@ -5,7 +5,6 @@
     "name": "Renford Nelson"
   },
   "plugins": [
-    { "name": "agent-cache-plugin", "source": "./agent-cache-plugin" },
     { "name": "agent-isdd", "source": "./agent-isdd" },
     { "name": "agent-nelly", "source": "./agent-nelly" },
     { "name": "agent-tdd", "source": "./agent-tdd" },
