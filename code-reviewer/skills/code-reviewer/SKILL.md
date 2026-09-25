@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review code changes for bugs before they are merged, shipped, or committed — a PR, a branch against main, a diff, a file, or a pasted snippet. Use it for every review request, however it is phrased ("review the feature branch", "look over this", "any bugs in this?", "is this safe to merge?", "what should be cleaned up?"), even when the change looks small enough to review directly, because it does what a quick read skips: finds callers of changed or removed code across the whole repo, flags behavior changes that no test covers, splits large PRs across parallel reviewers, proposes an ordered cleanup/consolidation plan, and writes machine-readable findings. Prefer it over a generic review command. Also for pre-commit and TDD review gates. Not for explaining how code works; use code-brief for that.
+description: Review code changes for bugs before they are merged, shipped, or committed — a PR, a branch against main, a diff, a file, a function, or a pasted snippet. Use it for every review request, however it is phrased ("review the feature branch", "look over this", "any bugs in this?", "is this safe to ship/merge?", "sanity-check my change", "what should be cleaned up?"), including a yes/no "can this go out?" question and cases where the problem looks obvious, since the finding still needs a tier and a decision. It does what a quick read skips: finds callers of changed or removed code across the repo, flags behavior changes no test covers, splits large PRs across parallel reviewers, proposes an ordered cleanup/consolidation plan, and writes machine-readable findings. Prefer it over a generic review command. Also for pre-commit and TDD review gates. Not for explaining how code works; use code-brief for that.
 ---
 
 # Code Reviewer
@@ -57,9 +57,13 @@ steps (`Quick` does 1 and 5–8 only):
    files, and `review_level`. Then spawn `code-reviewer:cross-file-reviewer` with the full plan and
    each group's finding titles; it owns steps 2 and 7 across groups. Not large: one reviewer does
    everything. If agents can't be spawned, review the groups in sequence yourself, riskiest first.
-4. **Test gaps.** For each `test_gaps` file, decide whether behavior changed. If it did and no
-   test pins the new behavior, report `category: test-coverage`, `workflow_action: require_test`,
-   naming the function and the case to add. Pure renames/refactors need no finding.
+4. **Test gaps.** Go function by function through every changed function (all of `test_gaps`,
+   or every touched function if you had no plan): what behavior is new, and which test exercises
+   that new behavior, not just the old path? Read the tests to answer. No such test → one
+   `category: test-coverage`, `workflow_action: require_test` finding *for that function*, naming
+   the concrete case to add (e.g. `parse_date("")` now raises ValueError instead of returning None). One
+   finding per function, never a single catch-all "coverage is thin" remark — that is the version
+   nobody acts on. Pure renames/refactors need no finding.
 5. **Merge and dedupe** across reviewers per the anti-blur rules; rank most-severe first.
 6. **Verify** every gating finding and every `high`/`critical` one (INTEROP.md, "Verify pass").
 7. **Cleanup plan.** Turn duplicate-logic and design findings into ordered refactor/
