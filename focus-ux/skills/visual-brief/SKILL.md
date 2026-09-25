@@ -44,30 +44,47 @@ of it only when the page adds something the chat can't:
 - the user **asked** for a page or visual.
 
 Otherwise, stay inline and end with a one-line offer: `Want this as a page? (plan + timeline)`.
-Building a page costs about 30 seconds and 15K tokens, so it has to earn that.
+A board entry costs one extra tool call and about 1-2K tokens, so still keep it for results that earn it.
 
 In the terminal CLI, where there's no Artifact tool, stay inline at any size. When an inline
 picture gets large, split it into several small ones.
 
-### Building the page cheaply: the bundled template
+### Building the page: add it to the Brief Board
 
-Don't hand-write the HTML. Write the brief as a small JSON file and render it with the bundled
-script. The template is already designed (both themes, phone width, accessible type), so
-there's nothing to design each time, and every brief shares one layout the reader learns once.
+Don't hand-write HTML, and don't publish a new page per brief. Every brief goes onto one living
+**Brief Board** page: a single Artifact that shows all briefs newest first, grouped by day and
+filterable by project. Adding a brief is one database write, with no HTML and no page publish. The
+link never changes, so the board doubles as a timeline of what was found and decided.
 
-1. Write `brief.json` to the scratchpad. The script's docstring documents the shape. It supports
-   `progress`, `points`, and sections of type `findings`, `timeline`, `matrix`, `bars`,
-   `diagram` (mermaid, which Artifacts render natively), `text`, `list`, and `details`.
-2. `python3 <skill dir>/scripts/build_brief.py brief.json brief.html`
-3. Publish `brief.html` with the Artifact tool. Pass a one-sentence `description`, and
-   `icon: "chart"` on the first publish. The Artifact tool asks you to load `artifact-design`
-   before publishing, so do that. Skip `artifact-diagramming` and `dataviz`, because the template
-   already covers them.
+1. Write `brief.json` to the scratchpad. The shape is documented in the docstring of
+   `scripts/build_brief.py`: `eyebrow`, `headline`, `lede`, `stats` (tone pills), `progress`
+   (numbered stepper), `points`, and sections of type `findings` (ranked cards with a "So what"
+   line), `grid` (status-dot table), `matrix`, `timeline`, `bars`, `diagram` (mermaid), `text`,
+   `list`, and `details`. Set `project` (the repo or topic) and `createdAt` (current UTC ISO time).
+2. Check it with `python3 <skill dir>/scripts/build_brief.py --check brief.json`. That's cheap, and
+   it catches a bad field before the page shows a gap.
+3. Find the board: `Artifact` `action: "list"` and look for the title **Brief Board**. Then add the
+   brief with one `ArtifactData` call: `action: "set"`, `collection: "briefs"`,
+   `doc_id: "<YYYY-MM-DDTHHMM>-<slug>"`, `file_path: brief.json`. Link it as
+   `<board url>#<doc_id>`.
+4. Open the board: `Artifact` `action: "open"` with the board URL. A database write shows the
+   user nothing on its own, and the point of a brief is that it's seen. The open doesn't
+   republish anything, and the board shows the newest brief first, so the one just added is what
+   appears.
 
-Hand-build a page (with those skills) only when the template really can't show the shape, such
-as an interactive tool or a chart type the template lacks. The inline widget (`show_widget`) is
-rarely worth it: its guide is very large, so reach for it only for a one-off rich picture the
-user explicitly wants in chat.
+**No board yet?** Create it once. Run `build_brief.py --board board.html`, load `artifact-design`
+(the Artifact tool requires it before a publish), then publish `board.html` with `icon: "chart"`
+and `capabilities: {"db": {"rules": [{"path": "", "read": "view", "write": "owner"}]}}`, so that
+only the owner adds briefs.
+
+**Standalone page** (for a brief that should be shared on its own, or when the user asks for one):
+`build_brief.py brief.json brief.html` renders the same design with the brief embedded. Publish it
+as above.
+
+Hand-build a page (loading `artifact-diagramming` and `dataviz`) only when the board really can't
+show the shape, such as an interactive tool or a chart type it lacks. The inline widget
+(`show_widget`) is rarely worth it: its guide is very large, so reach for it only for a one-off
+rich picture the user explicitly wants in chat.
 
 ## 3. Structure of a brief
 
