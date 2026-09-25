@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [2.1.8] - 2026-09-25
+
 - **Docs**: `scripts/check_skill_invocation_consistency.py`'s rule 2 rationale now scopes the
   "never a subagent" rule to the `code-reviewer` *skill*, since code-reviewer now also ships a
   separate reviewer agent for independent review. Patterns unchanged.

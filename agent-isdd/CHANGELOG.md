@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.61] - 2026-09-25
+
 - **Docs**: the Code-Review Gate and the direct-implementation fallback's review step now use
   code-reviewer's independent review (spawned agent → headless script → labelled self-review)
   instead of running `/code-reviewer` in the same context that implemented the slice.

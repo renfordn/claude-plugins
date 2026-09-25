@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.17] - 2026-09-25
+
 - **Feature**: independent review, so the context that wrote a change never judges it. New
   read-only `agents/code-reviewer.md` agent (spawned by the main-thread caller) and
   `scripts/review_headless.sh` fallback (fresh `claude -p` process, for sessions where `Agent`

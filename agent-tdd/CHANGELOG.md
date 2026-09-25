@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.18] - 2026-09-25
+
 - **Fix**: `agent-TDD` was told to invoke `/code-reviewer` on its own test, implementation, and
   refactor intent, which it can't do (no `Skill`/`Agent` tool) and which would be self-review if
   it could. It now puts a **Review Request** (level, scope including the test file, refactor
