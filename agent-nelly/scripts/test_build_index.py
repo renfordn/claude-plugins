@@ -21,8 +21,12 @@ def isolated_base(tmp_path, monkeypatch):
 
 def _write_entry(cwd, name, type_="project", description="A test fact.",
                   confidence=None, tags=None, seen_count=None,
-                  files=None, folder=None, git_hash=None):
-    entries_dir = nelly_memory.ensure_entries_dir(cwd)
+                  files=None, folder=None, git_hash=None, nested=False):
+    """`nested=True` writes into entries/<SUMMARY_SUBDIR>/ (the current write location for a
+    real file-summary/folder-summary entry) instead of flat entries/ (the pre-migration
+    location, kept as the default here so every existing call in this file keeps exercising
+    the flat-scan/back-compat code path unchanged)."""
+    entries_dir = nelly_memory.ensure_entries_dir(cwd, entry_type=type_ if nested else None)
     lines = ["---", f"name: {name}", f"description: {description}",
              "metadata:", f"  type: {type_}", "  last_referenced: 2026-08-16"]
     if confidence is not None:
@@ -335,6 +339,58 @@ def test_lookup_by_path_finds_exact_file_summary(tmp_path):
     assert result["file"]["slug"] == "file-summary-a"
     assert result["file"]["git_hash"] == "deadbeef"
     assert result["folders"] == []
+
+
+def test_build_index_finds_entries_nested_under_summary_subdir(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "file-summary-a", type_="file-summary",
+                 files=["src/a.py"], git_hash="deadbeef", nested=True)
+
+    records = build_index.build_project_index(cwd)
+
+    assert len(records) == 1
+    assert records[0]["slug"] == "file-summary-a"
+    assert records[0]["file_path"] == os.path.join(
+        "entries", nelly_memory.SUMMARY_SUBDIR, "file-summary-a.md"
+    )
+
+
+def test_build_index_skips_unrecognized_subdirectory_under_entries(tmp_path):
+    cwd = str(tmp_path / "project")
+    entries_dir = nelly_memory.ensure_entries_dir(cwd)
+    os.makedirs(os.path.join(entries_dir, "some-other-subdir"), exist_ok=True)
+    with open(os.path.join(entries_dir, "some-other-subdir", "stray.md"), "w") as fh:
+        fh.write("---\nname: stray\n---\n")
+    _write_entry(cwd, "flat-fact")
+
+    records = build_index.build_project_index(cwd)
+
+    assert [r["slug"] for r in records] == ["flat-fact"]
+
+
+def test_upsert_project_entry_records_correct_relative_path_when_nested(tmp_path):
+    cwd = str(tmp_path / "project")
+    path = _write_entry(cwd, "file-summary-a", type_="file-summary",
+                         files=["src/a.py"], git_hash="deadbeef", nested=True)
+
+    records = build_index.upsert_project_entry(cwd, path)
+
+    assert len(records) == 1
+    assert records[0]["file_path"] == os.path.join(
+        "entries", nelly_memory.SUMMARY_SUBDIR, "file-summary-a.md"
+    )
+
+
+def test_lookup_by_path_finds_exact_file_summary_when_nested(tmp_path):
+    cwd = str(tmp_path / "project")
+    _write_entry(cwd, "file-summary-a", type_="file-summary",
+                 files=["src/a.py"], git_hash="deadbeef", nested=True)
+    build_index.build_project_index(cwd)
+
+    result = build_index.lookup_by_path(cwd, "src/a.py")
+
+    assert result["file"]["slug"] == "file-summary-a"
+    assert result["file"]["git_hash"] == "deadbeef"
 
 
 def test_lookup_by_path_no_file_summary_returns_none(tmp_path):

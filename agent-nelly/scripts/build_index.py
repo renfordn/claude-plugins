@@ -43,7 +43,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
-from nelly_memory import BASE, memory_dir, global_dir  # noqa: E402
+from nelly_memory import BASE, memory_dir, global_dir, SUMMARY_SUBDIR  # noqa: E402
 
 INDEX_FILENAME = "nelly-index.json"
 
@@ -120,15 +120,32 @@ def _build_index_for_memory_dir(d):
     agent-nelly.md's File-move mechanism), so this is the safety net
     that resyncs the index after an archive-move (Bash `mv`) that no
     Write/Edit hook ever observes.
+
+    Also descends one level into entries/<SUMMARY_SUBDIR>/ -- file-summary/folder-summary
+    entries live there instead of directly under entries/ (see nelly_memory.SUMMARY_SUBDIR) --
+    but no deeper than that: any other subdirectory under entries/ is not a recognized entry
+    kind and is skipped, same as a non-.md file at the top level.
     """
     entries_dir = os.path.join(d, "entries")
     records = []
     if os.path.isdir(entries_dir):
         for name in sorted(os.listdir(entries_dir)):
+            full = os.path.join(entries_dir, name)
+            if os.path.isdir(full):
+                if name != SUMMARY_SUBDIR:
+                    continue
+                for sub_name in sorted(os.listdir(full)):
+                    if not sub_name.endswith(".md"):
+                        continue
+                    record = _record_for_entry_file(
+                        os.path.join(full, sub_name), os.path.join("entries", name, sub_name)
+                    )
+                    if record:
+                        records.append(record)
+                continue
             if not name.endswith(".md"):
                 continue
-            entry_path = os.path.join(entries_dir, name)
-            record = _record_for_entry_file(entry_path, os.path.join("entries", name))
+            record = _record_for_entry_file(full, os.path.join("entries", name))
             if record:
                 records.append(record)
     os.makedirs(d, exist_ok=True)
@@ -185,7 +202,9 @@ def upsert_project_entry(cwd, entry_path):
     slug = name[:-3] if name.endswith(".md") else name
     records = [r for r in records if r.get("slug") != slug]
 
-    record = _record_for_entry_file(entry_path, os.path.join("entries", name))
+    # relpath (not a hardcoded "entries"/name join) so this also works for entries nested one
+    # level deeper, e.g. entries/<SUMMARY_SUBDIR>/name.md for a file-summary/folder-summary entry.
+    record = _record_for_entry_file(entry_path, os.path.relpath(entry_path, d))
     if record:
         records.append(record)
 

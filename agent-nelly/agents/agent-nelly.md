@@ -606,11 +606,14 @@ consolidator`'s "File Summaries" output is already shaped this way) and/or
    an over-length `description`, `hooks/nelly_summary_guard.py` denies the
    write anyway. Body: `references/nelly-entry.template.md`'s `file-summary`
    shape (Exports/Constraints/Dependencies/Tech debt from the item's other
-   fields).
+   fields). Write to `entries/<SUMMARY_SUBDIR>/<name>.md` (see step 4 below
+   for `<SUMMARY_SUBDIR>` — never directly under `entries/`, unlike every
+   other entry type).
 2. For each **folder summary** item: `name` is `folder-summary-<slug of
    folder>`; `metadata.type: folder-summary`; `metadata.folder: <folder>`;
    `description` is the item's `summary`, capped the same way. Body: the
-   one-paragraph shape from the template.
+   one-paragraph shape from the template. Same `entries/<SUMMARY_SUBDIR>/`
+   location as file summaries.
 3. **Overwrite, don't duplicate.** If an entry for the same path (`file-
    summary-<slug>`) or folder (`folder-summary-<slug>`) already exists,
    overwrite it in place (same filename, so `Write` naturally replaces it) —
@@ -619,18 +622,28 @@ consolidator`'s "File Summaries" output is already shaped this way) and/or
    overwrites; a file-summary is a cache of current-state facts about a
    path, not a fact about something that happened, so there is nothing to
    preserve about the old version once the path has changed.
-4. Guarantee `entries/` exists once before the batch (same `--entries-path`
-   call as "Recording new facts (batch)" step 4), then write each item
-   sequentially. Skip the promotion judgment and the in-batch duplicate
-   check entirely for this batch kind — both exist to catch the same
-   underlying fact restated twice, which cannot happen here (one entry per
-   path, overwritten rather than duplicated) and cross-project promotion
-   makes no sense for a fact this project-specific.
+4. Guarantee `entries/<SUMMARY_SUBDIR>/` exists once before the batch — run
+   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --summary-entries-path [cwd]`
+   via `Bash` (its printed path names `<SUMMARY_SUBDIR>` — `nelly_memory.SUMMARY_SUBDIR`,
+   currently `file-folder-summary` — use that path verbatim rather than
+   hand-computing it). This is a **different** directory from plain
+   `--entries-path` (used by every other write-back path in this file):
+   file-summary/folder-summary entries live one level deeper than every
+   other entry type, specifically so a caller listing `entries/` for
+   ordinary facts/lessons/preferences doesn't wade through one row per
+   cached file in the repo. Then write each item sequentially. Skip the
+   promotion judgment and the in-batch duplicate check entirely for this
+   batch kind — both exist to catch the same underlying fact restated
+   twice, which cannot happen here (one entry per path, overwritten rather
+   than duplicated) and cross-project promotion makes no sense for a fact
+   this project-specific.
 5. Add or refresh each entry's `MEMORY.md` index line via
-   `write_index_line()`'s format, with `paths:` set to the one `files` path
-   (file-summary) or left absent (folder-summary — `folder` isn't part of
-   `write_index_line()`'s `paths` field, since that field means "files this
-   entry is about" in the `file-relevance` sense, not a directory).
+   `write_index_line()`'s format, with the link target
+   `entries/<SUMMARY_SUBDIR>/<name>.md` (not `entries/<name>.md` — see step
+   4) and `paths:` set to the one `files` path (file-summary) or left absent
+   (folder-summary — `folder` isn't part of `write_index_line()`'s `paths`
+   field, since that field means "files this entry is about" in the
+   `file-relevance` sense, not a directory).
 6. `Written` reports one line per item: `Wrote file summary for <path>` /
    `Wrote folder summary for <folder>` (or `Updated ...` when it overwrote
    an existing entry).
