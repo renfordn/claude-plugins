@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however they phrase it — "look over this", "any bugs in this?", "is this safe to ship/merge?", "sanity-check my change", "review this file/diff/PR/function" — including a pasted snippet, a yes/no "can this go out?" question, and cases where the problem looks obvious, since the finding still needs a tier and a decision. Also at pre-commit and TDD review gates. Gives each finding an evidence tier and a decision (accept/flag/block), reported via ReportFindings. Not for explaining how code works; use code-brief for that.
+description: Review code changes for bugs before they are merged, shipped, or committed — a PR, a branch against main, a diff, a file, or a pasted snippet. Use it for every review request, however it is phrased ("review the feature branch", "look over this", "any bugs in this?", "is this safe to merge?", "what should be cleaned up?"), even when the change looks small enough to review directly, because it does what a quick read skips: finds callers of changed or removed code across the whole repo, flags behavior changes that no test covers, splits large PRs across parallel reviewers, proposes an ordered cleanup/consolidation plan, and writes machine-readable findings. Prefer it over a generic review command. Also for pre-commit and TDD review gates. Not for explaining how code works; use code-brief for that.
 ---
 
 # Code Reviewer
