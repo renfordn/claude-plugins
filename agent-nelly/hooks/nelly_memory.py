@@ -11,7 +11,8 @@ path under BASE (see hooks/nelly_slug_guard.py, Phase 4).
 Phase 2 of the module: project_slug, memory_dir, ensure_dir, read_index,
 global_dir, read_global_index. Phase 3 (this revision) adds the entry-file
 API — entry_path, archive_path, list_entries — and the CLI dispatch surface
-(--path, --global-path, --summary, --entries-path, --summary-entries-path).
+(--path, --global-path, --summary, --entries-path, --summary-entries-path,
+--digest-entries-path).
 
 ensure_entries_dir(cwd) exists because entry_path()/archive_path() are pure
 path-string builders with no directory-creation side effect, and ensure_dir()
@@ -24,6 +25,7 @@ got created.
 """
 import os
 import re
+import tempfile
 import sys
 
 # Import shared utilities
@@ -142,6 +144,22 @@ def read_global_index():
 SUMMARY_SUBDIR = "file-folder-summary"
 SUMMARY_TYPES = ("file-summary", "folder-summary")
 
+# research-digest entries: a subagent's multi-file findings, keyed by topic + source-path set and
+# written only by scripts/research_digest.py (it hashes sources and writes atomically). Nested
+# under entries/<DIGEST_SUBDIR>/ for the same reason as summaries -- a cache, not a fact.
+DIGEST_SUBDIR = "research-digest"
+DIGEST_TYPE = "research-digest"
+DIGEST_CHAR_LIMIT = 2000
+DIGEST_MAX_SOURCES = 30
+
+
+def _entry_subdir(entry_type):
+    if entry_type in SUMMARY_TYPES:
+        return SUMMARY_SUBDIR
+    if entry_type == DIGEST_TYPE:
+        return DIGEST_SUBDIR
+    return None
+
 
 def _sanitize_name(name):
     """Reduce name to a single safe path segment — never lets '..' or a
@@ -155,19 +173,22 @@ def _sanitize_name(name):
 
 def entry_path(cwd, name, entry_type=None):
     """Resolve an entry's file path. `entry_type` of "file-summary"/"folder-summary" nests the
-    path under entries/<SUMMARY_SUBDIR>/ (see SUMMARY_SUBDIR above); every other type (including
+    path under entries/<SUMMARY_SUBDIR>/ (see SUMMARY_SUBDIR above), and "research-digest" under
+    entries/<DIGEST_SUBDIR>/; every other type (including
     the default, `entry_type=None`, used by every existing caller that predates this parameter)
     stays directly under entries/, unchanged.
     """
     base = os.path.join(memory_dir(cwd), "entries")
-    if entry_type in SUMMARY_TYPES:
-        base = os.path.join(base, SUMMARY_SUBDIR)
+    subdir = _entry_subdir(entry_type)
+    if subdir:
+        base = os.path.join(base, subdir)
     return os.path.join(base, _sanitize_name(name) + ".md")
 
 
 def ensure_entries_dir(cwd, entry_type=None):
     """Guarantee `<memory_dir>/entries/` (or, for `entry_type` "file-summary"/"folder-summary",
-    `<memory_dir>/entries/<SUMMARY_SUBDIR>/`) exists before anything writes into it.
+    `<memory_dir>/entries/<SUMMARY_SUBDIR>/`, and for "research-digest"
+    `<memory_dir>/entries/<DIGEST_SUBDIR>/`) exists before anything writes into it.
 
     ensure_dir() only creates the top-level project dir + MEMORY.md — it never
     touches entries/. Without this, a Write to entry_path(cwd, name) has no
@@ -180,10 +201,40 @@ def ensure_entries_dir(cwd, entry_type=None):
     ensure_dir(cwd)
     d = os.path.join(memory_dir(cwd), "entries")
     os.makedirs(d, exist_ok=True)
-    if entry_type in SUMMARY_TYPES:
-        d = os.path.join(d, SUMMARY_SUBDIR)
+    subdir = _entry_subdir(entry_type)
+    if subdir:
+        d = os.path.join(d, subdir)
         os.makedirs(d, exist_ok=True)
     return d
+
+
+def atomic_write(path, text):
+    """Write `text` (utf-8) to `path` via a temp file in the same directory + os.replace, so a
+    reader (or iCloud sync) sees either the old file or the complete new one, never a partial
+    write. The temp name is dot-prefixed with a `.tmp` suffix, which the index scan (non-.md)
+    and nelly_cleanup's activity scan already ignore. On failure the temp file is removed and
+    the original, if any, is left untouched.
+    """
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        try:  # mkstemp creates 0600; keep an existing file's mode, else the umask default
+            mode = os.stat(path).st_mode & 0o7777
+        except OSError:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def archive_path(cwd, name):
@@ -341,6 +392,11 @@ def main(argv=None):
     if "--summary-entries-path" in argv:
         cwd = _extract_cwd_arg(argv, "--summary-entries-path")
         print(ensure_entries_dir(cwd, entry_type="file-summary"))
+        return
+
+    if "--digest-entries-path" in argv:
+        cwd = _extract_cwd_arg(argv, "--digest-entries-path")
+        print(ensure_entries_dir(cwd, entry_type=DIGEST_TYPE))
         return
 
     cwd = argv[0] if argv else os.getcwd()

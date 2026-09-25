@@ -48,6 +48,15 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    the same skip mechanic it already applies to the brief's `Relevant entries` (see its Pass 1,
    step 1). This is the read side of the cache; the write side is step 2 below.
 
+   **[Research Digest Cache]** On the same call, also pass `research digest lookup` for the same
+   paths. Unlike a file summary, a digest carries its own freshness: agent-nelly hashes each
+   source itself and marks the digest `fresh` or `stale`, with `changed` listing the sources
+   that changed or were deleted. Pass each `fresh` digest's `summary` to `research-consolidator`
+   as known context, and treat its sources like confirmed file-summary hits (skip deep-reading
+   unless this feature's scope requires it). For a `stale` digest, pass its `summary` as
+   possibly-outdated context and ask `research-consolidator` to re-read only the `changed`
+   files. No digest for a path means research it normally.
+
 2. **[Phase 2+3]** `research-consolidator` — unified codebase research (single pass) that produces
    **dual output:**
    - `design_findings` — architecture touchpoints, interfaces, design risks (for design.md)
@@ -99,6 +108,14 @@ Before drafting, delegate to subagents rather than relying only on what's alread
      overall role, drawn from those files' summaries — not a mechanical file-by-file listing.
      Skip a directory that already has a confirmed-fresh folder-summary; its purpose hasn't
      changed just because one more file inside it got touched.
+   - Persist the pass's multi-file findings to agent-nelly's `research digest` field (see its
+     `agents/agent-nelly.md`'s "Research Digest Cache" section): one `{topic, summary, paths}`
+     item per feature topic, where `topic` names what was researched (e.g. "<feature>: index
+     rescan"), `summary` is the `design_findings`/`task_findings` text for that topic (agent-nelly
+     truncates it to 2,000 characters), and `paths` are the repo-relative files it came from.
+     A digest takes at most 30 paths, so split a larger pass into one digest per
+     top-level directory. Re-send a digest that was `stale` in step 1 with the same topic and paths so it
+     is overwritten in place. Skip this when every source was covered by a `fresh` digest.
    - If a summary describes a design approach already tried and rejected (not just current
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
      section for criterion)
@@ -234,7 +251,7 @@ and implementation, reducing rework during Red-Green-Refactor cycles. See
 - open questions
 - phase status: `blocked` or `approved`
 - **[Phase 2+3]** `research/cache.md` created with design_findings + task_findings + file_summaries
-- **[Phase 2+3]** file_summaries ready for agent-nelly persistence (type: "file_summary")
+- **[Phase 2+3]** file_summaries ready for agent-nelly persistence (type: "file-summary")
 
 When writing or updating `design.md` (whether that means the plan file, per "Plan-Mode Drafting"
 above, or the file itself once approved), use the canonical template from

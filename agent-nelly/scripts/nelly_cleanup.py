@@ -9,7 +9,8 @@ Two deterministic passes, no LLM:
    prefix before that marker) once the worktree path no longer exists on this machine AND
    nothing in the store changed for WORKTREE_IDLE_DAYS -- the idle check matters with a shared
    memory root, where a worktree that's missing here may be live on another machine.
-   Entries move across (renamed `<name>--<worktree>.md` on a clash with different content),
+   Entries move across (renamed `<name>--<worktree>.md` on a clash with different content;
+   the file-summary and research-digest cache subdirs merge per file, newest mtime wins),
    index lines are unioned into the parent's MEMORY.md, logs are appended, and the worktree
    store is removed.
 
@@ -37,7 +38,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
-from nelly_memory import BASE, SUMMARY_SUBDIR  # noqa: E402
+from nelly_memory import BASE, DIGEST_SUBDIR, SUMMARY_SUBDIR  # noqa: E402
 from shared_slug import get_project_slug  # noqa: E402
 
 WORKTREE_MARKER = "-claude-worktrees-"
@@ -59,6 +60,8 @@ CONSOLIDATION_LOG_HEADER = (
 )
 # Derived or machine-local -- never carried from a worktree store into its parent.
 _DROP_ON_MERGE = {"nelly-index.json", "hotspots.json"}
+# Path-keyed caches under entries/, merged per file by newest-mtime-wins (see _merge_cache_subdir).
+_CACHE_SUBDIRS = (SUMMARY_SUBDIR, DIGEST_SUBDIR)
 
 _HANDOFF_RE = re.compile(r"^session-handoff-(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})(?:-\d+)?\.md$")
 _PROJECT_RE = re.compile(r"^Project:\s*(.+)$", re.M)
@@ -92,12 +95,16 @@ def _log_action(project_dir, action, lines):
     _append(os.path.join(project_dir, "CONSOLIDATION-LOG.md"), body, CONSOLIDATION_LOG_HEADER)
 
 
+def _is_churn(name):  # derived/machine-local: index, Finder metadata, lock/atomic-write temps
+    return name in _DROP_ON_MERGE or name == ".DS_Store" or name.endswith((".lock", ".tmp"))
+
+
 def _newest_mtime(d):
     newest = 0.0
     for root, _, files in os.walk(d):
         for f in files:
-            if f in _DROP_ON_MERGE or f == ".DS_Store" or f.endswith((".lock", ".tmp")):
-                continue  # derived/machine-local churn, not real activity
+            if _is_churn(f):  # not real activity
+                continue
             try:
                 newest = max(newest, os.path.getmtime(os.path.join(root, f)))
             except OSError:
@@ -232,25 +239,22 @@ def find_orphaned_worktree_stores(base, today, idle_days=WORKTREE_IDLE_DAYS):
     return out
 
 
-def _merge_summary_subdir(src_dir, dest_dir):
-    """Fold a worktree store's entries/<SUMMARY_SUBDIR>/ cache into the parent's.
+def _merge_cache_subdir(src_dir, dest_dir):
+    """Fold a worktree store's entries/<SUMMARY_SUBDIR>/ or entries/<DIGEST_SUBDIR>/ cache into
+    the parent's. Both are path-keyed caches (one entry per file/folder or per digest key, always
+    the latest), so a filename clash keeps the newer-mtime copy and drops the other -- never the
+    `_unique_dest` rename used for other entries, which would leave two "current" copies.
+    Churn files (`_is_churn`, e.g. orphaned atomic-write temps) are left behind.
 
-    Unlike every other entry type, a file-summary/folder-summary entry is a path-keyed cache --
-    at most one entry per file/folder, always the latest -- so a clash on the same filename
-    (both stores cached the same path) is resolved by keeping whichever copy has the newer
-    mtime and dropping the other, never by renaming one into a duplicate (`_unique_dest`'s
-    clash handling below, used for every other entry kind, would leave two "current" summaries
-    for the same path, which defeats the cache's one-entry-per-path invariant).
-
-    Returns the list of names moved across (for the caller's own bookkeeping) -- a dropped/
-    superseded clash isn't "moved", so it's excluded, matching `moved`'s existing meaning in
-    merge_worktree_store's per-entry loop.
+    Returns the names moved across (a dropped/superseded clash isn't "moved").
     """
     moved = []
     if not os.path.isdir(src_dir):
         return moved
     os.makedirs(dest_dir, exist_ok=True)
     for name in sorted(os.listdir(src_dir)):
+        if _is_churn(name):
+            continue  # removed with the worktree store below
         src = os.path.join(src_dir, name)
         dest = os.path.join(dest_dir, name)
         if not os.path.exists(dest):
@@ -259,8 +263,7 @@ def _merge_summary_subdir(src_dir, dest_dir):
         elif os.path.getmtime(src) > os.path.getmtime(dest):
             os.replace(src, dest)  # newer worktree copy wins; older parent copy is discarded
             moved.append(name)
-        # else: parent's copy is already newer or equal -- drop the worktree's stale copy
-        # (shutil.rmtree(store) below removes it along with the rest of the worktree store).
+        # else: the parent's copy is newer or equal; rmtree(store) below drops the stale copy.
     return moved
 
 
@@ -302,13 +305,10 @@ def merge_worktree_store(store, parent_slug, label, base=None):
     history_lines = []
     for name in sorted(os.listdir(entries)) if os.path.isdir(entries) else []:
         src = os.path.join(entries, name)
-        if name == SUMMARY_SUBDIR and os.path.isdir(src):
-            # File-summary/folder-summary cache entries: a nested subdirectory, not a single
-            # entry file, and merged by newest-mtime-wins rather than the generic clash-rename
-            # logic below (see _merge_summary_subdir's docstring for why).
-            dest_dir = os.path.join(parent_dir, "entries", SUMMARY_SUBDIR)
-            moved.extend(os.path.join(SUMMARY_SUBDIR, n)
-                         for n in _merge_summary_subdir(src, dest_dir))
+        if name in _CACHE_SUBDIRS and os.path.isdir(src):
+            # Path-keyed cache subdir: newest-mtime-wins per file (see _merge_cache_subdir).
+            dest_dir = os.path.join(parent_dir, "entries", name)
+            moved.extend(os.path.join(name, n) for n in _merge_cache_subdir(src, dest_dir))
             continue
         m = _HANDOFF_RE.match(name)
         if m:

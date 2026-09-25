@@ -88,6 +88,8 @@ it.
 | file summaries | array | no | Write/overwrite one `file-summary` entry per item (see "File & Folder Summary Cache") |
 | folder summaries | array | no | Write/overwrite one `folder-summary` entry per item (see "File & Folder Summary Cache") |
 | file summary lookup | array | no | Repo-relative paths to check for a cached summary before searching the repo for them (read-only; see "File & Folder Summary Cache") |
+| research digest | object/array | no | Store `{topic, summary, paths}` multi-file findings, keyed by topic + path set (see "Research Digest Cache") |
+| research digest lookup | array | no | Repo-relative paths to find stored digests for, each `fresh` or `stale` with `changed` sources (read-only; see "Research Digest Cache") |
 | handoff surfacing | flag | no | Enable surfacing at handoff points (see "Handoff points" section) |
 | aside task description | string | no | Spinoff aside for potential separate conversation (see "Spinoff context bundles" section) |
 
@@ -153,6 +155,31 @@ most one summary entry per path.
 This capability has no phase/handoff concept of its own — call it from wherever your plugin
 already reads files for a targeted change (a design/research pass, a task-slicing pass, or any
 other file-driven step), independent of `surface relevant memory`/`handoff surfacing` above.
+
+## Research Digest Cache
+
+The multi-file counterpart of the summary cache above: a subagent's findings across several files,
+kept until any of those files changes.
+
+**Read, before you research:** pass `research digest lookup` with the repo-relative paths your
+task touches. For each path, the response lists every digest whose sources include it, each with
+`status` `fresh` or `stale`, `changed` (the sources that changed or were deleted, empty when fresh),
+`topic`, `updated`, and the stored `summary`. A `source` field says whether the answer came from
+the index or a directory scan; results are the same either way. For a `fresh` digest, use the
+`summary` as known context. For a `stale` one, re-read only the `changed` files.
+
+**Write, after you research:** pass `research digest` with `{topic, summary, paths}`:
+- `topic`: a short label for what was researched; the same `topic` and path set overwrites the
+  earlier digest instead of adding one.
+- `summary`: your findings, capped at 2,000 characters (truncated at a line boundary with a
+  marker if longer).
+- `paths`: the repo-relative source files the findings came from, at most 30. Split larger
+  research into several digests (e.g. one per top-level directory).
+
+`agent-nelly` hashes the source files itself (git-blob SHA-1 of the working tree, no `git` needed).
+A request with an absolute or `..` path, more than 30 paths, an empty topic or summary, or a
+source file that doesn't exist is rejected and nothing is stored. As with every other field, a
+failed or unavailable call is never a reason to block your own work.
 
 ## Spinoff context bundles
 

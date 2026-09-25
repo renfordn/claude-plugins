@@ -19,6 +19,12 @@ trimmed to its first line:
    "files": [...] (metadata.files, `file-relevance`/`file-summary` only,
    `[]` when absent), "folder": <metadata.folder|null> (`folder-summary`
    only), "git_hash": <metadata.git_hash|null> (`file-summary` only)}
+plus, on `research-digest` records only (absent from every other record):
+  "topic": <str>, "sources": [{"path", "hash"}, ...] (file order),
+  "updated": <str, as written>
+
+`type` is normalized: legacy on-disk spellings `file_summary`/`folder_summary`
+are indexed as `file-summary`/`folder-summary` (see _TYPE_ALIASES).
 
 `files`/`folder`/`git_hash` exist so lookup_by_path() below can answer "is
 there already a cached summary for this path?" from this one JSON file --
@@ -43,7 +49,9 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
-from nelly_memory import BASE, memory_dir, global_dir, SUMMARY_SUBDIR  # noqa: E402
+from nelly_memory import (  # noqa: E402
+    BASE, memory_dir, global_dir, SUMMARY_SUBDIR, DIGEST_SUBDIR, DIGEST_TYPE,
+)
 
 INDEX_FILENAME = "nelly-index.json"
 
@@ -57,6 +65,61 @@ _SEEN_COUNT_RE = re.compile(r"^\s*seen_count:\s*(\d+)", re.M)
 _FILES_RE = re.compile(r"^\s*files:\s*\[(.*?)\]\s*$", re.M)
 _FOLDER_RE = re.compile(r"^\s*folder:\s*(\S+)", re.M)
 _GIT_HASH_RE = re.compile(r"^\s*git_hash:\s*(\S+)", re.M)
+_TOPIC_RE = re.compile(r"^topic:[ \t]*(.+)$", re.M)
+_UPDATED_RE = re.compile(r"^updated:[ \t]*(.+)$", re.M)
+_SOURCES_KEY_RE = re.compile(r"^sources:[ \t]*$")
+_LIST_ITEM_RE = re.compile(r"^[ \t]*-(?:[ \t]|$)")
+_SOURCE_FIELD_RE = re.compile(r"^[ \t]*(?:-[ \t]*)?(path|hash):[ \t]*(.*?)[ \t]*$")
+
+# iCloud Drive's conflict duplicate of `<name>.md` is `<name> <N>.md` (space + digits).
+_CONFLICT_COPY_RE = re.compile(r" \d+\.md$")
+
+# entries/ subdirectories the index descends into (one level, no deeper).
+_INDEXED_SUBDIRS = (SUMMARY_SUBDIR, DIGEST_SUBDIR)
+
+# Legacy spellings some older writers used on disk; normalized at index time so
+# lookup_by_path()'s exact `file-summary`/`folder-summary` match finds them without
+# rewriting the entry files themselves.
+_TYPE_ALIASES = {"file_summary": "file-summary", "folder_summary": "folder-summary"}
+
+
+def is_conflict_copy(name):
+    """True for an iCloud conflict copy (`fact 2.md`, `fact 12.md`); False for ordinary names
+    that merely contain digits (`v2.md`, `fact-2.md`). Such copies are never indexed or scanned.
+    """
+    return bool(_CONFLICT_COPY_RE.search(name))
+
+
+def _scalar(value):
+    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    return value
+
+
+def _parse_sources(block):
+    """Parse a research-digest `sources:` list into [{"path", "hash"}, ...] in file order.
+    The block runs from the `sources:` line to the next top-level key; blank lines, indented
+    lines and `- ` items (zero-indent allowed) belong to it. Every `- ` line starts a new item;
+    `path:`/`hash:` may come in either order. Items without a path are dropped; a path with no
+    hash gets `hash: None`."""
+    lines = block.splitlines()
+    start = next((i for i, ln in enumerate(lines) if _SOURCES_KEY_RE.match(ln)), None)
+    if start is None:
+        return []
+    items = []
+    for line in lines[start + 1:]:
+        if line.strip() and not line[0].isspace() and not _LIST_ITEM_RE.match(line):
+            break  # next top-level key
+        if _LIST_ITEM_RE.match(line):
+            items.append({"path": None, "hash": None})
+        field_m = _SOURCE_FIELD_RE.match(line)
+        if field_m:
+            if not items:
+                items.append({"path": None, "hash": None})
+            items[-1][field_m.group(1)] = _scalar(field_m.group(2)) or None
+    return [i for i in items if i["path"]]
 
 
 def _parse_frontmatter_block(block):
@@ -78,6 +141,8 @@ def _parse_frontmatter_block(block):
     git_hash_m = _GIT_HASH_RE.search(block)
 
     description = desc_m.group(1).strip().splitlines()[0] if desc_m else ""
+    entry_type = type_m.group(1).strip() if type_m else None
+    entry_type = _TYPE_ALIASES.get(entry_type, entry_type)
     tags = []
     if tags_m:
         tags = [t.strip().strip("'\"") for t in tags_m.group(1).split(",") if t.strip()]
@@ -85,9 +150,9 @@ def _parse_frontmatter_block(block):
     if files_m:
         files = [f.strip().strip("'\"") for f in files_m.group(1).split(",") if f.strip()]
 
-    return {
+    record = {
         "slug": name_m.group(1).strip(),
-        "type": type_m.group(1).strip() if type_m else None,
+        "type": entry_type,
         "confidence": confidence_m.group(1).strip() if confidence_m else None,
         "description": description,
         "tags": tags,
@@ -96,6 +161,14 @@ def _parse_frontmatter_block(block):
         "folder": folder_m.group(1).strip() if folder_m else None,
         "git_hash": git_hash_m.group(1).strip() if git_hash_m else None,
     }
+    if entry_type == DIGEST_TYPE:
+        # Digest-only fields; other records stay minimal (see module docstring).
+        topic_m = _TOPIC_RE.search(block)
+        updated_m = _UPDATED_RE.search(block)
+        record["topic"] = _scalar(topic_m.group(1)) if topic_m else None
+        record["sources"] = _parse_sources(block)
+        record["updated"] = _scalar(updated_m.group(1)) if updated_m else None
+    return record
 
 
 def _read_index(index_path):
@@ -121,9 +194,9 @@ def _build_index_for_memory_dir(d):
     that resyncs the index after an archive-move (Bash `mv`) that no
     Write/Edit hook ever observes.
 
-    Also descends one level into entries/<SUMMARY_SUBDIR>/ -- file-summary/folder-summary
-    entries live there instead of directly under entries/ (see nelly_memory.SUMMARY_SUBDIR) --
-    but no deeper than that: any other subdirectory under entries/ is not a recognized entry
+    Also descends one level into entries/<SUMMARY_SUBDIR>/ and entries/<DIGEST_SUBDIR>/ --
+    file-summary/folder-summary and research-digest entries live there instead of directly
+    under entries/ (see nelly_memory.SUMMARY_SUBDIR/DIGEST_SUBDIR) -- but no deeper than that: any other subdirectory under entries/ is not a recognized entry
     kind and is skipped, same as a non-.md file at the top level.
     """
     entries_dir = os.path.join(d, "entries")
@@ -132,10 +205,10 @@ def _build_index_for_memory_dir(d):
         for name in sorted(os.listdir(entries_dir)):
             full = os.path.join(entries_dir, name)
             if os.path.isdir(full):
-                if name != SUMMARY_SUBDIR:
+                if name not in _INDEXED_SUBDIRS:
                     continue
                 for sub_name in sorted(os.listdir(full)):
-                    if not sub_name.endswith(".md"):
+                    if not sub_name.endswith(".md") or is_conflict_copy(sub_name):
                         continue
                     record = _record_for_entry_file(
                         os.path.join(full, sub_name), os.path.join("entries", name, sub_name)
@@ -143,7 +216,7 @@ def _build_index_for_memory_dir(d):
                     if record:
                         records.append(record)
                 continue
-            if not name.endswith(".md"):
+            if not name.endswith(".md") or is_conflict_copy(name):
                 continue
             record = _record_for_entry_file(full, os.path.join("entries", name))
             if record:
@@ -199,6 +272,15 @@ def upsert_project_entry(cwd, entry_path):
     records = _read_index(index_path)
 
     name = os.path.basename(entry_path)
+    if is_conflict_copy(name):
+        # An iCloud conflict copy is never an entry of its own: drop any record that points
+        # at it and leave the original's record alone.
+        relative = os.path.relpath(entry_path, d)
+        kept = [r for r in records if r.get("file_path") != relative]
+        if len(kept) != len(records):
+            os.makedirs(d, exist_ok=True)
+            _write_index(index_path, kept)
+        return kept
     slug = name[:-3] if name.endswith(".md") else name
     records = [r for r in records if r.get("slug") != slug]
 
