@@ -38,10 +38,16 @@ def test_ralph_loops_integration_documented():
 
 
 def test_abandoned_hook_pipeline_note_added():
-    """Test that note about abandoned hook-driven pipeline is present."""
+    """Test that the note explaining review levels replaced hook-driven auto-invocation is
+    present. Corrected 2026-09-25: the original wording ("Alternative to abandoned hook
+    pipeline") was later reworded to "(Current Approach)" / "Rather than hooks managing
+    invocation" and no longer contains "abandon" anywhere in the file, so the old substring
+    check only kept passing by coincidence (unrelated "hook" and "pipeline" hits elsewhere)."""
     content = read_isdd_interop()
-    assert "abandon" in content.lower() or ("hook" in content.lower() and "pipeline" in content), \
-        "Note about abandoned hook-driven pipeline not found"
+    assert "(Current Approach)" in content, \
+        "Note marking review levels as the current (vs. a prior) approach not found"
+    assert "Rather than hooks managing invocation" in content, \
+        "Note that hooks no longer manage review invocation not found"
 
 
 def test_ultra_level_as_alternative_noted():
