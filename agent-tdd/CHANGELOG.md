@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.2.20] - 2026-09-25
+
 - **Feature**: catch prerequisite bugs and refactors before feature slices, not during them.
   Task slicing now runs an affected-area sweep and turns each defect or needed refactor into its
   own `fix`/`refactor` slice. Slices are ordered by what the code needs (fix, then refactor,

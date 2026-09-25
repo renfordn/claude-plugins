@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.63] - 2026-09-25
+
 - **Feature**: ground designs in the code they change. `research-consolidator` runs an
   Assumption audit: it traces the code path the feature will use and returns a
   `Prerequisite Work` list of latent defects, prep refactors and unverified assumptions.
