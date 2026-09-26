@@ -1,0 +1,10 @@
+{
+  "name": "follow-through-private",
+  "description": "Renford Nelson's private marketplace for the follow-through plugin. Not published publicly — install by adding this repository directly.",
+  "owner": {
+    "name": "Renford Nelson"
+  },
+  "plugins": [
+    { "name": "follow-through", "source": "./" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "follow-through",
+  "version": "0.1.0",
+  "description": "A single skill that stops Claude from promising to \"check back\" or \"report when it's done\" on background/long-running work unless a real mechanism (a tracked background tool call, a scheduled wakeup, or a synchronous wait) actually exists to bring it back and deliver the result.",
+  "author": {
+    "name": "Renford Nelson"
+  },
+  "homepage": "https://github.com/renfordn/claude-plugins",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": ["reliability", "background-tasks", "follow-up", "async", "claude-code"]
+}
