@@ -1,6 +1,6 @@
 # Install and Verify — Claude Plugin Collection
 
-This guide walks through installing all 5 plugins from the `renfordn-plugins` marketplace,
+This guide walks through installing all 6 plugins from the `renfordn-plugins` marketplace,
 verifying they are working, and troubleshooting common issues. All plugins can be used
 standalone or in any combination.
 
@@ -13,7 +13,7 @@ standalone or in any combination.
 
 ## Add the Marketplace
 
-All 5 plugins are published from one marketplace, `renfordn-plugins`, backed by the
+All 6 plugins are published from one marketplace, `renfordn-plugins`, backed by the
 `renfordn/claude-plugins` GitHub repo. Add it once, before any `claude plugin install`
 below — every `@renfordn-plugins` install fails with an unknown-marketplace error until
 this step has run:
@@ -41,6 +41,7 @@ claude plugin install agent-isdd@renfordn-plugins
 ```bash
 claude plugin install code-reviewer@renfordn-plugins
 claude plugin install focus-ux@renfordn-plugins
+claude plugin install follow-through@renfordn-plugins
 ```
 
 ---
@@ -53,7 +54,7 @@ After installing, confirm all plugins are present and enabled:
 claude plugin list
 ```
 
-Expected output: all 5 plugins listed with `Status: ✔ enabled`.
+Expected output: all 6 plugins listed with `Status: ✔ enabled`.
 
 ---
 
@@ -113,6 +114,15 @@ claude --print "Walk me through the 3 steps to add a new plugin to this repo."
 Expected: the reply opens with a `▸ Step 1/3` position line and a `🎯 Goal:` line (the forced
 **Focus** output style). `claude plugin details focus-ux@renfordn-plugins` should list the
 `Focus` output style and the `visual-brief` skill.
+
+### follow-through
+
+```bash
+claude --print "I just kicked off the full test suite in the background and told you I'd check back and report when it's done — what should I do now?"
+```
+
+Expected: the reply names one of a tracked background tool call, an explicitly scheduled wakeup,
+or a synchronous wait as the actual mechanism, rather than just repeating the check-back promise.
 
 ---
 
@@ -174,7 +184,7 @@ The install command is idempotent — re-running it replaces a broken install cl
 Run this checklist on a clean machine before marking the release complete:
 
 - [ ] `claude plugin marketplace add renfordn/claude-plugins` succeeds
-- [ ] All 5 plugins install without errors
+- [ ] All 6 plugins install without errors
 - [ ] `claude plugin list` shows all 4 with `Status: ✔ enabled`
 - [ ] `agent-nelly` smoke test returns a response (even "not yet captured")
 - [ ] `agent-tdd` `claude plugin details` lists its agents/skills

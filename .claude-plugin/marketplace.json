@@ -9,6 +9,7 @@
     { "name": "agent-nelly", "source": "./agent-nelly" },
     { "name": "agent-tdd", "source": "./agent-tdd" },
     { "name": "code-reviewer", "source": "./code-reviewer" },
-    { "name": "focus-ux", "source": "./focus-ux" }
+    { "name": "focus-ux", "source": "./focus-ux" },
+    { "name": "follow-through", "source": "./follow-through" }
   ]
 }
