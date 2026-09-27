@@ -1,6 +1,22 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-27
+
+- **Feature**: checkpoint-push notifications. The plugin's first two hooks:
+  `UserPromptSubmit` (`hooks/checkpoint_optin.py`) opts a session in on the `[checkpoint-push]`
+  prompt marker or `FOCUS_UX_CHECKPOINT_PUSH=1`, and injects a standing rule so a Dispatch child
+  pushes before `AskUserQuestion`. `Stop` (`hooks/checkpoint_push.py`) turns every Stop in an
+  opted-in session into one extra classify-and-push turn (input / gate / done / step / none),
+  guarded by a per-Stop nonce so the model's ack, not `stop_hook_active`, decides when the real
+  stop happens (except when `CLAUDE_PLUGIN_DATA` isn't set, so there's no nonce to persist --
+  there, `stop_hook_active` or any parseable ack alone is trusted instead, an accepted
+  quiet-miss trade-off for that configuration; see `INTEROP.md`). Interactive and non-opted-in
+  sessions pay only a cheap env/state check and stay silent. Any plugin can name a checkpoint
+  with a `<!--CHECKPOINT:...-->` comment without depending on focus-ux being installed; see
+  `INTEROP.md`. The ack line becomes the session's last visible message each time it fires --
+  documented in `README.md` and `INTEROP.md`.
+
 ## [0.2.0] - 2026-09-25
 
 - **Feature**: Brief Board. One living Artifact page (`assets/brief-board.html`, `db` capability,

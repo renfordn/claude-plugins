@@ -21,6 +21,37 @@ def test_manifest_and_marketplace_listing():
     assert {"name": "focus-ux", "source": "./focus-ux"} in listed
 
 
+def test_manifest_no_longer_claims_no_hooks():
+    manifest = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+    assert "no agents or hooks" not in manifest["description"].lower()
+
+
+def test_first_class_no_longer_declares_hooks_absent():
+    fc_path = ROOT / ".claude-plugin" / "first-class.json"
+    fc = json.loads(fc_path.read_text())
+    assert "hooks" not in fc.get("declared_absent", [])
+
+
+def test_hooks_json_registers_optin_and_push_hooks():
+    hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text())
+
+    def _commands(event):
+        return [h["command"] for group in hooks["hooks"][event] for h in group["hooks"]]
+
+    optin_cmds = _commands("UserPromptSubmit")
+    assert any("checkpoint_optin.py" in c for c in optin_cmds)
+    stop_cmds = _commands("Stop")
+    assert any("checkpoint_push.py" in c for c in stop_cmds)
+
+    for event in ("UserPromptSubmit", "Stop"):
+        for group in hooks["hooks"][event]:
+            for h in group["hooks"]:
+                assert h["type"] == "command"
+                assert "${CLAUDE_PLUGIN_ROOT}" in h["command"]
+                name = h["command"].rsplit("/", 1)[-1].rstrip('"')
+                assert (ROOT / "hooks" / name).is_file(), name
+
+
 def test_output_style_is_forced_and_keeps_coding_instructions():
     fm = _frontmatter(ROOT / "output-styles" / "focus.md")
     assert fm["name"].strip() == "Focus"
@@ -31,6 +62,14 @@ def test_output_style_is_forced_and_keeps_coding_instructions():
 def test_output_style_stays_lean():
     # Output styles sit in every request's system prompt; keep the cost small.
     assert len((ROOT / "output-styles" / "focus.md").read_text().split()) < 700
+
+
+def test_interop_documents_checkpoint_push_contracts():
+    text = (ROOT / "INTEROP.md").read_text()
+    assert "has no agents, hooks" not in text
+    for token in ("[checkpoint-push]", "FOCUS_UX_CHECKPOINT_PUSH",
+                  "<!--CHECKPOINT:", "<!--CHECKPOINT-PUSHED:"):
+        assert token in text, token
 
 
 def test_skill_frontmatter_and_references():
