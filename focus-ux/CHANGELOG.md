@@ -1,6 +1,16 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-27
+
+- **Feature**: script-rendered inline visuals. New `scripts/render_inline.py` renders "Small"
+  inline pictures (ranked/comparison table, progress map, timeline, flow/decision diagram) from
+  a small JSON payload instead of the model hand-drafting ASCII art, mirroring
+  `visual-brief`'s `build_brief.py` pattern for the "Big" Artifact path but stdout-only plain
+  text (no shared code with `build_brief.py`, per design). `output-styles/focus.md`'s "Small"
+  bullet now points at the script via `${CLAUDE_PLUGIN_ROOT}`; the Small/Big split itself is
+  unchanged. 40 new tests in `tests/test_render_inline.py`.
+
 ## [0.3.0] - 2026-09-27
 
 - **Feature**: checkpoint-push notifications. The plugin's first two hooks:
