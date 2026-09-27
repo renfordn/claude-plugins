@@ -265,15 +265,32 @@ def merge_worktree_store(store, parent_slug, label, base=None):
     parent_dir = os.path.join(base, parent_slug)
     os.makedirs(parent_dir, exist_ok=True)
     features = []
+    superseded = []  # (feature, stale_name) where a newer worktree copy displaced the parent's
 
     spec = os.path.join(store, "spec")
     if os.path.isdir(spec):
         dest_spec = os.path.join(parent_dir, "spec")
         os.makedirs(dest_spec, exist_ok=True)
         for feature in sorted(os.listdir(spec)):
-            name = feature if not os.path.exists(os.path.join(dest_spec, feature)) \
-                else _unique(dest_spec, feature, label)
-            shutil.move(os.path.join(spec, feature), os.path.join(dest_spec, name))
+            src_path = os.path.join(spec, feature)
+            dest_path = os.path.join(dest_spec, feature)
+            if not os.path.exists(dest_path):
+                name = feature
+            elif _newest_mtime(src_path) > _newest_mtime(dest_path):
+                # Same feature slug on both sides -- the worktree's copy was touched more
+                # recently than the parent's. Keeping the parent's copy under the canonical
+                # `spec/<feature>/` name (the only path workflow-manager/isdd-status ever
+                # resolve) would silently roll workflow-state.md/tasks.md/recap.md back to
+                # older content with no user action -- exactly the bug this branch fixes.
+                # Move the fresher worktree copy into the canonical slot instead, and rename
+                # the parent's older copy aside so nothing is lost.
+                stale_name = _unique(dest_spec, feature, "pre-merge")
+                os.rename(dest_path, os.path.join(dest_spec, stale_name))
+                superseded.append((feature, stale_name))
+                name = feature
+            else:
+                name = _unique(dest_spec, feature, label)
+            shutil.move(src_path, os.path.join(dest_spec, name))
             features.append(name)
 
     for name in sorted(os.listdir(store)):
@@ -289,12 +306,23 @@ def merge_worktree_store(store, parent_slug, label, base=None):
             shutil.move(src, os.path.join(parent_dir, _unique(parent_dir, name, label)))
 
     shutil.rmtree(store)
-    _log(parent_dir, "merged-worktree-store", [
+    log_lines = [
         f"Source: {os.path.basename(store)} (worktree `{label}`)",
         f"Features moved into spec/: {', '.join(features) if features else 'none'}",
-        "Store removed after merge",
-    ])
-    return {"store": os.path.basename(store), "parent": parent_slug, "features": features}
+    ]
+    for feature, stale_name in superseded:
+        log_lines.append(
+            f"`{feature}`: worktree copy was newer than the parent's -- kept the worktree's "
+            f"content under `{feature}`; parent's older copy preserved as `{stale_name}`"
+        )
+    log_lines.append("Store removed after merge")
+    _log(parent_dir, "merged-worktree-store", log_lines)
+    return {
+        "store": os.path.basename(store),
+        "parent": parent_slug,
+        "features": features,
+        "superseded": superseded,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +374,18 @@ def render_report(result, today, dry_run, base):
     lines += [f"Memory root: `{base}`", ""]
     merged = result["would_merge"] if dry_run else [(m["store"], m["parent"]) for m in result["merged"]]
     lines.append(f"## Worktree stores {'to merge' if dry_run else 'merged'} ({len(merged)})")
-    lines += [f"- `{s}` -> `{p}`" for s, p in merged] or ["- none"]
+    if dry_run:
+        lines += [f"- `{s}` -> `{p}`" for s, p in merged] or ["- none"]
+    else:
+        for m in result["merged"]:
+            lines.append(f"- `{m['store']}` -> `{m['parent']}`")
+            for feature, stale_name in m.get("superseded") or []:
+                lines.append(
+                    f"  - kept the worktree's newer `{feature}`; parent's older copy is now "
+                    f"`{stale_name}` -- review it, it held whatever was in `{feature}` before this merge"
+                )
+        if not result["merged"]:
+            lines.append("- none")
     lines += [f"- kept `{s}`: {r}" for s, r in result["kept_worktrees"]]
     lines.append("")
     lines.append(f"## Completed features {'to condense' if dry_run else 'condensed'}")

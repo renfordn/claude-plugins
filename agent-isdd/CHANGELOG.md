@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-27
+
+- **Fix**: `scripts/sdd_cleanup.py`'s worktree-store merge no longer lets a stale parent copy
+  of a feature silently outrank a newer worktree copy of the same slug. On a name clash it now
+  compares each side's newest file mtime and keeps the more recently touched copy under the
+  canonical `spec/<feature>/` path — the only path `workflow-manager`/`isdd-status` ever
+  resolve — moving the older copy aside as `<feature>--pre-merge` instead of letting it shadow
+  newer work. Previously, whichever copy already existed at the canonical path always won,
+  so a feature actively developed inside a git worktree could have its
+  `workflow-state.md`/`tasks.md`/`recap.md` silently reverted to an older, pre-fork snapshot
+  by the unattended weekly `nelly-weekly-consolidate` cleanup, with no user action and no
+  visible warning. The weekly report now names any feature this happens to.
+
 ## [0.3.0] - 2026-09-25
 
 - **Feature**: design-author reuses agent-nelly research digests. Research First step 1 passes
