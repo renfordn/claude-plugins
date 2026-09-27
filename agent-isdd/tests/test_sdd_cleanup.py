@@ -158,6 +158,54 @@ class SddCleanupTests(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(self.base, wt)))
         self.assertEqual([s for s, _ in result["kept_worktrees"]], [wt])
 
+    def test_merge_keeps_newer_worktree_copy_under_the_canonical_name(self):
+        # Regression test for a rollback bug: the parent has a STALE copy of a feature that
+        # hasn't been touched since the worktree forked off it, while the worktree kept
+        # working on the SAME feature slug and has a NEWER copy. Before the fix, the parent's
+        # stale copy always kept the canonical `spec/<slug>/` name (whatever already existed
+        # there won on a name clash) and the newer worktree content was shunted off under
+        # `<slug>--<label>`, where workflow-manager/isdd-status would never see it again --
+        # silently rolling workflow-state.md/tasks.md/recap.md back to older content with no
+        # user action. The fix must keep the fresher copy under the canonical name.
+        parent = "users-jay-nelson-codebase-ai-file-organiser"
+        wt = f"{parent}-claude-worktrees-agitated-banach-ba654f"
+        stale_time = time.mktime(datetime.date(2026, 8, 1).timetuple())
+        fresh_time = time.mktime(datetime.date(2026, 9, 1).timetuple())
+        # Neither status is "Complete", so this test isolates the merge logic from the
+        # separate completed-feature condensation pass that runs in the same sdd_cleanup.run().
+        _feature(self.base, parent, "my-feature", status="Requirements", mtime=stale_time)
+        _feature(self.base, wt, "my-feature", status="Design", mtime=fresh_time)
+
+        _, result = sdd_cleanup.run(today=TODAY, base=self.base)
+
+        canonical = os.path.join(self.base, parent, "spec", "my-feature", "workflow-state.md")
+        self.assertIn("Design", open(canonical).read())
+        self.assertNotIn("Requirements", open(canonical).read())
+        self.assertEqual(result["merged"][0]["features"], ["my-feature"])
+        stale_feature, stale_name = result["merged"][0]["superseded"][0]
+        self.assertEqual(stale_feature, "my-feature")
+        preserved = os.path.join(self.base, parent, "spec", stale_name, "workflow-state.md")
+        self.assertIn("Requirements", open(preserved).read())
+        log = open(os.path.join(self.base, parent, "CLEANUP-LOG.md")).read()
+        self.assertIn("worktree copy was newer", log)
+        self.assertIn(stale_name, log)
+        report = open(_ := os.path.join(self.base, "cleanup-reports", f"{TODAY.isoformat()}.md")).read()
+        self.assertIn("kept the worktree's newer `my-feature`", report)
+
+    def test_merge_keeps_parent_copy_on_a_tie_or_when_parent_is_newer(self):
+        parent = "users-me-repo"
+        wt = f"{parent}-claude-worktrees-wt1"
+        same_time = time.mktime(datetime.date(2026, 9, 1).timetuple())
+        _feature(self.base, parent, "same-feature", status="In Progress", mtime=same_time)
+        _feature(self.base, wt, "same-feature", status="Complete", mtime=same_time)
+
+        _, result = sdd_cleanup.run(today=TODAY, base=self.base)
+
+        canonical = os.path.join(self.base, parent, "spec", "same-feature", "workflow-state.md")
+        self.assertIn("In Progress", open(canonical).read())
+        self.assertEqual(result["merged"][0]["features"], ["same-feature--wt1"])
+        self.assertEqual(result["merged"][0]["superseded"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
