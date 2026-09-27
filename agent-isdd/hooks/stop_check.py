@@ -23,6 +23,14 @@ PHASE_FILES = {
     "Design": "design/design.md",
     "Tasks": "tasks/tasks.md",
 }
+# Phases that have a completion gate of their own (an artifact with a `- State:` field the
+# orchestrator sets to Approved). Tasks has no such artifact-level gate here -- see
+# workflow-manager's `continue` row: `Current Phase: Tasks` only ever arises as a rollback
+# landing state, not a phase this hook watches for stalling out of.
+PHASE_ARTIFACT_FILE = {
+    "Requirements": "requirements/requirements.md",
+    "Design": "design/design.md",
+}
 
 
 def _write_last_stop_marker(cwd):
@@ -39,28 +47,33 @@ def _write_last_stop_marker(cwd):
 
 
 def _detect_stalled_phase(state_fields, feature_dir):
-    """Check if a phase is marked Complete but next phase hasn't been entered.
+    """Check if the current phase's own artifact is Approved but the next phase hasn't
+    been entered.
+
+    `Workflow Status: Complete` is NOT the per-phase completion signal -- per
+    workflow-manager's contract it is set only once, at the whole feature's final
+    handoff/completion, never for an individual phase finishing mid-workflow. The real
+    per-phase signal is the phase artifact's own `- State: Approved` field (set by
+    requirements-agent/design-author immediately on approval), which is exactly what stays
+    true while the orchestrator has provided guidance at a phase boundary and stalled before
+    invoking the next phase in the same turn.
 
     Returns (is_stalled, phase_name, next_phase) or (False, None, None).
     """
     current = state_fields.get("current phase", "").strip()
-    status = state_fields.get("workflow status", "").lower()
 
     # Find current phase in order
     for i, phase in enumerate(PHASE_ORDER):
         if current.startswith(phase):
-            # Current phase detected at position i
-            # Check if phase is marked as complete
-            if "complete" in status:
-                # Check if next phase file exists (entry has been attempted)
-                if i + 1 < len(PHASE_ORDER):
+            artifact_file = PHASE_ARTIFACT_FILE.get(phase)
+            if artifact_file and i + 1 < len(PHASE_ORDER):
+                artifact_path = os.path.join(feature_dir, artifact_file)
+                artifact_state = parse_state(artifact_path).get("state", "").strip().lower()
+                if artifact_state == "approved":
                     next_phase = PHASE_ORDER[i + 1]
-                    next_file = os.path.join(
-                        feature_dir,
-                        PHASE_FILES[next_phase]
-                    )
+                    next_file = os.path.join(feature_dir, PHASE_FILES[next_phase])
                     if not os.path.exists(next_file):
-                        # Phase complete but next not entered — workflow stalled
+                        # Phase's artifact approved but next phase not entered — stalled
                         return (True, phase, next_phase)
             break
 

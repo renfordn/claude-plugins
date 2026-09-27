@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-27
+
+- **Fix**: `hooks/stop_check.py` and `hooks/before_continue.py`'s mid-workflow stall detection
+  was dead code — it fired on `Workflow Status: Complete`, but `sdd_state.active_state_file()`
+  already filters out any workflow-state.md with that status before either hook ever sees it
+  (`Complete` is reserved for the whole feature's final handoff, never set for one phase
+  finishing mid-workflow, per `workflow-manager/SKILL.md`'s own contract). Both hooks now detect
+  a stall from the phase artifact's own `- State: Approved` field instead (e.g. `design.md`
+  approved but `tasks.md` not yet created), which is the real signal that survives
+  `active_state_file()`'s filtering. Added regression coverage in `tests/test_stop_check.py` and
+  a new `tests/test_before_continue_stall_detection.py`.
+
 ## [0.3.1] - 2026-09-27
 
 - **Fix**: `scripts/sdd_cleanup.py`'s worktree-store merge no longer lets a stale parent copy
