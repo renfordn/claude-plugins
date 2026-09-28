@@ -1,6 +1,21 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-28
+
+- **Fix**: `checkpoint_push.py` no longer re-blocks every Stop when `CLAUDE_PLUGIN_DATA` is set but
+  its state dir can't be written (full disk, read-only mount). Stop 1's nonce couldn't persist,
+  so Stop 2 looked like a fresh Stop 1 and blocked again even after a valid ack. It now fails
+  open (logs, no block), so a session can always stop (R9). Env-only opt-in with no plugin data
+  is unchanged.
+- **Fix**: `checkpoint_optin.py` clears a stale `pending` nonce on every new prompt. An ack turn
+  that ended without a Stop (API error, cancel) used to leave it set, so the next real gate was
+  consumed as Stop 2 and allowed through with no push.
+- **Test**: 4 new tests for the two fixes, plus 3 marker-shape rejections (wrong field order,
+  unquoted `need`, lone unterminated marker) in `test_checkpoint_markers.py`.
+- **Chore**: `evals/evals.json` sample text no longer contains a `/Users/...` path, which the
+  release validator flagged as a hardcoded path.
+
 ## [0.3.1] - 2026-09-27
 
 - **Feature**: script-rendered inline visuals. New `scripts/render_inline.py` renders "Small"

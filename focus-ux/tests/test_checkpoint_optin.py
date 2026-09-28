@@ -125,3 +125,29 @@ def test_bad_stdin_json_exits_zero():
     )
     assert result.returncode == 0
     assert result.stdout.strip() == ""
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("prompt,flag", [
+    ("just a normal prompt", None),          # already opted in, no marker on this prompt
+    ("go on [checkpoint-push]", None),        # marker on this prompt
+    ("just a normal prompt", "1"),            # env-var opt-in
+])
+def test_new_prompt_clears_stale_pending(tmp_path, prompt, flag):
+    """F2: a new user prompt starts a fresh cycle. A `pending` nonce left over from a Stop 1
+    whose ack turn never produced a Stop 2 (API error / cancel) is stale, and must not make the
+    next real Stop resolve as a Stop 2 and be allowed through with no push."""
+    env = _env(tmp_path, flag)
+    st.save_state(
+        SESSION,
+        {"opted_in": True, "pending": "3eeede8b", "last": None, "rule_injected": True},
+        env,
+    )
+    assert _state(tmp_path)["pending"] == "3eeede8b"  # control: the seed really persisted
+
+    _out, rc = run_hook("checkpoint_optin.py", _payload(prompt), env_extra=env)
+
+    assert rc == 0
+    assert _state(tmp_path)["pending"] is None

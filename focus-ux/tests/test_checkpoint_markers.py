@@ -259,3 +259,27 @@ def test_producer_closed_but_malformed_last_marker_returns_none_even_with_valid_
     last one considered -- it isn't skipped in favor of an earlier valid marker."""
     text = producer(name="earlier-valid") + '<!--CHECKPOINT:type=nonsense name="x" need="y"-->'
     assert parse_producer(text) is None
+
+
+# ------------------------------------------- malformed shapes that silently fail to parse
+
+
+def test_producer_wrong_field_order_rejected():
+    """The body is a fullmatch in a fixed order (type, name, need); reordering the fields makes
+    the marker silently inert. The well-formed control keeps this from passing vacuously."""
+    assert parse_producer(producer(type_="gate", name="deploy", need="ok")) is not None
+    assert parse_producer('<!--CHECKPOINT:name="deploy" type=gate need="ok"-->') is None
+
+
+def test_producer_unquoted_need_rejected():
+    """`need` must be double-quoted; a bare value never parses."""
+    assert parse_producer(producer(type_="gate", name="deploy", need="hello")) is not None
+    assert parse_producer('<!--CHECKPOINT:type=gate name="deploy" need=hello-->') is None
+
+
+def test_producer_lone_unterminated_marker_returns_none():
+    """A single marker with no closing "-->" and nothing after it is inert (the adversarial
+    stacked/unterminated cases above cover many; this is the plain one-marker case)."""
+    good = producer(type_="gate", name="deploy", need="ok")
+    assert parse_producer(good) is not None
+    assert parse_producer(good[: -len("-->")]) is None

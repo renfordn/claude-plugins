@@ -22,7 +22,7 @@ If you're running a Dispatch (Cowork-mode) child session and want it to proactiv
 when it needs input, hits a gate, finishes, or idles after a step, put `[checkpoint-push]`
 anywhere in its starting prompt (or set `FOCUS_UX_CHECKPOINT_PUSH=1` for the child). Interactive
 sessions stay quiet unless you opt them in the same way. Once opted in, expect one extra
-`<!--CHECKPOINT-PUSHED:...-->` line as the session's last message each time it stops -- that's
+`<!--CHECKPOINT-PUSHED:...-->` line as the session's last message each time it pushes -- that's
 the hook's ack turn, not an error. See `INTEROP.md` for the full contract and how other plugins
 can name a checkpoint.
 

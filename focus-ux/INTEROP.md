@@ -35,8 +35,10 @@ plus a Brief Board entry when the result earns a page) itself. `code-reviewer:co
 A Dispatch child session stays quiet by default. It opts a session in to proactive push
 notifications with either the literal marker `[checkpoint-push]` anywhere in a prompt (sticky
 for the rest of the session), or the environment variable `FOCUS_UX_CHECKPOINT_PUSH=1` (`=0`
-forces it off, and off always wins). Once opted in, every Stop is turned into one extra model
-turn: the child classifies why it stopped (input / gate / done / step / none) and, unless it's
+forces it off, and off always wins). The prompt marker is only sticky when `CLAUDE_PLUGIN_DATA`
+is set; without it, use the environment variable. On opt-in the session also gets a standing
+rule, once per session, to send one push before it asks you a decision question. Once opted in, a Stop that will push (not a repeat of the same unresolved gate, and not the
+fail-open case below) is turned into one extra model turn: the child classifies why it stopped (input / gate / done / step / none) and, unless it's
 routine, sends one `PushNotification` (loaded via `ToolSearch`) before acknowledging with a
 `<!--CHECKPOINT-PUSHED:...-->` marker. **That ack turn becomes the session's last visible
 message** -- expect one extra line after the real work in an opted-in Dispatch child.
@@ -49,6 +51,11 @@ on the user:
 <!--CHECKPOINT:type=(input|gate|done|step) name="<short-id>" need="<what's needed, ≤80 chars>"-->
 ```
 
+The fields must appear in exactly that order, and `name` must match `[a-z0-9:_-]{1,48}`
+(lowercase, digits, `:` `_` `-`) with `need` in double quotes. A marker that breaks any of
+this is silently ignored, not rejected, so check it against `parse_producer` in
+`hooks/focus_ux_transcript.py`. Only the last marker in the final message is read.
+
 focus-ux reads this as a hint for what to push and for R8 dedup (a repeated `name` from the same
 still-unresolved gate pushes only once). If focus-ux isn't installed, or the session isn't opted
 in, the marker is just an inert HTML comment.
@@ -59,6 +66,13 @@ against), the ack no longer always decides: `checkpoint_push.py` instead trusts
 either alone, as "this was already resolved" rather than re-blocking forever. That's a
 deliberate quiet-miss trade-off for that configuration only -- with real plugin data present,
 the nonce is always what decides, exactly as above.
+
+**If the state can't be saved** (`CLAUDE_PLUGIN_DATA` is set but its folder isn't writable, for
+example on a full disk), Stop 1 fails open instead of blocking: with no nonce persisted, the
+next Stop couldn't be told apart from a fresh Stop 1 and the session would re-block on every
+Stop, even after a valid ack. Expect no push in that environment; the failure is logged. A new
+prompt also clears any leftover nonce, so an interrupted ack turn never swallows the next
+real checkpoint.
 
 ## If focus-ux isn't installed
 

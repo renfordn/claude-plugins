@@ -4,8 +4,9 @@
 Stop 1 (no `pending` nonce in state): block once, instructing the model to classify the stop
 and push via PushNotification. Stop 2 (`pending` set): read the model's ack from its final
 turn, record it, and let the session stop for real. stop_hook_active is never trusted on its
-own (F4 in design.md) -- only the nonce decides. See design.md's States, Flows, And
-Edge-Case Handling. Every path exits 0: this hook must never wedge a session (R9).
+own (F4 in design.md) -- only the nonce decides. The two documented exceptions are the
+env-only path with no CLAUDE_PLUGIN_DATA (see main()) and a state dir that can't be written,
+which fails open. See design.md's States, Flows, And Edge-Case Handling. Every path exits 0: this hook must never wedge a session (R9).
 """
 import datetime
 import json
@@ -62,7 +63,15 @@ def _handle_stop1(env, session_id, payload, state):
         producer_hint=_producer_hint(marker),
     )
     state["pending"] = nonce
-    save_state(session_id, state, env)
+    persisted = save_state(session_id, state, env)
+    if not persisted and state_path(session_id, env) is not None:
+        # F1 / R9: plugin data is set but the nonce can't be saved (full disk, read-only mount).
+        # Stop 2 would then look like a fresh Stop 1 and re-block on every Stop forever, even after
+        # a valid ack, so fail open: a missed push is better than a session that can't stop.
+        # (state_path None is the env-only case, which main() already handles before this.)
+        log(f"checkpoint_push: session {session_id} could not persist the Stop-1 nonce; "
+            "not blocking", env)
+        return
     print(json.dumps({"decision": "block", "reason": reason}))
 
 

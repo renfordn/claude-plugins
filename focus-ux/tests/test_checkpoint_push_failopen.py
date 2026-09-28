@@ -137,3 +137,31 @@ def test_with_plugin_data_stop_hook_active_alone_still_blocks():
         assert result.returncode == 0, result.stderr
         out = json.loads(result.stdout)
         assert out["decision"] == "block"
+
+
+def test_with_unwritable_plugin_data_never_blocks_so_it_cannot_wedge(tmp_path):
+    """F1: CLAUDE_PLUGIN_DATA is SET but its state dir cannot be created (it sits under a regular
+    file), so Stop 1's nonce can never persist. Stop 2 then looks like a brand-new Stop 1, and
+    blocking on it re-blocks every Stop forever even after a valid ack (R9). Persistence
+    failure must fail open instead: no Stop in this environment blocks."""
+    blocker = tmp_path / "notadir"
+    blocker.write_text("")
+    env = {"FOCUS_UX_CHECKPOINT_PUSH": "1", "CLAUDE_PLUGIN_DATA": str(blocker / "data")}
+
+    stop1 = _run(_payload(tmp_path, last_assistant_message="All done."), env)
+    ack_stop = _run(
+        _payload(tmp_path, stop_hook_active=True, last_assistant_message=_ack()), env,
+    )
+    stop3 = _run(_payload(tmp_path, last_assistant_message="All done again."), env)
+
+    for result in (stop1, ack_stop, stop3):
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "", result.stdout
+
+    # Control: the same payload with a writable data dir does block Stop 1, so the empty
+    # output above comes from failing open, not from the hook being inert in this setup.
+    control = _run(
+        _payload(tmp_path, last_assistant_message="All done."),
+        {"FOCUS_UX_CHECKPOINT_PUSH": "1", "CLAUDE_PLUGIN_DATA": str(tmp_path / "ok-data")},
+    )
+    assert json.loads(control.stdout)["decision"] == "block"

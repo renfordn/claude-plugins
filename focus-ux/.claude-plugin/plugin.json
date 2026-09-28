@@ -1,6 +1,6 @@
 {
   "name": "focus-ux",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "ADHD-friendly presentation for Claude Code — an always-on output style (phase/step counters, goal-first and done-last framing, one-line next-step previews), a visual-brief skill that turns big findings into diagrams, timelines, and charts, and opt-in checkpoint-push notifications for Dispatch child sessions. No agents: everything runs on the main thread or in hooks.",
   "author": {
     "name": "Renford Nelson"

@@ -46,14 +46,16 @@ def main():
     if not has_marker and flag != "1":
         # Not opted in by this prompt. Still clear `last` if an earlier prompt opted in.
         state = load_state(session_id, env)
-        if state["opted_in"] and state["last"] is not None:
+        if state["opted_in"] and (state["last"] is not None or state["pending"] is not None):
             state["last"] = None
+            state["pending"] = None  # F2: a new prompt starts a fresh cycle; drop a stale nonce
             save_state(session_id, state, env)
         return
 
     state = load_state(session_id, env)
     state["opted_in"] = True
     state["last"] = None
+    state["pending"] = None  # F2: same reset on the opted-in path
     # `rule_injected` is tracked separately from `opted_in` (review F1/New-F3): opted_in can be
     # true on every single call along the persistent-env-var path (FOCUS_UX_CHECKPOINT_PUSH=1
     # never goes away), so it can't be what gates the injection -- otherwise the rule would be
