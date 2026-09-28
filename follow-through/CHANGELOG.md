@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-28
+
+- **Fix**: documented that `ScheduleWakeup` requires `prompt` even for a long fallback heartbeat
+  set while waiting on a background agent/workflow — omitting it caused a real "Failed to
+  schedule check-in" error in a session that followed the prior wording.
+
 ## [0.1.0] - 2026-09-26
 
 - **Feature**: new plugin. The `follow-through` skill catches the "I'll check back" / "still
