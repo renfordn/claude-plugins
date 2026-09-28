@@ -18,12 +18,11 @@ section for the three-condition Detection check — confirm all three before usi
 every fresh attempt at the handoff).
 
 It is **not** a rewrite of Design Spec Mode's autonomous multi-slice loop. Design Spec Mode
-(`agents/agent-TDD.md`'s "Design Spec Workflow" section) deliberately does not return to its
+(`agents/agent-TDD.md`'s "Design Spec workflow" section) deliberately does not return to its
 caller between slices — that property depends on running as an isolated subagent that the
 caller trusts to work unsupervised. A `Skill` has no such isolation: it runs inline in the same
 conversation that will do the reviewing. So this skill instead reproduces **Slice Spec Mode's**
-existing contract (`agents/agent-TDD.md`'s "Required workflow" + "The mandatory review pause" in
-`INTEROP.md:73-90`) once per slice, and puts the caller in the same per-slice checkpoint loop it
+existing contract (`agents/agent-TDD.md`'s "Slice workflow" + `INTEROP.md`'s "The mandatory review pause" section) once per slice, and puts the caller in the same per-slice checkpoint loop it
 would already be in for a normal single-slice spawn — just called via `Skill`, not `Agent`.
 
 ## Modes
@@ -35,13 +34,13 @@ Invoke via `Skill(skill: "agent-tdd:design-spec-direct", args: "<mode> ...")`.
 Input (pass inline, same fields as a normal Design Spec): `requirements.md`, `design.md`,
 `research/cache.md`, `recap.md` (optional), pre-fetched file summaries (optional).
 
-Run exactly agent-TDD's Design Spec Mode **Phase 1 (Research Validation)** through **Phase 5
-(Readiness Check)** — see `agents/agent-TDD.md`'s "Design Spec workflow" steps 1–5 for the full procedure (unchanged, reuse
+Run exactly agent-TDD's Design Spec Mode steps **1 (Research validation)** through **5
+(Readiness)** — see `agents/agent-TDD.md`'s "Design Spec workflow" steps 1–5 for the full procedure (unchanged, reuse
 verbatim): research completeness check, slicing into TDD-sized phases, the three Ralph Loops
 (Slice Size, Dependency Correctness, Research-to-Implementation Traceability), and Risk Tier
 assignment.
 
-**Stop after Phase 5, unconditionally** — this is the one structural difference from Design Spec
+**Stop after step 5 (Readiness), unconditionally** — this is the one structural difference from Design Spec
 Mode. Do not continue into per-slice implementation regardless of whether any slice is
 high-risk (Design Spec Mode's "one or more high-risk slices" pause in `agent-TDD.md`'s "Design Spec workflow" step 5
 does not apply here, because the caller is about to drive every slice individually anyway).
@@ -169,7 +168,7 @@ made by Claude's own editing tools during the current turn, but its own docs are
 "Subagent edits not restored" section. A real `agent-TDD`/`test-author` spawn is a background
 `Agent`-tool subagent either way, so none of its edits are ever checkpoint-tracked — `/rewind`
 cannot touch them; git is the only undo path, which is exactly why the existing rollback design
-(`agent-isdd/INTEROP.md`'s Rewind Contract) only ever moves a phase pointer and never attempts a
+(`agent-isdd/skills/workflow-manager/SKILL.md`'s "Rewind Contract, Rollback Request Intake, Mid-Phase Change Classification" section) only ever moves a phase pointer and never attempts a
 file-level restore.
 
 This skill is a plain `Skill` invocation with no `context: fork` declared (nothing in this

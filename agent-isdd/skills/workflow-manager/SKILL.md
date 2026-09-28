@@ -237,7 +237,8 @@ confirmation:
 - **Corrected 2026-09-24 [plan/design gap]**: once the user approves the plan (`ExitPlanMode`
   returns approved), persist the finalized draft to the real artifacts in one step before moving
   on: write `design.md` from the approved content, create `research/cache.md`, persist
-  `file_summaries` to agent-nelly (`new facts` batch), and write `workflow-state.md` (`Design`
+  `file_summaries` to agent-nelly (its dedicated `file summaries` request field, plus `folder
+  summaries` and `research digest` — not a `new facts` batch), and write `workflow-state.md` (`Design`
   phase `State: Approved`, plus any design-gate discoveries queued during authoring — see
   `after-design`'s "Facts worth persisting" above). `tasks.md` does not exist at this point — per
   Phase 2+3, `agent-tdd` produces it (and runs its own Readiness Check) inside the same spawn that
@@ -294,7 +295,8 @@ backstop — on that reminder, sync the checklist directly.
 
 - Do not restart a workflow when continuation is safer.
 - Do not continue into a later phase when an earlier phase is invalidated.
-- Do not hand off to implementation unless tasks are explicitly ready.
+- Do not hand off unless Design is approved, implementation was requested, and no blocker or
+  confirmation is open.
 - Do not leave `workflow-state.md` stale after a routing decision — this includes every
   sub-section, not just the top-level `Workflow Status`. A recurring failure mode: `handoff`
   completes and `Workflow Status` gets set to `Complete`, but the `### Tasks` phase-state block,

@@ -16,7 +16,7 @@ of asking the user to read docs before their first feature.
    that discipline belongs to `agent-tdd`).
 3. Scaffold nothing yet beyond what's needed to confirm the above — actual feature scaffolding
    happens on the first real `/isdd <feature>` call, via `workflow-manager`.
-4. Confirm the statusline wiring is optional and point at the README's snippet rather than
+4. Confirm the statusline wiring is optional and point at the snippet in the docstring of `statusline/sdd_statusline.py` rather than
    editing `~/.claude/settings.json` automatically — that file is outside this project and
    editing it without being asked is not this command's job.
 5. Close with exactly one next step: run `/isdd <feature description>` to start the first

@@ -22,7 +22,9 @@ and `hooks/nelly_session_end.py` are documented, deliberate exceptions: plain de
 scripts with no way to invoke an LLM agent, so they write `inferred`-confidence entries
 (`error-prevention` or `technique` type) directly via `nelly_memory.py`'s own helpers rather than
 going through you (see `nelly_auto_extract.py`'s own docstring for the full rationale). They
-never mark anything `explicit` themselves — that stays a decision only you or the user makes.
+never mark anything `explicit` on first write; the one exception is auto-promotion of a recurring
+`inferred` entry once its `seen_count` reaches `PROMOTION_THRESHOLD` (3), see
+`nelly_auto_extract.py`. Otherwise that stays a decision only you or the user makes.
 
 Path resolution: whenever you need `memory_dir(cwd)`, `entry_path(cwd, name)`,
 `archive_path(cwd, name)`, or `global_dir()`, run

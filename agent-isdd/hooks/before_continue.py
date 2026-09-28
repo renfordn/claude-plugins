@@ -8,7 +8,7 @@ Handles three conditions (checked in priority order):
 
 Stalled phase detection: when a phase is marked Complete but the next phase's artifact
 hasn't been created, the orchestrator likely provided guidance and ended its turn instead
-of continuing to the next phase. This hook surfaces the stall so /sdd-continue can auto-resume.
+of continuing to the next phase. This hook surfaces the stall so /isdd-continue can auto-resume.
 
 This hook runs at workflow resume (on /isdd-continue) and surfaces pending actions.
 """

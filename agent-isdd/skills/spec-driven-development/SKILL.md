@@ -177,22 +177,22 @@ Providing guidance ("These are the tradeoffs," "Consider this approach," "Next w
 
 ### Exception: Explicit Pause Conditions
 Stop your turn **only** when:
-1. A hard gate blocks you (Requirements ambiguous, Design contradicts requirements, Tasks validation fails) → surface the blocker and pause for user input
+1. A hard gate blocks you (Requirements ambiguous, Design contradicts requirements) → surface the blocker and pause for user input
 2. The user explicitly asks you to stop or wait for confirmation
 3. The next phase requires the user's explicit permission (`EnterPlanMode` gate, implementation approval)
 
 If none of these apply, **do not end your turn.**
 
 ### Recovery from Stalls
-If you realize mid-turn that you provided guidance and ended without invoking the next skill, **do not rely on the user to notice and run /sdd-continue**. Recognize the stall immediately and invoke the next phase skill retroactively in your very next message — the session may have ended, but the workflow state already reflects phase completion, so continuing via `/sdd-continue` will resume correctly.
+If you realize mid-turn that you provided guidance and ended without invoking the next skill, **do not rely on the user to notice and run /isdd-continue**. Recognize the stall immediately and invoke the next phase skill retroactively in your very next message — the session may have ended, but the workflow state already reflects phase completion, so continuing via `/isdd-continue` will resume correctly.
 
 ## Internal Routing Rule
 
 Use focused skills internally rather than asking the user to switch prompts:
 - `workflow-manager` — orchestration, phase detection, state repair, transitions, scaffolding.
 - `requirements-agent` — requirements from scratch or from an existing draft/ticket/PRD.
-- `design-author` — design, informed by `research-consolidator` and `agent-nelly:nelly-
-  orchestrator` (when available).
+- `design-author` — design, informed by `research-consolidator` and `agent-nelly:agent-nelly`
+  (when available).
 
 Only expose these skill names when the user explicitly asks which one is being used, wants to
 invoke one directly, or a pause message needs to explain which capability produced the output.
@@ -253,9 +253,8 @@ After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a
 (`standard` or `high-risk`). On each `agent-tdd` `SubagentStop`, the `high_risk_reviewer` hook
 tracks high-risk phases (and standard phases touching a high-risk file path) and surfaces a
 passive reminder — no automatic invocation or auto-resume. See
-`references/code-reviewer-checkpoint.md` for the full contract, the tracking config shape, and
-`INTEROP.md`'s "Auto Code-Reviewer Invocation" section for the historical correction this
-supersedes.
+`references/code-reviewer-checkpoint.md` for the full contract, the tracking config shape, the
+historical correction this supersedes, and the inventory of helpers that only tests use.
 
 ## Requirements Gate
 
@@ -282,11 +281,13 @@ Phase gating, auto-advance rules, pause conditions, and state repair are governe
 ## Native Plan Mode
 
 `workflow-manager` owns entering native plan mode (`EnterPlanMode`) at `before-design` and
-exiting it (`ExitPlanMode`) at `after-tasks` once the `Tasks` checklist passes — see its "Native
-Plan Mode Gate" section for the full contract. This stays here in the orchestrator because it is a
-user-facing approval checkpoint.
+exiting it (`ExitPlanMode`) once Design is approved and implementation has been requested (at
+handoff) — there is no agent-isdd `Tasks` checklist to pass first, since `agent-tdd` slices tasks
+inside the handoff. See its "Native Plan Mode Gate" section for the full contract. This stays
+here in the orchestrator because it is a user-facing approval checkpoint.
 Requesting approval this way is in addition to the phase gates above, not instead of them —
-`ExitPlanMode` is only ever called once the Tasks checklist has already passed.
+`ExitPlanMode` is only ever called once Design is approved and implementation was requested (the
+same gate the `handoff` action already requires, not a separate or looser one).
 
 ## Task Tracker Sync
 
@@ -319,7 +320,6 @@ the user explicitly asks to change it.
 
 Structured sections with checklists, concise prose plus bullet lists, for `requirements.md`,
 `design.md`, and `recap.md`. For `tasks.md`, optimize for agent handoff: minimal narration,
-explicit ordered execution steps, concrete validation steps. When slicing tasks, populate each
-task's `Depends On` field with the real bare `task-id`s of other tasks in the same `tasks.md` it
-requires first (`[]` when none) — never leave it as unexamined boilerplate, and never fold a
-genuinely narrative dependency into it (that stays in `Prerequisites`).
+explicit ordered execution steps, concrete validation steps. `tasks.md` itself is written by
+`agent-tdd` during the Design Spec handoff (this skill never drives task slicing), so its
+`Depends On` guidance lives there — see `agent-tdd`'s tasks schema.

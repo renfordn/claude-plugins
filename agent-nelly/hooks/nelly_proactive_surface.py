@@ -14,7 +14,7 @@ REAL `metadata.confidence` (read from the entry file itself) is `explicit`.
 The index line's mirrored `confidence:` field is NOT trusted for this
 decision -- it can drift stale relative to the entry file, and trusting it
 would risk leaking a lesson that was only `inferred` (noticed unprompted,
-not yet confirmed) and is therefore permanently excluded from surfacing.
+not yet confirmed) and is therefore excluded from surfacing until promoted.
 
 Tie-break when multiple entries match the same path: emit a reason for the
 FIRST match found while scanning MEMORY.md top-to-bottom, then stop (cap at

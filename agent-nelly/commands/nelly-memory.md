@@ -9,8 +9,8 @@ Manage this project's memory store, which lives under
 `${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/global/` tier). This store is entirely
 independent of the SDD plugin's `${CLAUDE_PLUGIN_DATA}/sdd-memory/` — no SDD plugin
 needs to be installed for this command to work. `agent-nelly` and its
-sibling `nelly-maintenance` are the **only** owners of every file under that
-root (`nelly-maintenance` for `import`/`prune`/`consolidate`; `agent-nelly`
+sibling `nelly-maintenance` are the **only** LLM agents that own entries under that
+root, alongside the documented deterministic hooks/scripts (see agents/agent-nelly.md) (`nelly-maintenance` for `import`/`prune`/`consolidate`; `agent-nelly`
 for everything else below). This command file never reads,
 writes, moves, or overwrites a memory file itself, for any subcommand,
 including `view` — every outcome described below is produced by asking

@@ -32,9 +32,10 @@ validation, task slicing, and implementation.
 | file_summaries | object | no | Pre-fetched file summaries from agent-nelly cache (if available), merged into research_cache for files not already covered by fresh file_summaries — see skills/spec-driven-development/references/implementation-handoff.md's Standard step 2 for deduplication rationale |
 
 **Agent-tdd responsibilities** (Phase 2+3):
-1. **Research Validation** (optional re-research gaps only)
+1. **Research Validation** (validate only — never re-researches)
    - Validate design.md's file touchpoints against research cache
-   - If cache is thin or inconsistent: run targeted deep-read only on gaps
+   - If cache is thin or inconsistent: flag the exact gaps and pause; agent-isdd runs the
+     targeted `research-consolidator` on those gaps and resumes (agent-tdd does not re-research)
    - If design contradicts research: escalate back to agent-isdd
 
 2. **Task Slicing** (produce `tasks.md`)
@@ -77,9 +78,10 @@ history).
 
 **Exception — Code-Review Gate (manual, caller-driven)**: `agent-TDD`'s Review pause between
 Green and Refactor is mandatory for *every* slice (see `agent-tdd`'s own `INTEROP.md`, "The
-mandatory review pause"), not just high-risk ones — the automatic path described below in "Auto
-Code-Reviewer Invocation" only covers high-risk slices and standard slices that touch a
-high-risk file path, so most standard-risk slices still hit this manual path. Corrected
+mandatory review pause"), not just high-risk ones — the passive checkpoint tracking described in
+`skills/spec-driven-development/references/code-reviewer-checkpoint.md` only covers high-risk
+slices and standard slices that touch a high-risk file path (and it only reminds, it never
+invokes), so every slice still goes through this manual path. Corrected
 2026-09-15: this used to (incorrectly) claim the `before-continue` hook detects agent-tdd's
 paused state and auto-resumes it via `SendMessage`; neither `hooks/before_continue.py` nor
 `spec-driven-development/SKILL.md` implement that — both explicitly disclaim owning
@@ -100,7 +102,7 @@ sessions, not a specific paused subagent instance within one.
 
 ### Agent-tdd Implementation Requirements (Phase 2+3)
 
-Agent-tdd must implement three new phases before Red-Green-Refactor:
+Agent-tdd must implement five new phases before Red-Green-Refactor:
 
 **Phase 1: Research Validation**
 - Input: Design Spec (requirements.md, design.md, research/cache.md, file_summaries)
@@ -110,7 +112,7 @@ Agent-tdd must implement three new phases before Red-Green-Refactor:
   - Are constraints captured?
 - Decision:
   - ✓ Research thorough: proceed to slicing
-  - ✗ Research thin: run targeted research-consolidator (on gaps only)
+  - ✗ Research thin: flag the exact gaps and pause (agent-isdd runs the targeted research-consolidator on them, then resumes agent-tdd)
   - ✗ Design contradicts research: escalate back to agent-isdd (pause, surface reason)
 
 **Phase 2: Task Slicing**
@@ -130,7 +132,7 @@ Three autonomous validation loops, max 3-5 iterations each:
 1. **Slice Size Validation Loop**
    - For each slice: count files, estimate test surface, verify Red-Green-Refactor feasibility
    - If oversized: split, adjust dependencies
-   - Exit when: all slices ≤ 3 files, testable, no slice depends on > 2 others
+   - Exit when: all slices ≤ 3 files and testable
 
 2. **Dependency Correctness Loop**
    - Build Depends On graph, run topological sort
@@ -141,7 +143,7 @@ Three autonomous validation loops, max 3-5 iterations each:
 3. **Research-to-Implementation Traceability Loop**
    - For each slice's "Ordered Steps": validate against research/cache.md
    - Verify: file/interface exists, constraint respected
-   - If missed research: run targeted deep-read, update cache, call agent-nelly
+   - If missed research: flag the gap and pause for agent-isdd to re-research (agent-tdd does not re-research or fetch memory stores)
    - If contradiction: flag as known risk in slice
    - Exit when: traceable or flagged
 
@@ -167,14 +169,12 @@ Three autonomous validation loops, max 3-5 iterations each:
 - Slicing requires product decision: pause, ask user which strategy
 - High-risk slice cannot be split: pause, confirm oversized + high-risk acceptable
 
-**Handoff Report Format:**
-```
-Verdict: ready | paused (with specific reason)
-Phase breakdown: 1-line summary
-Tasks file path: tasks/tasks.md
-Slicing confidence: high | medium (if research feels incomplete)
-Ralph Loops results: all passed | <loop name> iteration X of max
-```
+**Handoff Report Format:** marker-tagged with `<!--AGENT-TDD-PHASE:slicing_complete-->` and the fields
+**Research Validation**, **Task Slicing**, **Risk Tier Distribution**, **High-Risk Slices** (exact names
+or "none"), **Readiness Verdict** (`ready for implementation`, or `paused` with the reason),
+**Tasks File Path**, **Handoff Facts**, and **File Summaries**. `agent-tdd/agents/agent-TDD.md`
+(Design Spec workflow) and `agent-tdd/INTEROP.md`'s "Design Spec Handoff Report" are authoritative for the
+exact shape.
 
 **After Tasks readiness passes:**
 - If verdict == `ready` and no slice is `high-risk`: proceed to Red-Green-Refactor per slice
@@ -191,7 +191,7 @@ Ralph Loops results: all passed | <loop name> iteration X of max
 **Design Spec completeness gate**: `hooks/design_spec_gate.py` (`PreToolUse`, matcher `Agent`,
 scoped to `subagent_type: agent-tdd:agent-TDD`) hard-denies the spawn unless the active
 feature's `requirements.md` and `design.md` are both `State: Approved` on disk — modeled on
-`hooks/memory_permission.py`'s pattern. `slice_spec_gate.py` validates a different, incompatible
+`slice_spec_gate.py`'s `deny()` shape. `slice_spec_gate.py` validates a different, incompatible
 (Slice Spec) schema and is not involved in this Design Spec path — it was removed from
 `hooks.json` when Phase 2+3 eliminated unconditional per-slice Slice Spec validation, then
 **re-enabled 2026-09-17** scoped to `Track: Fast`'s single-slice Slice Spec handoff (the hook
@@ -483,16 +483,16 @@ harness constraint that hooks cannot invoke skills.
 | Phase | Review Level | Purpose | When | Invoked By |
 |-------|--------------|---------|------|-----------|
 | Design | Deep | Coherence validation | After design complete, before Tasks | design-author (agent-isdd skill) |
-| Tasks | Standard | Clarity check | After task slicing, before implementation | task-slicer (agent-tdd internal) |
+| Tasks | Standard | Clarity check | After task slicing, before implementation | not implemented (task slicing happens inside agent-TDD's Design Spec Mode; no review is requested there) |
 | Per-Slice (Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
-| Coherence Review | Deep or Ultra | Cross-slice validation | After all slices complete | agent-tdd (Ultra if >50% high-risk) |
+| Coherence Review | Deep (the caller may raise it to Ultra) | Cross-slice validation | After all slices complete | agent-tdd requests `Deep`; the caller may raise it to `Ultra` if most slices are high-risk |
 
 ### Ralph Loops Integration
 
 Review findings feed into ralph loops validation at multiple checkpoints:
 
 - **Design-phase Deep review** → Traceability validation input: does design.md touch the right files?
-- **Tasks-phase Standard review** → Dependency Correctness loop: are task dependencies valid?
+- **Tasks-phase Standard review** → not implemented (see the Tasks row above)
 - **Per-slice Standard review** → Per-slice correctness: implementation matches slice requirements
 - **Coherence review (Deep/Ultra)** → Cross-slice Traceability validation: did all slices co-evolve correctly?
 
@@ -501,15 +501,9 @@ then confirms that design-level decisions were respected through implementation.
 
 ### Auto-Detection Rules
 
-Auto-detection of review level lives in **calling code** (agent-tdd, spec-driven-development), 
-not in hooks or `code-reviewer` itself. Callers apply these rules (in priority order) when 
-invoking `/code-reviewer`:
-
-1. Explicit request (caller-specified `review_level`)
-2. ISDD workflow phase (Requirements → Standard, Design → Deep, Tasks → Standard, Implementation → context-dependent)
-3. Risk tier (high-risk slices → Deep, standard → Standard)
-4. File scope (single function → Quick, single file → Standard, multiple → Deep)
-5. Fallback: Standard
-
-This keeps review-level selection close to the context that motivated it, rather than trying 
-to infer it from static configuration.
+When a caller does not pass `review_level`, `code-reviewer` infers it from context (explicit
+request, then ISDD workflow phase, risk tier / file scope, prior context, fallback `Standard`).
+`code-reviewer/skills/code-reviewer/SKILL.md`'s "Auto-Detection Rules" section is the
+authoritative definition, and `code-reviewer/INTEROP.md` relies on it. Callers (agent-tdd,
+design-author) still pass an explicit level where the table above names one, since an explicit
+request takes priority.

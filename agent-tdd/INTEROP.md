@@ -239,7 +239,7 @@ Agent-tdd validates via three Ralph Loops (max 3–5 iterations each):
 ### Readiness Check & Escalation
 
 Before proceeding to per-slice implementation, `agent-TDD` itself emits a **Readiness Check**
-verdict as part of its own instructions (see `agents/agent-TDD.md`'s "Phase 5: Readiness Check"
+verdict as part of its own instructions (see `agents/agent-TDD.md`'s "Design Spec workflow" step 5 (Readiness)
 — corrected 2026-09-16; this used to name a separate `readiness-check` agent, a leftover
 reference to the retired modular pipeline described above):
 - ✓ **Ready For Implementation** — tasks.md is final. If no slice is `high-risk`, proceed
@@ -266,8 +266,8 @@ detailed resume mechanisms, see [`references/escalation-paths.md`](references/es
 
 ### Test-Author Gate (added 2026-09-16)
 
-Every slice's Risk Tier is already known by Readiness Check (Phase 4, Risk Tier Assignment,
-runs before this) — so a high-risk slice's need for `test-author` is never actually discovered
+Every slice's Risk Tier is already known by Readiness Check (step 4, Risk tiers, in `agents/agent-TDD.md`'s
+"Design Spec workflow", runs before this) — so a high-risk slice's need for `test-author` is never actually discovered
 mid-pipeline, it's known upfront. When Readiness Check passes with one or more `high-risk`
 slices in `tasks.md`, `agent-TDD` stops at the `slicing_complete` handoff (see *Design Spec
 Handoff Report* below — its **High-Risk Slices** field names them) instead of proceeding to
@@ -329,8 +329,12 @@ Provide:
 ### One-Directional Handoff
 
 This is a **one-directional handoff** — agent-isdd does not resume or monitor agent-tdd past the
-initial spawn, with one scoped exception: the Test-Author Gate above, which agent-isdd's
-`spec-driven-development` skill does resume for, and only for that. Task slicing happens inside
+initial spawn, with two scoped exceptions: (a) the Test-Author Gate above, which agent-isdd's
+`spec-driven-development` skill does resume for, and (b) Model Escalation, where `agent-TDD`
+emits `<!--AGENT-TDD-MODEL-ESCALATE:reason=...; from_model=...; to_model=...-->` (see
+`agents/agent-TDD.md`) and agent-isdd's `hooks/subagent_report.py` handles it — see
+[`references/escalation-paths.md`](references/escalation-paths.md) "Model Insufficiency (Model
+Escalation)". Task slicing happens inside
 agent-tdd (not handed back to agent-isdd). Escalations back to agent-isdd (research gap, design
 contradiction, slicing blocker) pause with explicit reason; agent-isdd resumes via its
 `before-continue` hook when user re-enters after addressing the escalation.

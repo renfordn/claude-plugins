@@ -10,10 +10,10 @@ of every entries/*.md write" convention documented in commands/nelly-memory.md
 agent, so it writes directly via nelly_memory.py's own helpers (same ones
 agent-nelly itself uses) and then calls build_index.upsert_project_entry
 to keep nelly-index.json in sync, same as nelly_index_update.py does for
-Write/Edit/MultiEdit. `confidence: inferred` keeps the entry permanently
+Write/Edit/MultiEdit. `confidence: inferred` keeps the entry
 excluded from nelly_proactive_surface.py's surfacing gate until a human runs
-`/nelly-memory confirm-lesson <name>` (or `review-inferred`) -- this hook
-never marks anything `explicit` itself.
+`/nelly-memory confirm-lesson <name>` (or `review-inferred`) or it recurs
+PROMOTION_THRESHOLD times (auto-promotion, described below).
 
 Fires on every Bash completion (see hooks/hooks.json's PostToolUse matcher),
 so it must be fast, silent unless it actually writes something, and never

@@ -112,7 +112,7 @@ mandatory post-Green review pause:
 4. **If the Slice Spec's Risk Tier is `high-risk`**: this is a *caller-driven upfront* split,
    not the Standard path's hook-driven mid-flight resume (that pattern —
    `hooks/high_risk_reviewer.py` setting `test_author_pending` after `agent-TDD`'s own
-   slicing-complete report — belongs to Design Spec Mode's task-slicer path and never fires for
+   slicing-complete report — belongs to Design Spec Mode (agent-TDD's own slicing) and never fires for
    a Slice Spec Mode spawn). Per `agent-tdd/INTEROP.md`'s "Two-part invocation" section: spawn
    `agent-tdd:test-author` first, passing only Task description/Test Intent/Data Contracts And
    Interfaces from the Slice Spec, take its returned test file(s) and failure confirmation, and

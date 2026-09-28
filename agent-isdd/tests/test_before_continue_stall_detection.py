@@ -2,7 +2,7 @@
 
 Reproduces the production scenario: the orchestrator finishes a phase (its artifact is
 `State: Approved`), provides guidance at the phase boundary, and ends its turn instead of
-continuing into the next phase skill in the same turn. `/sdd-continue` (before_continue.py)
+continuing into the next phase skill in the same turn. `/isdd-continue` (before_continue.py)
 should surface that and explain that resuming will auto-advance.
 
 Workflow Status stays `In Progress` for this case -- per workflow-manager's own contract

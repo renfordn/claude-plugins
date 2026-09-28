@@ -132,7 +132,7 @@ at each phase.
 | ISDD Phase | Review Level | Purpose | What to Review | When | Invoked By |
 |------------|--------------|---------|---|---|---|
 | **Design** | Deep | Coherence validation | Design patterns, file touchpoints, slice feasibility | After design complete, before Tasks | design-author (agent-isdd skill) |
-| **Tasks** | Standard | Clarity validation | Task phrasing, Depends-On graph, validation steps | After task slicing, before implementation | task-slicer (agent-tdd internal skill) |
+| **Tasks** | Standard | Clarity validation | Task phrasing, Depends-On graph, validation steps | After task slicing, before implementation | Not currently implemented (task slicing happens inside agent-TDD; no Tasks-phase review is invoked) |
 | **Impl: Per-Slice (Green)** | Standard or Deep | Implementation check | Code correctness, design alignment (Deep for high-risk) | After slice passes tests | agent-tdd |
 | **Impl: Post-Slices (Coherence)** | Deep or Ultra | Cross-slice validation | Cross-slice interactions, duplicates, module boundaries, regressions | After all slices complete Green + Refactor | agent-tdd |
 
@@ -160,8 +160,11 @@ See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
   SKILL.md`'s §Auto-Detection Rules (auto-detection rules and per-ISDD-phase examples); this
   used to cite a nonexistent top-level `code-reviewer/SKILL.md` and a nonexistent
   §ISDD Phase Context heading
-- **Per-Slice Strategy**: `agent-tdd/SKILL.md` §Review-Level Strategy (per-slice checkpoints)
-- **Ralph Loops Integration**: `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops
+- **Per-Slice Strategy**: **corrected 2026-09-28** — `agent-tdd/INTEROP.md` §"→ code-reviewer"
+  (per-slice checkpoints and the Deep coherence review); this used to cite a nonexistent
+  `agent-tdd/SKILL.md` §Review-Level Strategy
+- **Ralph Loops Integration**: **corrected 2026-09-28** — `agent-tdd/INTEROP.md` §"Task Slicing &
+  Ralph Loops"; this used to cite a nonexistent `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops
 - **Design Rationale**: **corrected 2026-09-24** — no `design.md` exists in this repo (it was
   the original SDD design doc this plugin was built from, which lives under
   `~/.claude/sdd-memory/`, not the repo); see `agent-isdd/INTEROP.md`'s "Strategic Review

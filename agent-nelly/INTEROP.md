@@ -8,7 +8,7 @@ skill's Availability Check). **Corrected 2026-09-24**: this used to name `memory
 a capability inside the old, single `spec-driven-development` plugin before it was split into
 today's agent-isdd/agent-tdd/agent-nelly/code-reviewer — the name
 doesn't resolve to anything in the current repo (see `agent-isdd/hooks/memory_slug_guard.py`'s
-docstring for the historical "memory-orchestrator slug bug" this plugin's own
+docstring for the historical "memory-orchestrator slug bug" agent-isdd's
 `doc-consistency-auditor` skill still references by that name — that's a historical incident
 label, not a live component). This document is the contract for any *other* plugin author who
 wants to use it too.
@@ -59,8 +59,9 @@ ask `agent-nelly` for a brief when you want one.
 
 ## The one thing you actively do: ask `agent-nelly` for a brief
 
-Everything else in this plugin (hooks, the `/nelly-memory` command) delegates to the
-`agent-nelly` subagent — it's the one interface your plugin should call. Every request/response
+The `/nelly-memory` command delegates to the `agent-nelly` subagent (or `nelly-maintenance` for
+import/prune/consolidate); the hooks are deterministic scripts that never call an agent.
+`agent-nelly` is still the one interface your plugin should call. Every request/response
 shape documented in this file is `agent-nelly`'s; nothing here changes based on the internal
 note below.
 
@@ -219,9 +220,7 @@ reads/writes anything under the memory root directly — see `agents/nelly-plann
 twice. This harness has no subagent-to-subagent calling — a subagent can't call another subagent
 — so your orchestrator must paste the same `agent-nelly` brief text into each subagent's
 prompt separately; there is no way to fetch the brief once and share it across both calls. This
-is a hard harness constraint, not a bug, and it is accepted rather than worked around (see the
-`2026-08-10-agent-nelly-memory-orchestration-v2` feature's own design.md, Resolution 2, for where
-this constraint was first confirmed). Before invoking both subagents for one task, decide whether
+is a hard harness constraint, not a bug, and it is accepted rather than worked around. Before invoking both subagents for one task, decide whether
 you actually need both outputs — if only one is relevant, call only that one and skip the second
 brief-repaste entirely.
 

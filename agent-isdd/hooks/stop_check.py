@@ -109,7 +109,7 @@ def main():
         print(json.dumps({
             "systemMessage": (
                 f"SDD reminder: '{title}' is paused ({f.get('workflow status', '?')}) — "
-                f"{detail}. Run /sdd-continue when ready."
+                f"{detail}. Run /isdd-continue when ready."
             )
         }))
         sys.exit(0)
@@ -122,7 +122,7 @@ def main():
                 f"⚠️  SDD workflow stalled: '{title}'\n\n"
                 f"**Phase {phase_name} marked Complete** but **{next_phase} phase not yet entered**.\n\n"
                 f"This likely means the orchestrator provided guidance/decisions and stopped its turn "
-                f"before invoking the next phase. Run `/sdd-continue` to resume and advance to {next_phase}."
+                f"before invoking the next phase. Run `/isdd-continue` to resume and advance to {next_phase}."
             )
         }))
         sys.exit(0)

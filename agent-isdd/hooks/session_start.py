@@ -147,7 +147,7 @@ def main():
             json_path = os.path.join(os.path.dirname(path), "workflow-state.json")
             entry += " workflow-state.json: present." if os.path.isfile(json_path) else " workflow-state.json: absent."
             lines.append(entry)
-        lines.append("Run /sdd-status for detail, or /sdd-continue to resume.")
+        lines.append("Run /isdd-status for detail, or /isdd-continue to resume.")
 
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "SessionStart",

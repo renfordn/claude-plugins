@@ -6,11 +6,12 @@ Memory lives under <root>/agent-nelly-memory/<project-slug>/, where <root> is th
 pointed at it) and ${CLAUDE_PLUGIN_DATA} otherwise — a NEW root,
 structurally independent from SDD's sdd-memory/. Every other file in
 this plugin resolves paths by calling into this module; nothing hand-computes a
-path under BASE (see hooks/nelly_slug_guard.py, Phase 4).
+path under BASE (see hooks/nelly_slug_guard.py).
 
-Phase 2 of the module: project_slug, memory_dir, ensure_dir, read_index,
-global_dir, read_global_index. Phase 3 (this revision) adds the entry-file
-API — entry_path, archive_path, list_entries — and the CLI dispatch surface
+Surface: project/global path helpers (project_slug, memory_dir, ensure_dir, read_index,
+global_dir, read_global_index, ensure_shared_root), the entry-file API (entry_path,
+archive_path, list_entries, ensure_entries_dir, atomic_write, truncate_summary), index-line
+helpers (write_index_line, parse_index_line_fields), and a CLI dispatch surface
 (--path, --global-path, --summary, --entries-path, --summary-entries-path,
 --digest-entries-path).
 
@@ -268,7 +269,8 @@ def truncate_summary(text, limit=SUMMARY_CHAR_LIMIT):
 def resolve_repo_relative(cwd, path):
     """Resolve a stored repo-relative path back to an absolute path anchored
     at cwd. Pure path resolution — no entry-file I/O. Used by
-    agent-nelly's prose logic (via Bash/Glob, not by any hook) during
+    nelly_proactive_surface.py to match `paths:` entries and by
+    agent-nelly's prose logic during
     `/nelly-memory prune`'s file-existence check for `file-relevance` entries
     whose `metadata.files` paths are stored relative to cwd (never absolute,
     since a project can be checked out at different absolute paths across
