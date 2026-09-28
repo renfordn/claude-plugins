@@ -29,7 +29,10 @@ test must call into (function signatures, module boundaries, existing test file 
    at intent.
 2. Write or update the test file(s) only — the smallest set of assertions that pins down the
    Test Intent, matching this slice's Risk Tier (favor explicit, narrow assertions over broad
-   ones for high-risk behavior).
+   ones for high-risk behavior). Before writing to any named test file, check whether it already
+   exists — an earlier slice may have created it, and existing-and-untracked is not evidence it's
+   safe to overwrite. If it exists, Read it first and preserve its content; treat a write into it
+   as an update, never a fresh creation.
 3. Run the test and confirm it fails for the intended reason (missing behavior, not a setup/typo
    error). If it fails for the wrong reason, fix the test itself, not any production code.
 4. Do not write, edit, or suggest production code. If the test can't be made to fail correctly
@@ -54,3 +57,6 @@ Begin your final response with the literal first line `<!--TEST-AUTHOR-REPORT-->
 - Do not broaden scope beyond the one slice passed to you.
 - Do not weaken an assertion just to make the test easier to satisfy later.
 - Do not claim a failure confirmation without showing the actual command and output.
+- When a named test file might already exist (another slice could have populated it), use Edit,
+  not Write — Edit's own contract requires reading the file in this session first, so it fails
+  loudly instead of silently overwriting it.

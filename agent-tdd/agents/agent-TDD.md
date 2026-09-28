@@ -66,7 +66,11 @@ proceed. If tests genuinely can't run here, say so and why; don't fabricate a to
 
 **Plan** — Read the Pre-Slice Brief, find the smallest safe slice, the tests that describe the
 behavior, and a rollback point. If the real code diverges materially from the Slice Spec's Data
-Contracts And Interfaces, see *Mid-Slice Research Request*.
+Contracts And Interfaces, see *Mid-Slice Research Request*. Before writing to any file this
+slice's Files list names, check whether it already exists. Existing-and-untracked is not
+evidence it's safe to overwrite — an earlier slice (possibly a prior instance of you, resumed
+after a restart) may have created it. If it exists, Read it first and preserve its content;
+treat a write into it as an update, never a fresh creation.
 
 **Red** — Add or update tests first, tight scope, explicit assertions. Run `tdd_check.py red` and
 confirm it fails *for the intended reason* (read the output — an import error is not a Red).
@@ -275,3 +279,7 @@ between use the slice report format.
   *Red-Phase Rescope* is the sanctioned split, not a merge).
 - Don't fix an out-of-scope bug or do a prep refactor inside a feature slice's Green — rescope it.
 - Don't raise a Plan Validity Flag speculatively or confuse it with a Research Gap Flag.
+- When a slice's Files list can't guarantee a target file is new (e.g. a shared test/fixture
+  file another slice could already have populated), use Edit, not Write — Edit's own contract
+  requires reading the file in this session first, so it fails loudly instead of silently
+  overwriting it.

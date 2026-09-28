@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-28
+
+- **Fix**: `agents/agent-TDD.md` and `agents/test-author.md` now tell the implementer to check
+  whether a slice's target file already exists before writing to it, and to prefer Edit over
+  Write whenever a shared file (e.g. a test/fixture another slice may have populated) can't be
+  guaranteed new. Closes a real data-loss gap: a resumed agent-TDD instance overwrote an earlier
+  slice's test file via Write with no prior Read, silently destroying its tests.
+
 ## [0.3.1] - 2026-09-25
 
 - **Fix**: `tdd_state.project_slug()` resolves the slug from the git toplevel of cwd, matching
