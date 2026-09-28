@@ -1,6 +1,5 @@
 """Slice 12: agent-nelly documents the `research digest` / `research digest lookup` request
 fields (agent spec + consumer-facing INTEROP)."""
-import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,9 +33,10 @@ def test_interop_has_consumer_section_with_fields_and_output_keys():
 
 
 def test_changelog_documents_research_digest():
-    # The entry lives under [Unreleased] until a release dates it under the plugin.json version.
+    # The entry lives under [Unreleased] until a release dates it, and then stays under the release
+    # that shipped the feature (0.6.0) across later version bumps. Looking only at the *current*
+    # plugin.json version's section made this fail on the first bump after 0.6.0.
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    version = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
     unreleased = _section(changelog, "## [Unreleased]", "\n## [")
-    released = _section(changelog, f"## [{version}]", "\n## [") if f"## [{version}]" in changelog else ""
-    assert "research digest" in (unreleased + released).lower()
+    shipped = _section(changelog, "## [0.6.0]", "\n## [") if "## [0.6.0]" in changelog else ""
+    assert "research digest" in (unreleased + shipped).lower()

@@ -1,6 +1,13 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-29
+
+- **Docs**: citations in `skills/design-spec-direct/SKILL.md` and `INTEROP.md` now point at headings
+  that exist (Slice workflow, Design Spec workflow steps, workflow-manager's Rewind Contract).
+  `INTEROP.md` also says agent-isdd has two scoped exceptions to its one-directional handoff, the
+  Test-Author Gate and Model Escalation, not one. No behavior change.
+
 ## [0.3.2] - 2026-09-28
 
 - **Fix**: `agents/agent-TDD.md` and `agents/test-author.md` now tell the implementer to check

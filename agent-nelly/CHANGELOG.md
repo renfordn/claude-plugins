@@ -1,6 +1,18 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-29
+
+- **Docs**: doc-consistency sweep fixes, with no behavior change. INTEROP.md no longer says hooks
+  delegate to the agent, credits `doc-consistency-auditor` to agent-isdd, and drops a pointer to a
+  design doc that doesn't exist. `commands/nelly-memory.md` says the two agents are the only LLM
+  owners of entries (hooks and scripts also write). Docstrings in `nelly_auto_extract.py`,
+  `nelly_proactive_surface.py` and `nelly_memory.py` now describe auto-promotion of inferred
+  entries, say where `resolve_repo_relative` is used, and drop stale phase wording.
+- **Test**: `scripts/test_research_digest_docs.py` now looks for the research-digest entry under
+  `[Unreleased]` or the 0.6.0 section that shipped it, instead of the current version's section,
+  which failed on the first bump after 0.6.0.
+
 ## [0.6.0] - 2026-09-25
 
 - **Feature**: research digest cache. New request fields `research digest` (write a subagent's

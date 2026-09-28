@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-29
+
+- **Fix**: `hooks/session_start.py`, `hooks/stop_check.py` and `hooks/before_continue.py` (plus one
+  test docstring) told the user to run `/sdd-continue` and `/sdd-status`, which don't exist. They
+  now name `/isdd-continue` and `/isdd-status`.
+- **Docs**: fixed dangling references and contradictions found by a doc-consistency sweep, with no
+  behavior change. INTEROP.md and the skills now agree that agent-tdd flags research gaps and
+  pauses (agent-isdd re-researches), that `ExitPlanMode` fires at handoff (there is no agent-isdd
+  Tasks checklist), and that review-level auto-detection lives in code-reviewer. The missing
+  "Auto Code-Reviewer Invocation" section is replaced by references/code-reviewer-checkpoint.md,
+  which now lists the helpers only tests use. Repointed a nonexistent `agent-nelly:nelly-orchestrator`,
+  a dead README statusline pointer and the retired task-slicer rows, and softened an unverified
+  "live-tested" claim.
+
 ## [0.3.2] - 2026-09-27
 
 - **Fix**: `hooks/stop_check.py` and `hooks/before_continue.py`'s mid-workflow stall detection
