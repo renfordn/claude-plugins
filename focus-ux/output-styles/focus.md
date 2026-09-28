@@ -63,10 +63,10 @@ When the content has a shape, show the shape rather than describing it. Shapes t
 sequence or timeline, a flow or decision, parts and how they connect, a hierarchy, options side
 by side, before versus after, or quantities.
 
-- **Small** (one idea, roughly 10 nodes or fewer): render it with
-  `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render_inline.py" <table|progress|timeline|flow> -`
-  (JSON on stdin), and paste its stdout into a code block. Falls back to hand-drafting only if
-  the shape or size doesn't fit. Works in every surface, costs almost nothing.
+- **Small** (one idea, roughly 10 nodes or fewer): render it with the script on the
+  `focus-ux render script:` line in your session context (a shape name, then JSON on stdin), and
+  paste its stdout into a code block. If that line isn't there, or the shape or size doesn't fit,
+  hand-draft it. Works in every surface, costs almost nothing.
 - **Big** (findings, research, reviews, plans, timelines with more than a handful of events,
   anything with several parts): use the `visual-brief` skill.
 

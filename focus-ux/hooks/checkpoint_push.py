@@ -4,9 +4,9 @@
 Stop 1 (no `pending` nonce in state): block once, instructing the model to classify the stop
 and push via PushNotification. Stop 2 (`pending` set): read the model's ack from its final
 turn, record it, and let the session stop for real. stop_hook_active is never trusted on its
-own (F4 in design.md) -- only the nonce decides. The two documented exceptions are the
+own (F4 in the SDD design doc, kept outside this repo) -- only the nonce decides. The two documented exceptions are the
 env-only path with no CLAUDE_PLUGIN_DATA (see main()) and a state dir that can't be written,
-which fails open. See design.md's States, Flows, And Edge-Case Handling. Every path exits 0: this hook must never wedge a session (R9).
+which fails open. See that doc's States, Flows, And Edge-Case Handling. Every path exits 0: this hook must never wedge a session (R9).
 """
 import datetime
 import json
@@ -130,7 +130,7 @@ def main():
         return
 
     if state_path(session_id, env) is None:
-        # New-F2 / design.md's "env is the only opt-in, no dedup": with nowhere to persist a
+        # New-F2 / the SDD design doc's "env is the only opt-in, no dedup": with nowhere to persist a
         # nonce, `pending` can never be set, so Stop 1 would otherwise fire on every single
         # Stop forever. Without a nonce to verify, trust stop_hook_active or a parseable ack in
         # the model's last turn as "this was already Stop 2" (either alone is enough) rather

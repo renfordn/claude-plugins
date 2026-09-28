@@ -97,7 +97,7 @@ def _raw_session_title(transcript_path, cwd):
     return os.path.basename(os.path.normpath(cwd)) if cwd else ""
 
 
-# --- checkpoint markers (design.md Data Contracts And Interfaces) ---------------------------
+# --- checkpoint markers (SDD design doc, outside this repo: Data Contracts And Interfaces) ---------------------------
 # Producer: <!--CHECKPOINT:type=(input|gate|done|step) name="<[a-z0-9:_-]{1,48}>" need="<...>"-->
 # Ack:      <!--CHECKPOINT-PUSHED:type=(...|none) id="<...>" nonce="<hex8>" [reason="..."]-->
 # The marker body ends at the first "-->", so a "-->" inside a field makes the marker malformed.

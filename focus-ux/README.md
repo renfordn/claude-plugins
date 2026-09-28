@@ -3,12 +3,14 @@
 
 ADHD-friendly presentation for Claude Code. It has no agents or subagent calls: the output style
 and skill run on the main thread, so they cost close to nothing per reply. (The per-call subagent
-cost is what retired `agent-ux`.) It does have two small hooks for opt-in Dispatch notifications.
+cost is what retired `agent-ux`.) It does have three small hooks: one that tells the model where the
+inline-render script lives, and two for opt-in Dispatch notifications.
 
 | Part | What it does | When it applies |
 |---|---|---|
 | `output-styles/focus.md` (**Focus**) | Phase/step counters (`▸ Phase 2/4 · Design — Step 3/5`), a `🎯 Goal:` line when a step starts, a `Next:` line before actions, a `✅ Done:` line when a step ends, and inline pictures for small shapes | Every reply. `force-for-plugin: true` turns it on whenever the plugin is enabled, and `keep-coding-instructions: true` keeps Claude Code's normal coding behaviour |
 | `skills/visual-brief` | Turns big findings into one headline, one picture (timeline, flow, map, matrix, chart), and 3–5 callouts. The chat always gets a text summary. A page is added only when it earns its cost, added to the **Brief Board** (one living Artifact page) with a single database write of small JSON | Big results: research, reviews, plans, comparisons, recaps |
+| `hooks/render_path_hint.py` | On each session start, adds one line to the context naming the absolute path of `scripts/render_inline.py`, so the Focus style can call it. Without the line the style hand-drafts small pictures. | Every session where the plugin is on |
 | `hooks/checkpoint_optin.py` + `hooks/checkpoint_push.py` (**checkpoint-push**) | Makes a Dispatch child session send one push notification when it needs input, hits a workflow gate, finishes, or idles after a significant step | Only sessions that opt in with `[checkpoint-push]` in a prompt or `FOCUS_UX_CHECKPOINT_PUSH=1`. Every other session stays silent |
 
 ## Quickstart

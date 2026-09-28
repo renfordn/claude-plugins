@@ -79,3 +79,18 @@ def test_skill_frontmatter_and_references():
     assert len(fm["description"]) <= 1024
     for ref in re.findall(r"`(references/[\w./-]+)`", skill.read_text()):
         assert (skill.parent / ref).exists(), ref
+
+
+def test_hooks_json_registers_render_path_hint_on_session_start():
+    hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text())
+    cmds = [h["command"] for g in hooks["hooks"]["SessionStart"] for h in g["hooks"]]
+    assert any("render_path_hint.py" in c and "${CLAUDE_PLUGIN_ROOT}" in c for c in cmds)
+
+
+def test_output_style_names_the_session_line_not_an_unexpanded_variable():
+    """${CLAUDE_PLUGIN_ROOT} is not expanded inside output-style text, so the style must point at
+    the SessionStart line that carries the resolved path, and say what to do when it is absent."""
+    text = (ROOT / "output-styles" / "focus.md").read_text()
+    assert "${CLAUDE_PLUGIN_ROOT}" not in text
+    assert "focus-ux render script:" in text
+    assert "hand-draft" in text

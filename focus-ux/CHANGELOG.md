@@ -1,6 +1,18 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-28
+
+- **Fix**: the Focus output style's inline-picture script (`scripts/render_inline.py`, added in
+  0.3.1) can now be located. The style named it with `${CLAUDE_PLUGIN_ROOT}`. In a live session
+  that text appeared in the model's context unexpanded, and the variable is unset in the Bash
+  tool's shell, so the model had no way to resolve the path. A new `SessionStart`
+  hook (`hooks/render_path_hint.py`) adds one context line with the script's absolute path,
+  computed from the hook's own location. The style now points at that line and hand-drafts
+  when it's absent. The hook fails open (prints nothing if the script is missing, always exits 0).
+- **Test**: 7 new tests (5 for the hook, 2 structure checks that pin the registration and
+  forbid an unexpanded variable in the style).
+
 ## [0.3.2] - 2026-09-28
 
 - **Fix**: `checkpoint_push.py` no longer re-blocks every Stop when `CLAUDE_PLUGIN_DATA` is set but

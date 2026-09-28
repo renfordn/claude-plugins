@@ -2,9 +2,10 @@
 # focus-ux — Interop
 
 focus-ux has no agents. Its output style and skill cooperate with other plugins through
-conventions only. It does have two hooks, `checkpoint_optin.py` (UserPromptSubmit) and
-`checkpoint_push.py` (Stop), which make a Dispatch child session push a notification at input,
-gate, done, and step checkpoints -- see below.
+conventions only. It does have three hooks. `render_path_hint.py` (SessionStart) hands the
+model the absolute path of `scripts/render_inline.py` (see the README). `checkpoint_optin.py`
+(UserPromptSubmit) and `checkpoint_push.py` (Stop) make a Dispatch child session push a
+notification at input, gate, done, and step checkpoints -- see below.
 
 ## Output style (always on)
 
