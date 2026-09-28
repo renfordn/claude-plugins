@@ -41,6 +41,13 @@ Concretely, "a mechanism" is one of these — nothing else counts:
    it *before* you tell the user you'll check back, and pick a delay matched to how fast the thing
    you're waiting on actually changes — not a reflexive short poll.
 
+   `ScheduleWakeup` rejects the call outright if `prompt` is missing (it's required whenever
+   `stop` isn't `true`) — this applies even to a long fallback heartbeat set while waiting on a
+   background agent/workflow notification, where `prompt` can feel irrelevant since you're not
+   really re-entering a `/loop`. Always pass one anyway: a short instruction for what to do on
+   wake (e.g. "check whether the agent-nelly brief has landed; if not, wait again") works fine
+   outside an actual `/loop` session.
+
 3. **A synchronous wait you are doing right now, in this same turn**, because the operation is
    short enough to just finish before you reply (e.g. `Bash` without `run_in_background`, or a
    `Monitor` until-loop). In that case don't promise a future check-in at all — just wait and then
