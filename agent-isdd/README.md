@@ -65,6 +65,14 @@ invalid. Cross-feature file caching via agent-nelly for 70-80% cache hit rate on
 - `/isdd-init` — first-run onboarding for a new project.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
 
+## Plan Board (optional)
+
+A living Artifact page that shows every feature's phase, status and next step, and stays current as
+workflows move. Turn it on for a project by recording the page URL in `PLAN-BOARD.md` in that
+project's SDD memory directory. The workflow then writes each feature's record at every phase or status
+change, and `SessionStart` lists any feature whose record is out of date. One page can cover
+several projects. Setup and details: `skills/workflow-manager/references/plan-board.md`.
+
 ## Storage
 
 Agent-isdd stores per-feature spec artifacts (requirements, design, tasks) in the Claude Code plugin data directory:

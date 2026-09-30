@@ -1,0 +1,304 @@
+<title>Plan Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Antonio:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: header and totals, a project filter row, then one card per feature grouped by project. */
+:root{
+  --bg:#f6f3f7; --panel:#ffffff; --ink:#1d1a22; --muted:#5e5868; --line:#ddd6e2;
+  --orange:#d9822b; --lilac:#9a7fc4; --peach:#e8a87c;
+  --done:#2f8f5b; --doing:#c27a12; --todo:#8a8494; --risk:#b8433a;
+  --chip-done:#e2f2e8; --chip-doing:#fbeed6; --chip-todo:#eeebf1; --chip-risk:#f7e1de;
+  --display:"Antonio","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0e0c12; --panel:#17141d; --ink:#ece7f1; --muted:#a79fb2; --line:#2e2838;
+    --orange:#f0973a; --lilac:#b49be0; --peach:#f2b58c;
+    --done:#5cc48a; --doing:#f0b04a; --todo:#9d96a8; --risk:#ec7b70;
+    --chip-done:#16301f; --chip-doing:#382a10; --chip-todo:#241f2b; --chip-risk:#3a1a17;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e0c12; --panel:#17141d; --ink:#ece7f1; --muted:#a79fb2; --line:#2e2838;
+  --orange:#f0973a; --lilac:#b49be0; --peach:#f2b58c;
+  --done:#5cc48a; --doing:#f0b04a; --todo:#9d96a8; --risk:#ec7b70;
+  --chip-done:#16301f; --chip-doing:#382a10; --chip-todo:#241f2b; --chip-risk:#3a1a17;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--body);padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:960px;margin:0 auto;display:grid;gap:22px}
+.wrap>*{min-width:0}
+header{display:grid;grid-template-columns:14px 1fr;gap:14px}
+.rail{background:linear-gradient(var(--orange) 0 55%,var(--lilac) 55% 80%,var(--peach) 80%);border-radius:10px 0 0 10px}
+.eyebrow{font:500 13px var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin:0 0 4px}
+h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:0}
+.lede{margin:8px 0 0;max-width:62ch;color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stat{font-size:13px;color:var(--muted);background:var(--chip-todo);padding:5px 10px;border-radius:8px}
+.stat b{color:var(--ink);font-family:var(--mono);font-weight:600}
+.filters{display:flex;flex-wrap:wrap;gap:8px}
+.filters button{font:500 13px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--chip-doing);border-color:var(--orange);color:var(--doing)}
+.filters button:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
+.group{display:grid;gap:12px}
+.group h2{font:700 20px/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;margin:0;display:flex;align-items:center;gap:10px}
+.group h2::before{content:"";width:24px;height:10px;border-radius:5px;background:var(--lilac);flex:none}
+.cards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:8px;align-content:start}
+.card header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;grid-template-columns:none}
+.card h3{margin:0;font:700 17px/1.25 var(--display);letter-spacing:.04em;text-transform:uppercase;flex:1 1 200px;overflow-wrap:anywhere}
+.chip{display:inline-block;font:500 12px var(--display);letter-spacing:.08em;text-transform:uppercase;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.st-active{background:var(--chip-doing);color:var(--doing)}
+.st-paused{background:var(--chip-todo);color:var(--todo)}
+.st-blocked{background:var(--chip-risk);color:var(--risk)}
+.st-done{background:var(--chip-done);color:var(--done)}
+.st-other{background:var(--chip-todo);color:var(--muted)}
+.phases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.phase{font:500 12px var(--display);letter-spacing:.06em;text-transform:uppercase;text-align:center;padding:4px 2px;border-radius:6px;border:1px solid var(--line);color:var(--muted);overflow-wrap:anywhere}
+.ph-done{background:var(--chip-done);color:var(--done);border-color:transparent}
+.ph-active{background:var(--chip-doing);color:var(--doing);border-color:var(--orange)}
+.ph-paused{background:var(--chip-todo);color:var(--ink);border-color:var(--todo)}
+.ph-skipped{opacity:.55;border-style:dashed}
+.goal{margin:0;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.line{margin:0;font-size:14px;overflow-wrap:anywhere}
+.k{font:500 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-right:6px}
+.meta{margin:0;font-size:12px;color:var(--muted)}
+.note{margin:0;color:var(--muted);max-width:60ch}
+@media (max-width:520px){.phases{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="rail" aria-hidden="true"></div>
+    <div>
+      <p class="eyebrow">agent-isdd · spec-driven development</p>
+      <h1>Plan Board</h1>
+      <p class="lede">Every feature's phase, status and next step, kept current by the workflow as it moves.</p>
+    </div>
+  </header>
+  <div class="stats" id="summary" aria-live="polite"></div>
+  <div class="filters" id="filters"></div>
+  <main id="board"></main>
+  <p class="note" id="state">Loading the board…</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PHASE_NAMES = ["Requirements", "Design", "Tasks", "Implementation"];
+  var GROUP_RANK = { active: 0, blocked: 1, paused: 2, other: 3, complete: 4 };
+  var GROUP_CLASS = { active: "st-active", blocked: "st-blocked", paused: "st-paused", complete: "st-done", other: "st-other" };
+  var PHASE_CLASS = { done: "ph-done", active: "ph-active", paused: "ph-paused", pending: "ph-pending", skipped: "ph-skipped" };
+  var PHASE_GLYPH = { done: "✓", active: "▶", paused: "⏸", pending: "○", skipped: "–" };
+
+  function statusKey(d) { return String(d && d.status || "").toLowerCase(); }
+
+  /* workflow-state.md's statuses: In Progress, Blocked, Awaiting Confirmation, Awaiting
+     Implementation Request, Complete (and Paused in practice). Awaiting and Paused both mean
+     the work is held for someone. */
+  function statusGroup(d) {
+    var s = statusKey(d);
+    if (s === "in progress") return "active";
+    if (s === "blocked") return "blocked";
+    if (s === "paused" || s.indexOf("awaiting") === 0) return "paused";
+    if (s === "complete") return "complete";
+    return "other";
+  }
+
+  /* Records are untrusted data: keep only objects that carry an id and a title. */
+  function cleanDocs(list) {
+    return (Array.isArray(list) ? list : []).filter(function (d) {
+      return d && typeof d === "object" && typeof d.id === "string" && d.id && typeof d.title === "string" && d.title;
+    });
+  }
+
+  /* Active work first, then paused, then complete; newest first within each. */
+  function sortDocs(docs) {
+    return docs.slice().sort(function (a, b) {
+      var ra = GROUP_RANK[statusGroup(a)], rb = GROUP_RANK[statusGroup(b)];
+      if (ra !== rb) return ra - rb;
+      var ua = String(a.updatedAt || ""), ub = String(b.updatedAt || "");
+      if (ua !== ub) return ua < ub ? 1 : -1;
+      return String(a.title).localeCompare(String(b.title));
+    });
+  }
+
+  function groupByProject(docs) {
+    var byProject = {};
+    docs.forEach(function (d) {
+      var p = String(d.project || "other");
+      (byProject[p] = byProject[p] || []).push(d);
+    });
+    return Object.keys(byProject).sort(function (a, b) { return a.localeCompare(b); })
+      .map(function (p) { return { project: p, docs: byProject[p] }; });
+  }
+
+  function countByStatus(docs) {
+    var c = { active: 0, paused: 0, complete: 0, other: 0, total: docs.length };
+    docs.forEach(function (d) {
+      var g = statusGroup(d);
+      if (g === "active") c.active++;
+      else if (g === "paused" || g === "blocked") c.paused++;
+      else if (g === "complete") c.complete++;
+      else c.other++;
+    });
+    return c;
+  }
+
+  function relDay(iso, nowMs) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+    if (!m) return "";
+    var then = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    var today = Math.floor(nowMs / 86400000) * 86400000;
+    var days = Math.round((today - then) / 86400000);
+    if (days < 0) return "";
+    if (days === 0) return "today";
+    if (days === 1) return "yesterday";
+    return days + " days ago";
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function phaseList(d) {
+    var given = Array.isArray(d.phases) ? d.phases : [];
+    return PHASE_NAMES.map(function (name, i) {
+      var p = given[i] && typeof given[i] === "object" ? given[i] : {};
+      var state = PHASE_CLASS[p.state] ? p.state : "pending";
+      return { name: name, state: state };
+    });
+  }
+
+  function renderCard(d, nowMs) {
+    var card = el("article", "card");
+    var head = el("header");
+    head.appendChild(el("h3", "", d.title));
+    var g = statusGroup(d);
+    head.appendChild(el("span", "chip " + GROUP_CLASS[g], String(d.status || "Unknown")));
+    card.appendChild(head);
+
+    var phases = el("div", "phases");
+    phases.setAttribute("role", "list");
+    phaseList(d).forEach(function (p) {
+      var item = el("span", "phase " + PHASE_CLASS[p.state], PHASE_GLYPH[p.state] + " " + p.name);
+      item.setAttribute("role", "listitem");
+      item.setAttribute("aria-label", p.name + ": " + p.state);
+      phases.appendChild(item);
+    });
+    card.appendChild(phases);
+
+    if (d.goal) card.appendChild(el("p", "goal", String(d.goal)));
+    if ((g === "paused" || g === "blocked") && d.pauseReason) {
+      var pr = el("p", "line"); pr.appendChild(el("span", "k", g === "blocked" ? "Blocked" : "Paused")); pr.appendChild(document.createElement("span")).textContent = String(d.pauseReason);
+      card.appendChild(pr);
+    }
+    if (d.nextAction) {
+      var nx = el("p", "line"); nx.appendChild(el("span", "k", "Next")); nx.appendChild(document.createElement("span")).textContent = String(d.nextAction);
+      card.appendChild(nx);
+    }
+    var when = relDay(d.updatedAt, nowMs);
+    var parts = ["Track: " + String(d.track || "Standard")];
+    if (d.updatedAt) parts.push("updated " + (when ? when + " (" + d.updatedAt + ")" : String(d.updatedAt)));
+    card.appendChild(el("p", "meta", parts.join(" · ")));
+    return card;
+  }
+
+  /* opts: { project: name to show, hideComplete: true to drop finished features } */
+  function renderBoard(root, docs, opts, nowMs) {
+    opts = opts || {};
+    var shown = cleanDocs(docs).filter(function (d) {
+      if (opts.project && String(d.project || "other") !== opts.project) return false;
+      if (opts.hideComplete && statusGroup(d) === "complete") return false;
+      return true;
+    });
+    root.replaceChildren();
+    if (!shown.length) {
+      root.appendChild(el("p", "note", cleanDocs(docs).length
+        ? "No features match this filter."
+        : "No features yet. They appear here when a spec-driven workflow changes phase."));
+      return;
+    }
+    groupByProject(sortDocs(shown)).forEach(function (g) {
+      var section = el("section", "group");
+      section.appendChild(el("h2", "", g.project));
+      var cards = el("div", "cards");
+      g.docs.forEach(function (d) { cards.appendChild(renderCard(d, nowMs)); });
+      section.appendChild(cards);
+      root.appendChild(section);
+    });
+  }
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = { cleanDocs: cleanDocs, sortDocs: sortDocs, groupByProject: groupByProject,
+      countByStatus: countByStatus, relDay: relDay, renderBoard: renderBoard };
+  }
+
+  /* ---- page wiring (browser only) ---- */
+  if (typeof window === "undefined" || typeof document === "undefined" || !document.getElementById) return;
+
+  var view = { docs: [], project: "", hideComplete: false };
+  var elBoard = document.getElementById("board"), elState = document.getElementById("state");
+  var elSummary = document.getElementById("summary"), elFilters = document.getElementById("filters");
+
+  function say(text) { elState.textContent = text; elState.hidden = !text; }
+
+  function drawSummary(docs) {
+    var c = countByStatus(docs);
+    elSummary.replaceChildren();
+    [["active", c.active], ["paused or blocked", c.paused], ["complete", c.complete], ["features", c.total]].forEach(function (p) {
+      var s = el("span", "stat"); s.appendChild(el("b", "", String(p[1]))); s.appendChild(document.createTextNode(" " + p[0]));
+      elSummary.appendChild(s);
+    });
+  }
+
+  function chip(label, pressed, onClick) {
+    var b = el("button", "", label);
+    b.type = "button";
+    b.setAttribute("aria-pressed", pressed ? "true" : "false");
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function drawFilters(docs) {
+    elFilters.replaceChildren();
+    var projects = groupByProject(docs).map(function (g) { return g.project; });
+    if (projects.length > 1) {
+      elFilters.appendChild(chip("All projects", !view.project, function () { view.project = ""; draw(); }));
+      projects.forEach(function (p) {
+        elFilters.appendChild(chip(p, view.project === p, function () { view.project = view.project === p ? "" : p; draw(); }));
+      });
+    }
+    if (docs.some(function (d) { return statusGroup(d) === "complete"; })) {
+      elFilters.appendChild(chip("Hide complete", view.hideComplete, function () { view.hideComplete = !view.hideComplete; draw(); }));
+    }
+  }
+
+  function draw() {
+    var docs = cleanDocs(view.docs);
+    drawSummary(docs);
+    drawFilters(docs);
+    renderBoard(elBoard, docs, { project: view.project, hideComplete: view.hideComplete }, Date.now());
+    say("");
+  }
+
+  if (!window.claude || !window.claude.use) { say("Records load when this page is opened in Claude."); return; }
+  window.claude.use("db").then(function (db) {
+    if (!db) { say("Sign in to Claude to see the board."); return; }
+    db.collection("plans").orderBy("updatedAt", "desc").limit(200).onSnapshot(function (snap) {
+      view.docs = snap.docs.map(function (d) { return d.data(); });
+      draw();
+    }, function (err) {
+      say("Live updates stopped (" + (err && err.code || "error") + "). Reload to reconnect.");
+    });
+  }, function () { say("Records load when this page is opened in Claude."); });
+})();
+</script>

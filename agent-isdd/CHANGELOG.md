@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+- **Feature**: Plan Board, an optional living Artifact page that shows every spec-driven feature's
+  phase, status and next step, and stays current as workflows move.
+  `skills/workflow-manager/assets/plan-board.html` reads a `plans` collection from its own db and
+  updates live (publish it with an owner-only write rule; see the reference), and renders record
+  text only as text. `hooks/plan_board.py` builds each feature's record from `workflow-state.md`
+  (`doc`, with `--out` to write it to a file `ArtifactData` can send), builds the page (`page`),
+  lists out-of-date features (`stale`) and records what was written (`mark-synced`, which finds the
+  project's memory dir from the state file's own path; pass `--project` so the record id matches).
+  Statuses `Paused`, `Blocked` and `Awaiting …` show the phase as paused.
+- **Feature**: `workflow-manager` gains a "Plan Board sync" step that runs wherever the phase,
+  status, pause reason or next action changes. It writes the record with the version rules
+  `ArtifactData` requires; procedure and fields are in `references/plan-board.md`. A failed sync
+  is noted in `recap.md` and never blocks.
+- **Feature**: `SessionStart` backstop. When a project has a Plan Board (`PLAN-BOARD.md` in its
+  memory dir) and any feature's record is missing or out of date, the session is told which
+  features and the exact commands. Silent for projects without a board.
+- **Opt-in**: nothing changes for a project until `PLAN-BOARD.md` records an `https://` page URL.
+  One page can hold several projects; record ids are `<project>--<feature slug>`.
+- **Test**: 69 new tests, including the page's own script run in node against a fake DOM (sorting,
+  grouping, rendering, and that hostile record text stays text). The node tests skip when node is
+  not installed.
+
 ## [0.3.3] - 2026-09-29
 
 - **Fix**: `hooks/session_start.py`, `hooks/stop_check.py` and `hooks/before_continue.py` (plus one

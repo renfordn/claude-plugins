@@ -181,6 +181,20 @@ call fails, append a one-line note to `recap.md` and continue — never a blocki
 table's "Facts worth persisting" column states what's specific to each hook and what an earlier
 write-back already covers (do not duplicate).
 
+**Plan Board sync (every hook that changes the phase, status, pause reason or next action in
+`workflow-state.md`: phase transition, pause, resume, rewind, handoff, completion; after the Nelly
+write-back where that write-back applies, otherwise after the Verification Step; only when this
+project's memory dir has a `PLAN-BOARD.md` with an `https://` URL)**: rebuild this feature's
+record and write it to the board so the living page stays current. Run
+`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/plan_board.py" doc <workflow-state.md> --project <git top-level folder name> --out <temp file>`
+(it prints the record's `id`). With `url` = the URL in `PLAN-BOARD.md`, `ArtifactData get` that `id`
+in collection `plans` to see whether the record exists, then `ArtifactData set` with `file_path` =
+the temp file and, when the record already exists, `if_version` = the `version` the `get` returned
+(a `set` on an existing record is refused without it). Then run the same command with `doc`
+replaced by `mark-synced` and no `--out`. A failed sync is noted in one line in `recap.md` and
+never blocks the workflow; `SessionStart` lists any feature still out of date. Setup, the record
+fields and how to turn it off are in `references/plan-board.md`.
+
 | Hook | Evaluates / does | Notes |
 |---|---|---|
 | `before-continue` | Attempt to resolve the active feature folder and read `workflow-state.md`. If no existing workflow state is found, route to `start` (via `before-requirements`). If state exists: check for pending rollback request first (see `references/rewind-and-rollback.md`'s "Rollback Request Intake" — takes priority over everything else here), **[Phase 1.1]** perform the inline Intent-alignment check (Goal Field Contract; no nelly spawn; compare Intent Hash from session context against workflow-state.md's stored hash for drift), **[Phase 1.2]** check cached nelly brief validity (Intent Hash match + timestamp < 24h; if invalid, clear cache), detect/repair stale or contradictory artifacts (see `references/state-repair.md`), decide the next action. | No nelly write-back at this hook — read-only w.r.t. phase decisions. **[Phase 1.1]** Update `Intent Alignment Status` to `aligned` or `drift` based on hash check. **[Phase 1.2]** Clear `nelly_brief_cache` if Intent drift detected or timestamp stale. |

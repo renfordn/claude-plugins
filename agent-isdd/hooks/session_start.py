@@ -15,6 +15,7 @@ from sdd_memory import (  # noqa: E402
     pending_nelly_summaries,
 )
 import followups  # noqa: E402
+import plan_board  # noqa: E402
 
 
 def _followups_cmd():
@@ -25,6 +26,45 @@ def _followups_cmd():
         env.append(f"CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT={shlex.quote(SHARED_ROOT)}")
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "followups.py")
     return " ".join(env + ["python3", shlex.quote(script)])
+
+
+def _script_cmd(name):
+    """Shell command for a hooks/ script with this hook's resolved env (see _followups_cmd)."""
+    env = [f"CLAUDE_PLUGIN_DATA={shlex.quote(os.environ.get('CLAUDE_PLUGIN_DATA', ''))}"]
+    if SHARED_ROOT:
+        env.append(f"CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT={shlex.quote(SHARED_ROOT)}")
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+    return " ".join(env + ["python3", shlex.quote(script)])
+
+
+def _plan_board_lines(cwd):
+    """The Plan Board backstop: name features whose board record is missing or out of date.
+
+    The workflow step in workflow-manager keeps the board current; this is the safety net, so a
+    missed update is noticed at the next session start. Silent unless the project has a board.
+    """
+    try:
+        project = plan_board.repo_label(cwd)
+        stale = plan_board.stale_features(memory_dir(cwd), project)
+        url = plan_board.board_url(memory_dir(cwd))
+    except Exception:
+        return []  # best-effort: SessionStart must never fail over this
+    if not stale:
+        return []
+    cmd = _script_cmd("plan_board.py")
+    n = len(stale)
+    lines = ["", f"Plan Board is out of date for {n} feature{'' if n == 1 else 's'} ({url}). For each: "
+             f"run `{cmd} doc <state> --project {shlex.quote(project)} --out <temp file>` (prints the "
+             f"record's `id`), `ArtifactData get` that `id` in collection `plans` on that artifact, "
+             f"then `ArtifactData set` with `file_path` = the temp file (add `if_version` = the "
+             f"`get`'s `version` when the record already exists), then run "
+             f"`{cmd} mark-synced <state> --project {shlex.quote(project)}`. Never block on this; "
+             f"if a step fails, note it in recap.md and go on:"]
+    for slug, path, _doc in stale[:3]:
+        lines.append(f"- {slug} ({path})")
+    if n > 3:
+        lines.append(f"- …and {n - 3} more (`{cmd} stale`)")
+    return lines
 
 
 def _followup_lines(cwd):
@@ -124,6 +164,7 @@ def main():
         lines.extend(f"- {p}" for p in pending)
 
     lines.extend(_followup_lines(cwd))
+    lines.extend(_plan_board_lines(cwd))
 
     note = _interruption_note(cwd)
     if note:

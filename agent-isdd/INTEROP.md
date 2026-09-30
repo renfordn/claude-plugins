@@ -472,6 +472,16 @@ never sends, so it never stored or served anything. agent-isdd never exchanged d
 
 ---
 
+## → Plan Board (Artifact page)
+
+agent-isdd keeps an optional living Artifact page, the Plan Board, current as workflows move. A
+project opts in by recording the page URL in `PLAN-BOARD.md` in its SDD memory directory. Each
+feature is one record in the page's `plans` collection, built by `hooks/plan_board.py doc` from
+`workflow-state.md` (the fields are listed in the reference below). The write is a model
+step in `workflow-manager` (a hook can't call the Artifact tools); `SessionStart` is the backstop
+that lists out-of-date features. Nothing else in the plugin depends on the board. See
+`skills/workflow-manager/references/plan-board.md`.
+
 ## Strategic Review Placement via Review Levels (Current Approach)
 
 The tiered review-level feature (Quick/Standard/Deep/Ultra) provides the design pattern for 
