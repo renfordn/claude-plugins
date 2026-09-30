@@ -4,7 +4,7 @@
 
 While the Design Spec handoff is described as **one-directional** (agent-isdd doesn't monitor or resume agent-tdd automatically), agent-tdd has **explicit escalation paths** that create a **two-way communication model**. When agent-tdd encounters blockers, it pauses and escalates back to agent-isdd with specific reasons.
 
-Agent-isdd resumes via its `before-continue` hook when the user addresses the escalation.
+Agent-isdd pauses the workflow and the user re-enters (`/isdd-continue`, which runs its `before-continue` hook) once the escalation is addressed.
 
 ---
 
@@ -249,10 +249,13 @@ Design); for a Rescope Request, schedule the proposed prep slices before re-runn
 
 ### How Agent-ISDD Resumes Agent-TDD
 
-Agent-isdd's `before-continue` hook detects escalations:
-1. **Research Gap Flag** — identified by marker in handoff report
-2. **Plan Validity Flag** — identified by marker in handoff report
-3. **Explicit blocker reason** — identified by blocker description in handoff report
+How agent-isdd notices each escalation:
+1. **Plan Validity Flag** — `<!--AGENT-TDD-PLAN-FLAG:...-->` marker, captured by agent-isdd's
+   `subagent_report.py` SubagentStop hook and translated into a rollback request; its
+   `before-continue` hook (run on `/isdd-continue`) surfaces the pending rollback.
+2. **Model Escalation** — `<!--AGENT-TDD-MODEL-ESCALATE:...-->` marker, same two hooks.
+3. **Research Gap Flag** and **explicit blocker reason** — prose in the handoff report, no marker;
+   the calling orchestrator reads them from the report itself.
 
 Agent-isdd pauses the workflow and requires user input to address the escalation.
 

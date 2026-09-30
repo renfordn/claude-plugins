@@ -231,7 +231,7 @@ Agent-tdd produces **tasks.md** (see `references/tasks-schema.json`) with:
 - Test Intent + Validation Target per slice.
 - Ordered Steps (concrete, grounded in research).
 
-Agent-tdd validates via three Ralph Loops (max 3–5 iterations each):
+Agent-tdd validates via three Ralph Loops (at most 3 re-slicing rounds in total, per `agents/agent-TDD.md`):
 1. **Slice Size Validation** — all slices ≤ 3 files, testable.
 2. **Dependency Correctness** — acyclic, no hidden dependencies.
 3. **Research-to-Implementation Traceability** — steps match cache, constraints respected.
@@ -336,15 +336,16 @@ emits `<!--AGENT-TDD-MODEL-ESCALATE:reason=...; from_model=...; to_model=...-->`
 [`references/escalation-paths.md`](references/escalation-paths.md) "Model Insufficiency (Model
 Escalation)". Task slicing happens inside
 agent-tdd (not handed back to agent-isdd). Escalations back to agent-isdd (research gap, design
-contradiction, slicing blocker) pause with explicit reason; agent-isdd resumes via its
-`before-continue` hook when user re-enters after addressing the escalation.
+contradiction, slicing blocker) pause with explicit reason; agent-isdd's
+`before-continue` hook (run on `/isdd-continue`) surfaces pending rollbacks/model escalations when
+the user re-enters after addressing the escalation.
 
 ### Direct Mode (harness `Agent`-spawn failure fallback, added 2026-09-16)
 
 Everything above this section assumes the caller can actually spawn `agent-TDD` via the `Agent`
 tool. When that assumption fails — the `Agent` tool call itself is rejected at the harness level
 (a `PreToolUse` schema-validation error on the call, not an error from the spawned agent),
-confirmed recurring rather than a one-off flake — spawning is not available at all, and no
+recurring rather than a one-off flake (the caller must check this) — spawning is not available at all, and no
 retry, prompt change, or call-site change fixes it. See `agent-isdd/INTEROP.md`'s "Fallback —
 Direct Implementation" section for the exact three-condition Detection check.
 

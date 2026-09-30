@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent-UX rendering hook (SubagentStop) -- inline breadcrumb refresh.
+Breadcrumb rendering hook (SubagentStop; formerly agent-ux's job, now retired) -- inline breadcrumb refresh.
 
 Reads the current phase from workflow-state.json and emits a cheap breadcrumb-refresh
 systemMessage. Phase *transitions* are not detected or rendered here: the

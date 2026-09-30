@@ -37,7 +37,8 @@ ${CLAUDE_PLUGIN_DATA}/agent-nelly-memory/
     └── entries/               # Global memory files
 ```
 
-Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-nelly/` when running in Claude Code.
+`${CLAUDE_PLUGIN_DATA}` resolves to a per-install directory under `~/.claude/plugins/data/`
+(for example `agent-nelly-inline` or `agent-nelly-synced`) when running in Claude Code.
 
 ### Weekly consolidation and cleanup
 
@@ -68,7 +69,7 @@ to a directory every machine can see, ideally a git repo you pull and push. agen
 `agent-nelly-memory/` there instead. Set the same value for agent-isdd. `hotspots.json` stays local,
 and `nelly-index.json` is rebuilt from `entries/` at SessionStart. See
 [`docs/shared-memory-root.md`](../docs/shared-memory-root.md) for setup, sync, and migrating existing
-memory with `scripts/merge_plugin_data.py`.
+memory with the repo-root `scripts/merge_plugin_data.py`.
 
 ## Using Agent Nelly from another plugin
 

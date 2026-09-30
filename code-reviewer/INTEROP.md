@@ -108,17 +108,9 @@ unchanged. Review Level is added alongside, not replacing Evidence Tier.
 
 ## Graceful Degradation for Review Levels
 
-When a requested `review_level` is unavailable (e.g., `Ultra` requested but multi-agent capability
-missing):
-
-1. **Degrade to next-lower level**: `Ultra` → `Deep`, `Deep` → `Standard`, etc.
-2. **Emit notification**: Inform caller that review is running at lower level.
-3. **No auto-upgrade**: If caller requests `Deep` and multi-agent is available, do NOT auto-upgrade
-   to `Ultra` without explicit request.
-4. **Never block**: User always gets some review; review never fails silently or returns an error.
-
-This pattern follows existing `agent-tdd` capability-gating practices (check once,
-degrade, notify, proceed).
+When a requested `review_level` is unavailable (e.g., `Ultra` without multi-agent capability),
+the skill degrades to the next-lower level, tells the caller, never auto-upgrades, and never
+blocks the review. SKILL.md's "Graceful Degradation" is the definition.
 
 ## Strategic Review Placement by ISDD Phase
 
@@ -161,10 +153,10 @@ See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
   used to cite a nonexistent top-level `code-reviewer/SKILL.md` and a nonexistent
   §ISDD Phase Context heading
 - **Per-Slice Strategy**: **corrected 2026-09-28** — `agent-tdd/INTEROP.md` §"→ code-reviewer"
-  (per-slice checkpoints and the Deep coherence review); this used to cite a nonexistent
-  `agent-tdd/SKILL.md` §Review-Level Strategy
+  (per-slice checkpoints and the Deep coherence review); this used to cite a section of a
+  nonexistent agent-tdd skill file (§Review-Level Strategy)
 - **Ralph Loops Integration**: **corrected 2026-09-28** — `agent-tdd/INTEROP.md` §"Task Slicing &
-  Ralph Loops"; this used to cite a nonexistent `agent-tdd/SKILL.md` §Finding Flow to Ralph Loops
+  Ralph Loops"; this used to cite a section of a nonexistent agent-tdd skill file (§Finding Flow to Ralph Loops)
 - **Design Rationale**: **corrected 2026-09-24** — no `design.md` exists in this repo (it was
   the original SDD design doc this plugin was built from, which lives under
   `~/.claude/sdd-memory/`, not the repo); see `agent-isdd/INTEROP.md`'s "Strategic Review
@@ -188,7 +180,7 @@ Model's fields.
 | findings.json | file | no | Every finding (no 32 cap) plus `followups` (refactor / consolidation / deferred-defect items), at `review_plan.py findings-path`. Schema: SKILL.md "findings.json". agent-isdd's SessionStart ingests `followups` into its follow-up queue (its INTEROP.md "← code-reviewer") |
 
 **Finding fields:**
-- `evidence_tier` (integer 1-5): Verification confidence for each finding
+- `evidence_tier` (`tier-1` … `tier-5`, as in findings.json): Verification confidence for each finding
 - `review_level` (string, optional): Analysis depth (Quick/Standard/Deep/Ultra)
 
 See "Evidence Tier Model (Orthogonal to Review Level)" above for how both axes interact. findings.json is the machine-readable summary; `review_plan.py validate` checks it.

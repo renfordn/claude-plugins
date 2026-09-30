@@ -26,7 +26,7 @@ Use the nelly brief to skip re-deriving context it already gives you.
 
 Historically, design-author and task-slicing each ran their own separate deep-read of the same
 files (see "Why This Consolidates Research" below). This consolidator runs once and produces
-both outputs instead — eliminating 15-25K tokens of redundant research.
+both outputs instead — eliminating a redundant second read (estimated at 15-25K tokens; not measured).
 
 ---
 
@@ -230,46 +230,17 @@ Anything the code alone can't answer (product decision, ambiguous requirement)
 - **If nothing relevant:** Say so plainly instead of manufacturing findings.
 - **Nelly integration:** Extract file summaries as you deep-read. You don't call nelly; the
   caller will persist these summaries via its own write-back call.
-- **Line-count integrity:** Never report a `line_count` computed any way other than `Grep`
-  `pattern: "^"`, `output_mode: "count"` — `Read`'s own line numbers truncate for large files and
-  must never be the source. Never fabricate a `Line-Count Ceiling` without a recorded `source`
-  (`AGENTS.md`, `CLAUDE.md`, or the default label); resolve it exactly once per pass, not per
-  file.
+- **Line-count integrity:** follow Pass 1b and the Pass 2 `Line count` rule exactly — no other
+  counting method, no ceiling without a recorded `source`, resolved once per pass.
 
 ---
 
 ## Why This Consolidates Research
 
-**Before (redundant):**
-```
-design-author:
-  → calls planning-agent → deep-reads files → returns findings
-  → uses findings to draft design.md
-
-tdd-planner:
-  → calls planning-agent AGAIN → deep-reads SAME files → returns findings
-  → uses findings to slice tasks.md
-
-Total: 2× research, ~30-50K tokens
-```
-
-**After (consolidated):**
-```
-design-author:
-  → calls research-consolidator → deep-reads files ONCE → returns:
-    - design_findings (for design.md)
-    - task_findings (cached for agent-tdd)
-    - file_summaries (for agent-nelly)
-  → uses design_findings to draft design.md
-  → caches task_findings in research/cache.md
-  → persists file_summaries to agent-nelly
-
-agent-tdd:
-  → reads cached task_findings
-  → re-validates if needed (optional targeted research)
-  → uses findings to slice tasks.md
-
-Total: 1× full research + optional gap-filling, ~15-25K tokens
-```
-
-**Savings:** ~15-25K per feature
+Earlier versions ran two separate deep-reads of the same files: one for `design-author` and one
+for a since-removed task-slicing planner (both via a retired `planning-agent`). This agent reads
+each file once and returns design findings, task findings, and file summaries together.
+`design-author` caches the task findings in `research/cache.md`; `agent-tdd` validates against
+that cache and does not re-research. If the cache is too thin it pauses, and `agent-isdd` runs a
+targeted pass of this agent on the named gaps. The token savings this avoids (roughly 15-25K per
+feature) are an estimate, not a measurement.

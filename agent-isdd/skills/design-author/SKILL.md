@@ -123,8 +123,8 @@ Before drafting, delegate to subagents rather than relying only on what's alread
 3. **Independent verification** — once `design.md` has a draft (even a rough one) with a
    `Research Basis` section, invoke the `plan-reviewer` skill (ships with this plugin at
    `skills/plan-reviewer/`) against it before the Design Gate is checked. This replaces any ad
-   hoc use of the harness's built-in `Plan` subagent, which is open-scoped and observed to take
-   10+ minutes for a single design check — `plan-reviewer`'s tiered, claim-scoped subagents
+   hoc use of the harness's built-in `Plan` subagent, which is open-scoped and reported to take
+   10+ minutes (unverified here) for a single design check — `plan-reviewer`'s tiered, claim-scoped subagents
    (`plan-reviewer-tier1/2/3`, also in this plugin's `agents/`) verify only the design's own
    factual claims and stay fast in the common case.
    - Extract the design's falsifiable claims yourself (per `plan-reviewer/SKILL.md`'s Step 0) —
@@ -182,10 +182,10 @@ requirements sections, a different artifact for a different phase). Reference th
 `design.md` in prose (what it shows and why) rather than treating the widget itself as the
 durable record — `design.md` stays the artifact of record.
 
-## Design Validation: Deep Review (Before Tasks Advancement)
+## Design Validation: Deep Review (Before Implementation Handoff)
 
 After the Design Gate passes, invoke `/code-reviewer` at **Deep** review level against the design
-content to validate design coherence and slice feasibility before advancing to the Tasks phase.
+content to validate design coherence and slice feasibility before the Implementation handoff.
 **Corrected 2026-09-24 [plan/design gap]**: the Design Gate passing does not by itself mean
 `design.md`/`research/cache.md` are on disk — per "Plan-Mode Drafting" above, that only happens
 once the user approves the plan, which can be after this step (Design Gate approval and the

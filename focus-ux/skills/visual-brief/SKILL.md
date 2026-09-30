@@ -44,7 +44,7 @@ of it only when the page adds something the chat can't:
 - the user **asked** for a page or visual.
 
 Otherwise, stay inline and end with a one-line offer: `Want this as a page? (plan + timeline)`.
-A board entry costs one extra tool call and about 1-2K tokens, so still keep it for results that earn it.
+A board entry costs one extra tool call and a modest number of tokens (roughly 1-2K, an unmeasured estimate), so still keep it for results that earn it.
 
 In the terminal CLI, where there's no Artifact tool, stay inline at any size. When an inline
 picture gets large, split it into several small ones.

@@ -59,7 +59,7 @@ claude plugin install code-reviewer@renfordn-plugins
 Verify it loaded:
 
 ```bash
-claude --print "Use the code-reviewer skill to list its four evidence tiers."
+claude --print "Use the code-reviewer skill to list its five evidence tiers."
 ```
 
 Expected: a brief description naming tier-1 through tier-5 evidence tiers. (Claude Code's
@@ -98,7 +98,7 @@ reviewer then searches the whole repo for callers of anything whose signature ch
 was removed. On a large diff (>400 changed lines or >10 files) or at Deep/Ultra, the skill runs
 `scripts/review_loop.py`: fresh headless reviewer passes, each told what earlier passes found,
 until one adds nothing (max 3). On the 31-file `large-pr-buried-defects` fixture one pass found
-5 of 6 planted defects on average and the loop found 6 of 6 in all three runs. Results land in
+4.7–5.0 of 6 planted defects on average and the loop found 6 of 6 in all three runs. Results land in
 `findings.json` (see SKILL.md), including `followups` for refactor and consolidation work.
 
 ## Using Code Reviewer from another plugin

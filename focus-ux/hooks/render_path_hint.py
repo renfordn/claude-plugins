@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """SessionStart hook: tell the model where focus-ux's inline-render script lives.
 
-The Focus output style can't name the script with ${CLAUDE_PLUGIN_ROOT}: observed in a live
-session, that text reached the model unexpanded, and the Bash tool's shell has no
+The Focus output style can't name the script with ${CLAUDE_PLUGIN_ROOT}: that text was reported
+to reach the model unexpanded (not reproduced in this repo), and the Bash tool's shell has no
 CLAUDE_PLUGIN_ROOT either, so the model can't resolve the path itself. This hook computes the
 absolute path from its own location and injects it as one line of context on each SessionStart
 (startup, resume, clear and compact alike). Fails open: if the script isn't there it prints

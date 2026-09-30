@@ -1,11 +1,17 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-30
+
+- **Fix**: the checkpoint transcript tail reader (`hooks/focus_ux_transcript.py`) now grows its read window, up to 1 MiB, until it holds a complete final line, so a final assistant message over 16 KB no longer reads as empty and its trailing CHECKPOINT marker is found.
+- **Fix**: `hooks/checkpoint_optin.py` ignores `[checkpoint-push]` inside inline code spans and fenced blocks, so an agent report that quotes the marker no longer opts an interactive session in.
+- **Docs**: doc-consistency sweep (5 fixes): README pointer to `INTEROP.md`, and the unreproduced `${CLAUDE_PLUGIN_ROOT}` and token-cost claims reworded as reported/estimated.
+
 ## [0.3.3] - 2026-09-28
 
 - **Fix**: the Focus output style's inline-picture script (`scripts/render_inline.py`, added in
-  0.3.1) can now be located. The style named it with `${CLAUDE_PLUGIN_ROOT}`. In a live session
-  that text appeared in the model's context unexpanded, and the variable is unset in the Bash
+  0.3.1) can now be located. The style named it with `${CLAUDE_PLUGIN_ROOT}`. That text was reported
+  to appear in the model's context unexpanded (not reproduced in this repo), and the variable is unset in the Bash
   tool's shell, so the model had no way to resolve the path. A new `SessionStart`
   hook (`hooks/render_path_hint.py`) adds one context line with the script's absolute path,
   computed from the hook's own location. The style now points at that line and hand-drafts

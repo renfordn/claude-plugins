@@ -6,14 +6,16 @@ and implementation are owned by separate sibling plugins:
 
 - **[agent-tdd](https://github.com/renfordn/agent-tdd)** — task slicing (validate research,
   slice into TDD-sized phases, assign Risk Tiers), then strict Red-Green-Refactor TDD execution.
-- **[code-reviewer](https://github.com/renfordn/code-reviewer)** — the mandatory review gate,
-  invoked by whichever caller drives implementation.
+- **[code-reviewer](https://github.com/renfordn/code-reviewer)** — the mandatory review gate
+  for implementation, invoked by whichever caller drives it. (agent-isdd's own `design-author`
+  also requests one Deep design review before Tasks.)
 - **[agent-nelly](https://github.com/renfordn/agent-nelly)** — goal-aware memory, briefs,
   cross-feature file-level caching, and cross-project promotion.
 
-`agent-isdd` never drives task slicing, never drives the TDD loop, never invokes the review
-gate, and never owns a memory subsystem beyond its own per-feature `spec/` artifacts. It produces
-a **Design Spec** at the Design → Implementation boundary and stops.
+`agent-isdd` never drives task slicing, never drives the TDD loop, never invokes the
+implementation review gate, and never owns a memory subsystem beyond its own per-feature `spec/`
+artifacts. It produces a **Design Spec** at the Design → Implementation boundary and stops
+(see "Handoff contract" for the scoped exceptions).
 
 ## Quickstart
 
@@ -54,14 +56,14 @@ Drives Requirements, grounds Design, referenced by task slices.
 
 **Research:** Unified pass during Design via `research-consolidator` (one pass, dual output for
 Design + Tasks). Cached in `research/cache.md`. Agent-tdd reuses cache, skips re-research unless
-invalid. Cross-feature file caching via agent-nelly for 70-80% cache hit rate on related features.
+invalid. Cross-feature file caching via agent-nelly can skip re-reading files on related features.
 
 ## Commands
 
 - `/isdd` — start or continue the workflow for a feature.
 - `/isdd-status` — show current phase, status, blockers, next action (read-only).
 - `/isdd-continue` — force-continue from the current phase.
-- `/isdd-rewind` — rewind to an earlier phase (Requirements | Design).
+- `/isdd-rewind` — rewind to an earlier phase (Requirements | Design | Tasks).
 - `/isdd-init` — first-run onboarding for a new project.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
 
@@ -151,5 +153,6 @@ At the end of Design, once Design is approved and implementation is requested, `
 builds a **Design Spec** from `requirements.md`, `design.md`, `research/cache.md`, and
 pre-fetched file summaries, then spawns `agent-tdd` for research validation, task slicing,
 and implementation. This is a one-directional handoff — `agent-isdd` does not resume or drive
-`agent-tdd` past the initial spawn. See `INTEROP.md` for the exact Design Spec contract and
-agent-tdd's new responsibilities (research validation, slicing, Ralph Loops).
+`agent-tdd` past the initial spawn, except for the Test-Author Gate and Model Escalation. See
+`INTEROP.md` for the exact Design Spec contract, and `agent-tdd/agents/agent-TDD.md` for what
+agent-tdd does with it (research validation, slicing, Ralph Loops).

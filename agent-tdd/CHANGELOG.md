@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-30
+
+- **Docs**: doc-consistency sweep (12 fixes): README describes `/tdd` and the real CI matrix; the walkthrough uses the real Research Gap Flag field and `research/cache.md`; escalation docs now match how agent-isdd's hooks surface PLAN-FLAG and MODEL-ESCALATE markers; Ralph Loops limit stated as at most 3 re-slicing rounds.
+- **Docs**: `agent-TDD.md` operating principle 2 now matches Design Spec slicing (oversized at more than 3 files, ideally one).
+
 ## [0.3.3] - 2026-09-29
 
 - **Docs**: citations in `skills/design-spec-direct/SKILL.md` and `INTEROP.md` now point at headings

@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from focus_ux_hook_test_utils import run_hook  # noqa: E402
 
@@ -35,6 +37,23 @@ def test_marker_opts_in_and_injects_r1_rule(tmp_path):
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert "PushNotification" in ctx
     assert "AskUserQuestion" in ctx
+
+
+@pytest.mark.parametrize("prompt", [
+    "the agent said `[checkpoint-push]` earlier",
+    "report:\n```\n[checkpoint-push]\n```\ndone",
+    "unterminated fence\n```\n[checkpoint-push]",
+])
+def test_quoted_marker_does_not_opt_in(tmp_path, prompt):
+    out, rc = run_hook("checkpoint_optin.py", _payload(prompt), env_extra=_env(tmp_path))
+    assert rc == 0
+    assert out in (None, "", {})
+    assert _state(tmp_path)["opted_in"] is False
+
+
+def test_marker_outside_code_still_opts_in_when_also_quoted(tmp_path):
+    run_hook("checkpoint_optin.py", _payload("`x` [checkpoint-push]"), env_extra=_env(tmp_path))
+    assert _state(tmp_path)["opted_in"] is True
 
 
 def test_marker_clears_last_on_opt_in(tmp_path):

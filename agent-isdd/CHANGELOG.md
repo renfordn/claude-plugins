@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-30
+
+- **Docs**: doc-consistency sweep (about 39 fixes). Stale INTEROP sections now point at their one home (`review-levels.md`, `rollback-guide.md`, agent-tdd's Design Spec workflow); wrong claims about the review gate, agent-tdd resume and re-research corrected; unmeasured figures (cache hit rate, token savings) marked as estimates; dangling references and template citations fixed. Docstring and comment edits only in `.py` files, no behavior change.
+
 ## [0.4.0] - 2026-09-30
 
 - **Feature**: Plan Board, an optional living Artifact page that shows every spec-driven feature's

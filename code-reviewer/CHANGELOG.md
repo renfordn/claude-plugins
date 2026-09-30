@@ -1,12 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-30
+
+- **Docs**: doc-consistency sweep (6 fixes): evidence tiers are the strings `tier-1` to `tier-5` everywhere, README says five tiers and the measured 4.7-5.0 of 6 per pass, INTEROP's degradation section points at SKILL.md, and a nonexistent agent-tdd practice citation was removed. No behavior change.
+
 ## [0.4.1] - 2026-09-29
 
 - **Docs**: `INTEROP.md` repointed two citations of `agent-tdd/SKILL.md` (which doesn't exist) to
   `agent-tdd/INTEROP.md`, and marks the Tasks-phase review as not implemented because task-slicer
-  was retired. No behavior change. Two tests in `tests/test_interop_strategic_placement.py` still
-  assert the old citations (kept inside "corrected" notes) and should be updated separately.
+  was retired. No behavior change. The matching assertions in `tests/test_interop_strategic_placement.py` were updated to match.
 
 ## [0.4.0] - 2026-09-25
 

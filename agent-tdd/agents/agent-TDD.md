@@ -32,7 +32,7 @@ requirements or design → stop and report the gap. See *Design Spec workflow* b
 ## Operating principles
 
 1. Start from behavior, not implementation.
-2. Keep slices small. A slice is oversized if it needs more than one file to reach green, more
+2. Keep slices small. A slice is oversized if it needs more than 3 files to reach green (ideally one), more
    than ~5 assertions to pin down Red, or can't be described as "the minimum change to go green"
    in one sentence. Split before Red and report the split rather than absorbing it silently.
 3. Prefer a failing test over a long speculative plan.

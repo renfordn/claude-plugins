@@ -4,8 +4,8 @@
 Per-feature spec artifacts (workflow-state.md, workflow-state.json, requirements/, design/,
 tasks/, recap/) live under <root>/sdd-memory/<project-slug>/spec/<feature-slug>/ — see
 spec_dir() below. <root> is the user's `shared_memory_root` plugin option when set (one store for
-every plugin identity and machine pointed at it), else ${CLAUDE_PLUGIN_DATA}. Note: sdd-memory is shared between agent-isdd and plugin-harness via
-symlink coordination (Task 3.1). They are plugin-generated state, not source, so they never live
+every plugin identity and machine pointed at it), else ${CLAUDE_PLUGIN_DATA}. Note: the external plugin-harness follows this
+location through `sdd-memory-location.json` (see write_base_pointer()), not a symlink. They are plugin-generated state, not source, so they never live
 in the repo itself; see references/artifact-templates.md and skills/workflow-manager/SKILL.md's
 "Scaffolding" section.
 
@@ -21,8 +21,7 @@ CLI:
   --spec-path SLUG [CWD]  print (creating if needed) spec/<SLUG>/ under the memory dir
 
 Note: this module never reads or writes MEMORY.md (or PROJECT-MEMORY.md/TDD-MEMORY.md/
-scholar-memory.md/GLOBAL-MEMORY.md) -- per requirements.md's Ubiquitous rule, sdd shall
-never touch those files again; agent-nelly owns that tier now. ensure_dir()/--path only
+scholar-memory.md/GLOBAL-MEMORY.md) -- this plugin never touches those files; agent-nelly owns that tier now. ensure_dir()/--path only
 ever creates the bare directory.
 
 Do not run this module's CLI (`python3 hooks/sdd_memory.py --path|--spec-path ...`) by hand

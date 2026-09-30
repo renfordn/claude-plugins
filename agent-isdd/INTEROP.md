@@ -4,10 +4,9 @@ This plugin owns Requirements → Design → Tasks only. It hands off to three s
 rather than owning their work. This document is the authoritative description of each boundary,
 for both agent-isdd's own maintainers and the sibling plugins' maintainers to cross-check.
 
-> Status: skeleton written in Phase 1 of the `agent-isdd` scope refactor; the concrete Slice
-> Spec mapping below is implemented and finalized in Phase 3. See
-> `${CLAUDE_PLUGIN_DATA}/sdd-memory/users-jay-nelson-codebase-ai-plugins-claude-agent-isdd/spec/2026-08-12-isdd-plugin-scope-refactor/`
-> for the full requirements/design/tasks this repo was built from.
+> Origin: this file began as a skeleton in Phase 1 of the `agent-isdd` scope refactor and has
+> since been finalized. The refactor's requirements/design/tasks live in the author's local SDD
+> memory (machine-local, not in this repo).
 
 ## → agent-tdd (implementation, Phase 2+3 revised)
 
@@ -100,74 +99,16 @@ found. This is a same-session, live-agent-id operation; it has no relationship t
 `/isdd-continue` or `workflow-state.json`, both of which resume the SDD *workflow* across
 sessions, not a specific paused subagent instance within one.
 
-### Agent-tdd Implementation Requirements (Phase 2+3)
+### Agent-tdd Design Spec workflow (pointer)
 
-Agent-tdd must implement five new phases before Red-Green-Refactor:
-
-**Phase 1: Research Validation**
-- Input: Design Spec (requirements.md, design.md, research/cache.md, file_summaries)
-- Validate research completeness:
-  - Are design.md's file touchpoints in research/cache.md?
-  - Are interfaces documented?
-  - Are constraints captured?
-- Decision:
-  - ✓ Research thorough: proceed to slicing
-  - ✗ Research thin: flag the exact gaps and pause (agent-isdd runs the targeted research-consolidator on them, then resumes agent-tdd)
-  - ✗ Design contradicts research: escalate back to agent-isdd (pause, surface reason)
-
-**Phase 2: Task Slicing**
-- Input: Requirements + Design + validated research + task_findings
-- Produce tasks.md with:
-  - Phased, TDD-sized slices (one behavior change, one file/module touched if possible)
-  - Risk Tiers per slice (high-risk → spawn test-author first)
-  - Depends On graph (topological sort, acyclic)
-  - Test Intent + Validation Target per slice
-- Rules: One behavior per slice, safe for Red-Green-Refactor isolation
-- Apply Ralph Loops (see below)
-
-**Phase 3: Validation (Ralph Loops)**
-
-Three autonomous validation loops, max 3-5 iterations each:
-
-1. **Slice Size Validation Loop**
-   - For each slice: count files, estimate test surface, verify Red-Green-Refactor feasibility
-   - If oversized: split, adjust dependencies
-   - Exit when: all slices ≤ 3 files and testable
-
-2. **Dependency Correctness Loop**
-   - Build Depends On graph, run topological sort
-   - Verify: acyclic, no hidden dependencies
-   - If cycle/missing dep: reorganize, re-slice
-   - Exit when: acyclic, complete
-
-3. **Research-to-Implementation Traceability Loop**
-   - For each slice's "Ordered Steps": validate against research/cache.md
-   - Verify: file/interface exists, constraint respected
-   - If missed research: flag the gap and pause for agent-isdd to re-research (agent-tdd does not re-research or fetch memory stores)
-   - If contradiction: flag as known risk in slice
-   - Exit when: traceable or flagged
-
-**Phase 4: Risk Tier Assignment**
-- high-risk when:
-  - design.md's Risks And Tradeoffs names a risk touching this slice's files
-  - Slice is a migration (schema, API breaking change)
-  - Touches multiple independent modules
-  - Weak testability
-- Default: standard
-
-**Phase 5: Ready-to-Implement Check**
-- Readiness checklist:
-  - [ ] At least one concrete phase exists
-  - [ ] Each phase has objective, Risk Tier, steps, test intent, validation target
-  - [ ] Slices are safe for TDD (≤ 3 files, acyclic dependencies)
-  - [ ] No unresolved blocker
-  - [ ] State: Ready For Implementation
-
-**Escalation Paths Back to agent-isdd:**
-- Research gap too large: pause, provide specific files needing research
-- Design contradicts research: pause, surface contradiction (design-author fixes)
-- Slicing requires product decision: pause, ask user which strategy
-- High-risk slice cannot be split: pause, confirm oversized + high-risk acceptable
+`agent-tdd/agents/agent-TDD.md`'s "Design Spec workflow" is the authoritative definition of what
+`agent-tdd` does with a Design Spec: research validation (validate only), task slicing (one
+behavior per slice, at most 3 files, acyclic Depends On, prerequisite `fix`/`refactor` slices
+ordered first), a validation pass ("Ralph Loops": size, dependency, traceability; re-slice at most 3 rounds, else escalate), Risk Tier
+assignment, and a readiness check. This file does not restate those rules; it only pins the
+agent-isdd side of the boundary: the Design Spec fields above, the escalations that return here
+(research too thin, design contradicts research, slicing blocked by the design, or a high-risk
+slice that cannot be split without a product decision), and the handoff report.
 
 **Handoff Report Format:** marker-tagged with `<!--AGENT-TDD-PHASE:slicing_complete-->` and the fields
 **Research Validation**, **Task Slicing**, **Risk Tier Distribution**, **High-Risk Slices** (exact names
@@ -211,13 +152,13 @@ requesting implementation") rather than attempting the work internally.
 "`agent-tdd` not installed" above, this covers the case where `agent-tdd:agent-TDD` *is*
 installed but every attempt to spawn it fails at the tool-call layer itself — a genuine Claude
 Code harness bug, not something a differently-worded prompt, a retry, or a different spawn
-call-site can work around. First confirmed 2026-09-15 on the `2026-09-15-expand-error-logger`
-feature (see that feature's `workflow-state.md` for the full investigation trail): a PreToolUse
-hook rejected the `Agent` call with `"description type expected as string but provided as
-unknown"`, traced conclusively to the harness itself — no currently-enabled hook in any
-installed plugin was producing that `updatedInput`, and the failure reproduced identically for
-a plain `claude` agent type unrelated to `agent-tdd`, meaning it blocks *all* `Agent`-tool spawns
-in the affected session, not something specific to this handoff.
+call-site can work around. First observed 2026-09-15 on the `2026-09-15-expand-error-logger`
+feature (investigation notes live in that feature's `workflow-state.md` in the author's local SDD
+memory, not in this repo, so this is unverified here): a PreToolUse hook rejected the `Agent`
+call with `"description type expected as string but provided as unknown"`. The author's
+investigation attributed it to the harness (no enabled hook was thought to be producing that
+`updatedInput`, and the failure reproduced for a plain `claude` agent type), i.e. it blocks *all*
+`Agent`-tool spawns in the affected session, not something specific to this handoff.
 
 **Detection** — treat the spawn as harness-blocked, not a one-off flake, only once **all** of
 these hold:
@@ -290,14 +231,11 @@ marker below itself. That was a real gap, not just a documentation gap — close
 concept of agent-isdd's phase vocabulary. When `agent-tdd:agent-TDD`'s spawn report contains it,
 `hooks/subagent_report.py`'s `SubagentStop` handler recognizes it (independently of its normal
 narrative-report capture, which excludes implementation-phase reports otherwise), defaults the
-rewind target to `Requirements` — per `references/rollback-guide.md`'s existing "Which target
-phase to name" policy: an unclear or absent target defaults to the more conservative (earlier)
-phase, since it's always safer to re-confirm a phase that may have been fine than to skip past
-one that actually needs revision — and writes `rollback_pending` to `workflow-state.json` plus a
+rewind target to `Requirements` (policy and rationale: `references/rollback-guide.md`'s "Which
+target phase to name"), and writes `rollback_pending` to `workflow-state.json` plus a
 `Pending Rollback Request` line to `workflow-state.md`, with the reason text tagged so a later
-reader (or `workflow-manager`'s own "Rollback Request Intake," which reads the reason and can
-re-target forward per its documented rule) knows `Requirements` was defaulted, not derived from
-the reason. The next `before-continue` hook checks for it first and routes into the Rewind
+reader (or `workflow-manager`'s "Rollback Request Intake," which can re-target forward) knows
+`Requirements` was defaulted, not derived from the reason. The next `before-continue` hook checks for it first and routes into the Rewind
 Contract. A reason starting `rescope (design):` comes from agent-TDD's Red-Phase Rescope: implementation
 found a prerequisite fix/refactor that changes a design contract. Re-target it to `Design`, fold
 the mini re-spec into `design.md`'s `Prerequisite Fixes & Refactors`, then re-slice.
@@ -342,9 +280,8 @@ open items as feature candidates. Neither plugin imports the other: findings.jso
 
 ## → agent-ux (removed)
 
-agent-ux was retired: its subagent cost ~2K tokens per event to make one `mark_chapter` or
-`Artifact` call. The calling skills now make those calls directly, per
-`references/ux-conventions.md`.
+agent-ux was retired. The calling skills now make its `mark_chapter`/`Artifact` calls directly,
+per `references/ux-conventions.md` (which has the rationale).
 
 ## → agent-nelly (memory)
 
@@ -490,12 +427,12 @@ callers (agent-tdd, spec-driven-development skills) invoke `/code-reviewer` dire
 appropriate level for each phase context. This is simpler, debuggable, and respects the 
 harness constraint that hooks cannot invoke skills.
 
-| Phase | Review Level | Purpose | When | Invoked By |
-|-------|--------------|---------|------|-----------|
-| Design | Deep | Coherence validation | After design complete, before Tasks | design-author (agent-isdd skill) |
-| Tasks | Standard | Clarity check | After task slicing, before implementation | not implemented (task slicing happens inside agent-TDD's Design Spec Mode; no review is requested there) |
-| Per-Slice (Green) | Standard or Deep | Implementation check | After slice passes tests | agent-tdd (Deep if high-risk) |
-| Coherence Review | Deep (the caller may raise it to Ultra) | Cross-slice validation | After all slices complete | agent-tdd requests `Deep`; the caller may raise it to `Ultra` if most slices are high-risk |
+The per-phase table (which level, when, and who invokes it) lives once, in
+`skills/spec-driven-development/references/review-levels.md`. In short: `design-author` requests
+one Deep review of the design before handoff; agent-tdd requests Standard (Deep if high-risk) at
+each slice's Green pause and one Deep coherence review after all slices, which the caller may
+raise to Ultra when most slices are high-risk. Requirements and Tasks reviews are not
+implemented.
 
 ### Ralph Loops Integration
 

@@ -2,7 +2,7 @@
 # Worked Example: `claude-pa`'s `money-check` Skill As An Agent Nelly Consumer
 
 > **This is illustrative only.** Nothing here is wired up. No file in `claude-pa`'s actual
-> repo (`~/.claude/plugins/claude-pa`) is created, modified, or referenced by any code in this
+> repo (its on-disk location varies by install; paths below are illustrative) is created, modified, or referenced by any code in this
 > repo. This document exists purely to stress-test [`INTEROP.md`](../INTEROP.md)'s contract
 > against a plugin shaped nothing like spec-driven-development: `claude-pa` has independent,
 > stateless skills (`money-check`, `morning-brief`, `task-control`, `media-find`, `pa-dispatch`,

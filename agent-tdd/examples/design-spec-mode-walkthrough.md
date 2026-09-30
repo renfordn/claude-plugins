@@ -10,7 +10,7 @@ Agent-isdd has completed requirements research and design. It prepares:
 
 1. **requirements.md** — User stories with acceptance criteria
 2. **design.md** — Architecture, file touchpoints, interfaces, research basis
-3. **research-cache.md** — File summaries, technology stack, constraints, slicing opportunity
+3. **research/cache.md** — File summaries, technology stack, constraints, slicing opportunity
 
 Agent-isdd sends this Design Spec to agent-tdd with instruction: "Implement using Design Spec mode."
 
@@ -100,10 +100,10 @@ Proceeding to Phase 2: Task Slicing
   Research gap: No file summary for src/auth/crypto.ts
   
   Action: PAUSING - awaiting targeted research
-  Marker: AGENT-TDD-RESEARCH-GAP
+  Reported as: Research Gap Flag field in the handoff report (no marker)
 ```
 
-Agent-isdd receives this, runs targeted research on `src/auth/crypto.ts`, updates research-cache.md, and resumes agent-tdd.
+Agent-isdd receives this, runs targeted research on `src/auth/crypto.ts`, updates research/cache.md, and resumes agent-tdd.
 
 ---
 
@@ -111,7 +111,7 @@ Agent-isdd receives this, runs targeted research on `src/auth/crypto.ts`, update
 
 ### Agent-TDD Action: Apply Ralph Loops
 
-Agent-tdd reads the Identified Slicing Opportunity from research-cache.md:
+Agent-tdd reads the Identified Slicing Opportunity from research/cache.md:
 
 ```markdown
 ### Identified Slicing Opportunity
@@ -533,14 +533,12 @@ Emit Research Gap Flag:
 ```
 
 ```
-<!--AGENT-TDD-RESEARCH-GAP:
-Expected: User interface with email and passwordHash fields for login
-Found: User type has id, username, name fields but no email or passwordHash
-Impact: Login handler cannot be implemented per design without clarifying User schema
--->
+**Research Gap Flag**: Expected User interface with email and passwordHash fields for login;
+found User type has id, username, name fields but no email or passwordHash. Login handler cannot
+be implemented per design without clarifying User schema.
 ```
 
-Agent-isdd receives this, runs targeted research on the User schema, clarifies what fields actually exist, updates research-cache.md and design.md accordingly, and resumes agent-tdd.
+Agent-isdd receives this, runs targeted research on the User schema, clarifies what fields actually exist, updates research/cache.md and design.md accordingly, and resumes agent-tdd.
 
 ### Example 2: Plan Validity Flag During Slice 3
 

@@ -84,9 +84,11 @@ class TestStrategicPlacementDocumentation(unittest.TestCase):
         """code-reviewer/SKILL.md should be referenced."""
         self.assertIn("code-reviewer/SKILL.md", self.interop_content)
 
-    def test_agent_tdd_skill_referenced(self):
-        """agent-tdd/SKILL.md should be referenced."""
-        self.assertIn("agent-tdd/SKILL.md", self.interop_content)
+    def test_agent_tdd_interop_referenced(self):
+        """The repointed agent-tdd/INTEROP.md citation should be present; the dangling
+        agent-tdd/SKILL.md one should be gone."""
+        self.assertIn("agent-tdd/INTEROP.md", self.interop_content)
+        self.assertNotIn("agent-tdd/SKILL.md", self.interop_content)
 
     def test_design_md_referenced(self):
         """design.md should be referenced."""
@@ -165,8 +167,9 @@ class TestRalphLoopsIntegration(unittest.TestCase):
         self.assertIn("Cross-slice regression", self.interop_content)
 
     def test_ralph_loops_skill_reference_present(self):
-        """Reference to ralph loops skill should be present."""
-        self.assertIn("Finding Flow to Ralph Loops", self.interop_content)
+        """The repointed Ralph Loops citation should be present."""
+        normalized = " ".join(self.interop_content.split())
+        self.assertIn('§"Task Slicing & Ralph Loops"', normalized)
 
 
 class TestConsistencyAndCrossBoundaries(unittest.TestCase):

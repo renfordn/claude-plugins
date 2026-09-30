@@ -7,6 +7,9 @@ import os
 import re
 
 TAIL_BYTES = 16384
+# A final line longer than TAIL_BYTES leaves no complete line in the first window, so the read
+# doubles the window until it holds one, up to this cap (a line beyond it reads as empty).
+MAX_TAIL_BYTES = 1024 * 1024
 # _raw_session_title scans forward from the start of the transcript (a title can be set once
 # near session start and never changed again, unlike last_assistant_text's "only the tail
 # matters"), so it can't reuse TAIL_BYTES's tail-window bound. It still needs *some* cap so an
@@ -24,15 +27,18 @@ def _tail_last_assistant_text(transcript_path, tail_bytes=TAIL_BYTES):
         with open(transcript_path, "rb") as fh:
             fh.seek(0, 2)
             size = fh.tell()
-            start = max(0, size - tail_bytes)
-            fh.seek(start)
-            raw = fh.read()
+            while True:
+                start = max(0, size - tail_bytes)
+                fh.seek(start)
+                raw = fh.read()
+                lines = raw.split(b"\n")
+                if start > 0:
+                    lines = lines[1:]  # drop the partial first line left by a mid-line seek
+                if start == 0 or any(ln.strip() for ln in lines) or tail_bytes >= MAX_TAIL_BYTES:
+                    break
+                tail_bytes = min(tail_bytes * 2, MAX_TAIL_BYTES)
     except (OSError, TypeError, ValueError):
         return ""
-
-    lines = raw.split(b"\n")
-    if start > 0:
-        lines = lines[1:]  # drop the partial first line left by a mid-line seek
 
     blocks = []
     for line in lines:

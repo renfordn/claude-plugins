@@ -59,8 +59,8 @@ brief-assembly call, and never scans anything mid-task.
    - **Renamed** — cannot be reliably distinguished from deleted without
      guaranteed git history, and `nelly-maintenance` does not add
      `git log --follow` or any other new inspection surface to attempt
-     rename detection (see `agent-nelly.md`'s "Explicit exclusions"
-     discipline on keeping tool usage narrow, which applies here too).
+     rename detection (the same narrow-tool-usage discipline as the `Bash`
+     scoping described in step 5 above and in `references/nelly-file-move.md`).
      Treat a renamed file exactly like a deleted one — this is a known,
      accepted limitation, not a bug to fix later.
    - **Heavily changed** — the file still exists, but reading its current

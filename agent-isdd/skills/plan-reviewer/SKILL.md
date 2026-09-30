@@ -9,7 +9,7 @@ Independent, evidence-cited verification of a written design/plan document, with
 
 ## Why this exists
 
-The built-in `Plan` subagent is general-purpose and open-scoped: given "review my design," it re-explores the whole codebase with a wide toolset, which is slow (observed: 10+ minutes) and token-heavy. Most design reviews only need a handful of factual claims checked ("does this function exist", "does X already handle Y", "is this the only caller"). This skill verifies exactly those claims, tiered by cost, and only pays for deeper investigation on the claims that actually turn out to be contested.
+The built-in `Plan` subagent is general-purpose and open-scoped: given "review my design," it re-explores the whole codebase with a wide toolset, which is slow (reported: 10+ minutes; not measured in this repo) and token-heavy. Most design reviews only need a handful of factual claims checked ("does this function exist", "does X already handle Y", "is this the only caller"). This skill verifies exactly those claims, tiered by cost, and only pays for deeper investigation on the claims that actually turn out to be contested.
 
 ## Process
 

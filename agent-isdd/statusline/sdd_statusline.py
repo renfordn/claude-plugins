@@ -6,7 +6,7 @@ Wire it in ~/.claude/settings.json:
 
   "statusLine": {
     "type": "command",
-    "command": "python3 /ABSOLUTE/PATH/TO/spec-driven-development/statusline/sdd_statusline.py"
+    "command": "python3 /ABSOLUTE/PATH/TO/agent-isdd/statusline/sdd_statusline.py"
   }
 
 Prints e.g.  SDD ▸ Design ▸ Awaiting Confirmation   (nothing when no workflow).

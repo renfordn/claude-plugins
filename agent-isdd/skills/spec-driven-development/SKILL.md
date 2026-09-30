@@ -23,7 +23,7 @@ focused skill by name. It routes work across the companion skills internally:
 
 It owns Requirements and Design only. Task slicing and implementation are owned by agent-tdd
 (`agent-tdd`), invoked once via a one-directional Design Spec handoff — this skill never drives
-task slicing, the Red-Green-Refactor loop, or the code-review gate itself. See `INTEROP.md` at
+task slicing, the Red-Green-Refactor loop, or the implementation code-review gate itself (only `design-author`'s one Deep design review is requested from this side). See `INTEROP.md` at
 the repo root for the full handoff contract.
 
 The user should not need to manually prompt each phase skill in order to move through the
@@ -150,9 +150,8 @@ contract at phase boundaries.
    Decision Order — `agent-nelly:agent-nelly`'s stored Intent first (when available),
    then `workflow-state.md`, then `workflow-state.json`, then open blockers, then phase files,
    then `recap.md`).
-2. **[Phase 1.2]** Check cached nelly brief in `workflow-state.json` → `nelly_brief_cache`:
-   - If valid (Intent Hash match + timestamp fresh): reuse cached brief
-   - If invalid: fetch fresh brief via agent-nelly, update cache
+2. **[Phase 1.2]** Check the cached nelly brief in `workflow-state.json` → `nelly_brief_cache`;
+   reuse it if valid, else fetch fresh (rules: `workflow-manager`'s Goal Field Contract).
 3. Continue from the earliest blocked or incomplete phase; auto-advance through later phases
    whose entry gates are satisfied.
 4. Pause only when a gate fails, a confirmation checkpoint is required, or implementation was
@@ -199,7 +198,7 @@ invoke one directly, or a pause message needs to explain which capability produc
 
 ## Subagent Delegation
 
-Four capabilities ship as **subagents** (`agents/`) so their bounded work runs in an isolated
+Three capabilities are delegated to **subagents** (two in this plugin's `agents/`, one external) so their bounded work runs in an isolated
 context and returns only a conclusion, keeping this orchestrator thread lean across a long
 workflow:
 
@@ -237,15 +236,10 @@ list extraction, the `agent-nelly` subtract-then-query step, the recap summariza
 Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
 fallback, the test-author pause/resume steps, and the Handoff Facts write-back.
 
-**Second trigger (added 2026-09-24): `Current Phase: Tasks` on continue.** This step also fires
-when `workflow-manager` resolves `continue` against a feature whose `Current Phase` is `Tasks` —
-a rollback-landing state set when a human or `code-reviewer` relays an `agent-tdd` finding that
-the task-level plan itself was wrong (see `INTEROP.md`'s "← agent-tdd / code-reviewer (rollback
-request)" and `workflow-manager/SKILL.md`'s `continue` Action Rule). Treat it identically to the
-Design-approved trigger above — rebuild the Design Spec (or Slice Spec) from the still-approved
-`requirements.md`/`design.md` and re-spawn `agent-tdd:agent-TDD` — there is no separate
-Requirements/Design re-authoring step for this case; `Current Phase: Tasks` never gates on an
-agent-isdd-owned artifact (task slicing itself happens entirely inside `agent-tdd`).
+**Second trigger: `Current Phase: Tasks` on continue.** A rollback-landing state; treat it
+identically to the Design-approved trigger above (rebuild the Design Spec or Slice Spec from the
+still-approved `requirements.md`/`design.md`, re-spawn `agent-tdd:agent-TDD`). The full rule lives
+in `workflow-manager/SKILL.md`'s `continue` Action Rule.
 
 ## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
 
@@ -285,9 +279,7 @@ exiting it (`ExitPlanMode`) once Design is approved and implementation has been 
 handoff) — there is no agent-isdd `Tasks` checklist to pass first, since `agent-tdd` slices tasks
 inside the handoff. See its "Native Plan Mode Gate" section for the full contract. This stays
 here in the orchestrator because it is a user-facing approval checkpoint.
-Requesting approval this way is in addition to the phase gates above, not instead of them —
-`ExitPlanMode` is only ever called once Design is approved and implementation was requested (the
-same gate the `handoff` action already requires, not a separate or looser one).
+Requesting approval this way is in addition to the phase gates above, not instead of them.
 
 ## Task Tracker Sync
 

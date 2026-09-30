@@ -10,7 +10,8 @@ run this.
 
 Everything in this runbook was reconstructed from `tasks/tasks.md` (Phase 7/8 Test
 Intent), `design.md`'s Validation Strategy, `REVIEW-HISTORY.md`'s fixture references
-(Fixture Set 1, Fixture Set 2, Fixture B), and the shipped `agents/agent-nelly.md`
+(Fixture Set 1, Fixture Set 2, Fixture B; these SDD-memory files live outside this repo and
+are not verifiable from it), and the shipped `agents/agent-nelly.md`
 / `commands/nelly-memory.md` text (which quotes some of the same examples verbatim,
 e.g. the bucket 1/2 examples below). The original test-author fixture artifact from
 Phase 7/8 was not persisted as a separate file in SDD memory, so this is a
@@ -996,11 +997,10 @@ This means:
 ### Also part of this follow-up (not a separate item)
 
 Fixture Set — Index-line pre-filter for "Relevant entries" step 1 (Phase 4, above,
-fixtures J/K/L/M) is written and Red-confirmed but has not yet been executed live. Its
-Status checkbox remains unflipped until that live execution happens. Run it as part of
-the same live session covered by this section, not as a separate outstanding item —
-fixtures K, L, and M in particular exercise the same `handoff surfacing`/pre-filter
-behavior this before/after comparison is measuring.
+fixtures J/K/L/M) was written and Red-confirmed, then executed live together with this
+comparison (see Status below and that Fixture Set's own Status section for the results).
+Fixtures K, L, and M in particular exercise the same `handoff surfacing`/pre-filter
+behavior this before/after comparison measures.
 
 ### Status
 

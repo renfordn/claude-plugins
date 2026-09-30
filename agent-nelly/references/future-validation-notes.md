@@ -3,7 +3,10 @@
 Non-loaded reference file. These are the three "test-shape note" blocks moved verbatim out of
 `agents/agent-nelly.md` (they carry zero runtime relevance to the agent's own behavior —
 they only describe fixture shapes for a future `MANUAL-VALIDATION.md` pass). Each block below is
-labeled with the section of `agent-nelly.md` it was moved from.
+labeled with the section of `agent-nelly.md` it was moved from. The fixture-set letters used
+below (M, N, P) are placeholders from the original design: `MANUAL-VALIDATION.md` has no
+fixtures authored under these letters yet (its `M` is the exclusion-gate fixture from the
+J/K/L/M pre-filter set), so match them by description, not by letter.
 
 ## From: "Handoff surfacing (narrower mode, restricted entry types)"
 
@@ -24,7 +27,7 @@ later test-runner needs.
 `aside task description` matching strong existing memory (asserting a
 well-formed `Spinoff prompt:`/`Spinoff tldr:` usable verbatim as
 `spawn_task` inputs) and one with no matching memory (asserting the exact
-insufficiency line above). This subsection does not author that fixture; it
+insufficiency line from `agents/agent-nelly.md`'s "Aside-spinoff context bundle"). This subsection does not author that fixture; it
 only documents the shape a later test-runner needs.
 
 ## From: "File-change-aware staleness (additive, `file-relevance` entries only)" (under "Staleness flagging (prune write-back)")

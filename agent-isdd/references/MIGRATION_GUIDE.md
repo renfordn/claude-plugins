@@ -62,7 +62,7 @@ Agent-tdd must implement three new phases before Red-Green-Refactor:
 1. **Research Validation Phase**
    - Input: Design Spec (requirements.md, design.md, research/cache.md, file_summaries)
    - Validate research completeness
-   - Optional: re-research gaps only
+   - Never re-research: flag exact gaps and pause (agent-isdd runs a targeted `research-consolidator` pass, then resumes)
    - Escalate if design contradicts research
 
 2. **Task Slicing Phase**
@@ -79,12 +79,12 @@ Agent-tdd must implement three new phases before Red-Green-Refactor:
    - No blockers, all dependencies resolved
    - Ready to proceed to Red-Green-Refactor
 
-**See `INTEROP.md` "Agent-tdd Implementation Requirements" for full specification.**
+**See `agent-tdd/agents/agent-TDD.md`'s "Design Spec workflow" (authoritative) and `INTEROP.md`'s "Agent-tdd Design Spec workflow (pointer)".**
 
 **Step 2: Test New Handoff**
 
 Once agent-tdd is updated:
-1. Run a test feature end-to-end with 0.1.13 agent-isdd (sends Design Spec)
+1. Run a test feature end-to-end with an agent-isdd build that sends a Design Spec
 2. Verify agent-tdd:
    - Validates research
    - Slices into TDD-sized phases
@@ -115,20 +115,19 @@ If you're just using agent-isdd without touching tdd-planner internals:
 ### Token Efficiency
 
 - **Research Consolidation:** One unified pass instead of two (design-author + tdd-planner)
-  - Saves 15-25K tokens per feature
+  - Estimated saving of 15-25K tokens per feature (not measured)
   
 - **Research Caching:** design-author caches research in research/cache.md
   - Agent-tdd reuses cache; skips re-research unless invalid
-  - Saves 15-25K tokens on resumed workflows
+  - Estimated saving on resumed workflows (not measured)
 
 - **Cross-Feature Cache:** File summaries cached in agent-nelly
-  - 70-80% cache hit rate on related features
-  - Saves 15-25K tokens per reuse
+  - Hit rate on related features depends on overlap (not measured)
 
 - **Intent Hashing:** Drift detection via hash, not full brief re-fetch
-  - Saves 5-10K tokens per resume
+  - Estimated saving per resume (not measured)
 
-- **Total:** ~80-100K tokens saved (50-70% reduction per feature)
+- **Total:** the figures above are rough estimates, not benchmarks
 
 ### Cleaner Architecture
 
@@ -141,10 +140,10 @@ If you're just using agent-isdd without touching tdd-planner internals:
 
 ### Q: Will my existing tasks.md files break?
 
-**A:** No. tasks.md format is unchanged. However:
+**A:** Existing files stay readable, but the format changed: `agent-tdd` now writes a slice-based `tasks.md` (see `agent-tdd/agents/agent-TDD.md`'s tasks.md format), not the old phase-based one. Also:
 - In 0.1.13: tdd-planner generates tasks.md
 - In 0.1.14: agent-tdd generates tasks.md
-- The output format is the same, but agent-tdd's slicing may differ
+- agent-tdd's slicing may differ from tdd-planner's
 
 ### Q: What if design contradicts research?
 
@@ -155,10 +154,10 @@ If you're just using agent-isdd without touching tdd-planner internals:
 
 ### Q: What if research is too thin?
 
-**A:** Agent-tdd can do targeted re-research on gaps only:
-- Doesn't re-research everything (saves tokens)
-- Updates research/cache.md
-- Continues to slicing
+**A:** Agent-tdd flags the exact gaps and pauses; it does not re-research itself:
+- agent-isdd runs a targeted `research-consolidator` pass on those gaps
+- research/cache.md is updated
+- agent-tdd resumes and continues to slicing
 
 ### Q: Can I rewind to Tasks phase?
 

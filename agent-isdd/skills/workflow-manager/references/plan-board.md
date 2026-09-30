@@ -5,7 +5,7 @@ page can cover several projects. The workflow keeps it current; nobody edits it 
 
 ## How it works
 
-- **The page** is `assets/plan-board.html`. It reads the collection `plans` from its own database
+- **The page** is `skills/workflow-manager/assets/plan-board.html`. It reads the collection `plans` from its own database
   (up to 200 records) and updates live. It only ever shows record text as text, never markup.
 - **One record per feature**, built by `hooks/plan_board.py doc` from `workflow-state.md`. Never
   hand-write one.

@@ -14,12 +14,8 @@ A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD imple
 - **Slice Spec** (a single approved slice) — implements it directly: Plan → Red → Green →
   (mandatory caller-driven review pause) → Refactor → Validate.
 
-**Removed in 0.1.12:** the earlier modular `design-spec` skill (five separate subagents —
-`research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, `readiness-check` — each
-performing one phase) was never the path any real caller used; `agent-isdd` always spawned
-`agent-TDD` directly with a Design Spec. It emitted its own incompatible escalation-marker
-vocabulary that no caller's hooks recognized, and had drifted out of sync with the inline path it
-duplicated. Retired rather than kept as a documented-but-dead alternative — see `CHANGELOG.md`.
+**Removed in 0.1.12:** the earlier modular `design-spec` skill (five per-phase subagents). See
+[`INTEROP.md`](INTEROP.md)'s "One implementation of this mode" and `CHANGELOG.md`.
 
 ## What's in this plugin
 
@@ -62,8 +58,9 @@ claude plugin marketplace add renfordn/claude-plugins
 claude plugin install agent-tdd@renfordn-plugins
 ```
 
-`agent-tdd` has no slash command of its own — it's a subagent (`agent-tdd:agent-TDD`) that an
-orchestrating skill spawns with a Design Spec or Slice Spec (see "What's in this plugin" above).
+`agent-tdd`'s subagent (`agent-tdd:agent-TDD`) is spawned with a Design Spec or Slice Spec either
+by an orchestrating skill or by the plugin's `/tdd <behavior>` command for a single slice (see
+"What's in this plugin" above).
 The most common way to reach it is via `agent-isdd`'s `/isdd` workflow, which builds and hands
 off a Design Spec automatically once Design is approved. Confirm it installed correctly with:
 
@@ -71,7 +68,7 @@ off a Design Spec automatically once Design is approved. Confirm it installed co
 claude plugin details agent-tdd@renfordn-plugins
 ```
 
-Expected: a component inventory listing the `agent-TDD` and `test-author` agents and the
+Expected: a component inventory listing the `agent-TDD` and `test-author` agents, the `/tdd` command, and the
 `design-spec-direct` / `slice-spec` skills. See
 [docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
 multi-plugin install/verify guide.
@@ -86,7 +83,7 @@ ${CLAUDE_PLUGIN_DATA}/agent-tdd-state/
     └── tdd-progress.json      # TDD slice tracking and progress
 ```
 
-Where `${CLAUDE_PLUGIN_DATA}` resolves to `~/.claude/plugins/data/agent-tdd/` when running in Claude Code.
+`${CLAUDE_PLUGIN_DATA}` is set by Claude Code for hooks (see `hooks/path_resolution.py`); its exact location depends on how the plugin is installed.
 
 ## Using Agent TDD from another plugin
 
@@ -104,6 +101,6 @@ with:
 python3 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-It also runs on every push and pull request, across a Python 3.9-3.12 matrix, via
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml).
+CI (`.github/workflows/tests.yml`, at the repo root) runs it with `pytest` on every push and pull
+request, alongside the other plugins.
 # agent-tdd

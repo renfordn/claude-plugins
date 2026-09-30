@@ -1,7 +1,7 @@
 # Doc Audit State
 
 Project-level (not per-feature) — lives at `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/DOC-AUDIT-STATE.md`,
-in the project's central SDD memory directory. Unlike `REVIEW-STATE.md` (one row per reviewed *file*, scoped
+in the project's central SDD memory directory. Unlike code-reviewer's `REVIEW-STATE.md` (one row per reviewed *file*, scoped
 under a single feature's `spec/<feature-slug>/`), this file tracks one row for the whole
 plugin's `skills/`+`agents/`+`commands/`+`hooks/` tree, because `hooks/commit_audit_gate.py`
 must work whether or not any SDD feature is currently active. Owned by the
@@ -15,8 +15,8 @@ must work whether or not any SDD feature is currently active. Owned by the
 
 ## Interpretation Notes
 
-- `Status` values, identical semantics to `REVIEW-STATE.md`'s (`workflow-manager`'s Review State
-  Repair rules apply unchanged, just at project scope instead of per-file):
+- `Status` values, same semantics as code-reviewer's `REVIEW-STATE.md`, but at project scope
+  instead of per-file:
   - `passed`: the auditor ran against exactly this `Diff Fingerprint` and found no unresolved
     high-confidence (blocking) finding.
   - `needs_detailed_review`: the auditor ran and found at least one unresolved high-confidence

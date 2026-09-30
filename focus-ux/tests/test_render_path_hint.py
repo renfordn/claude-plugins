@@ -2,7 +2,7 @@
 scripts/render_inline.py lives.
 
 The Focus output style used to say `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/render_inline.py"`.
-Observed in a live session, that variable reached the model unexpanded (output-style text is not
+That variable was reported to reach the model unexpanded (not reproduced in this repo) (output-style text is not
 substituted) and it is unset in the Bash tool's shell, so the model could not resolve the path.
 The hook computes the absolute path from its own location instead.
 """

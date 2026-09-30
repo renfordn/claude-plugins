@@ -46,8 +46,9 @@ detail.
 
 ## Test-shape note
 
-This agent's behavior is validated live, not by an automated test suite: see
-`MANUAL-VALIDATION.md` Fixture Set O (two-hop subagent chain) for the runbook
-— a live session invokes `agent-nelly` for a brief, pastes it into this
-agent's prompt, and confirms grounded output when the brief has content and an
-explicit "insufficient memory" statement when it doesn't.
+This agent has no automated test suite, and no live run of it is recorded in
+`MANUAL-VALIDATION.md` (the "Fixture Set O" two-hop chain once planned for it
+was never authored there). To check it by hand: invoke `agent-nelly` for a
+brief in a live session, paste it into this agent's prompt, and confirm
+grounded output when the brief has content and an explicit "insufficient
+memory" statement when it doesn't.

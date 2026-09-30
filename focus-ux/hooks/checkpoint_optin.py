@@ -4,12 +4,18 @@ marker on every new prompt (R8's resolution rule), and inject the standing rule 
 Dispatch child push before AskUserQuestion (R1). Fails open on every path -- always exits 0."""
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from focus_ux_state import load_state, save_state  # noqa: E402
 
 MARKER = "[checkpoint-push]"
+
+# Quoted marker text (an agent report or a pasted doc mentioning `[checkpoint-push]`) must not opt
+# a session in, so the marker only counts outside fenced blocks (an unterminated fence runs to the
+# end) and inline code spans.
+_CODE_RE = re.compile(r"```.*?(?:```|\Z)|`[^`\n]*`", re.DOTALL)
 
 R1_RULE = (
     "focus-ux checkpoint-push is on for this session. Before calling AskUserQuestion, or "
@@ -42,7 +48,7 @@ def main():
     if flag == "0":
         return  # explicit off wins over everything (R7)
 
-    has_marker = MARKER in prompt
+    has_marker = MARKER in _CODE_RE.sub("", prompt)
     if not has_marker and flag != "1":
         # Not opted in by this prompt. Still clear `last` if an earlier prompt opted in.
         state = load_state(session_id, env)

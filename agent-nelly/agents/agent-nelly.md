@@ -892,9 +892,9 @@ action in this agent that changes an `error-prevention` entry's
 
 ### Discarding an inferred error lesson
 
-When the caller passes `discard error lesson: <name>`, this permanently
-removes an `inferred`-confidence `error-prevention` entry from
-consideration without ever confirming it — the reject side of the
+When the caller passes `discard error lesson: <name>`, this takes an
+`inferred`-confidence `error-prevention` entry out of
+consideration (archived, never deleted) without ever confirming it — the reject side of the
 list-then-decide loop `/nelly-memory review-inferred` drives (see
 "Listing inferred error lessons" below for the read-only counterpart):
 
@@ -1115,7 +1115,8 @@ them, via `nelly-maintenance`, never this agent.
 
 ## Explicit exclusions
 
-This agent generalizes the reference memory-orchestrator; it deliberately
+This agent grew out of `memory-orchestrator`, a capability of the old single
+`spec-driven-development` plugin (long since removed; see `INTEROP.md`'s intro). It deliberately
 does **not** carry over the parts of that implementation that were
 SDD-workflow-specific:
 

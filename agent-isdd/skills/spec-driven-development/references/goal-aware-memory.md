@@ -24,9 +24,8 @@ same three triggers, scoped to this wider set of cached content, not a new or lo
    Intent-level divergence is a signal about the whole stretch of work, not brief-specific.
    **[Phase 1.2]** Clear persistent cache on Intent drift.
 
-None of the three triggers assumed brief-specific semantics that fail to hold for a
-`research-consolidator`/`spec-reviewer` finding — re-verified as part of extending this rule's
-scope, per design.md's mitigation for the correctness risk this generalization raises.
+None of the three triggers assumes brief-specific semantics, so each holds unchanged for a
+`research-consolidator`/`spec-reviewer` finding.
 
 When delegating into `workflow-manager` or `design-author`, pass along the
 already-fetched brief and any still-valid finding explicitly rather than letting any of them
@@ -40,11 +39,10 @@ subagent — it runs inline against the Intent already in session context (see
 
 ## Brief caching mechanics
 
-**[Phase 1.2] Brief caching:** On workflow resume (`before-continue`), check if a cached nelly
-brief exists in `workflow-state.json`'s `nelly_brief_cache` field:
-- If cached brief is valid (Intent Hash matches + timestamp < 24h old): reuse cached brief, no fetch
-- If cached brief is invalid (Intent Hash mismatch OR timestamp stale): fetch fresh brief, update cache
-- If no cached brief: fetch fresh brief, cache it
+**[Phase 1.2] Brief caching:** the `nelly_brief_cache` structure, its validity rule (Intent Hash
+match and timestamp under 24h) and when it is cleared are defined once, in `workflow-manager`'s
+Goal Field Contract ("Brief cache management"). On resume, reuse a valid cache; otherwise fetch a
+fresh brief and update it.
 
 When the next phase is **Design**, include `surface relevant memory: true` in the nelly call so
 the brief's `Relevant entries` section is populated. `design-author` passes those entries to

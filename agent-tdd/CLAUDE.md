@@ -5,6 +5,9 @@ Repo-specific notes for Claude Code sessions working on `agent-tdd`.
 
 ## CUPS — the release shorthand
 
+The user's global `~/.claude/CLAUDE.md` defines the current, authoritative "CUPS" sequence (it
+supersedes the older plugin-local steps below wherever they differ, e.g. cache handling).
+
 "CUPS" means, in order:
 
 1. **C**ommit — commit the pending changes with a clear, descriptive message.

@@ -69,12 +69,13 @@ matching `type`; entries of other types MUST NOT include them):
     (type: error-prevention only, all optional, all-or-nothing): structured
     match keys for an *orchestration-error workaround* entry — one written
     specifically to resolve an orchestration `known_issue` recovery
-    lookup (its original consumer, plugin-harness, has been removed). `error_type` uses
-    `OrchestrationError.VALID_ERROR_TYPES`' vocabulary (`handoff_validation`,
-    `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`, `interop_parse_failure`) —
-    NOT `ErrorHandler`'s internal classification vocabulary
-    (`contract_mismatch`, `known_issue`, etc.), since those are the terms a
-    workaround-lookup query is actually phrased in. A consumer resolving a
+    lookup. Its original consumer (plugin-harness) has been removed and no
+    plugin in this repo consumes these fields today; the schema is retained
+    for a future consumer and `agents/agent-nelly.md` carries no lookup
+    procedure for it. `error_type` used the vocabulary of that removed
+    consumer's `OrchestrationError.VALID_ERROR_TYPES` (`handoff_validation`,
+    `plugin_unavailable`, `routing_failed`, `nelly_fetch_failed`,
+    `interop_parse_failure`), which is not defined anywhere in this repo. A consumer resolving a
     pending `workaround_lookup` request matches on these three fields
     exactly (never fuzzy/substring, unlike the topical relevance matching
     every other entry type uses) against `error-prevention` entries with
@@ -154,8 +155,8 @@ Why it failed: <root cause>
 How to avoid: <concrete guidance for next time>
 
 For an orchestration-error workaround entry (carries `metadata.error_type` /
-`source_plugin` / `target_plugin`), add one more line the resolver applies
-verbatim as `ErrorHandler._handle_workaround`'s workaround dict:
+`source_plugin` / `target_plugin`), add one more line the (removed) resolver
+applied verbatim as its workaround dict:
 
 Workaround action: <short action string, e.g. "retry_with_research_cache_populated">
 

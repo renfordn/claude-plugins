@@ -19,9 +19,11 @@ Nelly, that's an implementation detail of the SDD plugin, not part of this contr
 
 ## What you get automatically, with zero setup
 
-`hooks/hooks.json` wires Agent Nelly's `SessionStart` and `PreToolUse` hooks **at the plugin
-level, on install** — not per-consumer. If Agent Nelly is installed in a Claude Code session,
-every session in every project automatically gets:
+`hooks/hooks.json` wires Agent Nelly's hooks (`SessionStart`, `SessionEnd`, `PreToolUse`,
+`PostToolUse`) **at the plugin level, on install** — not per-consumer. If Agent Nelly is
+installed in a Claude Code session, every session in every project automatically gets the
+following (the `SessionEnd`/`PostToolUse` hooks only maintain Agent Nelly's own index and
+`inferred` entries under its own memory root, and never call an agent):
 
 - A `SessionStart` announcement of that project's memory root, its captured `Intent` (or a
   "not yet captured" placeholder), and a condensed list of stored entries.
@@ -261,7 +263,8 @@ Agent Nelly requires no other plugin to function, and no other plugin requires A
 `/nelly-memory` and `agent-nelly` work standalone in any project, with or without SDD
 (or any other plugin) installed. Conversely, installing Agent Nelly never breaks a project that
 doesn't use it — its `SessionStart` hook has no effect beyond an informational context string,
-and its `PreToolUse` guardrails only ever apply to writes underneath its own memory root.
+its `PreToolUse` guardrails only ever apply to writes underneath its own memory root, and its
+`PostToolUse`/`SessionEnd` hooks only ever write underneath that same root.
 
 ## Structured lookups for a consumer that can't call agent-nelly at all
 
@@ -282,12 +285,14 @@ The resolution pattern for a hook-bound consumer:
 
 Agent Nelly's part of this is unchanged — it still only ever answers `agent-nelly` calls
 and writes/reads its own memory files; it has no awareness of any consumer's pending-request
-queue or resolution mechanism. The one piece specific to this pattern that Agent Nelly does own
-is matching semantics for a **workaround-shaped `error-prevention` entry**: one written to
+queue or resolution mechanism. The one piece specific to this pattern that Agent Nelly's schema
+carries is a **workaround-shaped `error-prevention` entry**: one written to
 resolve exactly this kind of structured lookup, as opposed to an ordinary topical
-`error-prevention` lesson. See `references/nelly-entry.template.md`'s `error_type` /
+`error-prevention` lesson. It is a reserved schema: its original consumer (plugin-harness) was
+removed, no plugin in this repo uses it today, and `agents/agent-nelly.md` has no procedure for
+the exact-match lookup below, so a future consumer would have to add one. See `references/nelly-entry.template.md`'s `error_type` /
 `source_plugin` / `target_plugin` metadata fields (error-prevention only, all-or-nothing,
-optional) — when a caller's lookup query supplies these three values, match `explicit`-confidence
+optional) — the intended contract: when a caller's lookup query supplies these three values, match `explicit`-confidence
 `error-prevention` entries **exactly** on all three (never the fuzzy/substring topical matching
 used for `Relevant entries`/`File relevance:`/error-pattern surfacing elsewhere), and read the
 matched entry's `Workaround action:` body line as the answer to hand back to the caller.

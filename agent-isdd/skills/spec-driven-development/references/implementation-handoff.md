@@ -70,7 +70,7 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results.
    - Clear `test_author_pending` from `workflow-state.json` (mirrors `clear_rollback_pending`'s
      existing pattern in `hooks/sdd_state.py`).
-   - This is the **one** scoped exception to step 7 below — resuming here, for this specific
+   - This is a scoped exception to step 8 below (the other is Model Escalation, handled by `hooks/subagent_report.py`; see `INTEROP.md`) — resuming here, for this specific
      reason, is expected. Nothing else about the one-directional handoff changes: this skill
      still never resumes `agent-TDD` for an ordinary per-slice Green→Refactor review pause, only
      for this single upfront test-author gate before per-slice implementation begins.
@@ -81,7 +81,7 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - If report indicates slicing blockers: pause with specific blocker
    - If report indicates implementation started: log handoff in `recap.md`, set
      `Workflow Status: Complete`
-8. Do not resume, monitor, or drive `agent-TDD` past step 6's single test-author pause —
+8. Do not resume, monitor, or drive `agent-TDD` past step 6's test-author pause (or a Model Escalation re-spawn) —
    anything after that (its own per-slice review pauses, or implementation) is outside this
    skill's scope, same as before this change.
 9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in

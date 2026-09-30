@@ -161,7 +161,7 @@ slice), `done` (refactor complete).
 ## One thing this mode actually gains: checkpoint/`/rewind` coverage
 
 Not every difference from a real spawn is a loss. Claude Code's checkpointing tracks file edits
-made by Claude's own editing tools during the current turn, but its own docs are explicit that
+made by Claude's own editing tools during the current turn, but its docs (as last read; re-check if this matters) say
 **subagent edits are not restored** unless the subagent is a foreground forked skill
 (`context: fork` with `background: false`, or a case the harness always foregrounds) — see
 [code.claude.com/docs/en/checkpointing](https://code.claude.com/docs/en/checkpointing)'s

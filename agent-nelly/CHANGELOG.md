@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.3] - 2026-09-30
+
+- **Docs**: doc-consistency sweep (about 24 fixes): hook samples and `NELLY_GATE` wording say no decision, never allow; INTEROP lists all four hook events; data-dir names corrected to `agent-nelly-inline`/`agent-nelly-synced`; unimplemented audit/rotation and stale fixture claims removed or hedged. No behavior change.
+- **Docs**: rewrote `PLUGIN_HOOKS_PATTERN.md` to describe only what ships (validator, allow/deny hooks, gates); removed the unbuilt audit-trail, history-rotation and all-plugin-adoption design and the fictional agent-isdd/agent-tdd examples. Hedged the illustrative claude-pa paths in `references/example-consumer-pa-jay.md`.
+
 ## [0.6.2] - 2026-09-30
 
 - **Fix**: with `NELLY_GATE=off`, `nelly_slug_guard`, `nelly_summary_guard` and `nelly_memory_permission` now

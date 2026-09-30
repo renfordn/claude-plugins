@@ -7,8 +7,8 @@ allowed-tools: Bash(python3 *), Read
 This project's **central** memory (Goal, architecture decisions, conventions, known issues,
 active work) has moved to the `agent-nelly` plugin. `/isdd-memory` no longer owns or reads that
 store directly — it only redirects, addressed via `agent-nelly:agent-nelly` the same way
-that subagent is called elsewhere in this plugin (see `commands/isdd.md`'s Availability Check
-reference).
+that subagent is called elsewhere in this plugin (see `skills/workflow-manager/SKILL.md`'s Availability
+Check).
 
 Requested action (default `view`): $ARGUMENTS
 

@@ -43,6 +43,17 @@ def test_tail_read_only_covers_last_16kb(tmp_path):
     assert last_assistant_text({"transcript_path": t}) == ""
 
 
+def test_final_line_over_16kb_still_parses_trailing_marker(tmp_path):
+    marker = '<!--CHECKPOINT:type=done name="x" need="y"-->'
+    t = _write(tmp_path / "t.jsonl", [_assistant("early"), _assistant("z" * 25000 + marker)])
+    assert last_assistant_text({"transcript_path": t}).endswith(marker)
+
+
+def test_final_line_beyond_bound_returns_empty(tmp_path):
+    t = _write(tmp_path / "t.jsonl", [_assistant("early"), _assistant("z" * (2 * 1024 * 1024))])
+    assert last_assistant_text({"transcript_path": t}) == ""
+
+
 def test_missing_transcript_returns_empty(tmp_path):
     assert last_assistant_text({"transcript_path": str(tmp_path / "nope.jsonl")}) == ""
     assert last_assistant_text({}) == ""

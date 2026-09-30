@@ -19,8 +19,8 @@ directly. An `Edit`/`MultiEdit` payload carries only `old_string`/
 those would mean reading the current file from inside a hook for a check
 this narrow, so those tool calls are left to `no_decision()` (matching this
 plugin's existing discipline of not growing a hook's own file-I/O surface
-beyond its one job -- see nelly-staleness.md's "does not add a new Bash
-invocation" note for the same discipline applied elsewhere). In practice
+beyond its one job -- see references/nelly-staleness.md's file-change-aware
+step 5, which likewise adds no new Bash invocation). In practice
 every `file-summary`/`folder-summary` entry is authored with `Write`
 (they're generated content, not hand-edited in place), so this covers the
 real write path.
