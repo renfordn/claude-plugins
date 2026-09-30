@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-30
+
+- **Fix**: with `NELLY_GATE=off`, `nelly_slug_guard`, `nelly_summary_guard` and `nelly_memory_permission` now
+  return no decision (silent no-op) instead of an explicit `allow`, matching `nelly_digest_guard` and
+  INTEROP.md. Before, the off switch auto-approved every Write/Edit those hooks matched.
+
 ## [0.6.1] - 2026-09-29
 
 - **Docs**: doc-consistency sweep fixes, with no behavior change. INTEROP.md no longer says hooks

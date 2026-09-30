@@ -26,7 +26,7 @@ every `file-summary`/`folder-summary` entry is authored with `Write`
 real write path.
 
 Set env NELLY_GATE=off (or 0/false/disabled, case-insensitive) to disable
-entirely.
+entirely; the hook then returns no decision (never "allow").
 """
 import json
 import os
@@ -76,7 +76,7 @@ def _under_memory_store(norm):
 
 def main():
     if os.environ.get("NELLY_GATE", "").lower() in ("off", "0", "false", "disabled"):
-        allow()
+        no_decision()  # disabled: step aside, never widen permissions with an "allow"
 
     try:
         payload = json.load(sys.stdin)

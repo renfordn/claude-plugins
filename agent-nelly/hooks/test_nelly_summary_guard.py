@@ -162,7 +162,7 @@ def test_ignores_edit_tool_calls(tmp_path):
     assert proc.stdout.strip() == ""
 
 
-def test_nelly_gate_off_short_circuits_to_allow(tmp_path):
+def test_nelly_gate_off_gives_no_decision_never_allow(tmp_path):
     import nelly_memory
     cwd = str(tmp_path / "project")
     target = os.path.join(nelly_memory.memory_dir(cwd), "entries", "note.md")
@@ -174,9 +174,7 @@ def test_nelly_gate_off_short_circuits_to_allow(tmp_path):
 
     proc = run_hook(payload, env={"NELLY_GATE": "off"})
 
-    assert proc.returncode == 0
-    out = json.loads(proc.stdout)
-    assert out["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert (proc.returncode, proc.stdout.strip()) == (0, "")
 
 
 @pytest.mark.parametrize("value", ["0", "false", "disabled", "OFF", "False"])
@@ -192,6 +190,4 @@ def test_nelly_gate_off_aliases_case_insensitive(tmp_path, value):
 
     proc = run_hook(payload, env={"NELLY_GATE": value})
 
-    assert proc.returncode == 0
-    out = json.loads(proc.stdout)
-    assert out["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert (proc.returncode, proc.stdout.strip()) == (0, "")

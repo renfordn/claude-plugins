@@ -534,7 +534,7 @@ Use this checklist when adding a new plugin to the ecosystem:
 
 | Plugin | Gate Name | Values | Behavior |
 |--------|-----------|--------|----------|
-| agent-nelly | `NELLY_GATE` | `off`, `0`, `false`, `disabled` (case-insensitive) | Short-circuit to allow (skip validation) |
+| agent-nelly | `NELLY_GATE` | `off`, `0`, `false`, `disabled` (case-insensitive) | Step aside: no decision (never `allow`) |
 | agent-isdd | `SDD_GATE` | `off`, `0`, `false`, `disabled` (case-insensitive) | Short-circuit to allow (skip validation) |
 | agent-tdd | `TDD_GATE` | `off`, `0`, `false`, `disabled` (case-insensitive) | Short-circuit to allow (skip validation) |
 
