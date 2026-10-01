@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-01
+
+- **Feature**: `test-budget` skill, with `skills/test-budget/scripts/test_audit.py`. Before planning a slice's tests it audits the target test file for bloat, stale tests, near-duplicate tests to consolidate, and candidates to promote to regression/e2e. `slice-spec` now points to it.
+
 ## [0.3.4] - 2026-09-30
 
 - **Docs**: doc-consistency sweep (12 fixes): README describes `/tdd` and the real CI matrix; the walkthrough uses the real Research Gap Flag field and `research/cache.md`; escalation docs now match how agent-isdd's hooks surface PLAN-FLAG and MODEL-ESCALATE markers; Ralph Loops limit stated as at most 3 re-slicing rounds.

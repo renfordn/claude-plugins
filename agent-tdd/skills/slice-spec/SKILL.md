@@ -48,6 +48,10 @@ Seven fields, two required:
    Never set `skip` as a shortcut to avoid review — that defeats the property the pause exists to
    protect.
 
+On a long-running project, also run the `test-budget` skill on the slice's target test file
+before spawning, so the Red test lands in a file that isn't already bloated and the slice isn't
+adding a unit test where a regression/e2e test belongs.
+
 ## Validating before spawning
 
 Check the assembled spec against

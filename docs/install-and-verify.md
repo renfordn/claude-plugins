@@ -74,15 +74,15 @@ fresh machine — that is correct).
 
 ### agent-tdd
 
-`agent-tdd` is a subagent (`agent-tdd:agent-TDD`) plus two skills (`design-spec-direct`,
-`slice-spec`), not a top-level slash command:
+`agent-tdd` is a subagent (`agent-tdd:agent-TDD`) plus three skills (`design-spec-direct`,
+`slice-spec`, `test-budget`), not a top-level slash command:
 
 ```bash
 claude plugin details agent-tdd@renfordn-plugins
 ```
 
 Expected: a component inventory listing the `agent-TDD` and `test-author` agents and the
-`design-spec-direct` / `slice-spec` skills.
+`design-spec-direct` / `slice-spec` / `test-budget` skills.
 
 ### agent-isdd
 

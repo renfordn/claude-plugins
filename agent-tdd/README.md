@@ -31,6 +31,7 @@ A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD imple
 - **`test-author`** — for `high-risk`-tier slices only, writes just the failing Red test from the
   Slice Spec.
 - **`slice-spec`** skill — assembles and validates a Slice Spec before spawning either agent.
+- **`test-budget`** skill — pre-flight on the target test file before planning new tests: flags bloat, stale tests, consolidation (parametrize) candidates, and unit tests better promoted to regression/e2e.
 - **`references/slice-spec.schema.json`** — machine-checkable JSON Schema for Slice Spec.
 
 ### Build Tools
@@ -69,7 +70,7 @@ claude plugin details agent-tdd@renfordn-plugins
 ```
 
 Expected: a component inventory listing the `agent-TDD` and `test-author` agents, the `/tdd` command, and the
-`design-spec-direct` / `slice-spec` skills. See
+`design-spec-direct` / `slice-spec` / `test-budget` skills. See
 [docs/install-and-verify.md](../docs/install-and-verify.md) in this repo for the full
 multi-plugin install/verify guide.
 
