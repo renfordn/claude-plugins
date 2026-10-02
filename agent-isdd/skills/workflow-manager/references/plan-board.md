@@ -120,9 +120,10 @@ Statuses `Paused`, `Blocked` and `Awaiting …` (the template's `Awaiting Confir
   prints the board deletes to apply.
 
 `slices.done` comes from `direct-mode-state.json`, which is not a watched file, so the count
-refreshes only on the next watched write or `/isdd-board-sync`. The `ArtifactData batch` and delete
-op shapes in `resync` and `prune` output are unverified against a live board; smoke-test them once
-before relying on them.
+refreshes only on the next watched write or `/isdd-board-sync`. The `resync` and `prune` batches
+pass straight to `ArtifactData batch` (`writes` entries with `doc_id`; `if_version` for records already
+on the board, taken from the `version` in the dump). Create, overwrite with `if_version` and delete
+were verified against a live board on 2026-10-02.
 
 The first sync after upgrading to schema 2 marks every feature stale once, because the hash changes.
 

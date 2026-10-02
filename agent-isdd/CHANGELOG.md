@@ -22,8 +22,11 @@
   driven by the new `/isdd-board-sync` command. SessionStart reminds you to verify when the last
   verify is over 24 hours old.
 - **Known limits**: slice `done` counts come from `direct-mode-state.json`, which is not watched, so
-  they refresh only on the next watched write or `/isdd-board-sync`. The batch and delete op shapes
-  are unverified against a live board.
+  they refresh only on the next watched write or `/isdd-board-sync`.
+- **Fix**: `resync` and `prune` emitted `ops`/`id` entries, which `ArtifactData batch` does not take,
+  and no `if_version`, which it requires for existing records. They now emit `writes` with `doc_id`
+  and `if_version` (from the `version` in the board dump). Verified on a live board: create,
+  overwrite with `if_version` and delete.
 - **Fix**: one fork-free `repo_label` (realpath of the nearest `.git` ancestor) is used everywhere,
   so record ids cannot differ between the hook, SessionStart and the CLI; `closedAt` is not derived
   from a file's mtime (it no longer changes the content hash); the hook's record temp file has a
