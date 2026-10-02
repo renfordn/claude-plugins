@@ -160,3 +160,42 @@ def test_two_projects_share_one_board_without_colliding(tmp_path):
     plan_board.mark_synced(a, doc_a)
     assert [s for s, _p, _d in plan_board.stale_features(a, "alpha-app")] == []
     assert [s for s, _p, _d in plan_board.stale_features(b, "beta-app")] == ["2026-09-01-same"]
+
+
+def _board_file(mem, *lines):
+    with open(os.path.join(mem, "PLAN-BOARD.md"), "w") as fh:
+        fh.write("# Plan Board\n\n" + "".join(l + "\n" for l in lines))
+
+
+def test_sync_enabled_defaults_on_and_off_switch_wins(tmp_path):
+    mem = _project(tmp_path, url=None)
+    assert plan_board.sync_enabled(mem) is False  # no PLAN-BOARD.md: the hard off
+    _board_file(mem, f"- URL: {URL}")
+    assert plan_board.sync_enabled(mem) is True
+    _board_file(mem, f"- URL: {URL}", "- Sync: off")
+    assert plan_board.sync_enabled(mem) is False
+    _board_file(mem, f"- URL: {URL}", "- Sync: ON")
+    assert plan_board.sync_enabled(mem) is True
+
+
+def test_sync_off_means_nothing_is_stale(tmp_path):
+    mem = _project(tmp_path)
+    _board_file(mem, f"- URL: {URL}", "- Sync: off")
+    assert _stale(mem) == []
+
+
+def test_brief_board_url_is_https_only_and_optional(tmp_path):
+    mem = _project(tmp_path)
+    assert plan_board.brief_board_url(mem) is None
+    _board_file(mem, f"- URL: {URL}", "- Brief Board: https://claude.ai/artifact/BRIEFS")
+    assert plan_board.brief_board_url(mem) == "https://claude.ai/artifact/BRIEFS"
+    _board_file(mem, f"- URL: {URL}", "- Brief Board: http://insecure")
+    assert plan_board.brief_board_url(mem) is None
+
+
+def test_doc_carries_brief_board_url_only_when_known(tmp_path):
+    mem = _project(tmp_path)
+    path = os.path.join(mem, "spec", "2026-09-01-alpha", "workflow-state.md")
+    assert "briefBoardUrl" not in plan_board.build_doc(path, project="proj")
+    _board_file(mem, f"- URL: {URL}", "- Brief Board: https://claude.ai/artifact/BRIEFS")
+    assert plan_board.build_doc(path, project="proj")["briefBoardUrl"] == "https://claude.ai/artifact/BRIEFS"

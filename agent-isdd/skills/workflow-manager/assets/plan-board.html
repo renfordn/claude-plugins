@@ -68,6 +68,10 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
 .k{font:500 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-right:6px}
 .meta{margin:0;font-size:12px;color:var(--muted)}
 .note{margin:0;color:var(--muted);max-width:60ch}
+.detail{background:var(--panel);border:1px solid var(--orange);border-radius:10px;padding:14px 16px;display:grid;gap:6px}
+.detail h3,.detail h4{margin:0}.detail h4{font-size:13px}
+.pick{font:500 12px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer;justify-self:start}
+.pick[aria-pressed="true"]{border-color:var(--orange);color:var(--doing)}
 @media (max-width:520px){.phases{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
@@ -150,16 +154,36 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     return c;
   }
 
-  function relDay(iso, nowMs) {
+  function daysSince(iso, nowMs) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
-    if (!m) return "";
-    var then = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-    var today = Math.floor(nowMs / 86400000) * 86400000;
-    var days = Math.round((today - then) / 86400000);
-    if (days < 0) return "";
-    if (days === 0) return "today";
-    if (days === 1) return "yesterday";
-    return days + " days ago";
+    if (!m) return null;
+    var days = Math.round((Math.floor(nowMs / 86400000) * 86400000 - Date.UTC(+m[1], +m[2] - 1, +m[3])) / 86400000);
+    return days < 0 ? null : days;
+  }
+
+  function relDay(iso, nowMs) {
+    var days = daysSince(iso, nowMs);
+    if (days === null) return "";
+    return days === 0 ? "today" : days === 1 ? "yesterday" : days + " days ago";
+  }
+
+  /* Open = not Complete. Complete features closed within 14 days, or among the 10 most recently
+     closed (whichever set is larger), are "recent"; the rest are the archive. */
+  function closedDay(d) { return String(d.closedAt || d.updatedAt || ""); }
+
+  function partition(docs, nowMs) {
+    var out = { open: [], recent: [], archive: [] };
+    var closed = [];
+    docs.forEach(function (d) { (statusGroup(d) === "complete" ? closed : out.open).push(d); });
+    closed.sort(function (a, b) {
+      var ca = closedDay(a), cb = closedDay(b);
+      return ca !== cb ? (ca < cb ? 1 : -1) : String(a.id).localeCompare(String(b.id));
+    });
+    closed.forEach(function (d, i) {
+      var age = daysSince(closedDay(d), nowMs);
+      (i < 10 || (age !== null && age <= 14) ? out.recent : out.archive).push(d);
+    });
+    return out;
   }
 
   function el(tag, cls, text) {
@@ -178,7 +202,53 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     });
   }
 
-  function renderCard(d, nowMs) {
+  function kv(root, label, text) {
+    if (!text) return;
+    var p = el("p", "line"); p.appendChild(el("span", "k", label)); p.appendChild(el("span", "", String(text)));
+    root.appendChild(p);
+  }
+
+  function bullets(root, label, items) {
+    if (!Array.isArray(items) || !items.length) return;
+    root.appendChild(el("h4", "k", label));
+    items.forEach(function (t) {
+      var text = t && typeof t === "object" ? (t.kind ? t.kind + ": " : "") + (t.text || "") : t;
+      if (text) root.appendChild(el("p", "line", "• " + String(text)));
+    });
+  }
+
+  /* The detail pane: status fields every record has, then whichever brief sections exist. */
+  function renderBrief(root, d) {
+    var b = d.brief && typeof d.brief === "object" ? d.brief : {};
+    var rq = b.requirements || {}, ds = b.design || {}, sl = b.slices && typeof b.slices === "object" ? b.slices : {};
+    root.appendChild(el("h3", "", String(d.title || "")));
+    kv(root, "Status", [d.status, d.phase].filter(Boolean).join(" · "));
+    kv(root, "Goal", b.goal || d.goal);
+    kv(root, "Paused", d.pauseReason);
+    kv(root, "Next", d.nextAction);
+    kv(root, "Requirements", rq.state);
+    bullets(root, "Open gaps", rq.openGaps);
+    kv(root, "Design", ds.state);
+    kv(root, "Summary", ds.summary);
+    bullets(root, "Risks", ds.risks);
+    bullets(root, "Open questions", ds.openQuestions);
+    if (typeof sl.total === "number") {
+      kv(root, "Slices", sl.total + " slices" + (typeof sl.done === "number" ? " · " + sl.done + " done" : ""));
+      bullets(root, "Slice list", (Array.isArray(sl.items) ? sl.items : []).map(function (i) {
+        return i && i.n + ". " + i.title + (i.tier ? " (" + i.tier + ")" : ""); }));
+    }
+    bullets(root, "Decisions", b.decisions);
+    bullets(root, "Open items", b.openItems);
+  }
+
+  function pick(d, text, opts) {
+    var b = el("button", "pick", text);
+    b.setAttribute("aria-pressed", d.id === opts.selectedId ? "true" : "false");
+    if (opts.onSelect) b.addEventListener("click", function () { opts.onSelect(d.id); });
+    return b;
+  }
+
+  function renderCard(d, nowMs, opts) {
     var card = el("article", "card");
     var head = el("header");
     head.appendChild(el("h3", "", d.title));
@@ -209,43 +279,56 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     var parts = ["Track: " + String(d.track || "Standard")];
     if (d.updatedAt) parts.push("updated " + (when ? when + " (" + d.updatedAt + ")" : String(d.updatedAt)));
     card.appendChild(el("p", "meta", parts.join(" · ")));
+    card.appendChild(pick(d, d.id === opts.selectedId ? "Hide brief" : "Show brief", opts));
     return card;
   }
 
-  /* opts: { project: name to show, hideComplete: true to drop finished features } */
+  /* opts: { project, view: "open" | "closed", selectedId, onSelect(id) } */
   function renderBoard(root, docs, opts, nowMs) {
     opts = opts || {};
-    var shown = cleanDocs(docs).filter(function (d) {
-      if (opts.project && String(d.project || "other") !== opts.project) return false;
-      if (opts.hideComplete && statusGroup(d) === "complete") return false;
-      return true;
-    });
+    var clean = cleanDocs(docs);
+    var shown = clean.filter(function (d) { return !opts.project || String(d.project || "other") === opts.project; });
+    var parts = partition(shown, nowMs), closed = opts.view === "closed";
+    var list = sortDocs(closed ? parts.recent : parts.open);
     root.replaceChildren();
-    if (!shown.length) {
-      root.appendChild(el("p", "note", cleanDocs(docs).length
-        ? "No features match this filter."
-        : "No features yet. They appear here when a spec-driven workflow changes phase."));
-      return;
+    var sel = shown.filter(function (d) { return d.id === opts.selectedId; })[0];
+    if (sel) { var pane = el("section", "detail"); renderBrief(pane, sel); root.appendChild(pane); }
+    if (!list.length && !(closed && parts.archive.length)) {
+      root.appendChild(el("p", "note", !clean.length ? "No features yet. They appear here when a spec-driven workflow changes phase."
+        : !shown.length ? "No features match this filter." : closed ? "No recently closed features." : "No open features."));
     }
-    groupByProject(sortDocs(shown)).forEach(function (g) {
+    groupByProject(list).forEach(function (g) {
       var section = el("section", "group");
       section.appendChild(el("h2", "", g.project));
       var cards = el("div", "cards");
-      g.docs.forEach(function (d) { cards.appendChild(renderCard(d, nowMs)); });
+      g.docs.forEach(function (d) { cards.appendChild(renderCard(d, nowMs, opts)); });
       section.appendChild(cards);
       root.appendChild(section);
     });
+    if (closed && parts.archive.length) {
+      var arch = el("section", "group");
+      arch.appendChild(el("h2", "", "Archive"));
+      parts.archive.forEach(function (d) { arch.appendChild(pick(d, d.title + " · closed " + (closedDay(d) || "?"), opts)); });
+      root.appendChild(arch);
+    }
+    var url = shown.map(function (d) { return String(d.briefBoardUrl || ""); })
+      .filter(function (u) { return u.indexOf("https://") === 0; })[0];
+    if (url) {
+      var note = el("p", "note"), link = el("a", "", "Ad-hoc briefs live on the Brief Board");
+      link.setAttribute("href", url); link.setAttribute("rel", "noopener");
+      note.appendChild(link); root.appendChild(note);
+    }
   }
 
   if (typeof module === "object" && module.exports) {
     module.exports = { cleanDocs: cleanDocs, sortDocs: sortDocs, groupByProject: groupByProject,
-      countByStatus: countByStatus, relDay: relDay, renderBoard: renderBoard };
+      countByStatus: countByStatus, relDay: relDay, partition: partition, renderBrief: renderBrief, renderBoard: renderBoard };
   }
 
   /* ---- page wiring (browser only) ---- */
   if (typeof window === "undefined" || typeof document === "undefined" || !document.getElementById) return;
 
-  var view = { docs: [], project: "", hideComplete: false };
+  var view = { docs: [], project: "", mode: "open", selected: "" };
   var elBoard = document.getElementById("board"), elState = document.getElementById("state");
   var elSummary = document.getElementById("summary"), elFilters = document.getElementById("filters");
 
@@ -277,16 +360,17 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
         elFilters.appendChild(chip(p, view.project === p, function () { view.project = view.project === p ? "" : p; draw(); }));
       });
     }
-    if (docs.some(function (d) { return statusGroup(d) === "complete"; })) {
-      elFilters.appendChild(chip("Hide complete", view.hideComplete, function () { view.hideComplete = !view.hideComplete; draw(); }));
-    }
+    var n = partition(docs, Date.now());
+    [["open", "Open (" + n.open.length + ")"], ["closed", "Recently closed (" + (n.recent.length + n.archive.length) + ")"]]
+      .forEach(function (m) { elFilters.appendChild(chip(m[1], view.mode === m[0], function () { view.mode = m[0]; draw(); })); });
   }
 
   function draw() {
     var docs = cleanDocs(view.docs);
     drawSummary(docs);
     drawFilters(docs);
-    renderBoard(elBoard, docs, { project: view.project, hideComplete: view.hideComplete }, Date.now());
+    renderBoard(elBoard, docs, { project: view.project, view: view.mode, selectedId: view.selected,
+      onSelect: function (id) { view.selected = view.selected === id ? "" : id; draw(); } }, Date.now());
     say("");
   }
 

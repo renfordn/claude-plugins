@@ -201,14 +201,54 @@ def test_unknown_states_fall_back_to_a_safe_class():
     assert "○ Design" in out["text"] and "ph-pending" in " ".join(out["classes"])
 
 
-def test_hiding_complete_and_filtering_by_project():
+def _board_text(docs, opts):
+    return _node(f"""const root = new Node("div");
+      pb.renderBoard(root, {json.dumps(docs)}, {json.dumps(opts)}, {NOW});
+      console.log(JSON.stringify({{ text: allText(root), nodes: allNodes(root).map(n => [n.tag, n.className, n.attrs]) }}));""")
+
+
+def test_open_view_hides_closed_features_and_filters_by_project():
+    # Replaces the old "Hide complete" toggle: the Open view never lists closed features.
     docs = [_doc(id="1", title="Open one", project="a", status="In Progress"),
             _doc(id="2", title="Done one", project="a", status="Complete"),
             _doc(id="3", title="Other project", project="b", status="In Progress")]
-    out = _node(f"""const root = new Node("div");
-      pb.renderBoard(root, {json.dumps(docs)}, {{hideComplete: true, project: "a"}}, Date.UTC(2026, 8, 30, 12));
-      console.log(JSON.stringify(allText(root)));""")
+    out = _board_text(docs, {"project": "a", "view": "open"})["text"]
     assert "Open one" in out and "Done one" not in out and "Other project" not in out
+    assert "Open one" in _board_text(docs, {"project": "a"})["text"]  # open is the default view
+
+
+def test_closed_view_lists_recent_closed_only_and_a_separate_archive():
+    docs = [_doc(id="o", title="Open one")] + [_closed(i, "2026-10-01") for i in range(10)] + [_closed(99, "2026-01-01")]
+    out = _board_text(docs, {"view": "closed"})["text"]
+    assert "Open one" not in out and "c0" in out
+    assert "Archive" in out and "c99" in out
+    assert "Archive" not in _board_text(docs, {"view": "open"})["text"]
+
+
+def test_selected_feature_fills_the_detail_pane_even_from_the_archive():
+    docs = [_doc(id="o", title="Open one", schema=2, brief=BRIEF)] + [_closed(i, "2026-10-01") for i in range(10)] \
+        + [_closed(99, "2026-01-01", schema=2, brief={"goal": "Old goal", "decisions": ["Old decision"]})]
+    assert "Merge into Plan Board" in _board_text(docs, {"selectedId": "o"})["text"]
+    out = _board_text(docs, {"view": "closed", "selectedId": "c99"})
+    assert "Old decision" in out["text"]
+    assert any(n[1] == "detail" for n in out["nodes"])
+    assert not any(n[1] == "detail" for n in _board_text(docs, {})["nodes"])
+
+
+def test_brief_board_link_only_for_https_urls():
+    docs = [_doc(id="1", title="One", briefBoardUrl="https://claude.ai/artifact/BRIEFS")]
+    nodes = _board_text(docs, {})["nodes"]
+    assert [n[2].get("href") for n in nodes if n[0] == "a"] == ["https://claude.ai/artifact/BRIEFS"]
+    for bad in ("javascript:alert(1)", "http://x", ""):
+        assert not [n for n in _board_text([_doc(id="1", title="One", briefBoardUrl=bad)], {})["nodes"] if n[0] == "a"]
+    assert not [n for n in _board_text([_doc(id="1", title="One")], {})["nodes"] if n[0] == "a"]
+
+
+def test_empty_views_have_a_message():
+    docs = [_doc(id="1", title="Open one")]
+    assert "closed" in _board_text(docs, {"view": "closed"})["text"].lower()
+    assert "No features yet" in _board_text([], {})["text"]
+    assert "No features match" in _board_text(docs, {"project": "nope"})["text"]
 
 
 def test_the_templates_pause_statuses_are_paused_in_ranking_counts_and_chips():
@@ -232,3 +272,107 @@ def test_a_blocked_or_awaiting_feature_shows_its_reason_and_the_right_chip():
     assert "Needs your sign-off" in out["text"] and "Waiting on a fix" in out["text"]
     joined = " ".join(out["classes"])
     assert "st-paused" in joined and "st-blocked" in joined
+
+
+# ---------------------------------------------------------------- partition (Slice 19)
+
+NOW = "Date.UTC(2026, 9, 2, 12)"  # 2026-10-02
+
+
+def _closed(i, day, **kw):
+    return _doc(id=f"c{i}", title=f"c{i}", status="Complete", closedAt=day, updatedAt=day, **kw)
+
+
+def _ids(parts):
+    return {k: [d["id"] for d in v] for k, v in parts.items()}
+
+
+def test_partition_splits_open_recent_and_archive_by_the_14_day_window():
+    docs = [_doc(id="o1", title="o1"), _doc(id="o2", title="o2", status="Paused"),
+            _closed(1, "2026-10-01")] + [_closed(i, "2026-10-01") for i in range(10, 19)] \
+        + [_closed(2, "2026-09-18"), _closed(3, "2026-09-17")]  # 11th and 12th: only the window can save them
+    out = _node(f"console.log(JSON.stringify(pb.partition({json.dumps(docs)}, {NOW})));")
+    ids = {k: [d["id"] for d in v] for k, v in out.items()}
+    assert ids["open"] == ["o1", "o2"]
+    assert "c2" in ids["recent"] and len(ids["recent"]) == 11  # 14 days old is still inside
+    assert ids["archive"] == ["c3"]  # 15 days old, outside the top ten
+
+
+def test_partition_keeps_the_ten_most_recent_even_when_older_than_the_window():
+    docs = [_closed(i, f"2026-0{1 + i // 10}-{10 + i % 10:02d}") for i in range(12)]
+    out = _node(f"console.log(JSON.stringify(pb.partition({json.dumps(docs)}, {NOW})));")
+    assert len(out["recent"]) == 10 and len(out["archive"]) == 2 and out["open"] == []
+    newest = max(d["closedAt"] for d in out["archive"])
+    assert all(d["closedAt"] >= newest for d in out["recent"])
+
+
+def test_partition_union_when_more_than_ten_are_inside_the_window():
+    docs = [_closed(i, f"2026-09-{20 + i % 10:02d}") for i in range(12)]
+    out = _node(f"console.log(JSON.stringify(pb.partition({json.dumps(docs)}, {NOW})));")
+    assert len(out["recent"]) == 12 and out["archive"] == []
+
+
+def test_partition_schema_1_complete_docs_fall_back_to_updated_at():
+    old = _doc(id="s1", title="s1", status="Complete", updatedAt="2026-01-01")
+    new = _doc(id="s2", title="s2", status="Complete", updatedAt="2026-10-01")
+    out = _node(f"console.log(JSON.stringify(pb.partition([{json.dumps(old)}], {NOW})));")
+    assert [d["id"] for d in out["recent"]] == ["s1"]  # inside the top 10
+    many = [_closed(i, "2026-02-01") for i in range(10)] + [old, new]
+    out = _node(f"console.log(JSON.stringify(pb.partition({json.dumps(many)}, {NOW})));")
+    assert "s2" in [d["id"] for d in out["recent"]] and "s1" in [d["id"] for d in out["archive"]]
+
+
+def test_partition_orders_are_deterministic_newest_first_then_id():
+    docs = [_closed(2, "2026-10-01"), _closed(1, "2026-10-01"), _closed(3, "2026-10-02")]
+    out = _node(f"console.log(JSON.stringify(pb.partition({json.dumps(docs)}, {NOW})));")
+    assert [d["id"] for d in out["recent"]] == ["c3", "c1", "c2"]
+
+
+# ---------------------------------------------------------------- renderBrief (Slice 20)
+
+BRIEF = {"goal": "Ship the brief", "requirements": {"state": "Approved", "openGaps": ["Window size"]},
+         "design": {"state": "Approved", "summary": "Schema 2 adds a brief", "risks": [{"text": "Hook is reminder only"}],
+                    "openQuestions": ["Doc size limit?"]},
+         "slices": {"total": 24, "done": None, "items": [{"n": 1, "title": "Helper", "tier": "standard"}]},
+         "decisions": ["Merge into Plan Board"], "openItems": [{"kind": "Risks", "text": "Partial slice progress"}]}
+
+
+def _brief_text(doc):
+    return _node(f"""const root = new Node("div");
+      pb.renderBrief(root, {json.dumps(doc)});
+      console.log(JSON.stringify({{ text: allText(root), tags: allNodes(root).map(n => n.tag) }}));""")
+
+
+def test_render_brief_shows_every_section():
+    out = _brief_text(_doc(schema=2, brief=BRIEF, nextAction="Slice 3"))
+    for needle in ("Ship the brief", "Approved", "Window size", "Schema 2 adds a brief", "Hook is reminder only",
+                   "Doc size limit?", "24 slices", "Helper", "standard", "Merge into Plan Board",
+                   "Partial slice progress", "Slice 3"):
+        assert needle in out["text"], needle
+    assert "done" not in out["text"].replace("Approved", "")  # done count unknown: not shown
+
+
+def test_render_brief_shows_done_count_only_when_known():
+    brief = dict(BRIEF, slices={"total": 4, "done": 2, "items": []})
+    assert "2 done" in _brief_text(_doc(schema=2, brief=brief))["text"]
+
+
+def test_render_brief_schema_1_doc_shows_status_fields_only():
+    out = _brief_text(_doc(nextAction="Do the thing", status="Paused", pauseReason="Waiting"))
+    for needle in ("Feature", "Paused", "Design", "Do the thing", "Waiting"):
+        assert needle in out["text"], needle
+    assert "undefined" not in out["text"]
+
+
+def test_render_brief_partial_brief_does_not_crash():
+    out = _brief_text(_doc(schema=2, brief={"goal": "g", "design": {"state": "Draft"}, "slices": "junk", "openItems": [None]}))
+    assert "Draft" in out["text"] and "undefined" not in out["text"]
+
+
+def test_render_brief_hostile_text_stays_text():
+    payload = '<img src=x onerror="alert(1)">'
+    brief = {"goal": "G" + payload, "decisions": ["D" + payload], "design": {"state": "S", "risks": [{"text": "R" + payload}]}}
+    out = _brief_text(_doc(schema=2, brief=brief))
+    assert "img" not in out["tags"]
+    for v in ("G" + payload, "D" + payload, "R" + payload):
+        assert v in out["text"]

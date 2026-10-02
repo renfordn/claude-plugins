@@ -110,3 +110,38 @@ def test_changelog_and_interop_do_not_restate_or_overclaim():
     interop = _read(os.path.join(ROOT, "INTEROP.md"))
     section = interop.split("## → Plan Board (Artifact page)")[1].split("\n## ")[0]
     assert "implementationRequested" not in section  # the field list lives in the reference only
+
+
+def test_the_reference_documents_the_brief_toggle_and_drift_commands():
+    ref = _read(REF)
+    for needle in ("schema 2", "`brief`", "`closedAt`", "`contentHash`", "`briefBoardUrl`", "- Sync: off",
+                   "- Brief Board:", "requirements/requirements.md", "design/design.md", "recap/recap.md",
+                   "tasks/tasks.md", "Recently closed", "Archive", "14 days", "plan_board_sync.py",
+                   "verify", "resync", "prune", "/isdd-board-sync", "direct-mode-state.json"):
+        assert needle in ref, needle
+    assert len(ref.splitlines()) <= 400
+
+
+def test_the_sync_step_names_the_post_write_reminder_and_the_repair_command():
+    step = _step()
+    assert "post-write" in step and "/isdd-board-sync" in step
+    assert len(_read(SKILL).splitlines()) <= 400
+
+
+def test_readme_and_interop_describe_the_reworked_board():
+    readme = _read(os.path.join(ROOT, "README.md"))
+    assert "/isdd-board-sync" in readme
+    assert "brief" in readme.lower() and "Recently closed" in readme and "Sync: off" in readme
+    interop = _read(os.path.join(ROOT, "INTEROP.md"))
+    section = interop.split("## → Plan Board (Artifact page)")[1].split("\n## ")[0]
+    for needle in ("brief", "post-write", "plan_brief.py", "plan_board_sync.py", "/isdd-board-sync"):
+        assert needle in section, needle
+    assert "implementationRequested" not in section
+
+
+def test_docs_state_the_slice_done_lag_and_unverified_batch_shapes():
+    ref = _read(REF)
+    changelog = _read(os.path.join(ROOT, "CHANGELOG.md")).split("## [0.4.2]")[0]
+    for text in (ref, changelog):
+        assert "next watched write" in text and "/isdd-board-sync" in text
+        assert "unverified against a live board" in text

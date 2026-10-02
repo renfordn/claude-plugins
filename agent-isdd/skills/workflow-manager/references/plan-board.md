@@ -1,17 +1,31 @@
 # Plan Board
 
-A living Artifact page that shows every spec-driven feature's phase, status and next step. One
-page can cover several projects. The workflow keeps it current; nobody edits it by hand.
+A living Artifact page that shows every spec-driven feature's phase, status, next step and a brief
+(goal, requirements and design state, risks, slice progress, decisions, open items). One page can
+cover several projects. The workflow keeps it current; nobody edits it by hand.
 
 ## How it works
 
 - **The page** is `skills/workflow-manager/assets/plan-board.html`. It reads the collection `plans` from its own database
   (up to 200 records) and updates live. It only ever shows record text as text, never markup.
-- **One record per feature**, built by `hooks/plan_board.py doc` from `workflow-state.md`. Never
-  hand-write one.
+- **One record per feature** (schema 2), built by `hooks/plan_board.py doc` from `workflow-state.md`
+  and its sibling state files. A script derives the brief; the model never writes it. Never
+  hand-write a record.
+- **It refreshes on every state-file write.** The post-write hook watches `workflow-state.md`,
+  `requirements/requirements.md`, `design/design.md`, `tasks/tasks.md` and `recap/recap.md`. It
+  rebuilds the record and, when its `contentHash` differs from the last synced one, adds a reminder
+  with the `ArtifactData` steps below to its message. Hooks cannot call MCP tools, so the model
+  makes the one write; `SessionStart` still catches any miss.
+- **The page** has an Open / Recently closed toggle and a detail pane showing the selected
+  feature's brief. Recently closed holds Complete features closed within 14 days or among the 10
+  most recently closed (the larger set); older ones are listed under Archive. Schema-1 records still
+  render with the status fields they have.
 - **A project opts in** by recording the page URL in `PLAN-BOARD.md`, next to `spec/` in its SDD
   memory directory: `- URL: https://claude.ai/artifact/...`. The URL must start with `https://`;
   anything else counts as unset. Without that file nothing here runs.
+- **Per-project switch:** `- Sync: off` in `PLAN-BOARD.md` stops reminders and writes for that
+  project only (default on). An optional `- Brief Board: https://...` line adds a link to the
+  focus-ux Brief Board for ad-hoc briefs; without it no link shows.
 - **`plan-board-sync.json`** in the same directory remembers which records were written. A feature
   whose current record differs from what was written is "out of date". `SessionStart` lists those
   features with the exact commands, so a missed update is noticed at the next session start.
@@ -84,11 +98,35 @@ workflow. The feature stays out of date and `SessionStart` will list it again.
 | `pauseReason`, `nextAction` | Cut to 240 and 300 characters; empty when the file says `None` |
 | `implementationRequested` | `true`, `false` or `null` when unknown |
 | `updatedAt` | The date in `## Last Updated`, else the file's modified date |
+| `closedAt` | The `Last Updated` date when the feature is Complete, else empty |
+| `brief` | Built by `hooks/plan_brief.py`: `goal`, `requirements {state, openGaps}`, `design {state, summary, risks, openQuestions}`, `slices {total, done, items}`, `decisions`, `openItems`. At most 8 items per list, 160 characters per item, about 6 KB in all; clipped with an ellipsis, never dropped. A missing file just omits its section. `slices.done` is known only when `direct-mode-state.json` sits beside `workflow-state.json`, else null |
+| `contentHash` | Hash of the record's own content (not `updatedAt`); what drift checks compare |
+| `briefBoardUrl` | The `- Brief Board:` URL, when set |
 
 Statuses `Paused`, `Blocked` and `Awaiting …` (the template's `Awaiting Confirmation` and
 `Awaiting Implementation Request`) show the current phase as paused, with its `pauseReason`.
 
+## Drift repair
+
+`/isdd-board-sync` runs `plan_board_sync.py` (same folder as `plan_board.py`):
+
+- `verify --board-json <file>` compares the board's `plans` records (an `ArtifactData list` saved to
+  a file) with local state and prints missing, mismatched and orphaned ids. It stamps
+  `lastVerified`; `SessionStart` reminds you to verify when that is over 24 hours old.
+- `resync [--board-json <file>]` prints one `ArtifactData batch` of `set` writes for every stale or
+  missing record. `mark <id>...` then records only the ids that succeeded; failed ones stay stale.
+- `prune [--board-json <file>]` lists orphans (board records or sync entries with no feature) and
+  deletes nothing. Only after the user confirms, `prune --confirm` removes the sync entries and
+  prints the board deletes to apply.
+
+`slices.done` comes from `direct-mode-state.json`, which is not a watched file, so the count
+refreshes only on the next watched write or `/isdd-board-sync`. The `ArtifactData batch` and delete
+op shapes in `resync` and `prune` output are unverified against a live board; smoke-test them once
+before relying on them.
+
+The first sync after upgrading to schema 2 marks every feature stale once, because the hash changes.
+
 ## Turning it off
 
-Delete `PLAN-BOARD.md`. The sync step and the `SessionStart` nudge both go quiet. Records already on
+Set `- Sync: off` in `PLAN-BOARD.md` to pause one project, or delete the file. The sync step and the `SessionStart` nudge both go quiet. Records already on
 the page stay until deleted with `ArtifactData`.

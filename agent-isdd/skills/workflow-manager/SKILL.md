@@ -192,8 +192,10 @@ in collection `plans` to see whether the record exists, then `ArtifactData set` 
 the temp file and, when the record already exists, `if_version` = the `version` the `get` returned
 (a `set` on an existing record is refused without it). Then run the same command with `doc`
 replaced by `mark-synced` and no `--out`. A failed sync is noted in one line in `recap.md` and
-never blocks the workflow; `SessionStart` lists any feature still out of date. Setup, the record
-fields and how to turn it off are in `references/plan-board.md`.
+never blocks the workflow; `SessionStart` lists any feature still out of date. The post-write hook
+also emits this reminder after any write to the feature's state files (workflow-state, requirements,
+design, tasks, recap) when the record changed; follow it the same way. `/isdd-board-sync` repairs
+drift in bulk. Setup, the record fields and how to turn it off are in `references/plan-board.md`.
 
 | Hook | Evaluates / does | Notes |
 |---|---|---|

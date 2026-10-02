@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-02
+
+- **Feature**: Plan Board records are schema 2: each carries a script-built `brief` (goal,
+  requirements and design state, risks, open questions, slice progress, decisions, open items) from
+  the feature's requirements, design, tasks and recap files (`hooks/plan_brief.py`, capped at 8
+  items per list, 160 characters per item), plus `closedAt`, `contentHash` and `briefBoardUrl`.
+  Schema-1 records still render. The first sync after upgrading marks every feature stale once.
+- **Feature**: the post-write hook now watches all five state files, rebuilds the record on every
+  write and, when its hash differs from the synced one, merges one Plan Board reminder into its
+  single message. Writes to other paths exit before any file read.
+- **Feature**: the page toggles Open / Recently closed (Complete within 14 days or among the 10 most
+  recent), lists older closed features under Archive, shows the selected feature's brief in a detail
+  pane and links the Brief Board when `- Brief Board:` is set. Replaces "Hide complete".
+- **Feature**: per-project switch `- Sync: off` in `PLAN-BOARD.md`; SessionStart and the hook go
+  quiet for that project.
+- **Feature**: drift hardening. `hooks/plan_board_sync.py` adds `verify`, `resync` (one batched
+  board write, only successes marked synced), `prune` (only after user confirmation) and `mark`,
+  driven by the new `/isdd-board-sync` command. SessionStart reminds you to verify when the last
+  verify is over 24 hours old.
+- **Known limits**: slice `done` counts come from `direct-mode-state.json`, which is not watched, so
+  they refresh only on the next watched write or `/isdd-board-sync`. The batch and delete op shapes
+  are unverified against a live board.
+- **Fix**: one fork-free `repo_label` (realpath of the nearest `.git` ancestor) is used everywhere,
+  so record ids cannot differ between the hook, SessionStart and the CLI; `closedAt` is not derived
+  from a file's mtime (it no longer changes the content hash); the hook's record temp file has a
+  fixed per-record name instead of a new file on every write.
+
 ## [0.4.2] - 2026-10-02
 
 - **Docs**: all 5 agent descriptions now open with "Use this agent when…" and carry one short `<example>`, and the plan-reviewer tier agents lost a decorative `# Title` heading so the body opens with the role statement. Descriptions are `>-` block scalars. No behavior change.
