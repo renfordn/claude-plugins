@@ -62,7 +62,9 @@ def test_a_synced_board_is_not_mentioned(tmp_path):
         cwd = str(tmp_path)
         mem, states = _setup(home, cwd)
         plan_board.mark_synced(mem, plan_board.build_doc(states[0], project=os.path.basename(cwd)))
-        assert "Plan Board" not in _ctx(home, cwd)
+        # Deliberate change (verify cadence): a synced board is not "out of date"; it may still
+        # carry the separate verify reminder.
+        assert "out of date" not in _ctx(home, cwd)
 
 
 def test_only_three_features_are_listed_and_the_rest_are_counted(tmp_path):
@@ -99,3 +101,63 @@ def test_the_nudge_says_never_to_block_on_it(tmp_path):
         cwd = str(tmp_path)
         _setup(home, cwd)
         assert "never block" in _ctx(home, cwd).lower()
+
+
+def test_sync_off_means_no_nudge_for_that_project(tmp_path):
+    with h.temp_home() as home:
+        cwd = str(tmp_path)
+        mem, _states = _setup(home, cwd)
+        assert "Plan Board is out of date" in _ctx(home, cwd)
+        with open(os.path.join(mem, "PLAN-BOARD.md"), "a") as fh:
+            fh.write("- Sync: off\n")
+        assert "Plan Board" not in _ctx(home, cwd)
+
+
+def _verified(mem, hours_ago):
+    import datetime
+    import plan_board_sync
+    plan_board_sync.stamp_verified(
+        mem, datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours_ago))
+
+
+def _synced_setup(home, cwd):
+    mem, states = _setup(home, cwd)
+    plan_board.mark_synced(mem, plan_board.build_doc(states[0], project=os.path.basename(cwd)))
+    return mem
+
+
+def test_verify_reminder_when_never_verified(tmp_path):
+    with h.temp_home() as home:
+        cwd = str(tmp_path)
+        _synced_setup(home, cwd)
+        ctx = _ctx(home, cwd)
+        assert "verify" in ctx and "/isdd-board-sync" in ctx and "plan_board_sync.py" in ctx
+
+
+def test_verify_reminder_when_last_verify_is_over_24h_old(tmp_path):
+    with h.temp_home() as home:
+        cwd = str(tmp_path)
+        _verified(_synced_setup(home, cwd), 25)
+        assert "/isdd-board-sync" in _ctx(home, cwd)
+
+
+def test_no_verify_reminder_when_verified_recently_or_sync_off(tmp_path):
+    with h.temp_home() as home:
+        cwd = str(tmp_path)
+        mem = _synced_setup(home, cwd)
+        _verified(mem, 1)
+        assert "/isdd-board-sync" not in _ctx(home, cwd)
+        _verified(mem, 48)
+        with open(os.path.join(mem, "PLAN-BOARD.md"), "a") as fh:
+            fh.write("- Sync: off\n")
+        assert "isdd-board-sync" not in _ctx(home, cwd)
+
+
+def test_stale_check_runs_every_start_and_points_to_resync(tmp_path):
+    with h.temp_home() as home:
+        cwd = str(tmp_path)
+        mem, _ = _setup(home, cwd, slugs=tuple(f"2026-09-0{i}-f{i}" for i in range(1, 6)))
+        _verified(mem, 1)  # a recent verify does not silence the local stale check
+        ctx = _ctx(home, cwd)
+        assert "out of date for 5 features" in ctx and "2 more" in ctx
+        assert "/isdd-board-sync" in ctx

@@ -16,6 +16,7 @@ from sdd_memory import (  # noqa: E402
 )
 import followups  # noqa: E402
 import plan_board  # noqa: E402
+import plan_board_sync  # noqa: E402
 
 
 def _followups_cmd():
@@ -47,10 +48,11 @@ def _plan_board_lines(cwd):
         project = plan_board.repo_label(cwd)
         stale = plan_board.stale_features(memory_dir(cwd), project)
         url = plan_board.board_url(memory_dir(cwd))
+        verify = _verify_lines(memory_dir(cwd), project)
     except Exception:
         return []  # best-effort: SessionStart must never fail over this
     if not stale:
-        return []
+        return verify
     cmd = _script_cmd("plan_board.py")
     n = len(stale)
     lines = ["", f"Plan Board is out of date for {n} feature{'' if n == 1 else 's'} ({url}). For each: "
@@ -63,8 +65,23 @@ def _plan_board_lines(cwd):
     for slug, path, _doc in stale[:3]:
         lines.append(f"- {slug} ({path})")
     if n > 3:
-        lines.append(f"- …and {n - 3} more (`{cmd} stale`)")
-    return lines
+        lines.append(f"- …and {n - 3} more (`{cmd} stale`; `/isdd-board-sync` resyncs them all in one batch)")
+    return lines + verify
+
+
+def _verify_lines(mem, project):
+    """Remind to verify the board against local state when the last verify is over 24h old."""
+    if not (plan_board.board_url(mem) and plan_board.sync_enabled(mem)):
+        return []
+    when = plan_board_sync.last_verified(mem)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if when and now - when <= datetime.timedelta(hours=24):
+        return []
+    since = "never verified" if when is None else f"last verified {int((now - when).total_seconds() // 3600)}h ago"
+    cmd = _script_cmd("plan_board_sync.py")
+    return ["", f"Plan Board verify is due ({since}). Run `/isdd-board-sync`, or: `ArtifactData list` collection "
+            f"`plans` into a JSON file, then `{cmd} verify --board-json <file> --project {shlex.quote(project)}` "
+            f"(it reports missing, mismatched and orphaned records). Never block on this."]
 
 
 def _followup_lines(cwd):

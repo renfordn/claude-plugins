@@ -76,7 +76,7 @@ def test_parse_fields_first_occurrence_wins():
 
 def test_doc_carries_the_feature_summary(tmp_path):
     doc = plan_board.build_doc(_write(tmp_path, STATE), project="file-organiser")
-    assert doc["schema"] == 1
+    assert doc["schema"] == 2
     assert doc["title"] == "Admin/Review Nav Redesign"
     assert doc["slug"] == "2026-09-28-admin-nav-queue-redesign"
     assert doc["project"] == "file-organiser"
@@ -166,8 +166,44 @@ def test_unreadable_file_returns_none(tmp_path):
 def test_doc_is_small_enough_to_write_by_hand_if_needed(tmp_path):
     long = "word " * 500
     text = _swap(STATE, goal=long, next_action=long, pause_reason=long)
-    doc = plan_board.build_doc(_write(tmp_path, text), project="p")
-    assert len(json.dumps(doc)) < 4096
+    path = _write(tmp_path, text)
+    (tmp_path / "recap").mkdir()
+    (tmp_path / "recap" / "recap.md").write_text(
+        "## Decisions Made\n" + "".join(f"- d{i} {long}\n" for i in range(40))
+        + "## Open Items\n" + "".join(f"- [ ] o{i} {long}\n" for i in range(40)))
+    doc = plan_board.build_doc(path, project="p")
+    # Per-section caps (GOAL_MAX etc. plus the brief's own caps) and an 8 KB whole-record ceiling.
+    assert len(doc["goal"]) <= plan_board.GOAL_MAX
+    assert len(doc["nextAction"]) <= plan_board.NEXT_MAX
+    assert len(doc["pauseReason"]) <= plan_board.PAUSE_MAX
+    assert len(json.dumps(doc["brief"])) <= 6144
+    assert len(json.dumps(doc)) <= 8192
+
+
+def test_doc_carries_a_brief_built_from_sibling_state_files(tmp_path):
+    path = _write(tmp_path, STATE)
+    (tmp_path / "recap").mkdir()
+    (tmp_path / "recap" / "recap.md").write_text("## Decisions Made\n- Use headings.\n")
+    doc = plan_board.build_doc(path, project="p")
+    assert doc["brief"]["decisions"] == ["Use headings."]
+    assert doc["brief"]["goal"].startswith("Get every video")
+
+
+def test_brief_change_changes_the_content_hash_but_updated_at_does_not(tmp_path):
+    path = _write(tmp_path, STATE)
+    before = plan_board.build_doc(path, project="p")
+    (tmp_path / "recap").mkdir()
+    (tmp_path / "recap" / "recap.md").write_text("## Decisions Made\n- New decision.\n")
+    after = plan_board.build_doc(path, project="p")
+    assert plan_board.content_hash(before) != plan_board.content_hash(after)
+    assert plan_board.content_hash(before) == plan_board.content_hash(dict(before, updatedAt="2030-01-01"))
+
+
+def test_closed_at_is_the_last_updated_date_only_when_complete(tmp_path):
+    open_doc = plan_board.build_doc(_write(tmp_path, STATE), project="p")
+    assert open_doc["closedAt"] == ""
+    done = plan_board.build_doc(_write(tmp_path, _swap(STATE, workflow_status="Complete")), project="p")
+    assert done["closedAt"] == "2026-09-29"
 
 
 def test_cli_doc_prints_the_record_as_json(tmp_path):
@@ -211,3 +247,52 @@ def test_the_templates_own_pause_statuses_show_the_phase_as_paused(tmp_path):
         text = _swap(STATE, current_phase="Design", workflow_status=status)
         doc = plan_board.build_doc(_write(tmp_path, text), project="p")
         assert [p["state"] for p in doc["phases"]] == ["done", "paused", "pending", "pending"], status
+
+
+def test_record_carries_its_own_content_hash(tmp_path):
+    path = _write(tmp_path, STATE)
+    doc = plan_board.build_doc(path, project="p")
+    assert doc["contentHash"] == plan_board.content_hash(doc)
+    assert plan_board.build_doc(path, project="p")["contentHash"] == doc["contentHash"]
+    # The field itself is excluded from the hash input (no self-reference).
+    assert plan_board.content_hash(dict(doc, contentHash="zzz")) == doc["contentHash"]
+
+
+def test_content_hash_field_changes_when_the_brief_changes(tmp_path):
+    path = _write(tmp_path, STATE)
+    before = plan_board.build_doc(path, project="p")
+    (tmp_path / "recap").mkdir()
+    (tmp_path / "recap" / "recap.md").write_text("## Decisions Made\n- Another.\n")
+    assert plan_board.build_doc(path, project="p")["contentHash"] != before["contentHash"]
+
+
+def test_mark_synced_stores_the_record_content_hash(tmp_path):
+    import json as _json
+    doc = plan_board.build_doc(_write(tmp_path, STATE), project="p")
+    plan_board.mark_synced(str(tmp_path), doc)
+    assert _json.loads((tmp_path / "plan-board-sync.json").read_text())[doc["id"]] == doc["contentHash"]
+
+
+def test_repo_label_is_the_realpath_of_the_nearest_git_ancestor_without_forking(tmp_path, monkeypatch):
+    repo = tmp_path / "realrepo"
+    (repo / ".git").mkdir(parents=True)
+    (repo / "sub" / "deep").mkdir(parents=True)
+    link = tmp_path / "alias"
+    link.symlink_to(repo)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError("forked")))
+    for cwd in (repo, repo / "sub" / "deep", link, link / "sub"):
+        assert plan_board.repo_label(str(cwd)) == "realrepo", cwd
+    assert not hasattr(plan_board, "project_label")  # one function, so ids cannot diverge
+    bare = tmp_path / "nogit"
+    bare.mkdir()
+    assert plan_board.repo_label(str(bare)) == "nogit"
+
+
+def test_closed_at_does_not_churn_when_the_date_falls_back_to_mtime(tmp_path):
+    text = _swap(STATE, workflow_status="Complete").replace("- Date: 2026-09-29\n", "")
+    path = _write(tmp_path, text)
+    first = plan_board.build_doc(path, project="p")
+    os.utime(path, (1, 86400 * 400))  # a touch: only the mtime changes
+    second = plan_board.build_doc(path, project="p")
+    assert first["closedAt"] == "" == second["closedAt"]
+    assert first["contentHash"] == second["contentHash"]

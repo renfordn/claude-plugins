@@ -20,10 +20,13 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 
-SCHEMA = 1
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import feature_paths  # noqa: E402
+import plan_brief  # noqa: E402
+
+SCHEMA = 2
 PHASES = ("Requirements", "Design", "Tasks", "Implementation")
 GOAL_MAX = 300
 NEXT_MAX = 300
@@ -105,12 +108,18 @@ def _phase_states(phase, status, track):
 
 
 def repo_label(cwd):
-    try:
-        top = subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True, timeout=10).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        top = ""
-    return os.path.basename(top or os.path.abspath(cwd)) or "project"
+    """The project label: basename of the realpath of cwd's nearest ancestor holding a `.git`
+    (the git top-level folder), else of cwd itself. No subprocess; realpath so a symlinked path
+    and its target give the same label (and so the same record ids)."""
+    start = os.path.realpath(cwd or os.getcwd())
+    cur = start
+    while not os.path.exists(os.path.join(cur, ".git")):
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            cur = start
+            break
+        cur = parent
+    return os.path.basename(cur) or "project"
 
 
 def build_doc(path, project=None):
@@ -129,9 +138,11 @@ def build_doc(path, project=None):
     track = f.get("track") or "Standard"
     impl = f.get("implementation requested")
     updated = f.get("date") or ""
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", updated):
+    has_date = bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", updated))
+    if not has_date:
         updated = datetime.datetime.fromtimestamp(mtime, datetime.timezone.utc).strftime("%Y-%m-%d")
-    return {
+    closed = "complete" in (status.strip().lower(), phase.strip().lower())
+    doc = {
         "schema": SCHEMA,
         "id": doc_id(project, slug),
         "project": project,
@@ -146,12 +157,21 @@ def build_doc(path, project=None):
         "phases": _phase_states(phase, status, track),
         "implementationRequested": None if impl is None else impl.strip().lower() in ("yes", "true"),
         "updatedAt": updated,
+        "closedAt": updated if closed and has_date else "",  # an mtime fallback would churn the hash
+        "brief": plan_brief.parse_brief(os.path.dirname(os.path.abspath(path)), f),
     }
+    found = feature_paths.feature_dir_from_path(os.path.abspath(path))
+    url = found and brief_board_url(found[0])
+    if url:
+        doc["briefBoardUrl"] = url
+    doc["contentHash"] = content_hash(doc)
+    return doc
 
 
 def content_hash(doc):
-    """Hash of the record's content, ignoring updatedAt so a touch of the file isn't a change."""
-    body = {k: v for k, v in doc.items() if k != "updatedAt"}
+    """Hash of the record's content, ignoring updatedAt (a touch of the file isn't a change) and
+    contentHash itself (no self-reference)."""
+    body = {k: v for k, v in doc.items() if k not in ("updatedAt", "contentHash")}
     return hashlib.sha256(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
 
@@ -169,22 +189,36 @@ def memory_dir_for_state(path):
     without asking which folder the command was run from. Falls back to the current project's
     memory dir for a file that isn't in that layout.
     """
-    feature_dir = os.path.dirname(os.path.abspath(path))
-    spec_dir = os.path.dirname(feature_dir)
-    if os.path.basename(spec_dir) == "spec":
-        return os.path.dirname(spec_dir)
+    found = feature_paths.feature_dir_from_path(os.path.abspath(path))
+    if found:
+        return found[0]
     return _memory_dir()
+
+
+def _board_fields(memory_dir):
+    try:
+        with open(os.path.join(memory_dir, BOARD_FILE), "r", encoding="utf-8") as fh:
+            return parse_fields(fh.read())
+    except OSError:
+        return None
 
 
 def board_url(memory_dir):
     """The Plan Board page URL recorded in <memory dir>/PLAN-BOARD.md, or None when unset."""
-    try:
-        with open(os.path.join(memory_dir, BOARD_FILE), "r", encoding="utf-8") as fh:
-            fields = parse_fields(fh.read())
-    except OSError:
-        return None
-    url = fields.get("url", "")
+    url = (_board_fields(memory_dir) or {}).get("url", "")
     return url if url.startswith("https://") else None
+
+
+def brief_board_url(memory_dir):
+    """The optional `- Brief Board:` https URL in PLAN-BOARD.md (the ad-hoc brief board), or None."""
+    url = (_board_fields(memory_dir) or {}).get("brief board", "")
+    return url if url.startswith("https://") else None
+
+
+def sync_enabled(memory_dir):
+    """True when the project has a PLAN-BOARD.md that doesn't say `- Sync: off` (no file = off)."""
+    fields = _board_fields(memory_dir)
+    return fields is not None and fields.get("sync", "on").strip().lower() != "off"
 
 
 def _sync_path(memory_dir):
@@ -220,7 +254,7 @@ def stale_features(memory_dir, project):
 
     Empty when no Plan Board URL is recorded for the project: the feature is opt-in.
     """
-    if not board_url(memory_dir):
+    if not board_url(memory_dir) or not sync_enabled(memory_dir):
         return []
     synced = _read_sync(memory_dir)
     out = []

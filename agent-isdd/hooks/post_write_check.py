@@ -23,15 +23,16 @@ systemMessage.
 import datetime
 import json
 import os
+import shlex
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import parse_state, parse_state_json, write_state_json  # noqa: E402
+import feature_paths  # noqa: E402
 
 # Entries retained in workflow-state.json's hook_history (oldest dropped first).
 MAX_HOOK_HISTORY = 100
-
-PHASE_TASK_SUFFIXES = ("workflow-state.md", "tasks/tasks.md")
 
 FIELD_MAP = {
     "current phase": "current_phase",
@@ -102,6 +103,42 @@ def _write_root_state(cwd, md_fields):
     write_state_json(os.path.join(cwd, ".sdd-state.json"), data)
 
 
+def _plan_board_reminder(file_path, cwd):
+    """Plan Board sync reminder for a state-file write, or "" when nothing needs writing.
+
+    Rebuilds the feature's record, and only when its content hash differs from the synced hash
+    writes it to a temp file and names the ArtifactData steps. Hooks cannot call MCP tools, so
+    the model makes the write. Silent for no board, a non-https URL, `Sync: off`, or no change.
+    No subprocess: the project is named from the nearest `.git` ancestor of cwd.
+    """
+    import plan_board
+    found = feature_paths.feature_dir_from_path(file_path)
+    if not found:
+        return ""
+    memory_dir, feature_dir = found
+    url = plan_board.board_url(memory_dir)
+    if not url or not plan_board.sync_enabled(memory_dir):
+        return ""
+    state = os.path.join(feature_dir, "workflow-state.md")
+    project = plan_board.repo_label(cwd)
+    doc = plan_board.build_doc(state, project=project)
+    if not doc or plan_board._read_sync(memory_dir).get(doc["id"]) == plan_board.content_hash(doc):
+        return ""
+    # One deterministic file per record id (ids are path-safe), overwritten on every change.
+    tmp = os.path.join(tempfile.gettempdir(), f"plan-board-{doc['id']}.json")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, indent=1)
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_board.py")
+    return (
+        f" Plan Board is out of date for this feature: its record is in {tmp} (id {doc['id']}). "
+        f"`ArtifactData get` that id in collection `plans` on {url}, then `ArtifactData set` with "
+        f"`file_path` = {tmp} (add `if_version` = the get's `version` when the record exists; on a "
+        f"version conflict re-get and retry once), then run `python3 {shlex.quote(script)} "
+        f"mark-synced {shlex.quote(state)} --project {shlex.quote(project)}`. You must never block on this; "
+        f"if a step fails, note it in recap.md and go on."
+    )
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -113,23 +150,26 @@ def main():
     norm = file_path.replace("\\", "/")
 
     is_state = norm.endswith("workflow-state.md")
-    is_watched = is_state or norm.endswith("tasks/tasks.md")
-
-    if not is_watched:
+    legacy = is_state or norm.endswith("tasks/tasks.md")
+    # Fast exit before any I/O. requirements/design/recap count only inside the spec/<feature>/ layout.
+    if not feature_paths.is_state_path(norm) or not (legacy or feature_paths.feature_dir_from_path(norm)):
         sys.exit(0)
 
     if is_state:
         _sync_json(file_path)
         _write_root_state(payload.get("cwd"), parse_state(file_path))
 
-    print(json.dumps({
-        "systemMessage": (
-            "SDD: a phase/slice artifact was written. On phase transitions, "
-            "call mark_chapter and render the breadcrumb. Sync the "
-            "TaskCreate/TaskUpdate/TaskList checklist directly — see "
-            "references/ux-conventions.md."
-        )
-    }))
+    message = (
+        "SDD: a phase/slice artifact was written. On phase transitions, "
+        "call mark_chapter and render the breadcrumb. Sync the "
+        "TaskCreate/TaskUpdate/TaskList checklist directly — see "
+        "references/ux-conventions.md."
+    )
+    try:
+        message += _plan_board_reminder(file_path, payload.get("cwd"))
+    except Exception:
+        pass  # best-effort: the Plan Board reminder must never break the hook
+    print(json.dumps({"systemMessage": message}))
     sys.exit(0)
 
 

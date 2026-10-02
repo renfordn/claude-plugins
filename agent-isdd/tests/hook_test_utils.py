@@ -206,3 +206,21 @@ def seed_state_file(feature_dir, **fields):
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     return path
+
+
+def seed_plan_board_url(memory_dir, url="https://example.invalid/plan-board"):
+    """Record a Plan Board URL in <memory_dir>/PLAN-BOARD.md (opts the project in); returns its path."""
+    os.makedirs(memory_dir, exist_ok=True)
+    path = os.path.join(memory_dir, "PLAN-BOARD.md")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(f"# Plan Board\n\n- URL: {url}\n")
+    return path
+
+
+def seed_feature_artifact(feature_dir, relpath, text="# artifact\n"):
+    """Write <feature_dir>/<relpath> (e.g. requirements/requirements.md); returns its path."""
+    path = os.path.join(feature_dir, *relpath.split("/"))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return path

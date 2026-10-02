@@ -414,9 +414,11 @@ never sends, so it never stored or served anything. agent-isdd never exchanged d
 agent-isdd keeps an optional living Artifact page, the Plan Board, current as workflows move. A
 project opts in by recording the page URL in `PLAN-BOARD.md` in its SDD memory directory. Each
 feature is one record in the page's `plans` collection, built by `hooks/plan_board.py doc` from
-`workflow-state.md` (the fields are listed in the reference below). The write is a model
-step in `workflow-manager` (a hook can't call the Artifact tools); `SessionStart` is the backstop
-that lists out-of-date features. Nothing else in the plugin depends on the board. See
+`workflow-state.md` plus a script-built brief from its sibling state files (`hooks/plan_brief.py`;
+fields are listed in the reference below). The post-write hook rebuilds the record on every write to
+a state file and, when its hash changed, reminds the model to write it (a hook can't call the
+Artifact tools); `SessionStart` is the backstop that lists out-of-date features, and
+`/isdd-board-sync` (`hooks/plan_board_sync.py`) verifies, resyncs and prunes in bulk. Nothing else in the plugin depends on the board. See
 `skills/workflow-manager/references/plan-board.md`.
 
 ## Strategic Review Placement via Review Levels (Current Approach)

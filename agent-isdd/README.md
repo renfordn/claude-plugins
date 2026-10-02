@@ -65,6 +65,7 @@ invalid. Cross-feature file caching via agent-nelly can skip re-reading files on
 - `/isdd-continue` — force-continue from the current phase.
 - `/isdd-rewind` — rewind to an earlier phase (Requirements | Design | Tasks).
 - `/isdd-init` — first-run onboarding for a new project.
+- `/isdd-board-sync` — verify the Plan Board against local state, resync stale records in one batch, prune orphans after confirmation.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
 
 ## Plan Board (optional)
@@ -73,7 +74,12 @@ A living Artifact page that shows every feature's phase, status and next step, a
 workflows move. Turn it on for a project by recording the page URL in `PLAN-BOARD.md` in that
 project's SDD memory directory. The workflow then writes each feature's record at every phase or status
 change, and `SessionStart` lists any feature whose record is out of date. One page can cover
-several projects. Setup and details: `skills/workflow-manager/references/plan-board.md`.
+several projects. Each record carries a script-built brief (goal, requirements and design state, risks,
+slice progress, decisions, open items) refreshed on every write to a feature's state files; the page
+toggles Open / Recently closed (older closed features sit in Archive) and shows the selected
+feature's brief. `- Sync: off` in `PLAN-BOARD.md` turns it off for one project, and an optional
+`- Brief Board:` line links the focus-ux Brief Board. Setup and details:
+`skills/workflow-manager/references/plan-board.md`.
 
 ## Storage
 
