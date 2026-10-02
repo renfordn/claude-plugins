@@ -230,6 +230,7 @@ WATCHED_RELPATHS = (
     "design/design.md",
     "tasks/tasks.md",
     "recap/recap.md",
+    "direct-mode-state.json",
 )
 
 
@@ -257,6 +258,28 @@ class PostWriteCheckPlanBoardTests(unittest.TestCase):
                 self.assertEqual(rc, 0)
                 self.assertIsNotNone(msg)
                 self.assertIn("Plan Board", msg)
+
+    def test_direct_mode_state_gets_only_the_plan_board_reminder(self):
+        with h.temp_home() as root:
+            _memory_dir, feature_dir = self._feature(root)
+            path = h.seed_feature_artifact(feature_dir, "tasks/tasks.md")
+            h.seed_feature_artifact(feature_dir, "direct-mode-state.json")
+            msg, rc = h.run_hook_message(
+                "post_write_check.py",
+                {"tool_input": {"file_path": os.path.join(feature_dir, "direct-mode-state.json")}, "cwd": root},
+                env_extra={"HOME": root},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("Plan Board", msg)
+            self.assertNotIn("mark_chapter", msg)
+
+    def test_direct_mode_state_is_silent_without_a_plan_board(self):
+        msg, rc = h.run_hook_message(
+            "post_write_check.py",
+            {"tool_input": {"file_path": "/some/feature/direct-mode-state.json"}},
+        )
+        self.assertEqual(rc, 0)
+        self.assertIsNone(msg)
 
     def test_unwatched_paths_in_feature_dir_are_silent(self):
         for rel in ("notes.md", "requirements/requirements.md.bak", "research/findings.md"):

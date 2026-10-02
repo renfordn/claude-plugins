@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-02
+
+- **Fix**: Plan Board slice progress. A closed feature (Complete status or phase) now reports every
+  slice as done instead of `null`, and `direct-mode-state.json` is a watched file, so a progress write
+  refreshes the record (it sends only the Plan Board reminder, no breadcrumb reminder). Open features
+  still show `null` when no progress file exists (only the direct-implementation fallback writes one).
+- **Feature**: the Plan Board page is fluid: the 960px cap is gone, side padding scales with the
+  viewport, cards fill the width, and the detail pane flows into columns on wide screens.
+- **Docs**: `plan-board.md` says how to republish the page after an upgrade. Nothing republishes it
+  automatically, so a board published before 0.5.0 keeps the old page (no Open / Recently closed
+  toggle, no detail pane) until you do.
+
 ## [0.5.0] - 2026-10-02
 
 - **Feature**: Plan Board records are schema 2: each carries a script-built `brief` (goal,

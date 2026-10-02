@@ -77,7 +77,7 @@ def _design(text):
             "openQuestions": _items(_section(text, "Open Questions"), open_only=True)}
 
 
-def _slices(text, state_path):
+def _slices(text, state_path, closed=False):
     items, cur = [], None
     for line in text.splitlines():
         m = re.match(r"^##\s+Slice\s+(\d+)\s*:\s*(.*?)\s*$", line)
@@ -90,8 +90,10 @@ def _slices(text, state_path):
             cur["tier"] = t.group(1)
     if not items:
         return None
-    done = None
-    raw = _read(state_path)
+    # A closed feature has implemented every slice, so its count never depends on a progress file
+    # that nothing may have written (only the direct-implementation fallback writes it; agent-TDD keeps its own progress in tdd-progress.json).
+    done = len(items) if closed else None
+    raw = None if closed else _read(state_path)
     if raw:
         try:
             done = sum(1 for s in json.loads(raw).get("slices", []) if isinstance(s, dict) and s.get("status") == "done")
@@ -156,7 +158,10 @@ def parse_brief(feature_dir, state_fields):
             brief["design"] = design
     text = _read(path("tasks", "tasks.md"))
     if text:
-        slices = _slices(text, path("direct-mode-state.json"))
+        fields = state_fields or {}
+        closed = "complete" in ((fields.get("workflow status") or "").strip().lower(),
+                                (fields.get("current phase") or "").strip().lower())
+        slices = _slices(text, path("direct-mode-state.json"), closed)
         if slices:
             brief["slices"] = slices
     text = _read(path("recap", "recap.md"))

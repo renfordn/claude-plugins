@@ -142,7 +142,11 @@ def test_readme_and_interop_describe_the_reworked_board():
 def test_docs_state_the_slice_done_lag_and_verified_batch_shapes():
     ref = _read(REF)
     changelog = _read(os.path.join(ROOT, "CHANGELOG.md")).split("## [0.4.2]")[0]
+    # Slice progress: closed features report every slice done and direct-mode-state.json is watched
+    # (the 0.5.0 changelog entry keeps the old lag wording as history).
+    assert "closed feature" in ref and "direct-mode-state.json" in ref and "watched file" in ref
+    assert "next watched write" in changelog
     for text in (ref, changelog):
-        assert "next watched write" in text and "/isdd-board-sync" in text
+        assert "/isdd-board-sync" in text
         assert "unverified against a live board" not in text
         assert "live board" in text

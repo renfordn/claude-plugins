@@ -12,7 +12,8 @@ cover several projects. The workflow keeps it current; nobody edits it by hand.
   and its sibling state files. A script derives the brief; the model never writes it. Never
   hand-write a record.
 - **It refreshes on every state-file write.** The post-write hook watches `workflow-state.md`,
-  `requirements/requirements.md`, `design/design.md`, `tasks/tasks.md` and `recap/recap.md`. It
+  `requirements/requirements.md`, `design/design.md`, `tasks/tasks.md`, `recap/recap.md` and `direct-mode-state.json` (a progress
+  write sends only this reminder, no breadcrumb one). It
   rebuilds the record and, when its `contentHash` differs from the last synced one, adds a reminder
   with the `ArtifactData` steps below to its message. Hooks cannot call MCP tools, so the model
   makes the one write; `SessionStart` still catches any miss.
@@ -67,6 +68,13 @@ Do this once, then every project can share the page.
    rest under `stale`.
 5. Check it once: `ArtifactData` `list` on collection `plans`, and confirm one record per feature.
 
+## Updating the page after a plugin upgrade
+
+Syncing only writes records. A new plugin version that changes `assets/plan-board.html` does not
+reach a board that is already published. Rebuild it with `plan_board.py page <out.html>` and publish
+it with the Artifact tool using the board's `url` and no `capabilities` (the owner-only write rule
+carries forward). Do this after any upgrade whose changelog mentions the page.
+
 ## Syncing a feature
 
 Do it after any write to `workflow-state.md` that changes the phase, status, pause reason or next
@@ -119,8 +127,9 @@ Statuses `Paused`, `Blocked` and `Awaiting …` (the template's `Awaiting Confir
   deletes nothing. Only after the user confirms, `prune --confirm` removes the sync entries and
   prints the board deletes to apply.
 
-`slices.done` comes from `direct-mode-state.json`, which is not a watched file, so the count
-refreshes only on the next watched write or `/isdd-board-sync`. The `resync` and `prune` batches
+`slices.done` is the total for a closed feature (Complete status or phase), otherwise it comes from
+`direct-mode-state.json` (a watched file, so a write refreshes it), and stays `null` when neither
+exists: only the direct-implementation fallback writes it (agent-TDD keeps its own progress in `tdd-progress.json` under its plugin data directory). The `resync` and `prune` batches
 pass straight to `ArtifactData batch` (`writes` entries with `doc_id`; `if_version` for records already
 on the board, taken from the `version` in the dump). Create, overwrite with `if_version` and delete
 were verified against a live board on 2026-10-02.

@@ -28,5 +28,11 @@ def test_is_state_path_is_a_pure_suffix_check():
     assert not feature_paths.is_state_path("/anywhere/app.py")
 
 
+def test_direct_mode_state_is_a_watched_feature_file():
+    p = f"{FEATURE}/direct-mode-state.json"
+    assert feature_paths.is_state_path(p)
+    assert feature_paths.feature_dir_from_path(p) == ("/m/proj", FEATURE)
+
+
 def test_memory_dir_for_state_unchanged():
     assert plan_board.memory_dir_for_state(f"{FEATURE}/workflow-state.md") == "/m/proj"

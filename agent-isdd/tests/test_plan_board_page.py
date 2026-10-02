@@ -376,3 +376,16 @@ def test_render_brief_hostile_text_stays_text():
     assert "img" not in out["tags"]
     for v in ("G" + payload, "D" + payload, "R" + payload):
         assert v in out["text"]
+
+
+def test_page_width_is_fluid_not_capped():
+    html = _html()
+    assert "max-width:960px" not in html
+    assert re.search(r"\.wrap\s*{[^}]*max-width:\s*none", html)
+    assert re.search(r"body\s*{[^}]*padding-inline:\s*clamp\(", html)
+
+
+def test_detail_pane_flows_into_columns_on_wide_screens():
+    html = _html()
+    assert re.search(r"\.detail\s*{[^}]*columns:", html)
+    assert re.search(r"\.detail>h3\s*{[^}]*column-span:\s*all", html)

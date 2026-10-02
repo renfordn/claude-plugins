@@ -121,6 +121,25 @@ def test_done_counted_only_with_direct_mode_state(tmp_path):
     assert plan_brief.parse_brief(str(tmp_path), {})["slices"]["done"] == 1
 
 
+def test_closed_feature_counts_every_slice_as_done(tmp_path):
+    _w(tmp_path, "tasks/tasks.md", TASKS)
+    for fields in ({"workflow status": "Complete"}, {"current phase": "Complete"}):
+        s = plan_brief.parse_brief(str(tmp_path), fields)["slices"]
+        assert s["total"] == 3 and s["done"] == 3
+
+
+def test_closed_feature_ignores_a_stale_direct_mode_state(tmp_path):
+    _w(tmp_path, "tasks/tasks.md", TASKS)
+    _w(tmp_path, "direct-mode-state.json", json.dumps({"slices": [{"id": "Slice 1", "status": "done"}]}))
+    assert plan_brief.parse_brief(str(tmp_path), {"workflow status": "Complete"})["slices"]["done"] == 3
+
+
+def test_open_feature_without_progress_state_stays_unknown(tmp_path):
+    _w(tmp_path, "tasks/tasks.md", TASKS)
+    s = plan_brief.parse_brief(str(tmp_path), {"workflow status": "In Progress", "current phase": "Implementation"})["slices"]
+    assert s["done"] is None
+
+
 def test_malformed_direct_mode_state_and_no_tasks(tmp_path):
     assert "slices" not in plan_brief.parse_brief(str(tmp_path), {})
     _w(tmp_path, "tasks/tasks.md", TASKS)

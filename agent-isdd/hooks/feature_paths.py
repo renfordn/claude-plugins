@@ -2,7 +2,7 @@
 import os
 
 STATE_SUFFIXES = ("workflow-state.md", "requirements/requirements.md", "design/design.md",
-                  "tasks/tasks.md", "recap/recap.md")
+                  "tasks/tasks.md", "recap/recap.md", "direct-mode-state.json")
 
 
 def _norm(path):
@@ -10,7 +10,7 @@ def _norm(path):
 
 
 def is_state_path(path):
-    """True when `path` ends in one of the five feature state files (suffix check, no I/O)."""
+    """True when `path` ends in one of the six feature state files (suffix check, no I/O)."""
     norm = _norm(path)
     return any(norm == s or norm.endswith("/" + s) for s in STATE_SUFFIXES)
 

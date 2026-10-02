@@ -12,6 +12,8 @@ Behaviour is unchanged from the two originals, plus one additive sync:
     parsing markdown or reaching into sdd_memory.py's BASE dir, then remind the model
     to sync the visible progress UI.
   - tasks/tasks.md writes: remind the model to sync the visible progress UI.
+  - direct-mode-state.json writes: only the Plan Board reminder (slice progress feeds the record;
+    it is not a phase transition, so no breadcrumb reminder).
   - All other paths: silent no-op, exit 0.
 
 Both JSON syncs are silent (no systemMessage) on normal operation; the
@@ -159,16 +161,23 @@ def main():
         _sync_json(file_path)
         _write_root_state(payload.get("cwd"), parse_state(file_path))
 
+    reminder = ""
+    try:
+        reminder = _plan_board_reminder(file_path, payload.get("cwd"))
+    except Exception:
+        pass  # best-effort: the Plan Board reminder must never break the hook
+    if norm.endswith("direct-mode-state.json"):
+        # Slice progress only feeds the Plan Board record; it is not a phase transition, so no
+        # breadcrumb/checklist reminder.
+        if reminder:
+            print(json.dumps({"systemMessage": reminder.strip()}))
+        sys.exit(0)
     message = (
         "SDD: a phase/slice artifact was written. On phase transitions, "
         "call mark_chapter and render the breadcrumb. Sync the "
         "TaskCreate/TaskUpdate/TaskList checklist directly — see "
         "references/ux-conventions.md."
-    )
-    try:
-        message += _plan_board_reminder(file_path, payload.get("cwd"))
-    except Exception:
-        pass  # best-effort: the Plan Board reminder must never break the hook
+    ) + reminder
     print(json.dumps({"systemMessage": message}))
     sys.exit(0)
 
