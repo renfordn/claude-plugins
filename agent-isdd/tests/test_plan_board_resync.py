@@ -35,23 +35,23 @@ def _board(mem):
 def test_batch_has_one_set_per_stale_or_missing_record_and_none_for_synced(tmp_path):
     mem = _mem(tmp_path)
     batch = plan_board_sync.build_batch(mem, "proj", _board(mem))
-    ids = [op["id"] for op in batch["ops"]]
+    ids = [op["doc_id"] for op in batch["writes"]]
     assert ids == [_doc(mem, SLUGS[1])["id"], _doc(mem, SLUGS[2])["id"]]
-    for op in batch["ops"]:
+    for op in batch["writes"]:
         assert op["op"] == "set" and op["collection"] == "plans"
-        assert op["data"]["id"] == op["id"] and op["data"]["schema"] == 2
+        assert op["data"]["id"] == op["doc_id"] and op["data"]["schema"] == 2
     assert batch["ids"] == ids
 
 
 def test_nothing_to_do_gives_an_empty_batch(tmp_path):
     mem = _mem(tmp_path)
     board = {_doc(mem, s)["id"]: _doc(mem, s)["contentHash"] for s in SLUGS}
-    assert plan_board_sync.build_batch(mem, "proj", board)["ops"] == []
+    assert plan_board_sync.build_batch(mem, "proj", board)["writes"] == []
 
 
 def test_sync_off_gives_an_empty_batch(tmp_path):
     mem = _mem(tmp_path, "- Sync: off\n")
-    assert plan_board_sync.build_batch(mem, "proj", {})["ops"] == []
+    assert plan_board_sync.build_batch(mem, "proj", {})["writes"] == []
 
 
 def test_only_successful_ids_are_marked_synced(tmp_path):
@@ -62,3 +62,13 @@ def test_only_successful_ids_are_marked_synced(tmp_path):
     assert synced == {ok: _doc(mem, SLUGS[1])["contentHash"]}
     assert failed not in synced
     assert failed in [s[2]["id"] for s in plan_board.stale_features(mem, "proj")]
+
+
+def test_existing_records_carry_if_version_and_writes_use_tool_keys(tmp_path):
+    mem = _mem(tmp_path)
+    stale = _doc(mem, SLUGS[1])["id"]
+    batch = plan_board_sync.build_batch(mem, "proj", _board(mem), versions={stale: 7})
+    by_id = {w["doc_id"]: w for w in batch["writes"]}
+    assert by_id[stale]["if_version"] == 7
+    assert "if_version" not in by_id[_doc(mem, SLUGS[2])["id"]]  # missing on board: created, unpinned
+    assert all(set(w) <= {"op", "collection", "doc_id", "data", "if_version"} for w in batch["writes"])

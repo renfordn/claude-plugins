@@ -58,7 +58,7 @@ def test_resync_prints_the_batch_and_mark_records_only_named_ids(tmp_path):
     mem = _mem(tmp_path)
     rc, out, _ = _run(mem, "resync")
     batch = json.loads(out)
-    assert rc == 0 and len(batch["ops"]) == 2
+    assert rc == 0 and len(batch["writes"]) == 2
     a = _doc(mem, "2026-09-01-a")["id"]
     rc, out, _ = _run(mem, "mark", a)
     assert rc == 0 and a in out

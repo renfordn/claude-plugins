@@ -139,9 +139,10 @@ def test_readme_and_interop_describe_the_reworked_board():
     assert "implementationRequested" not in section
 
 
-def test_docs_state_the_slice_done_lag_and_unverified_batch_shapes():
+def test_docs_state_the_slice_done_lag_and_verified_batch_shapes():
     ref = _read(REF)
     changelog = _read(os.path.join(ROOT, "CHANGELOG.md")).split("## [0.4.2]")[0]
     for text in (ref, changelog):
         assert "next watched write" in text and "/isdd-board-sync" in text
-        assert "unverified against a live board" in text
+        assert "unverified against a live board" not in text
+        assert "live board" in text
