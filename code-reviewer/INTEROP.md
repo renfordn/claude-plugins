@@ -16,7 +16,7 @@ not the author. Either way, pass:
 |-------|------|----------|-------------|
 | Mode | string | yes | `direct-review`, `review-improve`, or `pre-commit` (see SKILL.md's Invocation Modes) |
 | Scope | string/array | yes | File set or diff to review. For `review-improve`, files named in pre-refactor handoff. |
-| review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See SKILL.md "Parameters / Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
+| review_level | string | no | `Quick | Standard | Deep | Ultra` (default: `Standard`). Controls depth of analysis. See `skills/code-reviewer/references/parameters.md` "Review Levels" for definitions, use cases, token budgets. If omitted, auto-detected from context (phase, file scope, prior context) using SKILL.md "Auto-Detection Rules" |
 | review_state_directory | string | no | Path where `REVIEW-STATE.md` / `REVIEW-HISTORY.md` persist across passes. Omit for single ephemeral pass. See SKILL.md "Review State" for details |
 
 ## Pairing with an implementer agent (e.g. `agent-tdd`)
@@ -110,7 +110,7 @@ unchanged. Review Level is added alongside, not replacing Evidence Tier.
 
 When a requested `review_level` is unavailable (e.g., `Ultra` without multi-agent capability),
 the skill degrades to the next-lower level, tells the caller, never auto-upgrades, and never
-blocks the review. SKILL.md's "Graceful Degradation" is the definition.
+blocks the review. `skills/code-reviewer/references/parameters.md`'s "Graceful Degradation" is the definition.
 
 ## Strategic Review Placement by ISDD Phase
 
@@ -149,7 +149,7 @@ See `agent-tdd/INTEROP.md` Design Spec Mode for Ralph Loops integration details.
 **Cross-references:**
 
 - **Phase-by-Phase Guidance**: **corrected 2026-09-24** — `code-reviewer/skills/code-reviewer/
-  SKILL.md`'s §Auto-Detection Rules (auto-detection rules and per-ISDD-phase examples); this
+  references/parameters.md`'s §Auto-Detection Rules (auto-detection rules and per-ISDD-phase examples); this
   used to cite a nonexistent top-level `code-reviewer/SKILL.md` and a nonexistent
   §ISDD Phase Context heading
 - **Per-Slice Strategy**: **corrected 2026-09-28** — `agent-tdd/INTEROP.md` §"→ code-reviewer"

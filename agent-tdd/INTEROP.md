@@ -283,6 +283,18 @@ clear no marker was needed — the existing `slicing_complete` marker plus `task
 disk are sufficient for the caller to detect the condition without `agent-TDD` needing to say
 anything new).
 
+### Test-Budget Pre-flight (caller-side, long-running projects)
+
+`agent-TDD` runs the whole Design Spec without returning, so the per-slice checkpoint that Slice
+Spec Mode gets from `slice-spec` doesn't exist here. The caller instead runs the
+[`test-budget`](skills/test-budget/SKILL.md) skill once, before implementation starts, on each
+existing test file the work will grow: the files named in `tasks.md`'s Validation Targets when a
+`slicing_complete` pause happens (the Test-Author Gate above), otherwise the test files the
+design names, before the first spawn. A `consolidate first` or `promote to e2e` verdict is
+resolved by the caller with the user's OK, outside `agent-TDD`'s Red/Green/Refactor; an e2e
+promotion is passed in as that slice's Test Intent. Skip it for new test files and when the
+project's suite is small.
+
 ### Per-Slice Implementation (after Readiness and the Test-Author Gate)
 
 Once Readiness Check passes and (if applicable) the Test-Author Gate above has been satisfied,

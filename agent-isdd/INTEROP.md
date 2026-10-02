@@ -450,7 +450,7 @@ then confirms that design-level decisions were respected through implementation.
 
 When a caller does not pass `review_level`, `code-reviewer` infers it from context (explicit
 request, then ISDD workflow phase, risk tier / file scope, prior context, fallback `Standard`).
-`code-reviewer/skills/code-reviewer/SKILL.md`'s "Auto-Detection Rules" section is the
+`code-reviewer/skills/code-reviewer/references/parameters.md`'s "Auto-Detection Rules" section is the
 authoritative definition, and `code-reviewer/INTEROP.md` relies on it. Callers (agent-tdd,
 design-author) still pass an explicit level where the table above names one, since an explicit
 request takes priority.

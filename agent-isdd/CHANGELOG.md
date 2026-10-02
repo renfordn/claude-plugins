@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-02
+
+- **Docs**: all 5 agent descriptions now open with "Use this agent when…" and carry one short `<example>`, and the plan-reviewer tier agents lost a decorative `# Title` heading so the body opens with the role statement. Descriptions are `>-` block scalars. No behavior change.
+
 ## [0.4.1] - 2026-09-30
 
 - **Docs**: doc-consistency sweep (about 39 fixes). Stale INTEROP sections now point at their one home (`review-levels.md`, `rollback-guide.md`, agent-tdd's Design Spec workflow); wrong claims about the review gate, agent-tdd resume and re-research corrected; unmeasured figures (cache hit rate, token savings) marked as estimates; dangling references and template citations fixed. Docstring and comment edits only in `.py` files, no behavior change.

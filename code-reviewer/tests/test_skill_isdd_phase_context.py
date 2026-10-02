@@ -17,6 +17,9 @@ class TestISddPhaseContextDocumentation(unittest.TestCase):
         skill_path = Path(__file__).parent.parent / "skills" / "code-reviewer" / "SKILL.md"
         with open(skill_path) as f:
             cls.skill_content = f.read()
+        # Parameters live in a reference file the skill points to.
+        with open(skill_path.parent / "references" / "parameters.md") as f:
+            cls.skill_content += "\n" + f.read()
 
     def test_isdd_phase_context_section_exists(self):
         """ISDD workflow phase context should be present in auto-detection rules."""
@@ -183,6 +186,9 @@ class TestPhaseContextTableStructure(unittest.TestCase):
         skill_path = Path(__file__).parent.parent / "skills" / "code-reviewer" / "SKILL.md"
         with open(skill_path) as f:
             cls.skill_content = f.read()
+        # Parameters live in a reference file the skill points to.
+        with open(skill_path.parent / "references" / "parameters.md") as f:
+            cls.skill_content += "\n" + f.read()
 
     def test_table_has_all_columns(self):
         """Auto-detection phase mapping should cover ISDD phase, level, and purpose."""

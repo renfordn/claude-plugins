@@ -1,6 +1,10 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.4] - 2026-10-02
+
+- **Docs**: all 4 agent descriptions now open with "Use this agent when…" and carry one short `<example>`; the decorative `# Title` heading was dropped so each body opens with its role statement; "the sibling agent X" / "the active agent-nelly project root" wording replaced with unambiguous names. No behavior change.
+
 ## [0.6.3] - 2026-09-30
 
 - **Docs**: doc-consistency sweep (about 24 fixes): hook samples and `NELLY_GATE` wording say no decision, never allow; INTEROP lists all four hook events; data-dir names corrected to `agent-nelly-inline`/`agent-nelly-synced`; unimplemented audit/rotation and stale fixture claims removed or hedged. No behavior change.

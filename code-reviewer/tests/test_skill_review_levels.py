@@ -12,7 +12,7 @@ _SKILL_PATH = Path(__file__).resolve().parent.parent / "skills" / "code-reviewer
 
 def read_skill_md():
     """Read the current SKILL.md file."""
-    return _SKILL_PATH.read_text()
+    return _SKILL_PATH.read_text() + "\n" + (_SKILL_PATH.parent / "references" / "parameters.md").read_text()
 
 
 def test_review_level_parameter_section_exists():

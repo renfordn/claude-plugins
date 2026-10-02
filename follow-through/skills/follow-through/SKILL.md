@@ -1,6 +1,7 @@
 ---
 name: follow-through
-description: Use this before writing any sentence that promises to follow up later — "I'll check back", "I'll update you when it's done", "I'll let you know when it finishes", "still running, will report soon", "give me a moment and I'll circle back" — about anything not finished yet (a background shell command, a subagent, a workflow run, a CI check, a PR, an external process). Also use it right when you start a background or long-running task, before you say anything about watching it. This catches the common failure where Claude asserts it will check back and report later, but nothing actually brings it back to the conversation, so the user is left with a stalled "still running..." message that's never followed by the real result. If you're about to type a future-tense promise about work in progress, stop and run this check first.
+description: >-
+  Use before writing any sentence that promises to follow up later ("I'll check back", "update me when it's done", "circle back with the result", "still running, will report soon") about unfinished work: a background command, subagent, workflow run, CI check, or PR. Also use when starting a long-running task. It prevents stalled "still running..." messages where nothing brings Claude back to report: if you're about to promise a future follow-up on work in progress, run this check first.
 ---
 
 # Follow Through

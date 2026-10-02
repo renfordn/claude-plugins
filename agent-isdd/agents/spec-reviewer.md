@@ -1,6 +1,7 @@
 ---
 name: spec-reviewer
-description: Reviews an existing spec/ticket/PRD against an EARS+TDD gate and returns a gap analysis with rewritten EARS sections. Delegate from requirements-agent's review mode. Returns a report only — never talks to the user or approves.
+description: >-
+  Use this agent when an existing spec, ticket, or PRD needs an EARS+TDD gap analysis. Reviews an existing spec/ticket/PRD against an EARS+TDD gate and returns a gap analysis with rewritten EARS sections. Delegate from requirements-agent's review mode. Returns a report only — never talks to the user or approves. <example>user: "Review this ticket against the EARS gate" assistant: "Spawning spec-reviewer for a gap report."</example>
 tools: Read, Grep, Glob
 model: sonnet
 ---

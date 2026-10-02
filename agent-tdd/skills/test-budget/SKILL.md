@@ -21,7 +21,7 @@ brand-new test files (nothing to bloat) and for hot-fix slices where speed matte
 Run the bundled script on the test file(s) the slice would touch:
 
 ```bash
-python3 <skill-dir>/scripts/test_audit.py <test-file-or-dir> [--junit report.xml]
+python3 <skill-dir>/scripts/audit_tests.py <test-file-or-dir> [--junit report.xml]
 ```
 
 It reports per file: test count, lines, setup/fixture count, clusters of near-duplicate test

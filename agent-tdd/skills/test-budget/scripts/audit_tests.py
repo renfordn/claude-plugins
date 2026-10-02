@@ -19,7 +19,7 @@ SETUP_RE = re.compile(r"@pytest\.fixture|def setUp\b|beforeEach\(|beforeAll\(|fu
 TEST_FILE_RE = re.compile(r"(^test_.*\.py$|_test\.(py|go)$|\.(test|spec)\.[jt]sx?$|Test\.java$)")
 
 
-def test_names(text):
+def extract_test_names(text):
     names = []
     for line in text.splitlines():
         for pat in TEST_PATTERNS:
@@ -94,7 +94,7 @@ def main(argv=None):
     rows = []
     for f in collect(args.target):
         text = f.read_text(errors="replace")
-        names = test_names(text)
+        names = extract_test_names(text)
         if not names:
             continue
         n_commits, age = churn(f.resolve())

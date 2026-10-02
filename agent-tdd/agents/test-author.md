@@ -1,6 +1,7 @@
 ---
 name: test-author
-description: Write only the failing Red test for one high-risk slice, from a Slice Spec and acceptance criteria alone — no implementation authored, no implementation approach assumed. Invoked by the orchestrating caller (not by agent-TDD, which cannot spawn subagents itself) when a slice's Risk Tier is high-risk, or the caller explicitly requests the split for this slice, before agent-TDD's own invocation begins. Runs in an isolated context and returns the test artifact plus confirmation it fails for the intended reason.
+description: >-
+  Use this agent when a high-risk slice needs its failing Red test written before implementation. Write only the failing Red test for one high-risk slice, from a Slice Spec and acceptance criteria alone — no implementation authored, no implementation approach assumed. Invoked by the orchestrating caller (not by agent-TDD, which cannot spawn subagents itself) when a slice's Risk Tier is high-risk, or the caller explicitly requests the split for this slice, before agent-TDD's own invocation begins. Runs in an isolated context and returns the test artifact plus confirmation it fails for the intended reason. <example>user: "This slice touches payments" assistant: "Spawning test-author for the Red test first."</example>
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---

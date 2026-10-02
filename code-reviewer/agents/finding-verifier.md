@@ -1,6 +1,7 @@
 ---
 name: finding-verifier
-description: Adversarial second opinion on code-review findings. Spawned by the main-thread caller after the code-reviewer agent reports, for findings that would gate work (block, block_commit, pause_for_review) or every finding at Ultra. Tries to disprove each finding from the code alone and returns upheld / refuted / downgraded per finding. Read-only; never edits files or talks to the user.
+description: >-
+  Use this agent when gating code-review findings need an adversarial second opinion. Adversarial second opinion on code-review findings. Spawned by the main-thread caller after the code-reviewer agent reports, for findings that would gate work (block, block_commit, pause_for_review) or every finding at Ultra. Tries to disprove each finding from the code alone and returns upheld / refuted / downgraded per finding. Read-only; never edits files or talks to the user. <example>user: "Verify these blocking findings" assistant: "Spawning finding-verifier to try to disprove each one."</example>
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---

@@ -1,9 +1,15 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-02
+
+- **Fix**: the `test-budget` script is now `skills/test-budget/scripts/audit_tests.py` (was `test_audit.py`), so bare `pytest` no longer collects it as a test and errors.
+- **Docs**: both agent descriptions now open with "Use this agent when…" with one `<example>`; `design-spec-direct` names `code-reviewer:code-reviewer`; `agent-TDD.md` rewords "the narrowest command".
+- **Feature**: `test-budget` now runs on the Design Spec path too: `INTEROP.md` gains a caller-side "Test-Budget Pre-flight" section, and `design-spec-direct`'s caller loop runs it before the first slice.
+
 ## [0.4.0] - 2026-10-01
 
-- **Feature**: `test-budget` skill, with `skills/test-budget/scripts/test_audit.py`. Before planning a slice's tests it audits the target test file for bloat, stale tests, near-duplicate tests to consolidate, and candidates to promote to regression/e2e. `slice-spec` now points to it.
+- **Feature**: `test-budget` skill, with `skills/test-budget/scripts/audit_tests.py`. Before planning a slice's tests it audits the target test file for bloat, stale tests, near-duplicate tests to consolidate, and candidates to promote to regression/e2e. `slice-spec` now points to it.
 
 ## [0.3.4] - 2026-09-30
 

@@ -185,6 +185,9 @@ class TestConsistencyAndCrossBoundaries(unittest.TestCase):
         skill_path = Path(__file__).parent.parent / "skills" / "code-reviewer" / "SKILL.md"
         with open(skill_path) as f:
             cls.skill_content = f.read()
+        # Parameters live in a reference file the skill points to.
+        with open(skill_path.parent / "references" / "parameters.md") as f:
+            cls.skill_content += "\n" + f.read()
 
     def test_review_levels_consistent(self):
         """Review levels should be mentioned consistently."""

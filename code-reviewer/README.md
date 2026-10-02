@@ -23,7 +23,7 @@ the rendering. See INTEROP.md's "Independent review (reviewer ≠ author)".
 
 ## Using it with `agent-tdd`
 
-`agent-tdd`'s `agent-TDD` agent always pauses after Green for a mandatory caller-driven review
+`agent-tdd`'s `agent-tdd:agent-TDD` agent always pauses after Green for a mandatory caller-driven review
 (see [`agent-tdd`'s INTEROP.md](../agent-tdd/INTEROP.md)). This plugin is a natural fit for that
 pause — run an independent review in `review-improve` mode, scoped to the files `agent-TDD`
 named, then resume `agent-TDD` with the outcome. Neither plugin hard-depends on the other; you can use `agent-tdd`

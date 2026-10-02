@@ -1,6 +1,6 @@
 {
   "name": "follow-through",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A single skill that stops Claude from promising to \"check back\" or \"report when it's done\" on background/long-running work unless a real mechanism (a tracked background tool call, a scheduled wakeup, or a synchronous wait) actually exists to bring it back and deliver the result.",
   "author": {
     "name": "Renford Nelson"

@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "test-budget" / "scripts" / "test_audit.py"
-spec = importlib.util.spec_from_file_location("test_audit", SCRIPT)
+SCRIPT = Path(__file__).resolve().parent.parent / "skills" / "test-budget" / "scripts" / "audit_tests.py"
+spec = importlib.util.spec_from_file_location("audit_tests", SCRIPT)
 audit = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(audit)
 
@@ -13,8 +13,8 @@ class TestAudit(unittest.TestCase):
     def test_extracts_names_across_frameworks(self):
         py = "def test_a():\n    pass\nasync def test_b():\n    pass\n"
         js = "it('does x', () => {})\ntest(\"does y\", () => {})\n"
-        self.assertEqual(audit.test_names(py), ["test_a", "test_b"])
-        self.assertEqual(audit.test_names(js), ["does x", "does y"])
+        self.assertEqual(audit.extract_test_names(py), ["test_a", "test_b"])
+        self.assertEqual(audit.extract_test_names(js), ["does x", "does y"])
 
     def test_clusters_near_duplicates(self):
         names = ["test_total_with_tax", "test_total_with_discount", "test_total_with_both", "test_refund"]

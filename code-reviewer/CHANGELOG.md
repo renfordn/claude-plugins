@@ -1,6 +1,12 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-02
+
+- **Fix**: `skills/code-reviewer/SKILL.md` frontmatter was invalid YAML (an unquoted `: ` in the description), so strict parsers read the description as missing. The description is now a `>-` block scalar and 500 characters or shorter, with the same triggers.
+- **Refactor**: the Parameters section (774 words) moved to `skills/code-reviewer/references/parameters.md`; SKILL.md keeps a pointer and drops from 3,454 to about 2,800 words. The three tests that read it now read the reference too. Plugin eval suite unchanged (8/10 cases at 1.00; `clean-no-false-positive` already noisy).
+- **Docs**: both agent descriptions now open with "Use this agent when…" with one `<example>`; README names `agent-tdd:agent-TDD`.
+
 ## [0.4.2] - 2026-09-30
 
 - **Docs**: doc-consistency sweep (6 fixes): evidence tiers are the strings `tier-1` to `tier-5` everywhere, README says five tiers and the measured 4.7-5.0 of 6 per pass, INTEROP's degradation section points at SKILL.md, and a nonexistent agent-tdd practice citation was removed. No behavior change.

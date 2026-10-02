@@ -117,6 +117,7 @@ one-time `plan`/`summary` calls) and returns. The calling skill (`agent-isdd`'s
 
 ```
 plan                                  → tasks.md, verdict
+test-budget on each existing test file the slices will grow   (skip for new/small suites)
 for each slice in tasks.md (dependency order):
     if slice.risk_tier == high-risk:
         test-author <slice-id>        → failing test
@@ -131,7 +132,7 @@ summary                               → final handoff, log recap.md, mark Work
 ```
 
 The review step matters more here than anywhere: this conversation just wrote the code, so
-reviewing it with the `code-reviewer` skill inline would be self-review. The `Agent` tool is
+reviewing it with the `code-reviewer:code-reviewer` skill inline would be self-review. The `Agent` tool is
 already known broken in this session, so skip the spawn attempt and go straight to path 2 of
 `code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠ author)" — its headless script,
 which runs in a separate process. Only if that also fails, review inline and label it

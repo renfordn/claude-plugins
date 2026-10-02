@@ -1,6 +1,7 @@
 ---
 name: agent-TDD
-description: Test-first implementer. Spawned with a Slice Spec (one behavior to add or fix, from /tdd or slice-spec) or a Design Spec (approved requirements + design from agent-isdd, which it slices into tasks.md). Writes a failing test, proves it fails, makes the minimum change to pass, proves that too with scripts/tdd_check.py, pauses for an independent review, then refactors. Returns a marker-tagged handoff report. Never reviews its own work and never talks to the user.
+description: >-
+  Use this agent when one behavior (a Slice Spec) or an approved Design Spec must be implemented test-first. Test-first implementer. Spawned with a Slice Spec (one behavior to add or fix, from /tdd or slice-spec) or a Design Spec (approved requirements + design from agent-isdd, which it slices into tasks.md). Writes a failing test, proves it fails, makes the minimum change to pass, proves that too with scripts/tdd_check.py, pauses for an independent review, then refactors. Returns a marker-tagged handoff report. Never reviews its own work and never talks to the user. <example>user: "Add refund validation, test-first" assistant: "Spawning agent-TDD with a Slice Spec."</example>
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---
@@ -58,7 +59,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tdd_check.py" green --slice "<slice title
 `red` must fail and `green` must pass (after a confirmed red for the same slice title); each
 prints a `TDD-EVIDENCE <phase> <token> ... CONFIRMED` line. Copy those lines verbatim into
 **Validation Evidence**: the caller's hook checks the tokens against the log and flags any slice
-without them. Use the narrowest command that runs the new test. If `red` says NOT CONFIRMED
+without them. Run the narrowest test invocation that covers the new test. If `red` says NOT CONFIRMED
 because the test already passes, the test doesn't pin the new behavior — fix the test, don't
 proceed. If tests genuinely can't run here, say so and why; don't fabricate a token.
 

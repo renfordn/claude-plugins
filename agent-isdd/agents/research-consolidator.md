@@ -1,6 +1,7 @@
 ---
 name: research-consolidator
-description: Unified codebase research for Design + Tasks — one pass produces both design-ready findings (for design-author) and task-ready findings (cached for agent-tdd), eliminating a second, redundant deep-read of the same files.
+description: >-
+  Use this agent when Design or Tasks needs unified codebase research. Unified codebase research for Design + Tasks — one pass produces both design-ready findings (for design-author) and task-ready findings (cached for agent-tdd), eliminating a second, redundant deep-read of the same files. <example>user: "Research the codebase for this feature" assistant: "Spawning research-consolidator for design and task findings."</example>
 tools: Read, Grep, Glob
 model: sonnet
 ---

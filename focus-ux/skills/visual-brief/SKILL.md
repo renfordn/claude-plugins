@@ -1,6 +1,7 @@
 ---
 name: visual-brief
-description: Present big or many-part information visually, as a diagram, timeline, flow, comparison matrix, progress map, or chart with a short headline, so a visual thinker with ADHD can take it in at a glance and remember it. Use this whenever you're about to deliver research findings, a review or audit result, an investigation or debugging conclusion, a plan or roadmap, a comparison of options, a multi-phase recap, or an explanation with several moving parts. Also use it when the user says "show me", "visualize", "diagram", "timeline", "map it out", "draw", "picture", "overview", "summarize visually", or "I'm lost". Use it even when they didn't ask for a visual, if the reply would otherwise run past about 15 lines of prose or bullets.
+description: >-
+  Present status, progress, findings, or plans visually (progress map, timeline, flow, matrix, chart) with a short headline, so a visual thinker with ADHD sees where things stand at a glance. Use for "where are we", "what's done and what's left", or "I'm lost" about the work (not the code), plus research or audit results, outage timelines, roadmaps, option comparisons, and multi-phase recaps. Use even unasked if a reply would run past about 15 lines. For how code works, use code-brief.
 ---
 
 # Visual Brief
@@ -24,7 +25,7 @@ form (a flowchart of things that don't flow) is worse than a list.
 | Options judged on criteria | **Comparison matrix** with a verdict row |
 | A change | **Before → after**, side by side |
 | Status of many items (tasks, slices, checks) | **Progress map / checklist grid** |
-| Quantities, trends, or proportions | **Chart**: follow the `dataviz` skill for the form and colours |
+| Quantities, trends, or proportions | **Chart**: use `dataviz` (a separate skill) for the form and colours |
 | Findings with severity or priority | **Ranked cards** (most important first) plus a small severity strip |
 
 Two shapes in one set of findings (say, a structure *and* a sequence) means two pictures. Don't

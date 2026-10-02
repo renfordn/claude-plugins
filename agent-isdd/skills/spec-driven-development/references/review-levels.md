@@ -6,7 +6,7 @@ phase's concerns.
 
 | Phase | Review Level | Purpose | When | Invoked By |
 |-------|--------------|---------|------|-----------|
-| Requirements | Standard | Clarity check | After requirements draft, before approval | not implemented (`requirements-agent` does not invoke `/code-reviewer`; level shown is what code-reviewer's Auto-Detection Rules would pick) |
+| Requirements | Standard | Clarity check | After requirements draft, before approval | not implemented (`requirements-agent` does not invoke `/code-reviewer`; level shown is what code-reviewer's Auto-Detection Rules (`references/parameters.md`) would pick) |
 | Design | Deep | Coherence validation | After design complete, before Tasks | design-author (mandatory) |
 | Tasks | Standard | Clarity check | After task slicing, before implementation | not implemented (task slicing happens inside agent-TDD's Design Spec Mode, not as an agent-isdd phase, and it requests no review at this point; see `INTEROP.md`'s "→ agent-tdd" section) |
 | Implementation (per-slice, Red) | Quick | Test clarity | After test written, before implementation | not implemented (neither `test-author` nor agent-TDD requests a Red-stage review) |

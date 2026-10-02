@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-02
+
+- **Fix**: `visual-brief` description rewritten to own status, progress, and "I'm lost" questions about the work, and defer "how does X work" to `code-brief`. 488 characters (was 735). On a 40-query selection test it picked `visual-brief` 6/10 (was 4/10) with no loss on the other skills.
+- **Docs**: `dataviz` is named as a separate skill.
+
 ## [0.3.4] - 2026-09-30
 
 - **Fix**: the checkpoint transcript tail reader (`hooks/focus_ux_transcript.py`) now grows its read window, up to 1 MiB, until it holds a complete final line, so a final assistant message over 16 KB no longer reads as empty and its trailing CHECKPOINT marker is found.
