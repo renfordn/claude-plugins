@@ -37,6 +37,6 @@ def test_changelog_documents_research_digest():
     # that shipped the feature (0.6.0) across later version bumps. Looking only at the *current*
     # plugin.json version's section made this fail on the first bump after 0.6.0.
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    unreleased = _section(changelog, "## [Unreleased]", "\n## [")
+    unreleased = _section(changelog, "## [Unreleased]", "\n## [") if "## [Unreleased]" in changelog else ""
     shipped = _section(changelog, "## [0.6.0]", "\n## [") if "## [0.6.0]" in changelog else ""
     assert "research digest" in (unreleased + shipped).lower()
