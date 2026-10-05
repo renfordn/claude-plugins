@@ -2,7 +2,7 @@
 """Shared state utilities for the agent-tdd plugin.
 
 Owns:
-  - TDD memory directory derivation (${CLAUDE_PLUGIN_DATA}/agent-tdd-state/<project-slug>/)
+  - TDD memory directory derivation (<memory root>/agent-tdd-state/<project-slug>/; the shared_memory_root when set, else ${CLAUDE_PLUGIN_DATA})
   - tdd-progress.json read/write (slice tracking)
 
 Intentionally self-contained: slug algorithm is copied verbatim from
@@ -20,11 +20,11 @@ import sys
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.insert(0, _this_dir)
-from path_resolution import get_plugin_data_dir, get_legacy_subdir_path
+from path_resolution import get_memory_root, get_legacy_subdir_path
 
-# Resolve BASE directory using ${CLAUDE_PLUGIN_DATA} env var with fallback
-_plugin_data_dir = get_plugin_data_dir("agent-tdd")
-BASE = get_legacy_subdir_path(_plugin_data_dir, "agent-tdd-state")
+# The shared memory root when configured (same store as agent-nelly/agent-isdd, so slices and
+# review gates are visible across identities and machines), else ${CLAUDE_PLUGIN_DATA}.
+BASE = get_legacy_subdir_path(get_memory_root("agent-tdd"), "agent-tdd-state")
 
 
 def _repo_root(cwd):

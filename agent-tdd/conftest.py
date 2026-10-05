@@ -16,3 +16,6 @@ if not os.environ.get("CLAUDE_PLUGIN_DATA"):
 # A developer's real shared_memory_root option must never leak into tests; tests that exercise
 # it set CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT themselves (in a subprocess or reloaded module).
 os.environ.pop("CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT", None)
+
+# ...nor may the real ~/.claude/settings.json pluginConfigs fallback: point it at an empty dir.
+os.environ["CLAUDE_CONFIG_DIR"] = tempfile.mkdtemp(prefix="claude-config-test-")

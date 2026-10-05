@@ -1,5 +1,8 @@
 <!-- TDD-SKIP -->
-## [Unreleased]
+## [0.6.5] - 2026-10-05
+
+### Fixed
+- The shared memory root now resolves from any configured agent-nelly/agent-isdd/agent-tdd identity in `~/.claude/settings.json` when the running identity's own option is unset (e.g. `@synced` copies), so memory no longer splits into a local store.
 
 ## [0.6.4] - 2026-10-02
 

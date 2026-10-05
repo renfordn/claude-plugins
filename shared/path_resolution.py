@@ -106,16 +106,51 @@ SHARED_ROOT_GITATTRIBUTES = (
 )
 
 
+def _shared_root_from_plugin_configs():
+    """The shared_memory_root saved in ~/.claude/settings.json `pluginConfigs`, or None.
+
+    Claude Code only exports CLAUDE_PLUGIN_OPTION_* for the plugin whose hook is running, and
+    options are stored per plugin id -- so a plugin with no option of its own (agent-tdd), an
+    identity that was never configured (`@synced` vs `@inline`), or a script run from another
+    plugin's session would otherwise miss the root and silently write a local, split store. Any
+    agent-nelly/agent-isdd/agent-tdd identity that has the option set vouches for it; ids are
+    tried in sorted order so every process picks the same one.
+    """
+    import json
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    try:
+        with open(os.path.join(config_dir, "settings.json"), encoding="utf-8") as fh:
+            configs = json.load(fh).get("pluginConfigs")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(configs, dict):
+        return None
+    for plugin_id in sorted(configs):
+        if not plugin_id.startswith(("agent-nelly@", "agent-isdd@", "agent-tdd@")):
+            continue
+        options = configs[plugin_id].get("options") if isinstance(configs[plugin_id], dict) else None
+        value = options.get("shared_memory_root") if isinstance(options, dict) else None
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
 def get_shared_memory_root():
     """The user-configured shared memory root, or None when it isn't configured.
 
-    Unset, empty, or an unsubstituted `${user_config.shared_memory_root}` placeholder all mean
-    "not configured" -- callers then fall back to ${CLAUDE_PLUGIN_DATA}. A configured value must
-    be absolute after `~`/`$VAR` expansion; a relative one raises PluginDataDirUnavailable rather
-    than being resolved against whatever cwd the hook happens to run in.
+    The plugin's own CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT wins; when that is unset, empty, or
+    an unsubstituted `${user_config.shared_memory_root}` placeholder, the value saved for any
+    sibling plugin identity in ~/.claude/settings.json is used (see
+    _shared_root_from_plugin_configs), so one configured identity carries the location to all of
+    them. With neither, it isn't configured -- callers then fall back to ${CLAUDE_PLUGIN_DATA}.
+    A configured value must be absolute after `~`/`$VAR` expansion; a relative one raises
+    PluginDataDirUnavailable rather than being resolved against whatever cwd the hook happens to run in.
     """
     raw = (os.environ.get(SHARED_MEMORY_ROOT_ENV) or "").strip()
-    if not raw or raw.startswith("${user_config."):
+    if raw.startswith("${user_config."):
+        raw = ""
+    raw = raw or _shared_root_from_plugin_configs() or ""
+    if not raw:
         return None
     root = os.path.expanduser(os.path.expandvars(raw))
     if not os.path.isabs(root):

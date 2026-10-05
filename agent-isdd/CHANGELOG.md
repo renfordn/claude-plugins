@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.2] - 2026-10-05
+
+### Fixed
+- The shared memory root now resolves from any configured agent-nelly/agent-isdd/agent-tdd identity in `~/.claude/settings.json` when the running identity's own option is unset (e.g. `@synced` copies), so SDD state no longer splits into a local store.
 
 ## [0.5.1] - 2026-10-02
 

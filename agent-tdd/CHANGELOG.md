@@ -1,5 +1,8 @@
 <!-- TDD-SKIP -->
-## [Unreleased]
+## [0.4.2] - 2026-10-05
+
+### Fixed
+- Slice state (`agent-tdd-state/`: `tdd-progress.json`, `review-gate.json`) now lives under the shared memory root, resolved from any configured sibling plugin identity, so slices and phases see each other across identities and machines.
 
 ## [0.4.1] - 2026-10-02
 

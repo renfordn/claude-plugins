@@ -1,4 +1,4 @@
-# Shared memory root (agent-nelly + agent-isdd)
+# Shared memory root (agent-nelly + agent-isdd + agent-tdd)
 
 By default agent-nelly's memory and agent-isdd's SDD state live under `${CLAUDE_PLUGIN_DATA}`, which is
 local disk, separate for every plugin identity (`agent-nelly@inline` vs.
@@ -11,9 +11,13 @@ nothing changes.
 
 ## Configure
 
-Set the same absolute directory for **agent-nelly and agent-isdd**, and for **every identity** each
-one is installed under. Options are stored per plugin id in `pluginConfigs`, so `@inline` and
-`@renfordn-plugins` each need the value.
+Set the same absolute directory for **agent-nelly and agent-isdd**. Options are stored per plugin id in
+`pluginConfigs`, but Claude Code only exports one to that plugin's own hooks. So the path resolver
+falls back to the value saved for *any* agent-nelly/agent-isdd/agent-tdd identity in
+`~/.claude/settings.json` (sorted by id) when its own option is unset. One configured identity
+therefore covers `@inline`, `@synced`, `@renfordn-plugins`, and agent-tdd, which has no option of
+its own and keeps its slice state (`agent-tdd-state/`) under the same root. Setting the option on
+every identity is still fine, and an identity's own value wins over the fallback.
 
 - In Claude Code: `/config`, find the plugin's **Shared memory root** row, or set it when enabling the plugin.
 - From a terminal: `claude plugin install agent-nelly@renfordn-plugins --config shared_memory_root=$HOME/claude-memory`
