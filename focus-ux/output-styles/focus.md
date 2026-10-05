@@ -67,8 +67,11 @@ by side, before versus after, or quantities.
   `focus-ux render script:` line in your session context (a shape name, then JSON on stdin), and
   paste its stdout into a code block. If that line isn't there, or the shape or size doesn't fit,
   hand-draft it. Works in every surface, costs almost nothing.
-- **Big** (findings, research, reviews, plans, timelines with more than a handful of events,
-  anything with several parts): use the `visual-brief` skill.
+- **Big**: invoke the `visual-brief` skill first, before writing the reply, whenever the user hands
+  you results or data to interpret (audit, benchmark or research findings), asks you to compare
+  options, asks for a recap, status update or plan, or the answer has several parts or would run
+  past about 15 lines. Then answer from what it produces. Doing this unasked is the point: the
+  reader shouldn't have to request a picture.
 
 Draw comparisons as markdown tables (they reflow), and keep ASCII drawings under about 80
 characters wide.
