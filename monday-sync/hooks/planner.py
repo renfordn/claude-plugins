@@ -89,11 +89,13 @@ def desired_status(fields, git, sidecar=None):
     return _result("In progress", "phase")
 
 
-def notes_text(fields, slug):
-    """Notes column: `Phase: X · Next: Y · Spec: <slug>` (slug field wins over the dir slug)."""
+def notes_text(fields, slug, slices=None):
+    """Notes column: `Phase: X · Next: Y · Spec: <slug>` (slug field wins over the dir slug),
+    plus ` · Slices: done/total` once implementation progress is known."""
     nxt = (fields.get("next action") or "").strip() or "None"
     spec = (fields.get("slug") or "").strip() or slug
-    return f"Phase: {fields.get('current phase') or '?'} · Next: {nxt} · Spec: {spec}"
+    text = f"Phase: {fields.get('current phase') or '?'} · Next: {nxt} · Spec: {spec}"
+    return f"{text} · Slices: {slices}" if slices else text
 
 
 _GITHUB = re.compile(r"(?:^|[@/])github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$")
@@ -256,9 +258,9 @@ def _recap_line(changes, now):
     return f"- {now or ''} Board changes: " + "; ".join(parts)
 
 
-def _desired(fields, git, sidecar, slug):
+def _desired(fields, git, sidecar, slug, slices=None):
     ds = desired_status(fields, git, sidecar)
-    return dict(ds, notes=notes_text(fields, slug), code_link=code_link(git, sidecar.get("branch")))
+    return dict(ds, notes=notes_text(fields, slug, slices), code_link=code_link(git, sidecar.get("branch")))
 
 
 def _plan_result(state_text, desired=None, **kw):
@@ -279,7 +281,7 @@ def _ask_missing(fields, git, sidecar, slug, state_text):
                         recreate="ask")
 
 
-def plan(state_text, sidecar, git, item, slug, now=None):
+def plan(state_text, sidecar, git, item, slug, now=None, slices=None):
     """Sync plan for one feature. Pure: the caller loads workflow-state.md text and the sidecar.
 
     item is the normalized board item ({id, status, notes, code_link, updated_at, updates}) or None
@@ -296,7 +298,7 @@ def plan(state_text, sidecar, git, item, slug, now=None):
             return _ask_missing(fields, git, sidecar, slug, state_text)
         recreate = "recreate"
         sidecar = dict(sidecar, last_pushed=None, last_seen_board=None)
-    desired = _desired(fields, git, sidecar, slug)
+    desired = _desired(fields, git, sidecar, slug, slices)
     create = item is None
     board = item or {}
     last_pushed = sidecar.get("last_pushed")

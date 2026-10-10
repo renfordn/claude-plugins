@@ -94,7 +94,8 @@ def cmd_plan(a):
     else:
         item = None
     slug = os.path.basename(os.path.normpath(a.feature_dir))
-    _out(planner.plan(text, sidecar, _load_json(a.git), item, slug, now=a.now))
+    _out(planner.plan(text, sidecar, _load_json(a.git), item, slug, now=a.now,
+                     slices=fields.slice_progress(a.feature_dir)))
 
 
 def cmd_sync_begin(a):

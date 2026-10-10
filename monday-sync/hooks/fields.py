@@ -44,3 +44,21 @@ def feature_title(feature_dir, fields=None):
     """The feature's Title, else its folder name."""
     fields = read_fields(feature_dir) if fields is None else fields
     return fields.get("title") or os.path.basename(os.path.normpath(feature_dir))
+
+
+def slice_progress(feature_dir):
+    """"done/total" from tasks/tasks.md slice headings and agent-isdd's impl-progress.json
+    (written per agent-TDD report), or None when either is missing."""
+    import json
+    try:
+        with open(os.path.join(feature_dir, "tasks", "tasks.md"), "r", encoding="utf-8") as fh:
+            total = len(re.findall(r"^##\s+Slice\s+\d+\s*:", fh.read(), re.MULTILINE))
+        with open(os.path.join(feature_dir, "impl-progress.json"), "r", encoding="utf-8") as fh:
+            prog = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not total or not isinstance(prog, dict):
+        return None
+    done = total if prog.get("allComplete") else min(
+        total, sum(1 for v in (prog.get("slices") or {}).values() if v == "refactor_complete"))
+    return f"{done}/{total}"

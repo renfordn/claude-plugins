@@ -52,3 +52,9 @@ def test_state_hash_is_stable_16_hex():
     h = planner.state_hash("abc")
     assert h == planner.state_hash("abc") != planner.state_hash("abd")
     assert len(h) == 16 and int(h, 16) >= 0
+
+
+def test_notes_text_shows_slice_progress_when_known():
+    fields = {"current phase": "Implementation", "next action": "Slice 2"}
+    assert planner.notes_text(fields, "s", slices="1/2").endswith(" · Spec: s · Slices: 1/2")
+    assert "Slices" not in planner.notes_text(fields, "s")

@@ -225,6 +225,31 @@ def report_text_from_payload(payload):
 
 
 def main(payload=None):
+    """Record implementation progress, then run the report handling below; the Plan Board
+    reminder (if any) is appended to its message."""
+    if payload is None:
+        try:
+            payload = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
+    reminder = ""
+    try:
+        cwd = payload.get("cwd") or os.getcwd()
+        state = active_state_file(cwd)
+        report = report_text_from_payload(payload) if state else ""
+        import impl_progress
+        if report and impl_progress.record(os.path.dirname(state), report):
+            from post_write_check import _plan_board_reminder
+            reminder = _plan_board_reminder(state, cwd).strip()
+    except Exception:
+        reminder = ""                  # best-effort: never break SubagentStop
+    msg = _main(payload)
+    if reminder:
+        return f"{msg} {reminder}" if msg else reminder
+    return msg
+
+
+def _main(payload=None):
     """Returns the systemMessage text (or None) instead of printing it directly, so
     subagent_dispatch.py can run this alongside the other SubagentStop hooks in one process
     and merge their messages. Standalone invocation (tests, direct hooks.json entry) still

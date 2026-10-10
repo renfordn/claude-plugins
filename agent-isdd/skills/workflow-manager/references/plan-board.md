@@ -21,9 +21,13 @@ cover several projects. The workflow keeps it current; nobody edits it by hand.
   feature's brief. Recently closed holds Complete features closed within 14 days or among the 10
   most recently closed (the larger set); older ones are listed under Archive. Schema-1 records still
   render with the status fields they have.
-- **A project opts in** by recording the page URL in `PLAN-BOARD.md`, next to `spec/` in its SDD
-  memory directory: `- URL: https://claude.ai/artifact/...`. The URL must start with `https://`;
-  anything else counts as unset. Without that file nothing here runs.
+- **One board for every project.** The page URL lives in `PLAN-BOARD.md` at the root of
+  `sdd-memory/` (`- URL: https://claude.ai/artifact/...`), and every project uses it; the page
+  filters by project and its heading names the project in view. A project's own `PLAN-BOARD.md`,
+  next to its `spec/`, overrides the shared file (for `- Sync: off` or a separate board). The URL
+  must start with `https://`; anything else counts as unset. With neither file nothing here runs.
+- **Never publish a second board** for a new project: if `plan_board.board_url` (or the shared
+  file) already gives a URL, sync into that board.
 - **Per-project switch:** `- Sync: off` in `PLAN-BOARD.md` stops reminders and writes for that
   project only (default on). An optional `- Brief Board: https://...` line adds a link to the
   focus-ux Brief Board for ad-hoc briefs; without it no link shows.
@@ -58,11 +62,11 @@ Do this once, then every project can share the page.
    `capabilities: {db: {rules: [{path: "", read: "view", write: "owner"}]}}`, a short description
    and the icon `board`. **Without that rule the default lets Contributors write records**, so
    publish with it. Everyone who can open the page can read; only the owner can write.
-3. Write the returned URL into `PLAN-BOARD.md` in the project's memory directory: `# Plan Board`,
-   then `- URL: <url>`. Find the directory with
+3. Write the returned URL into `PLAN-BOARD.md` at the root of `sdd-memory/` (the parent of the
+   project's memory directory): `# Plan Board`, then `- URL: <url>`. Every project then shares it.
+   Find the project's memory directory with
    `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --path`,
    or use the one the `SessionStart` context names ("SDD per-feature state for this project").
-   To put several projects on one board, use the same URL in each project's file.
 4. Seed it: run `stale --cwd <project folder>` to list every feature and its state path, then do
    the "Syncing a feature" steps for each. `SessionStart` lists up to three at a time, with the
    rest under `stale`.

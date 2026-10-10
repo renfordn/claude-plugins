@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.4] - 2026-10-10
+
+### Added
+- New SubagentStop hook: after an agent-TDD or code-reviewer report, linked features whose implementation progress (agent-isdd's `impl-progress.json`) moved since the last sync are flagged.
+- Notes column shows `Slices: done/total` once implementation progress is known; the SessionStart drift scan also counts progress newer than the last sync.
+
 ## [0.3.3] - 2026-10-10
 
 ### Fixed

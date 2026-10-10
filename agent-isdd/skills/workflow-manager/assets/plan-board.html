@@ -82,7 +82,7 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     <div class="rail" aria-hidden="true"></div>
     <div>
       <p class="eyebrow">agent-isdd · spec-driven development</p>
-      <h1>Plan Board</h1>
+      <h1 id="board-title">Plan Board</h1>
       <p class="lede">Every feature's phase, status and next step, kept current by the workflow as it moves.</p>
     </div>
   </header>
@@ -322,8 +322,14 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     }
   }
 
+  /* The heading names the project in view: the selected filter, or the only project on the board. */
+  function boardTitle(project, projects) {
+    var p = project || (projects && projects.length === 1 ? projects[0] : "");
+    return p ? p + " Plan Board" : "Plan Board";
+  }
+
   if (typeof module === "object" && module.exports) {
-    module.exports = { cleanDocs: cleanDocs, sortDocs: sortDocs, groupByProject: groupByProject,
+    module.exports = { boardTitle: boardTitle, cleanDocs: cleanDocs, sortDocs: sortDocs, groupByProject: groupByProject,
       countByStatus: countByStatus, relDay: relDay, partition: partition, renderBrief: renderBrief, renderBoard: renderBoard };
   }
 
@@ -369,6 +375,10 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
 
   function draw() {
     var docs = cleanDocs(view.docs);
+    var title = boardTitle(view.project, groupByProject(docs).map(function (g) { return g.project; }));
+    var elTitle = document.getElementById("board-title");
+    if (elTitle) elTitle.textContent = title;
+    document.title = title;
     drawSummary(docs);
     drawFilters(docs);
     renderBoard(elBoard, docs, { project: view.project, view: view.mode, selectedId: view.selected,

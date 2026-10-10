@@ -1,6 +1,6 @@
 {
   "name": "monday-sync",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Keeps the monday.com Software Engineering board in sync with agent-isdd and git, and auto-drafts specs for tickets moved to Gather Requirements.",
   "author": {
     "name": "jay"

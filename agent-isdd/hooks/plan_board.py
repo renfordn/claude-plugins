@@ -160,6 +160,10 @@ def build_doc(path, project=None):
         "closedAt": updated if closed and has_date else "",  # an mtime fallback would churn the hash
         "brief": plan_brief.parse_brief(os.path.dirname(os.path.abspath(path)), f),
     }
+    import impl_progress
+    prog = impl_progress.summary(os.path.dirname(os.path.abspath(path)))
+    if prog and prog["last"]:
+        doc["lastImplEvent"] = prog["last"]
     found = feature_paths.feature_dir_from_path(os.path.abspath(path))
     url = found and brief_board_url(found[0])
     if url:
@@ -196,11 +200,15 @@ def memory_dir_for_state(path):
 
 
 def _board_fields(memory_dir):
-    try:
-        with open(os.path.join(memory_dir, BOARD_FILE), "r", encoding="utf-8") as fh:
-            return parse_fields(fh.read())
-    except OSError:
-        return None
+    """The project's PLAN-BOARD.md fields, else the shared one at the sdd-memory root (one board
+    for every project, filtered by project on the page), else None."""
+    for d in (memory_dir, os.path.dirname(os.path.normpath(memory_dir))):
+        try:
+            with open(os.path.join(d, BOARD_FILE), "r", encoding="utf-8") as fh:
+                return parse_fields(fh.read())
+        except OSError:
+            continue
+    return None
 
 
 def board_url(memory_dir):

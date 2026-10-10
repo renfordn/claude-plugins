@@ -389,3 +389,18 @@ def test_detail_pane_flows_into_columns_on_wide_screens():
     html = _html()
     assert re.search(r"\.detail\s*{[^}]*columns:", html)
     assert re.search(r"\.detail>h3\s*{[^}]*column-span:\s*all", html)
+
+
+@pytest.mark.skipif(NODE is None, reason="node not installed")
+def test_heading_names_the_selected_or_only_project():
+    out = _node("""
+      console.log(JSON.stringify([pb.boardTitle("", ["a", "b"]), pb.boardTitle("file-organiser", ["a", "file-organiser"]),
+                                  pb.boardTitle("", ["pa-nas"]), pb.boardTitle("", [])]));
+    """)
+    assert out == ["Plan Board", "file-organiser Plan Board", "pa-nas Plan Board", "Plan Board"]
+
+
+def test_heading_and_document_title_follow_the_filter():
+    js = _script()
+    assert 'id="board-title"' in _html()
+    assert "document.title = " in js and "boardTitle(view.project" in js

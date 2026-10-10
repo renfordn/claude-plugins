@@ -203,6 +203,23 @@ def drifted_features(data_dir=None):
             if not sc.get("item_id") or sc.get("unlinked"):
                 continue
             current = _hash_state(d)
-            if current and current != sc.get("state_hash"):
+            if (current and current != sc.get("state_hash")) or _progress_newer(d, sc.get("synced_at")):
                 out.append(d)
     return out
+
+
+def _progress_newer(feature_dir, synced_at):
+    """True when agent-isdd's impl-progress.json (one write per agent-TDD/code-reviewer report)
+    changed after the last board sync."""
+    import datetime
+    try:
+        mtime = os.path.getmtime(os.path.join(feature_dir, "impl-progress.json"))
+    except OSError:
+        return False
+    if not synced_at:
+        return True
+    try:
+        synced = datetime.datetime.fromisoformat(synced_at.replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return True
+    return mtime > synced

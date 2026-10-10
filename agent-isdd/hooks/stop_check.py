@@ -5,7 +5,7 @@ Detects two conditions:
 1. Explicit pause: workflow status contains "block", "await", or "confirm"
 2. Mid-workflow stall: a phase marked Complete but next phase not yet entered
 
-Never blocks the stop.
+Blocks the stop only for the Plan Board gate (_plan_board_gate), once per changed record.
 """
 import datetime
 import json
@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import active_state_file, parse_state  # noqa: E402
-from sdd_memory import local_state_dir  # noqa: E402
+from sdd_memory import local_state_dir, memory_dir  # noqa: E402
 
 
 PHASE_ORDER = ["Requirements", "Design", "Tasks"]  # Expected phase progression
@@ -80,6 +80,98 @@ def _detect_stalled_phase(state_fields, feature_dir):
     return (False, None, None)
 
 
+RECENT_S = 24 * 3600
+NUDGED_FILE = "plan-board-stop-nudged.json"
+
+
+def _main_repo(cwd):
+    """The main checkout for a git worktree (parent of the shared .git dir), else None."""
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", cwd, "rev-parse", "--path-format=absolute",
+                              "--git-common-dir"], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    common = out.stdout.strip()
+    if out.returncode or not common:
+        return None
+    main = os.path.dirname(common)
+    real_main, real_cwd = os.path.realpath(main), os.path.realpath(cwd)
+    if real_main == real_cwd:
+        return None
+    # Keep cwd's own spelling (e.g. /var vs /private/var) when the worktree sits inside the main
+    # checkout (.claude/worktrees/<name>), so the project slug matches the main session's.
+    rel = os.path.relpath(real_cwd, real_main)
+    if not rel.startswith("..") and cwd.rstrip("/").endswith(rel):
+        return cwd.rstrip("/")[: -len(rel)].rstrip("/") or main
+    return main
+
+
+def _board_memory(cwd):
+    """(memory dir, project cwd) holding this project's Plan Board; a worktree uses its main repo's."""
+    import plan_board
+    mem = memory_dir(cwd)
+    if plan_board.board_url(mem):
+        return mem, cwd
+    main = _main_repo(cwd)
+    if main and plan_board.board_url(memory_dir(main)):
+        return memory_dir(main), main
+    return None, None
+
+
+def _plan_board_gate(payload, cwd):
+    """Block the stop once per changed record when a feature changed in the last 24h is stale
+    on the Plan Board. Reminders alone were ignored; this makes the sync part of the turn.
+    Returns the reason text, or "" to let the stop through."""
+    if payload.get("stop_hook_active"):
+        return ""                      # the stop is already a hook continuation: never loop
+    import plan_board
+    mem, project_cwd = _board_memory(cwd)
+    if not mem:
+        return ""
+    project = plan_board.repo_label(project_cwd)
+    now = datetime.datetime.now().timestamp()
+    nudged_path = os.path.join(local_state_dir(project_cwd), NUDGED_FILE)
+    try:
+        with open(nudged_path, "r", encoding="utf-8") as fh:
+            nudged = json.load(fh)
+        nudged = nudged if isinstance(nudged, dict) else {}
+    except (OSError, ValueError):
+        nudged = {}
+    due = []
+    for slug, path, doc in plan_board.stale_features(mem, project):
+        recent = False
+        for f in (path, os.path.join(os.path.dirname(path), "impl-progress.json")):
+            try:
+                recent = recent or now - os.path.getmtime(f) <= RECENT_S
+            except OSError:
+                pass
+        h = plan_board.content_hash(doc)
+        if recent and nudged.get(doc["id"]) != h:
+            due.append((slug, path, doc))
+            nudged[doc["id"]] = h
+    if not due:
+        return ""
+    try:
+        os.makedirs(os.path.dirname(nudged_path), exist_ok=True)
+        with open(nudged_path, "w", encoding="utf-8") as fh:
+            json.dump(nudged, fh)
+    except OSError:
+        pass
+    import shlex
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_board.py")
+    url = plan_board.board_url(mem)
+    lines = [f"Plan Board ({url}) is out of date for {len(due)} feature(s) changed this session. "
+             f"Before ending the turn, for each: run `python3 {shlex.quote(script)} doc <state> "
+             f"--project {shlex.quote(project)} --out <temp file>`, `ArtifactData get` its `id` in "
+             f"collection `plans`, `ArtifactData set` with `file_path` = the temp file (add "
+             f"`if_version` when the record exists), then `python3 {shlex.quote(script)} "
+             f"mark-synced <state> --project {shlex.quote(project)}`. If a step fails, say so in "
+             f"one line and stop; this check will not block again for the same change."]
+    lines += [f"- {slug} ({path})" for slug, path, _doc in due]
+    return "\n".join(lines)
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -87,6 +179,13 @@ def main():
         payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
+    try:
+        reason = _plan_board_gate(payload, cwd)
+    except Exception:
+        reason = ""                    # best-effort: never break Stop over the board
+    if reason:
+        print(json.dumps({"decision": "block", "reason": reason}))
+        sys.exit(0)
     state = active_state_file(cwd)
     if not state:
         sys.exit(0)

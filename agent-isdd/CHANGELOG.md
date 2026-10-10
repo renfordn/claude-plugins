@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.4] - 2026-10-10
+
+### Added
+- `/isdd-board-sync` is central: `plan_board_sync.py all verify|resync|prune|mark` covers every project under `sdd-memory/` on the shared board in one run. Projects are labelled from their sync files; a card is orphaned only when no project has it; never-synced folders are reported as skipped.
+- One Plan Board for every project: a `PLAN-BOARD.md` at the `sdd-memory/` root is the default for projects without their own, so a new project no longer publishes a separate board. The setup docs now write the shared file and say never to publish a second board.
+- The page heading (and tab title) names the project in view: the selected filter, or the only project on the board; "Plan Board" otherwise.
+- Implementation progress reaches the Plan Board: `subagent_report.py` records each agent-TDD and code-reviewer report in `<feature>/impl-progress.json` and asks for the board sync; the card's slice count reads it, the record carries the last event, and the end-of-turn gate counts a new report as a change.
+- Plan Board end-of-turn gate in `stop_check.py`: when a feature whose `workflow-state.md` changed in the last 24h is stale on the board, the stop is blocked once per change with the exact sync steps. It never blocks a hook-continued stop (`stop_hook_active`), and a git worktree session checks the main checkout's board.
+
 ## [0.5.3] - 2026-10-10
 
 ### Fixed

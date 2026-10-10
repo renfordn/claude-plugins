@@ -199,3 +199,16 @@ def test_doc_carries_brief_board_url_only_when_known(tmp_path):
     assert "briefBoardUrl" not in plan_board.build_doc(path, project="proj")
     _board_file(mem, f"- URL: {URL}", "- Brief Board: https://claude.ai/artifact/BRIEFS")
     assert plan_board.build_doc(path, project="proj")["briefBoardUrl"] == "https://claude.ai/artifact/BRIEFS"
+
+
+def test_a_project_without_its_own_file_uses_the_shared_board(tmp_path):
+    import plan_board
+    base = tmp_path / "sdd-memory"
+    proj = base / "users-me-new-project"
+    proj.mkdir(parents=True)
+    (base / "PLAN-BOARD.md").write_text("# Plan Board\n\n- URL: https://claude.ai/artifact/SHARED\n")
+    assert plan_board.board_url(str(proj)) == "https://claude.ai/artifact/SHARED"
+    assert plan_board.sync_enabled(str(proj))
+    (proj / "PLAN-BOARD.md").write_text("# Plan Board\n\n- URL: https://claude.ai/artifact/OWN\n- Sync: off\n")
+    assert plan_board.board_url(str(proj)) == "https://claude.ai/artifact/OWN"
+    assert not plan_board.sync_enabled(str(proj))

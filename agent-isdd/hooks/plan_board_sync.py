@@ -178,14 +178,137 @@ def _ids(argv):
     for a in argv[1:]:
         if skip:
             skip = False
-        elif a in ("--memory-dir", "--project", "--cwd", "--board-json"):
+        elif a in ("--memory-dir", "--project", "--cwd", "--board-json", "--base"):
             skip = True
         elif not a.startswith("--"):
             out.append(a)
     return out
 
 
+# -- central run: every project under sdd-memory/ on the shared board --------------------------
+
+def _label(memory_dir):
+    """The project label used in this project's record ids, from its sync file (most common id
+    prefix), or None when it has never synced (run once from that project to label it)."""
+    counts = {}
+    for key in plan_board._read_sync(memory_dir):
+        if "--" in key:
+            prefix = key.split("--", 1)[0]
+            counts[prefix] = counts.get(prefix, 0) + 1
+    return max(counts, key=counts.get) if counts else None
+
+
+def central_projects(base):
+    """([(label, memory_dir)], [skipped dir names]) for every project dir under `base` with a spec/
+    folder whose effective board is the shared one (base/PLAN-BOARD.md) and sync is on."""
+    shared = plan_board.board_url(os.path.join(base, "_"))
+    found, skipped = [], []
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return found, skipped
+    for name in names:
+        mem = os.path.join(base, name)
+        if not os.path.isdir(os.path.join(mem, "spec")):
+            continue
+        if not shared or plan_board.board_url(mem) != shared or not plan_board.sync_enabled(mem):
+            continue
+        label = _label(mem)
+        (found.append((label, mem)) if label else skipped.append(name))
+    return found, skipped
+
+
+def _dump(path):
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if isinstance(data, dict):
+        data = [{"id": k, "contentHash": v} for k, v in data.items()]
+    return [d for d in data if isinstance(d, dict) and d.get("id")]
+
+
+def main_all(argv):
+    """`all <verify|resync|prune|mark> [--board-json FILE] [--confirm] [ids] [--base DIR]`."""
+    cmd = argv[0] if argv else ""
+    if cmd not in ("verify", "resync", "prune", "mark"):
+        print("usage: plan_board_sync.py all verify|resync|prune|mark [--board-json FILE] "
+              "[--confirm] [ids...] [--base DIR]", file=sys.stderr)
+        return 2
+    base = _arg(argv, "--base")
+    if not base:
+        import sdd_memory
+        base = sdd_memory.BASE
+    projects, skipped = central_projects(base)
+    board = []
+    if _arg(argv, "--board-json"):
+        try:
+            board = _dump(_arg(argv, "--board-json"))
+        except (OSError, ValueError) as exc:
+            print(f"plan_board_sync: cannot read board dump: {exc}", file=sys.stderr)
+            return 2
+    elif cmd != "mark":
+        print("plan_board_sync: all needs --board-json FILE (the board's `plans` list)", file=sys.stderr)
+        return 2
+    hashes = {d["id"]: d.get("contentHash", "") for d in board}
+    versions = {d["id"]: d["version"] for d in board if d.get("version")}
+    local_ids = set()
+    per = {}
+    for label, mem in projects:
+        prefix = plan_board._safe(label) + "--"
+        local = {i: d["contentHash"] for i, d in local_docs(mem, label).items()}
+        local_ids |= set(local)
+        mine = {i: h for i, h in hashes.items() if i.startswith(prefix)}
+        per[label] = (mem, local, mine)
+    # A card is an orphan only when no feature folder anywhere under base has its slug, so cards of
+    # skipped (never-synced) or sync-off projects are never offered for deletion.
+    all_slugs = set()
+    try:
+        for name in os.listdir(base):
+            try:
+                all_slugs |= {plan_board._safe(f) for f in os.listdir(os.path.join(base, name, "spec"))}
+            except OSError:
+                pass
+    except OSError:
+        pass
+    orphans = sorted(i for i in hashes if i not in local_ids
+                     and (i.split("--", 1)[1] if "--" in i else i) not in all_slugs)
+    if cmd == "verify":
+        out = {"projects": {}, "orphaned": orphans, "skipped": skipped}
+        for label, (mem, local, mine) in per.items():
+            d = diff_records(local, mine)
+            out["projects"][label] = {"missing": d["missing"], "mismatched": d["mismatched"]}
+            stamp_verified(mem)
+        print(json.dumps(out, indent=1))
+    elif cmd == "resync":
+        batch = {"writes": [], "ids": [], "skipped": skipped}
+        for label, (mem, _local, mine) in per.items():
+            b = build_batch(mem, label, mine, versions)
+            batch["writes"] += b["writes"]
+            batch["ids"] += b["ids"]
+        print(json.dumps(batch, indent=1))
+    elif cmd == "mark":
+        done = []
+        for i in _ids(argv):
+            for label, (mem, _l, _m) in per.items():
+                if i.startswith(plan_board._safe(label) + "--"):
+                    done += mark_success(mem, label, [i])
+        print("\n".join(done))
+    elif "--confirm" in argv:
+        out = {"removed": [], "board_instructions": []}
+        for mem, _l, _m in per.values():
+            r = apply_prune(plan_board._sync_path(mem), orphans, True, versions)
+            out["removed"] += r["removed"]
+        out["board_instructions"] = [dict({"op": "delete", "collection": plan_board.COLLECTION, "doc_id": i},
+                                          **({"if_version": versions[i]} if versions.get(i) else {}))
+                                     for i in orphans]
+        print(json.dumps(out, indent=1))
+    elif orphans:
+        print(plan_prune(orphans)["confirmation"])
+    return 0
+
+
 def main(argv):
+    if argv and argv[0] == "all":
+        return main_all(argv[1:])
     cmd = argv[0] if argv else ""
     if cmd not in ("verify", "resync", "prune", "mark"):
         print("usage: plan_board_sync.py verify --board-json FILE | resync [--board-json FILE] | "

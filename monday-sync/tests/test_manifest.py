@@ -13,7 +13,7 @@ def load(*parts):
 
 def test_plugin_manifest():
     m = load(".claude-plugin", "plugin.json")
-    assert m["name"] == "monday-sync" and m["version"] == "0.3.3"
+    assert m["name"] == "monday-sync" and m["version"] == "0.3.4"
     assert m["author"] == {"name": "jay"} and m["description"]
 
 

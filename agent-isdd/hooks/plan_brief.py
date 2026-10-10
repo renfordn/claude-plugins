@@ -5,6 +5,7 @@ beside workflow-state.md by heading and returns a plain dict. Stdlib only; never
 missing or unparsable file just omits its section.
 """
 import json
+import os
 import re
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
@@ -99,6 +100,12 @@ def _slices(text, state_path, closed=False):
             done = sum(1 for s in json.loads(raw).get("slices", []) if isinstance(s, dict) and s.get("status") == "done")
         except (ValueError, AttributeError, TypeError):
             done = None
+    elif done is None:
+        # agent-TDD's path: reports recorded per feature by subagent_report.py (impl_progress).
+        import impl_progress
+        prog = impl_progress.summary(os.path.dirname(state_path))
+        if prog:
+            done = len(items) if prog["allComplete"] else min(prog["done"], len(items))
     return {"total": len(items), "done": done, "items": items}
 
 
