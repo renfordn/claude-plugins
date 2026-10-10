@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.3] - 2026-10-10
+
+### Fixed
+- `first_class` moved out of `plugin.json` into `.claude-plugin/first-class.json`; the marketplace sync warned about the unknown manifest key.
+
 ## [0.3.2] - 2026-10-10
 
 ### Added
