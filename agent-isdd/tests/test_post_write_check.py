@@ -475,3 +475,53 @@ class PostWriteCheckTempFileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PostWriteCheckBashTests(unittest.TestCase):
+    """A workflow-state.md changed through Bash (heredoc, printf >>, python3 -) still gets the
+    Plan Board reminder: the feature is resolved by its spec/<slug> under this project's memory."""
+
+    SLUG = "2026-10-07-bash-written"
+
+    def _setup(self, home, cwd):
+        spec = h.feature_spec_dir(home, cwd, self.SLUG)
+        h.seed_state_file(spec, current_phase="Design", workflow_status="In Progress")
+        h.seed_plan_board_url(os.path.dirname(os.path.dirname(spec)))
+        return spec
+
+    def _run(self, home, cwd, command):
+        return h.run_hook_message(
+            "post_write_check.py",
+            {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": cwd},
+            env_extra={"HOME": home},
+        )
+
+    def test_bash_write_naming_the_feature_gets_the_plan_board_reminder(self):
+        with h.temp_home() as home:
+            cwd = os.path.join(home, "repo")
+            os.makedirs(cwd)
+            self._setup(home, cwd)
+            cmd = (f'D="$HOME/x/sdd-memory/proj/spec/{self.SLUG}"; '
+                   f"printf '%s\\n' '- 2026-10-07: done' >> \"$D/workflow-state.md\"")
+            msg, rc = self._run(home, cwd, cmd)
+            self.assertEqual(rc, 0)
+            self.assertIn("Plan Board", msg)
+            self.assertIn(self.SLUG, msg)
+
+    def test_bash_command_without_workflow_state_is_silent(self):
+        with h.temp_home() as home:
+            cwd = os.path.join(home, "repo")
+            os.makedirs(cwd)
+            self._setup(home, cwd)
+            msg, rc = self._run(home, cwd, f"ls spec/{self.SLUG}/design")
+            self.assertEqual(rc, 0)
+            self.assertIsNone(msg)
+
+    def test_bash_naming_an_unknown_feature_is_silent(self):
+        with h.temp_home() as home:
+            cwd = os.path.join(home, "repo")
+            os.makedirs(cwd)
+            self._setup(home, cwd)
+            msg, rc = self._run(home, cwd, "cat spec/2026-01-01-nope/workflow-state.md")
+            self.assertEqual(rc, 0)
+            self.assertIsNone(msg)

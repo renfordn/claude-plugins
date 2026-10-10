@@ -10,6 +10,7 @@
     { "name": "agent-tdd", "source": "./agent-tdd" },
     { "name": "code-reviewer", "source": "./code-reviewer" },
     { "name": "focus-ux", "source": "./focus-ux" },
+    { "name": "monday-sync", "source": "./monday-sync" },
     { "name": "follow-through", "source": "./follow-through" }
   ]
 }

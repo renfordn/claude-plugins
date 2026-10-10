@@ -7,6 +7,7 @@ Monorepo for Renford Nelson's personal Claude Code plugins:
 - `code-reviewer/` — code review skill
 - `agent-nelly/` — memory system
 - `focus-ux/` — ADHD-friendly output style + visual-brief skill
+- `monday-sync/` — keeps the monday.com Software Engineering board in sync with agent-isdd features
 - `follow-through/` — stops unfollowed "I'll check back" promises on background/long-running work
 
 Each subdirectory is a standalone plugin (own `.claude-plugin/plugin.json`,

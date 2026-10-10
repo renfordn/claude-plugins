@@ -1,0 +1,33 @@
+{
+  "name": "monday-sync",
+  "version": "0.3.2",
+  "description": "Keeps the monday.com Software Engineering board in sync with agent-isdd and git, and auto-drafts specs for tickets moved to Gather Requirements.",
+  "author": {
+    "name": "jay"
+  },
+  "homepage": "https://github.com/renfordn/claude-plugins",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "monday.com",
+    "isdd",
+    "spec-driven",
+    "board",
+    "sync",
+    "workflow"
+  ],
+  "userConfig": {
+    "shared_memory_root": {
+      "type": "directory",
+      "title": "Shared memory root",
+      "description": "Optional. The same shared memory root agent-isdd uses. When set, monday-sync scans <dir>/sdd-memory/*/spec/ at session start for linked features whose workflow-state.md changed since the last board sync, and resolves Bash edits to features by slug.",
+      "required": false,
+      "default": ""
+    }
+  },
+  "first_class": {
+    "declared_absent": [
+      "commands",
+      "agents"
+    ]
+  }
+}

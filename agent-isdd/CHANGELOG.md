@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.3] - 2026-10-10
+
+### Fixed
+- `post_write_check.py` now also runs on Bash. A command that names `workflow-state.md` and a `spec/<slug>` of this project gets the Plan Board reminder, because state files changed through heredocs, `printf >>` or `python3 -` previously got no reminder.
+
 ## [0.5.2] - 2026-10-05
 
 ### Fixed

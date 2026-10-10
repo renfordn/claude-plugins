@@ -24,6 +24,7 @@ systemMessage.
 """
 import datetime
 import json
+import re
 import os
 import shlex
 import sys
@@ -141,11 +142,55 @@ def _plan_board_reminder(file_path, cwd):
     )
 
 
+_BASH_SPEC = re.compile(r"spec/(\d{4}-\d{2}-\d{2}-[A-Za-z0-9._-]+)")
+
+
+def _bash_state_paths(command, cwd):
+    """workflow-state.md paths of this project's features that a Bash command names.
+
+    State files are often changed through Bash (heredocs, `printf >>`, `python3 -`), which no
+    Edit/Write matcher sees. A command that mentions workflow-state.md and a spec/<slug> is mapped
+    to <memory_dir(cwd)>/spec/<slug>/workflow-state.md when that file exists.
+    """
+    if "workflow-state" not in command or not cwd:
+        return []
+    from sdd_memory import memory_dir
+    mem = memory_dir(cwd)
+    paths = []
+    for slug in dict.fromkeys(_BASH_SPEC.findall(command)):
+        state = os.path.join(mem, "spec", slug, "workflow-state.md")
+        if os.path.isfile(state):
+            paths.append(state)
+    return paths
+
+
+def _bash_main(payload):
+    command = (payload.get("tool_input") or {}).get("command") or ""
+    cwd = payload.get("cwd")
+    reminders = []
+    for state in _bash_state_paths(command, cwd):
+        _sync_json(state)
+        try:
+            reminders.append(_plan_board_reminder(state, cwd))
+        except Exception:
+            pass  # best-effort, as for Edit/Write
+    reminders = [r.strip() for r in reminders if r]
+    if reminders:
+        print(json.dumps({"systemMessage": " ".join(reminders)}))
+    sys.exit(0)
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         sys.exit(0)
+
+    if payload.get("tool_name") == "Bash":
+        try:
+            _bash_main(payload)
+        except Exception:
+            sys.exit(0)
 
     tool_input = payload.get("tool_input") or {}
     file_path = tool_input.get("file_path") or tool_input.get("path") or ""

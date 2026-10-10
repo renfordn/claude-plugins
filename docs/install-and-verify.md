@@ -42,6 +42,7 @@ claude plugin install agent-isdd@renfordn-plugins
 claude plugin install code-reviewer@renfordn-plugins
 claude plugin install focus-ux@renfordn-plugins
 claude plugin install follow-through@renfordn-plugins
+claude plugin install monday-sync@renfordn-plugins
 ```
 
 ---
