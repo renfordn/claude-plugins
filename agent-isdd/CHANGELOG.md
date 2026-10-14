@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.5] - 2026-10-14
+
+### Added
+- `isdd-pickup` skill: surveys the project's SDD specs, cross-checks git worktrees and `session-lock.json` claims, ranks stalled/ready/blocked features and recommends the next one to pick up.
+
 ## [0.5.4] - 2026-10-10
 
 ### Added
