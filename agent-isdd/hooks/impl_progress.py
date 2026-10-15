@@ -2,8 +2,8 @@
 
 agent-TDD's tdd-progress.json is per project, and workflow-state.md isn't touched between
 slices, so nothing told the boards that implementation moved. subagent_report.py feeds each
-report here; <feature>/impl-progress.json then drives the Plan Board's slice count and the
-end-of-turn gate. Stdlib only; every write is best-effort.
+report here; <feature>/impl-progress.json then drives the Plan Board's slice count, the card's
+last-report day and the end-of-turn gate. Stdlib only; every write is best-effort.
 """
 import datetime
 import json
@@ -88,5 +88,7 @@ def summary(feature_dir):
     slices = data.get("slices") or {}
     events = data.get("events") or []
     last = {k: v for k, v in (events[-1] if events else {}).items() if k != "at"} or None
+    day = str((events[-1] if events else {}).get("at") or "")[:10]
     return {"done": sum(1 for v in slices.values() if v == DONE), "slices": slices,
-            "allComplete": bool(data.get("allComplete")), "last": last}
+            "allComplete": bool(data.get("allComplete")), "last": last,
+            "lastDay": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else ""}

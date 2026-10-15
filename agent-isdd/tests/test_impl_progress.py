@@ -101,3 +101,23 @@ def test_a_report_that_changes_nothing_visible_does_not_change_the_record(tmp_pa
     assert after["contentHash"] == before["contentHash"]
     assert impl_progress.record(spec, tdd("refactor_complete", "Slice 1: first"))
     assert plan_board.build_doc(state, project="p")["contentHash"] != before["contentHash"]
+
+
+def test_record_carries_the_last_report_day_only_so_it_changes_once_a_day(tmp_path):
+    spec = str(tmp_path / "spec" / "2026-10-09-impl")
+    state = h.seed_state_file(spec, title="Impl", slug="2026-10-09-impl",
+                              current_phase="Implementation", workflow_status="In Progress")
+    assert "lastImplDay" not in plan_board.build_doc(state, project="p")
+    assert impl_progress.record(spec, tdd("green_pause", "Slice 1: first"))
+    first = plan_board.build_doc(state, project="p")
+    assert first["lastImplDay"] == time.strftime("%Y-%m-%d", time.gmtime())
+    assert impl_progress.record(spec, "<!--CODE-REVIEWER-REPORT-->\n**Verdict:** clear\n")
+    assert plan_board.build_doc(state, project="p")["contentHash"] == first["contentHash"]
+    # a report on a later day changes the record (rewrite the stored timestamps to yesterday first)
+    data = impl_progress.load(spec)
+    for e in data["events"]:
+        e["at"] = "2026-10-01T09:00:00Z"
+    with open(impl_progress.path(spec), "w") as fh:
+        json.dump(data, fh)
+    old = plan_board.build_doc(state, project="p")
+    assert old["lastImplDay"] == "2026-10-01" and old["contentHash"] != first["contentHash"]

@@ -228,6 +228,7 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     kv(root, "Goal", b.goal || d.goal);
     kv(root, "Paused", d.pauseReason);
     kv(root, "Next", d.nextAction);
+    kv(root, "Implementation", d.lastImplDay ? "last report " + d.lastImplDay : "");
     kv(root, "Requirements", rq.state);
     bullets(root, "Open gaps", rq.openGaps);
     kv(root, "Design", ds.state);
@@ -280,6 +281,8 @@ h1{font:700 clamp(30px,6vw,44px)/1.05 var(--display);letter-spacing:.02em;text-t
     var when = relDay(d.updatedAt, nowMs);
     var parts = ["Track: " + String(d.track || "Standard")];
     if (d.updatedAt) parts.push("updated " + (when ? when + " (" + d.updatedAt + ")" : String(d.updatedAt)));
+    var impl = relDay(d.lastImplDay, nowMs);
+    if (impl) parts.push("implementing · last report " + impl);
     card.appendChild(el("p", "meta", parts.join(" · ")));
     card.appendChild(pick(d, d.id === opts.selectedId ? "Hide brief" : "Show brief", opts));
     return card;

@@ -404,3 +404,16 @@ def test_heading_and_document_title_follow_the_filter():
     js = _script()
     assert 'id="board-title"' in _html()
     assert "document.title = " in js and "boardTitle(view.project" in js
+
+
+def test_cards_show_the_last_implementation_day_when_the_record_has_one():
+    doc = _doc(title="Pages", status="In Progress", lastImplDay="2026-10-29")
+    out = _node(f"""const root = new Node("div");
+      pb.renderBoard(root, [{json.dumps(doc)}], {{}}, Date.UTC(2026, 9, 30, 12));
+      console.log(JSON.stringify(allText(root)));""")
+    assert "implementing" in out and "yesterday" in out
+    bare = _doc(title="Pages", status="In Progress")
+    out = _node(f"""const root = new Node("div");
+      pb.renderBoard(root, [{json.dumps(bare)}], {{}}, Date.UTC(2026, 9, 30, 12));
+      console.log(JSON.stringify(allText(root)));""")
+    assert "implementing" not in out

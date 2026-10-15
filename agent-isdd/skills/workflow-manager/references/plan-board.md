@@ -113,6 +113,7 @@ workflow. The feature stays out of date and `SessionStart` will list it again.
 | `implementationRequested` | `true`, `false` or `null` when unknown |
 | `updatedAt` | The date in `## Last Updated`, else the file's modified date |
 | `closedAt` | The `Last Updated` date when the feature is Complete, else empty |
+| `lastImplDay` | `YYYY-MM-DD` of the last agent-TDD or code-reviewer report in `impl-progress.json`, absent when none. A day, not the report, so the record changes at most once a day; the card shows it as "implementing · last report …" |
 | `brief` | Built by `hooks/plan_brief.py`: `goal`, `requirements {state, openGaps}`, `design {state, summary, risks, openQuestions}`, `slices {total, done, items}`, `decisions`, `openItems`. At most 8 items per list, 160 characters per item, about 6 KB in all; clipped with an ellipsis, never dropped. A missing file just omits its section. `slices.done` is known only when `direct-mode-state.json` sits beside `workflow-state.json`, else null |
 | `contentHash` | Hash of the record's own content (not `updatedAt`); what drift checks compare |
 | `briefBoardUrl` | The `- Brief Board:` URL, when set |
