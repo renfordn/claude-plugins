@@ -32,7 +32,7 @@ def test_reports_are_folded_into_per_slice_status(tmp_path):
     s = impl_progress.summary(d)
     assert s["done"] == 1 and s["slices"] == {"2": "refactor_complete"}
     assert impl_progress.record(d, "<!--CODE-REVIEWER-REPORT-->\n**Verdict:** clear\n")
-    assert impl_progress.summary(d)["last"]["kind"] == "review"
+    assert impl_progress.load(d)["events"][-1]["kind"] == "review"
     assert impl_progress.record(d, tdd("all_slices_complete", "all done"))
     assert impl_progress.summary(d)["allComplete"] is True
     assert not impl_progress.record(d, "an unrelated subagent's answer")

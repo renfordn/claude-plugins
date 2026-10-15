@@ -80,15 +80,14 @@ def record(feature_dir, report):
 
 
 def summary(feature_dir):
-    """{done, slices, allComplete, last} or None when nothing was recorded. `last` drops `at`
-    so the board record's hash changes with the event, not the clock."""
+    """{done, slices, allComplete, lastDay} or None when nothing was recorded. `lastDay` is the day
+    of the last report, not the report, so the board record changes once a day, not on every report."""
     data = load(feature_dir)
     if not data:
         return None
     slices = data.get("slices") or {}
     events = data.get("events") or []
-    last = {k: v for k, v in (events[-1] if events else {}).items() if k != "at"} or None
     day = str((events[-1] if events else {}).get("at") or "")[:10]
     return {"done": sum(1 for v in slices.values() if v == DONE), "slices": slices,
-            "allComplete": bool(data.get("allComplete")), "last": last,
+            "allComplete": bool(data.get("allComplete")),
             "lastDay": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else ""}

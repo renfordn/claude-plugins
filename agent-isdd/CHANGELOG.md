@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-10-15
+
+### Changed
+- Removed the unused `last` entry from `impl_progress.summary()` (nothing read it since `lastImplEvent` left the board record in 0.5.6). The summary is now `{done, slices, allComplete, lastDay}`. No behaviour change.
+
 ## [0.5.7] - 2026-10-15
 
 ### Added
