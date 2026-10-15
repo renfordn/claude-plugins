@@ -77,7 +77,9 @@ Do this once, then every project can share the page.
 Syncing only writes records. A new plugin version that changes `assets/plan-board.html` does not
 reach a board that is already published. Rebuild it with `plan_board.py page <out.html>` and publish
 it with the Artifact tool using the board's `url` and no `capabilities` (the owner-only write rule
-carries forward). Do this after any upgrade whose changelog mentions the page.
+carries forward). Do this after any upgrade whose changelog mentions the page. `/isdd-board-sync` checks for you:
+save the live page with `Artifact read` (`path: "index.html"`) and pass it to `verify` as
+`--page-file`; it reports `page: stale` when the published page lacks the current template.
 
 ## Syncing a feature
 
@@ -123,13 +125,15 @@ Statuses `Paused`, `Blocked` and `Awaiting …` (the template's `Awaiting Confir
 `/isdd-board-sync` runs `plan_board_sync.py` (same folder as `plan_board.py`):
 
 - `verify --board-json <file>` compares the board's `plans` records (an `ArtifactData list` saved to
-  a file) with local state and prints missing, mismatched and orphaned ids. It stamps
-  `lastVerified`; `SessionStart` reminds you to verify when that is over 24 hours old.
+  a file) with local state and prints missing, mismatched and orphaned ids (and, with `--page-file`,
+  `page: current|stale|unreadable`). It stamps `lastVerified`; `SessionStart` reminds you to verify when that is over 24 hours old.
 - `resync [--board-json <file>]` prints one `ArtifactData batch` of `set` writes for every stale or
   missing record. `mark <id>...` then records only the ids that succeeded; failed ones stay stale.
 - `prune [--board-json <file>]` lists orphans (board records or sync entries with no feature) and
   deletes nothing. Only after the user confirms, `prune --confirm` removes the sync entries and
-  prints the board deletes to apply.
+  prints the board deletes to apply. A feature the weekly cleanup archived (a `completed/<slug>.md`
+  summary, spec folder gone) is history, not an orphan: verify and prune never report or offer it,
+  so its closed card stays on the board.
 
 `slices.done` is the total for a closed feature (Complete status or phase), otherwise it comes from
 `direct-mode-state.json` (a watched file, so a write refreshes it), and stays `null` when neither

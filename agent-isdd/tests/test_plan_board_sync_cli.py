@@ -89,3 +89,26 @@ def test_sync_off_is_silent_and_exit_zero(tmp_path):
     for args in (("verify", "--board-json", _board(tmp_path, [])), ("resync",), ("prune",)):
         rc, out, err = _run(mem, *args)
         assert (rc, out, err) == (0, "", "")
+
+
+def test_archived_features_are_not_orphans(tmp_path):
+    """The weekly cleanup moves a finished feature to completed/<slug>.md and removes its spec folder."""
+    mem = _mem(tmp_path)
+    (mem / "completed").mkdir()
+    (mem / "completed" / "2026-08-01-archived.md").write_text("# summary\n")
+    board = _board(tmp_path, [{"id": "proj--2026-08-01-archived", "contentHash": "x"},
+                              {"id": "proj--gone", "contentHash": "x"}])
+    rc, out, _ = _run(mem, "verify", "--board-json", board)
+    assert rc == 0 and json.loads(out)["orphaned"] == ["proj--gone"]
+    rc, out, _ = _run(mem, "prune", "--board-json", board)
+    assert "proj--gone" in out and "archived" not in out
+
+
+def test_single_project_verify_also_reports_page_status(tmp_path):
+    mem = _mem(tmp_path)
+    live = tmp_path / "live.html"
+    with open(plan_board.PAGE, encoding="utf-8") as fh:
+        live.write_text("<html><body>" + fh.read() + "</body></html>", encoding="utf-8")
+    board = _board(tmp_path, [])
+    rc, out, _ = _run(mem, "verify", "--board-json", board, "--page-file", str(live))
+    assert rc == 0 and json.loads(out)["page"] == "current"

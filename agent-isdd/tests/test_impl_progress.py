@@ -83,3 +83,21 @@ def test_slice_number_comes_from_the_plan_section_first(tmp_path):
               "Follows Slice 1's review.\n\n**Plan** — Slice 3: the third behaviour\n")
     impl_progress.record(str(tmp_path), report)
     assert impl_progress.summary(str(tmp_path))["slices"] == {"3": "refactor_complete"}
+
+
+def test_a_report_that_changes_nothing_visible_does_not_change_the_record(tmp_path):
+    """The page shows the slice count, not the last event, so tdd/review reports alternating must not
+    make the record stale (each stale record costs a board write and blocks the stop)."""
+    spec = str(tmp_path / "spec" / "2026-10-09-impl")
+    state = h.seed_state_file(spec, title="Impl", slug="2026-10-09-impl",
+                              current_phase="Implementation", workflow_status="In Progress")
+    h.seed_feature_artifact(spec, "tasks/tasks.md", TASKS)
+    assert impl_progress.record(spec, tdd("green_pause", "Slice 1: first"))
+    before = plan_board.build_doc(state, project="p")
+    assert impl_progress.record(spec, "<!--CODE-REVIEWER-REPORT-->\n**Verdict:** clear\n")
+    assert impl_progress.record(spec, tdd("green_pause", "Slice 1: first"))
+    after = plan_board.build_doc(state, project="p")
+    assert "lastImplEvent" not in after
+    assert after["contentHash"] == before["contentHash"]
+    assert impl_progress.record(spec, tdd("refactor_complete", "Slice 1: first"))
+    assert plan_board.build_doc(state, project="p")["contentHash"] != before["contentHash"]

@@ -9,11 +9,12 @@ Let `SYNC` be `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_S
 1. **Verify.** `ArtifactData list` collection `plans` on the Plan Board artifact (the URL in the
    shared `PLAN-BOARD.md`). Write a JSON file holding a list of `{id, contentHash, version}` for
    each record (`contentHash` is empty for old schema-1 records; `version` is needed to overwrite
-   or delete an existing one). Run `SYNC verify --board-json <file>`. It prints, per project label,
+   or delete an existing one). Also save the live page with `Artifact read` (`path: "index.html"`, any `out_dir`) and pass it as `--page-file <that index.html>`. Run `SYNC verify --board-json <file> --page-file <file>`. It prints, per project label,
    the `missing` and `mismatched` record ids, then `orphaned` (cards no project has) and `skipped`
    (project folders never synced, so their label is unknown; run `/isdd-board-sync` once from
    that project with `plan_board_sync.py resync --board-json <file>` to label it), and stamps
-   `lastVerified` for each project.
+   `lastVerified` for each project. `page` is `current`, `stale` or `unreadable`: when `stale`, republish the
+   page as `references/plan-board.md` "Updating the page after a plugin upgrade" describes, then continue.
 2. **Resync.** If anything is missing or mismatched, run `SYNC resync --board-json <file>`. It
    prints one batch for every project: `writes` (`set` entries with collection `plans`, `doc_id`,
    `data`, and `if_version` for records already on the board) and their `ids`. Pass `writes`

@@ -160,10 +160,6 @@ def build_doc(path, project=None):
         "closedAt": updated if closed and has_date else "",  # an mtime fallback would churn the hash
         "brief": plan_brief.parse_brief(os.path.dirname(os.path.abspath(path)), f),
     }
-    import impl_progress
-    prog = impl_progress.summary(os.path.dirname(os.path.abspath(path)))
-    if prog and prog["last"]:
-        doc["lastImplEvent"] = prog["last"]
     found = feature_paths.feature_dir_from_path(os.path.abspath(path))
     url = found and brief_board_url(found[0])
     if url:

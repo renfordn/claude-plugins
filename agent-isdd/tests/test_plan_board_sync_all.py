@@ -93,3 +93,38 @@ def test_cards_of_skipped_or_sync_off_projects_are_never_orphans(tmp_path):
     assert out["orphaned"] == ["gone--2026-01-01-x"]
     deletes = json.loads(_run(base, "prune", "--board-json", dump, "--confirm"))["board_instructions"]
     assert [d["doc_id"] for d in deletes] == ["gone--2026-01-01-x"]
+
+
+def test_archived_features_are_not_orphans_in_the_central_run(tmp_path):
+    base, dump, a, b, a_mem = _setup(tmp_path)
+    os.makedirs(os.path.join(a_mem, "completed"))
+    with open(os.path.join(a_mem, "completed", "2026-09-20-done.md"), "w") as fh:
+        fh.write("# summary\n")
+    board = json.load(open(dump)) + [{"id": "alpha--2026-09-20-done", "contentHash": "h", "version": "v9"}]
+    json.dump(board, open(dump, "w"))
+    out = json.loads(_run(base, "verify", "--board-json", dump))
+    assert out["orphaned"] == ["gone--2026-01-01-x"]
+    assert "alpha--2026-09-20-done" not in _run(base, "prune", "--board-json", dump)
+
+
+def _page(tmp_path, transform):
+    with open(plan_board.PAGE, encoding="utf-8") as fh:
+        html = transform(fh.read())
+    f = tmp_path / "live.html"
+    f.write_text(html, encoding="utf-8")
+    return str(f)
+
+
+def test_verify_reports_a_current_page_even_inside_the_platform_skeleton(tmp_path):
+    base, dump, *_ = _setup(tmp_path)
+    live = _page(tmp_path, lambda t: "<!doctype html><html><head><style>x{}</style></head><body>\n" + t + "\n</body></html>")
+    out = json.loads(_run(base, "verify", "--board-json", dump, "--page-file", live))
+    assert out["page"] == "current"
+
+
+def test_verify_reports_a_stale_page_and_omits_the_key_when_not_asked(tmp_path):
+    base, dump, *_ = _setup(tmp_path)
+    old = _page(tmp_path, lambda t: t.replace("Recently closed", "Hide complete"))
+    assert json.loads(_run(base, "verify", "--board-json", dump, "--page-file", old))["page"] == "stale"
+    assert "page" not in json.loads(_run(base, "verify", "--board-json", dump))
+    assert json.loads(_run(base, "verify", "--board-json", dump, "--page-file", str(tmp_path / "missing.html")))["page"] == "unreadable"

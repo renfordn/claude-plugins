@@ -57,6 +57,36 @@ def mark_success(memory_dir, project, ids):
     return [i for i in ids if i in docs and plan_board.mark_synced(memory_dir, docs[i])]
 
 
+def page_status(live_path):
+    """Is the published page the current template? `current` when the template, ignoring
+    whitespace, sits inside the live HTML (the platform wraps it in its own skeleton), `stale` when
+    it does not, `unreadable` when the live copy cannot be read. The template is never fetched here:
+    the caller saves the live page with `Artifact read` and passes the file."""
+    def squash(text):
+        return "".join(text.split())
+    try:
+        with open(live_path, "r", encoding="utf-8") as fh:
+            live = squash(fh.read())
+        with open(plan_board.PAGE, "r", encoding="utf-8") as fh:
+            template = squash(fh.read())
+    except OSError:
+        return "unreadable"
+    return "current" if template and template in live else "stale"
+
+
+def archived_slugs(memory_dir):
+    """Slugs of features the weekly cleanup archived: `completed/<slug>.md` summaries whose spec
+    folder is gone. Their board cards are history, not orphans."""
+    try:
+        return {plan_board._safe(n[:-3]) for n in os.listdir(os.path.join(memory_dir, "completed")) if n.endswith(".md")}
+    except OSError:
+        return set()
+
+
+def _slug_of(record_id):
+    return record_id.split("--", 1)[1] if "--" in record_id else record_id
+
+
 def diff_records(local, board):
     """Compare id->hash maps. Returns sorted id lists: records missing from the board, records whose
     hash differs from local state, and board records with no local feature (orphans)."""
@@ -267,12 +297,15 @@ def main_all(argv):
                 all_slugs |= {plan_board._safe(f) for f in os.listdir(os.path.join(base, name, "spec"))}
             except OSError:
                 pass
+            all_slugs |= archived_slugs(os.path.join(base, name))
     except OSError:
         pass
     orphans = sorted(i for i in hashes if i not in local_ids
                      and (i.split("--", 1)[1] if "--" in i else i) not in all_slugs)
     if cmd == "verify":
         out = {"projects": {}, "orphaned": orphans, "skipped": skipped}
+        if _arg(argv, "--page-file"):
+            out["page"] = page_status(_arg(argv, "--page-file"))
         for label, (mem, local, mine) in per.items():
             d = diff_records(local, mine)
             out["projects"][label] = {"missing": d["missing"], "mismatched": d["mismatched"]}
@@ -311,7 +344,7 @@ def main(argv):
         return main_all(argv[1:])
     cmd = argv[0] if argv else ""
     if cmd not in ("verify", "resync", "prune", "mark"):
-        print("usage: plan_board_sync.py verify --board-json FILE | resync [--board-json FILE] | "
+        print("usage: plan_board_sync.py verify --board-json FILE [--page-file LIVE.html] | resync [--board-json FILE] | "
               "prune [--board-json FILE] [--confirm] | mark <id>...  "
               "[--memory-dir DIR] [--project NAME] [--cwd DIR]", file=sys.stderr)
         return 2
@@ -335,8 +368,13 @@ def main(argv):
         print("plan_board_sync: verify needs --board-json FILE (the board's `plans` list)", file=sys.stderr)
         return 2
     local = {i: d["contentHash"] for i, d in local_docs(memory_dir, project).items()}
+    archived = archived_slugs(memory_dir)
     if cmd == "verify":
-        print(json.dumps(diff_records(local, board), indent=1))
+        report = diff_records(local, board)
+        report["orphaned"] = [i for i in report["orphaned"] if _slug_of(i) not in archived]
+        if _arg(argv, "--page-file"):
+            report["page"] = page_status(_arg(argv, "--page-file"))
+        print(json.dumps(report, indent=1))
         stamp_verified(memory_dir)
     elif cmd == "resync":
         print(json.dumps(build_batch(memory_dir, project, board, versions), indent=1))
@@ -344,7 +382,8 @@ def main(argv):
         print("\n".join(mark_success(memory_dir, project, _ids(argv))))
     else:
         known = {i for i in plan_board._read_sync(memory_dir) if "--" in i}
-        orphans = sorted({i for i in known if i not in local} | set(diff_records(local, board or {})["orphaned"]))
+        orphans = sorted(i for i in ({i for i in known if i not in local} | set(diff_records(local, board or {})["orphaned"]))
+                         if _slug_of(i) not in archived)
         plan = plan_prune(orphans)
         if "--confirm" in argv:
             print(json.dumps(apply_prune(plan_board._sync_path(memory_dir), orphans, True, versions), indent=1))

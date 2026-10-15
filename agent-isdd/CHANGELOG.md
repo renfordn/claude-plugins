@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.5.6] - 2026-10-15
+
+### Added
+- `verify` takes `--page-file <live index.html>` and reports `page: current | stale | unreadable` (the published page contains the current template, ignoring whitespace and the platform skeleton), and `/isdd-board-sync` passes it, so a board left on an old page is caught instead of silently staying old.
+
+### Fixed
+- Plan Board record churn: the record no longer carries `lastImplEvent`. The page never showed it, but it flipped between `tdd` and `review` on every agent report, so each report made the record stale and the end-of-turn gate forced a board write (observed on one board: a feature at version 99 about two weeks after creation). A report now changes the record only when the slice count does. The first sync after upgrading marks affected features stale once.
+- `verify` and `prune` (single-project and `all`) no longer treat a feature the weekly cleanup archived (`completed/<slug>.md`, spec folder removed) as an orphan, so `prune` can't offer to delete the closed cards of finished features. Observed on one board: 6 false orphans cleared.
+
 ## [0.5.5] - 2026-10-14
 
 ### Added
