@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.5.9] - 2026-10-17
+
+### Changed
+- `workflow-manager`, `spec-driven-development` and `design-author` SKILL.md bodies are 30-35% smaller (30,200 / 19,403 / 19,225 to 21,091 / 13,313 / 12,637 bytes). Situational sections moved into each skill's `references/` with same-heading stubs that name a concrete read trigger; Turn Management, the Plan Board sync paragraph and the Verification Step stay inline and are test-pinned. No behavior change.
+- Skill, agent and command descriptions are 41% shorter (5,030 to 2,978 characters) with trigger phrases kept; `<example>` blocks dropped from five agent descriptions.
+
+### Added
+- `tests/test_isdd_ref_pointers.py` and `tests/test_description_budget.py` guard the stubs, reference files, size gates and description budget.
+
+### Removed
+- Stale root `tasks.md` (an old plugin-harness slice list that nothing read).
+
 ## [0.5.8] - 2026-10-15
 
 ### Changed

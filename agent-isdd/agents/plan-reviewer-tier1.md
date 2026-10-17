@@ -1,7 +1,7 @@
 ---
 name: plan-reviewer-tier1
 description: >-
-  Use this agent when a design/plan doc's factual claims need verifying against the codebase. Tier 1 of plan-reviewer — verifies a fixed list of factual claims extracted from a design/plan doc against the actual codebase, using only Read/Grep/Glob. Cheap, fast, no exploration beyond the given claims. <example>user: "Verify the claims in design.md" assistant: "Spawning plan-reviewer-tier1 with the extracted claim list."</example>
+  Use this agent when a design/plan doc's factual claims need verifying against the codebase. Tier 1 of plan-reviewer: fixed claim list, Read/Grep/Glob only.
 model: sonnet
 tools: [Read, Grep, Glob]
 ---

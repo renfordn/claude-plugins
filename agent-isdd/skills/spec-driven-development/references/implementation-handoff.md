@@ -126,3 +126,17 @@ mandatory post-Green review pause:
    test-author-pause-then-resume cycle to manage.
 7. Same as Standard step 9: forward non-empty Handoff Facts (and any non-empty File Summaries) to
    `agent-nelly:agent-nelly` if available.
+
+## Handoff overview (moved from SKILL.md's Implementation Handoff section, verbatim)
+
+Read by `spec-driven-development` when starting the Implementation handoff.
+
+Once Design is approved and implementation is requested, this skill's job is to hand off to
+`agent-tdd` for implementation — a single, one-directional handoff, not an orchestrated
+multi-stage loop. `Track: Standard` sends a **Design Spec**; `Track: Fast` sends a single
+**Slice Spec** instead, with `Review handoff mode: skip`. Both are one-directional handoffs with
+no orchestrated multi-stage loop; only the spec shape and `agent-tdd` mode differ. See
+`references/implementation-handoff.md` for the full contract: Design Spec construction (file
+list extraction, the `agent-nelly` subtract-then-query step, the recap summarization rule),
+Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
+fallback, the test-author pause/resume steps, and the Handoff Facts write-back.

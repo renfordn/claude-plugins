@@ -3,7 +3,9 @@ fields (agent spec + consumer-facing INTEROP)."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-AGENT = (ROOT / "agents" / "agent-nelly.md").read_text(encoding="utf-8")
+AGENT_SPEC = (ROOT / "agents" / "agent-nelly.md").read_text(encoding="utf-8")
+DIGEST_REF = (ROOT / "references" / "nelly-research-digest.md").read_text(encoding="utf-8")
+# The digest section moved to references/ (slice 13); the spec keeps a stub under the same heading.
 INTEROP = (ROOT / "INTEROP.md").read_text(encoding="utf-8")
 
 
@@ -14,11 +16,13 @@ def _section(text, heading, next_prefix):
 
 
 def test_agent_spec_has_research_digest_section_after_summary_cache():
-    assert AGENT.index("### File & Folder Summary Cache") < AGENT.index("### Research Digest Cache")
+    assert (AGENT_SPEC.index("### File & Folder Summary Cache")
+            < AGENT_SPEC.index("### Research Digest Cache"))
 
 
 def test_agent_spec_section_documents_fields_commands_limits_and_status():
-    sec = _section(AGENT, "### Research Digest Cache", "\n### ")
+    # Digest content lives in the reference (heading and body verbatim; the spec keeps a stub under the same heading).
+    sec = _section(DIGEST_REF, "### Research Digest Cache", "\n### ")
     for needle in ("`research digest`", "`research digest lookup`",
                    "scripts/research_digest.py\" write", "scripts/research_digest.py\" lookup",
                    "2,000", "30", "`fresh`", "`stale`", "`changed`", "exit code 2"):

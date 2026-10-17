@@ -1,7 +1,7 @@
 ---
 name: plan-reviewer-tier2
 description: >-
-  Use this agent when one escalated Tier 1 finding needs boundary-expanded checking. Tier 2 of plan-reviewer — boundary-expands on a single escalated Tier 1 finding, checking adjacent files/callers/imports. Still Read/Grep/Glob only. Spawned per-finding, never for the whole doc. <example>user: "Tier 1 flagged the retry claim" assistant: "Spawning plan-reviewer-tier2 for that single finding."</example>
+  Use this agent when one escalated Tier 1 finding needs boundary-expanded checking of adjacent files, callers and imports. Tier 2 of plan-reviewer; one finding per spawn.
 model: sonnet
 tools: [Read, Grep, Glob]
 ---

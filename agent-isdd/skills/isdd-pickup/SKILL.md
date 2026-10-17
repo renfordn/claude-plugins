@@ -1,14 +1,10 @@
 ---
 name: isdd-pickup
 description: >
-  Survey all SDD specs for the current project to find stalled, stale, or ready-to-resume
-  features; detect which are already claimed by another session or worktree; and recommend
-  the best next feature to pick up. Use this skill proactively at the start of every
-  /isdd or /isdd-continue call when no specific feature is named. Also trigger when the user
-  asks "what should I work on next", "what's stalled", "which features are in progress",
-  "what's on the brief board", "anything blocked?", or "avoid overlap" — even if they don't
-  use those exact words. This is the right skill any time the question is "what to do next
-  in the project" rather than "do the next step in a known feature".
+  Survey all SDD specs for the project to find stalled, stale or ready-to-resume features, detect those claimed by
+  another session or worktree (avoid overlap), and recommend the next one. Use proactively at start of /isdd or
+  /isdd-continue when no feature is named, and any time the question is what to do next: "what should I work on next",
+  "what's stalled", "what's on the brief board", "anything blocked?".
 ---
 
 # ISDD Session Pickup & Coordinator

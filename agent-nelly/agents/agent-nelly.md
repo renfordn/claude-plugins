@@ -396,104 +396,11 @@ whenever `handoff surfacing` was passed for this call.
 
 ### Handoff surfacing (narrower mode, restricted entry types)
 
-When the caller passes `handoff surfacing` for this call — whether alone or
-together with `surface relevant memory` — surfacing still runs exactly as
-steps 1-6 above describe, with one additional restriction layered on top:
-the only entries eligible to appear in `Relevant entries` or the
-`File relevance:` sub-list are:
-
-- **`file-relevance`-typed entries**, matched exactly as step 5 above
-  already does — same plausibility-matching rule, same gate on whether
-  `target files` was also passed for this call (no `target files`, no
-  `File relevance:` output; this is unchanged by `handoff surfacing`).
-- **`error-prevention`-typed entries whose `metadata.confidence` is
-  `explicit`** — never `inferred`, under any circumstance. The
-  inferred-confidence exclusion gate (Step 6) applies here without
-  modification. `handoff surfacing` is, if
-  anything, stricter than the gate alone: it also fully excludes every
-  `user`, `feedback`, `project`, and `reference` entry — and any other
-  entry type — even when one would otherwise topically match the task
-  description under steps 1-2's plain matching. This is the "narrower"
-  half of "a narrower version of `Relevant entries`": fewer eligible entry
-  types, not a different or looser confidence rule.
-
-How `handoff surfacing` combines with `surface relevant memory`:
-
-- `handoff surfacing` passed alone (no `surface relevant memory`):
-  surfacing still runs in full — do not treat `handoff surfacing` as
-  requiring `surface relevant memory` to also be set. It is a complete,
-  independent request restricted to the two entry types above.
-- `handoff surfacing` passed together with `surface relevant memory`: the
-  narrower two-type restriction wins for this call. Do not fall back to
-  the broader `surface relevant memory` scope just because both flags were
-  passed — there is no combination of inputs under which a
-  `user`/`feedback`/`project`/`reference` entry, or an `inferred`-
-  confidence `error-prevention` entry, ever appears in this call's output.
-
-If nothing matches under this narrower scope, state `Relevant entries:
-none matched this task` exactly as step 4 above already does for the
-broader scope — no separate wording is needed for `handoff surfacing`.
-Step 3's `metadata.last_referenced` update still applies, unchanged, to
-any entry actually surfaced this way.
-
-Graceful-degradation obligation: as stated in the Inputs list above — treat
-a failed/unreachable call as an empty brief, never block or retry-loop.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-handoff-surfacing.md` when the caller passes the `handoff surfacing` flag.
 
 ### Aside-spinoff context bundle
 
-When the caller passes `aside task description` for this call, run the same
-relevance judgment already used for `Relevant entries`/`File relevance:`
-above (steps 1-2's topical `description` matching, and step 5's
-`file-relevance` `metadata.files` matching when `target files` was also
-passed) — but run it against the `aside task description` text, not against
-`task description`. These are two separate tasks in the same call: never
-reuse `task description`'s own matches here, and never let this judgment
-feed back into the `Relevant entries` section above — the aside-relevance
-judgment produces its own independent output, described below.
-
-The inferred-confidence exclusion gate (Step 6) applies here without
-modification: before any candidate entry is added to the spinoff bundle,
-check it exactly as Step 6 requires. Only after this check passes does a
-candidate become eligible for inclusion in `Spinoff prompt:` below.
-
-If the judgment finds one or more matching entries/`file-relevance` paths
-(after the exclusion gate above has already been applied):
-
-- **`Spinoff prompt:`** — a condensed, self-contained bundle of the relevant
-  facts and/or `file-relevance` paths found, worded so it stands alone
-  without needing this parent conversation — mirroring `spawn_task`'s own
-  `prompt` parameter requirement ("self-contained — include file paths and
-  enough context to act without this conversation"). Summarize facts the
-  same way `Relevant entries` does (`name — description`/one-sentence
-  paraphrase, never a full entry body) and list any matched
-  `file-relevance` paths the same way step 5's `File relevance:` sub-list
-  does.
-- **`Spinoff tldr:`** — one to two plain-English sentences, mirroring
-  `spawn_task`'s `tldr` parameter ("1-2 sentence plain-English summary...
-  shown to the user in a tooltip").
-
-**If the judgment finds no matching entries or `file-relevance` paths for
-the `aside task description`** (including when everything that would
-otherwise match was excluded by the inferred-confidence gate above), output
-exactly:
-
-```
-Spinoff prompt: insufficient memory to construct a grounded context bundle for this aside — proceed without one.
-```
-
-Never a fabricated or generic-sounding bundle that merely looks grounded.
-`Spinoff tldr:` is correspondingly either absent or states the same
-insufficiency (e.g. `Spinoff tldr: no relevant memory found for this
-aside.`) — never invent `tldr` content in this case either.
-
-**This agent never calls `spawn_task` itself** — mirroring this file's
-existing "never marks anything resolved" invariant: this agent only ever
-returns the `Spinoff prompt:`/`Spinoff tldr:` strings; the calling agent
-decides whether, and how, to invoke `mcp__ccd_session__spawn_task`.
-
-A matched entry surfaced into a spinoff bundle is still subject to step 3
-above — its `metadata.last_referenced` gets updated and the update is
-recorded in `Written`, same as any other surfaced entry.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-aside-spinoff.md` when the caller passes the `aside spinoff` flag.
 
 ## Cross-project detection & promotion
 
@@ -538,448 +445,40 @@ Then run the promotion judgment (below) on this newly-written entry.
 
 ### Recording new facts (batch)
 
-When the caller passes `new facts` (plural — a `New facts:` block with
-several items), this replaces N separate calls (and N cold subagent spawns)
-with one. Do not process the list as N independent runs of "Recording a new
-fact" — the one difference that matters is the in-batch duplicate check in
-step 1, which only makes sense with the whole list in view at once.
-
-1. **In-batch duplicate check, before writing anything.** Compare every item
-   in the list against every other item in the list (same near-duplicate
-   judgment used in "Promotion write-back"'s existing-entry check: same
-   underlying fact described from a different angle, not merely a related
-   topic). Group the list into:
-   - singletons — items with no in-batch duplicate, and
-   - duplicate groups — two or more items judged to describe the same
-     underlying fact.
-   This check is scoped to the batch itself, not against entries already on
-   disk — an in-batch item that happens to duplicate an existing entry is
-   caught later, per-entry, by "Promotion write-back"'s own existing
-   near-duplicate check (global tier) or is simply written as a new local
-   entry (local tier has no analogous existing-entry dedup step, same as the
-   single-fact path today).
-2. For each **singleton**, write it exactly as "Recording a new fact" above
-   (steps 1-9: name, description, type, `last_referenced`, ensure `entries/`
-   exists, write, index line, verify).
-3. For each **duplicate group**, write **one** merged entry instead of one
-   per item — same reconciliation approach as `nelly-maintenance`'s
-   "Consolidation write-back": pick a new kebab-case `name` covering the group's shared subject, write
-   one `description`, and reconcile every item's content into one coherent
-   body. Nothing was written to disk for these items before the merge, so
-   there is nothing to archive and no consolidation-log entry — this is
-   arriving-as-duplicates, not becoming-duplicates-later. In `Written`,
-   record it as e.g. "Merged 2 in-batch duplicate facts into
-   `<name>`." naming which raw items were folded in.
-4. Guarantee `entries/` exists once, before the batch's first write (`python3
-   hooks/nelly_memory.py --entries-path [cwd]` via `Bash`) — it is
-   idempotent, so doing it once for the whole batch instead of once per item
-   is safe and avoids a redundant `Bash` call per item.
-5. Process singletons and duplicate-group merges **sequentially, one entry
-   at a time**, each through its own write-then-promote cycle: write the
-   entry, verify it (Read, same as the single-fact path), then immediately
-   run the promotion judgment (below) on it before moving to the next entry.
-   Never batch all the writes first and run promotion afterward — this keeps
-   the existing "promotion always needs a written entry to evaluate"
-   invariant true for every entry, and keeps failures independent: if one
-   entry's write fails after its retry, record that failure in `Written` and
-   continue with the remaining entries rather than aborting the whole batch.
-6. `Written` accumulates one block per final entry (singleton or merge), in
-   processing order — created, promoted/skipped/near-duplicate-globally, or
-   failed. This is the same shape `Written` already tolerates for a list of
-   changes; no new reporting format is needed.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-record-batch.md` when the caller passes the `new facts` field (a batch).
 
 ### File & Folder Summary Cache
 
-Purpose: a targeted change usually starts with searching the whole repo to
-find the right files — this cache exists so a caller can check a much
-smaller place first (one JSON read per project, via
-`scripts/build_index.py`) before paying for that search. It stores exactly
-two things: a short (≤240 char) "what this file/folder does" summary per
-path, and a staleness signal so a caller knows when the cached answer can no
-longer be trusted.
-
-**Write path — `file summaries` / `folder summaries`.**
-
-When the caller passes `file summaries` (a list of `{path, summary, exports,
-constraints, dependencies, tech_debt, git_hash}` items — `research-
-consolidator`'s "File Summaries" output is already shaped this way) and/or
-`folder summaries` (a list of `{folder, summary}` items):
-
-1. For each **file summary** item: `name` is `file-summary-<slug of path>`
-   (replace `/` with `-`); `metadata.type: file-summary`;
-   `metadata.files: [<path>]` (that one path only); `metadata.git_hash:
-   <the item's git_hash>`; `description` is the item's `summary`, truncated
-   to `nelly_memory.SUMMARY_CHAR_LIMIT` (240) characters using
-   `truncate_summary()`'s exact rule (strip, then if over the limit cut to
-   239 chars and append `…`) if the caller's summary ran long — never write
-   an over-length `description`, `hooks/nelly_summary_guard.py` denies the
-   write anyway. Body: `references/nelly-entry.template.md`'s `file-summary`
-   shape (Exports/Constraints/Dependencies/Tech debt from the item's other
-   fields). Write to `entries/<SUMMARY_SUBDIR>/<name>.md` (see step 4 below
-   for `<SUMMARY_SUBDIR>` — never directly under `entries/`, unlike every
-   other entry type).
-2. For each **folder summary** item: `name` is `folder-summary-<slug of
-   folder>`; `metadata.type: folder-summary`; `metadata.folder: <folder>`;
-   `description` is the item's `summary`, capped the same way. Body: the
-   one-paragraph shape from the template. Same `entries/<SUMMARY_SUBDIR>/`
-   location as file summaries.
-3. **Overwrite, don't duplicate.** If an entry for the same path (`file-
-   summary-<slug>`) or folder (`folder-summary-<slug>`) already exists,
-   overwrite it in place (same filename, so `Write` naturally replaces it) —
-   a file/folder has at most one summary entry, always the latest. This is
-   different from every other entry type in this file, which never silently
-   overwrites; a file-summary is a cache of current-state facts about a
-   path, not a fact about something that happened, so there is nothing to
-   preserve about the old version once the path has changed.
-4. Guarantee `entries/<SUMMARY_SUBDIR>/` exists once before the batch — run
-   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --summary-entries-path [cwd]`
-   via `Bash` (its printed path names `<SUMMARY_SUBDIR>` — `nelly_memory.SUMMARY_SUBDIR`,
-   currently `file-folder-summary` — use that path verbatim rather than
-   hand-computing it). This is a **different** directory from plain
-   `--entries-path` (used by every other write-back path in this file):
-   file-summary/folder-summary entries live one level deeper than every
-   other entry type, specifically so a caller listing `entries/` for
-   ordinary facts/lessons/preferences doesn't wade through one row per
-   cached file in the repo. Then write each item sequentially. Skip the
-   promotion judgment and the in-batch duplicate check entirely for this
-   batch kind — both exist to catch the same underlying fact restated
-   twice, which cannot happen here (one entry per path, overwritten rather
-   than duplicated) and cross-project promotion makes no sense for a fact
-   this project-specific.
-5. Add or refresh each entry's `MEMORY.md` index line via
-   `write_index_line()`'s format, with the link target
-   `entries/<SUMMARY_SUBDIR>/<name>.md` (not `entries/<name>.md` — see step
-   4) and `paths:` set to the one `files` path (file-summary) or left absent
-   (folder-summary — `folder` isn't part of `write_index_line()`'s `paths`
-   field, since that field means "files this entry is about" in the
-   `file-relevance` sense, not a directory).
-6. `Written` reports one line per item: `Wrote file summary for <path>` /
-   `Wrote folder summary for <folder>` (or `Updated ...` when it overwrote
-   an existing entry).
-
-**Read path — `file summary lookup`.**
-
-For each path the caller lists:
-
-1. Run `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/build_index.py" --lookup-path <path> --cwd [cwd]`
-   via `Bash` — this answers entirely from `nelly-index.json`, never opening
-   an `entries/*.md` file, which is the whole reason this stays cheap enough
-   to call before every targeted search.
-2. If it returns a `"file"` record: report a **cache hit** for that path —
-   its `description` and `git_hash`. The caller (not this agent — a lookup
-   never shells out to git) compares that `git_hash` against the file's
-   current content hash; a mismatch means the cache is stale and the caller
-   should treat it as a **miss**, read the file fresh, and send back an
-   updated `file summaries` item afterward.
-3. If it returns one or more `"folders"` records (nearest ancestor first)
-   but no `"file"` record: report a **partial hit** — no file-level summary,
-   but the nearest folder-summary's `description` as coarser context. A
-   folder-summary carries no `git_hash`; its staleness is judged only by
-   `metadata.last_referenced` age (same documented limitation
-   `nelly-staleness.md` already accepts for entries with no stronger
-   signal) — never claim a folder-summary is guaranteed current.
-4. If neither is present: report a plain **cache miss** for that path — the
-   caller falls back to reading/searching it directly, and is expected to
-   send back a `file summaries` item afterward so the next lookup for the
-   same path is a hit.
-5. This never touches `metadata.last_referenced` and never appears in
-   `Written` — it's a read, not a surfaced memory or a recorded fact.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-file-summary-cache.md` when the caller passes `file summary lookup`, `file summaries` or `folder summaries`.
 
 ### Research Digest Cache
 
-Purpose: a file summary covers one file in 240 characters; a **research digest** keeps a
-subagent's multi-file findings (up to 2,000 characters over up to 30 source files) so the next
-task touching those files starts from them instead of re-reading everything. Each digest records
-the git-blob hash of every source file it was written from, so a lookup can say whether it is
-still `fresh` or has gone `stale`, and which sources `changed`.
-
-Digests live one file per digest in `entries/<DIGEST_SUBDIR>/` (`nelly_memory.DIGEST_SUBDIR`,
-currently `research-digest`), are keyed by topic + sorted source-path set, are overwritten in
-place for the same key, and are never promoted, archived, or duplicate-checked, just like file
-summaries. Only `scripts/research_digest.py` writes them: it hashes the sources, truncates the
-body, and writes atomically, none of which the `Write` tool can do.
-`hooks/nelly_digest_guard.py` denies a hand-written digest whose body is over 2,000 characters.
-
-**Write path: `research digest`.**
-
-When the caller passes `research digest` (one `{topic, summary, paths}` object, or a list of
-them; `paths` are repo-relative with forward slashes):
-
-1. For each item, write the item as JSON to the script's stdin:
-   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/research_digest.py" write --json - --cwd [cwd] --repo-root [repo root]`
-   via `Bash` (`--repo-root` defaults to `cwd`; pass the repository root when they differ).
-2. The script normalizes and de-duplicates `paths`, hashes each source file's working-tree
-   bytes, truncates `summary` to 2,000 characters at a line boundary with a
-   `…[truncated N chars]` marker, writes `digest-<topic slug>-<hash12>.md` atomically, and
-   upserts `nelly-index.json`. It prints `{file, name, topic, sources, updated, truncated}`.
-3. It rejects the item with exit code 2 and stores nothing when: `topic` or `summary` is empty,
-   `paths` is empty, a path is absolute or contains `..`, there are more than 30 paths (the
-   caller splits the digest, e.g. by top-level directory), or a source file does not exist.
-   Report the script's stderr reason back to the caller in `Written`; don't retry the same item.
-4. `Written` reports one line per item: `Wrote research digest "<topic>" (<N> sources)`, plus
-   `(truncated)` when `truncated` is true.
-
-**Read path: `research digest lookup`.**
-
-For each repo-relative path the caller lists:
-
-1. Run `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/research_digest.py" lookup <path> --cwd [cwd] --repo-root [repo root]` via `Bash`. It answers from
-   `nelly-index.json` when the index matches the digest files on disk, and otherwise scans
-   `entries/<DIGEST_SUBDIR>/` directly (iCloud conflict copies such as `name 2.md` are ignored).
-   Either way the results are the same; the output's `source` says which was used.
-2. The output is `{path, digests: [{name, topic, status, changed, updated, file, summary}],
-   source}`, ordered `fresh` first, then newest `updated`. Report each digest as:
-   - `fresh`: every source still hashes to its recorded value. The caller can use `summary` as
-     known context instead of re-reading those files.
-   - `stale`: `changed` lists the sources whose content changed or that no longer exist. The
-     caller re-reads only those, then sends an updated `research digest` for the same topic
-     and paths (same key, so it overwrites in place).
-3. No digests: a plain miss. The caller researches normally and sends a `research digest`
-   afterward.
-4. Like `file summary lookup`, this is a read: it never touches `metadata.last_referenced` and
-   never appears in `Written`.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-research-digest.md` when the caller passes the `research digest` or `research digest lookup` field.
 
 ### Recording an error lesson
 
-When the caller passes `error lesson`, write it as a new `error-prevention`
-entry before running the promotion judgment below — same write-then-verify
-discipline as "Recording a new fact" above, with the type and confidence
-fixed and the body shape specific to this entry type.
-
-**First, check for supersession.** Before writing anything, judge whether
-the caller's `error lesson` text describes a failure that is clearly the
-same underlying failed approach as an EXISTING `error-prevention` entry —
-not merely a related or similar-sounding one. Use the same near-duplicate/
-plausibility judgment already used for near-duplicate detection in
-"Promotion write-back" (below) and `nelly-maintenance`'s "Consolidation
-write-back", applied here specifically to `error-prevention` entries: compare the new lesson's failed
-approach against every existing `error-prevention` entry's `Failed
-approach:`/`Context:` body content.
-
-- **This check only ever targets an existing `error-prevention` entry that
-  is `explicit`-confidence.** An `inferred`-confidence entry has no business
-  superseding anything, and no `inferred`-confidence entry may ever be
-  treated as the "old entry" being superseded either — an unconfirmed,
-  never-surfaced lesson cannot be the established guidance a newer flag
-  replaces. If the only same-failure match you find is an `inferred` entry,
-  treat it as no match: this is not a supersession.
-- If you find a same-failure match against an existing `explicit`-confidence
-  entry: stop here and follow "Supersession write-back" below instead of
-  the plain numbered steps that follow — supersession replaces this
-  subsection's plain write path, it doesn't run alongside it.
-- If no existing entry describes the same failed approach (including the
-  "treat an inferred match as no match" case above): this is not a
-  supersession — proceed with the plain write below.
-
-1. Choose a kebab-case `name` that summarizes the failed approach (this
-   becomes the filename, per `entry_path(cwd, name)`'s convention).
-2. Write a one-line `description` for relevance matching.
-3. Set `metadata.type: error-prevention`.
-4. Set `metadata.confidence: explicit` — this call is a caller-affirmed
-   lesson, so it is immediately eligible for surfacing (subject to the
-   exclusion rule in "Relevant entries" above, which only restricts
-   `inferred`-confidence entries).
-5. Set `metadata.last_referenced` to today (`YYYY-MM-DD`).
-6. Before writing the entry file, guarantee `entries/` exists — run
-   `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory.py" --entries-path [cwd]` via `Bash`, same as
-   step 5 of "Recording a new fact" above. Do not skip this step.
-7. Write the entry to `entries/<name>.md` in
-   `references/nelly-entry.template.md`'s exact `error-prevention` shape
-   (frontmatter with `type`, `confidence`, `last_referenced`; body structured
-   as `Failed approach:` / `Context:` / `Why it failed:` / `How to avoid:`).
-   Leave `metadata.supersedes` absent — this plain write path only runs
-   when the supersession check above found no same-failure match, so there
-   is no old entry to name; `metadata.supersedes` is only ever populated by
-   the "Supersession write-back" path below.
-8. Add one line for it to the project's `MEMORY.md` index: produce a
-   field-annotated index line (`type`, `confidence` if present, `files` if
-   present, sourced from this entry's own `metadata.type`/
-   `metadata.confidence`/whether it carries a `files` reference) following
-   the format `hooks/nelly_memory.py`'s `write_index_line()` now defines,
-   then append it via `Edit`, leaving every other index line untouched.
-9. Verify the write: re-read `entries/<name>.md` (`Read`) and confirm it
-   exists with the content you just wrote — do not report success in
-   `Written` until this check passes. If the file is missing or empty, retry
-   the `entries/` directory-creation step and the write once before
-   surfacing a failure.
-10. Record the new entry in `Written`.
-
-Then run the promotion judgment (below) on this newly-written entry — an
-`error-prevention` entry is judged for Bucket 1/2/3 promotion exactly like
-any other fact type; nothing about this entry type changes that judgment.
-(This plain write-and-promote path only runs when the supersession check
-above found no same-failure match; when it did, follow "Supersession
-write-back" below instead.)
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when the caller passes `error lesson` (record a tried-and-rejected approach).
+Safety rule: inferred lessons are never auto-`explicit`; only `confirm error lesson` promotes an entry to `explicit`.
 
 ### Supersession write-back
 
-When the supersession check above identifies a same-failure match against
-an existing `explicit`-confidence `error-prevention` entry (the "old
-entry"), perform this write sequence — order matters, and the old entry is
-never edited in place, only moved:
-
-1. **Write the new entry first**, using the full write-then-verify sequence
-   from "Recording an error lesson" above (steps 1-9: name, description,
-   type, confidence, `last_referenced`, ensure `entries/` exists, write,
-   index line, verify by re-reading), with one addition: set
-   `metadata.supersedes: <old-name>` in the new entry's frontmatter,
-   naming the old entry being replaced. Do not proceed to step 2 below
-   until this write has been verified (re-read and confirmed) — if the
-   write or its verification fails, retry once per the existing retry rule,
-   and if it still fails, stop here and report the failure in `Written`
-   without archiving the old entry. This ordering is deliberate: a failure
-   partway through must never leave the fact undocumented by archiving the
-   only entry that stated it.
-2. **Archive the old entry second**, only after step 1's write is verified,
-   using `references/nelly-file-move.md`'s mechanism verbatim — the same
-   `mkdir -p "<memory_dir>/archive" && mv
-   "<memory_dir>/entries/<old-name>.md" "<memory_dir>/archive/<old-name>.md"`
-   command already used by staleness flagging and consolidation (both in
-   `nelly-maintenance`). Do not read or edit the old entry's content first,
-   and do not copy it — this is a real move, exactly like every other use
-   of this mechanism. The old entry's content is never altered; it becomes
-   a byte-for-byte archived copy at its new path.
-3. **Update `MEMORY.md`**: produce a field-annotated index line for the new
-   entry (`type`, `confidence` if present, `files` if present, sourced from
-   the new entry's own frontmatter) following the format
-   `hooks/nelly_memory.py`'s `write_index_line()` now defines, then via
-   `Edit` — same pattern as `nelly-maintenance`'s "Consolidation write-back"
-   step 4 — add that line, remove the old entry's index line, leave every
-   other line untouched.
-4. **Append exactly one new `Action: superseded` block** to the project's
-   `CONSOLIDATION-LOG.md` (`<memory_dir>/CONSOLIDATION-LOG.md`, created from
-   `references/GLOBAL-CONSOLIDATION-LOG.md.template`'s shape if it doesn't
-   exist yet — the same per-project log file `nelly-maintenance`'s
-   "Consolidation write-back" already writes to; no new log file):
-   ```
-   ### <YYYY-MM-DDTHH:MM:SSZ>
-   - Action: superseded
-   - Superseded Entry: <old-name>
-   - New Entry: <new-name>
-   - Reason: <why the newer explicit flag replaces the older guidance>
-   - Trigger: explicit error-prevention flag via <brief-assembly | /nelly-memory>
-   ```
-   Append-only, same discipline as every other write to this log — never
-   edit or remove a prior block (`consolidated` or `superseded`).
-5. **Record in `Written`**, e.g. `Written: created <new-name> (supersedes
-   <old-name>); archived <old-name>; logged supersession to
-   CONSOLIDATION-LOG.md`.
-
-Then run the promotion judgment on the new entry, same as the plain
-"Recording an error lesson" path above — supersession does not change how
-the new entry is judged for promotion.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when a new `error lesson` contradicts an entry (supersession write-back).
 
 ### Confirming an inferred error lesson
 
-When the caller passes `confirm error lesson: <name>`, this is the *only*
-action in this agent that changes an `error-prevention` entry's
-`metadata.confidence` from `inferred` to `explicit`:
-
-1. Read `entries/<name>.md` (`Read`) and confirm it is `type:
-   error-prevention` with `metadata.confidence: inferred`. If the entry
-   doesn't exist, isn't `type: error-prevention`, or is already `explicit`,
-   record that in `Written` (nothing to confirm) and take no further action.
-2. Edit `metadata.confidence` from `inferred` to `explicit` via `Edit` — a
-   metadata-only edit, same style as the existing `last_referenced` bump in
-   "Relevant entries" step 3 above. Do not alter the entry's `name`,
-   `description`, `metadata.last_referenced`, or body.
-3. Record the confirmation in `Written` (e.g. `Written: confirmed error
-   lesson <name> (inferred → explicit)`). From this point forward, this
-   entry is a normal `explicit`-confidence entry and is eligible for
-   surfacing under the same matching judgment as any other entry — the
-   exclusion rule in "Relevant entries" no longer applies to it.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when the caller passes `confirm error lesson`.
 
 ### Discarding an inferred error lesson
 
-When the caller passes `discard error lesson: <name>`, this takes an
-`inferred`-confidence `error-prevention` entry out of
-consideration (archived, never deleted) without ever confirming it — the reject side of the
-list-then-decide loop `/nelly-memory review-inferred` drives (see
-"Listing inferred error lessons" below for the read-only counterpart):
-
-1. Read `entries/<name>.md` (`Read`) and confirm it is `type:
-   error-prevention` with `metadata.confidence: inferred`. If the entry
-   doesn't exist, isn't `type: error-prevention`, or is already `explicit`
-   (an explicit entry is a confirmed, live lesson — discarding it is out of
-   scope for this action; the caller wants "prune" or manual archiving
-   instead), record that in `Written` (nothing to discard) and take no
-   further action.
-2. Move it to `archive/` using `references/nelly-file-move.md`'s mechanism
-   — never delete. (archive-not-delete guarantee applies, same as every
-   other write-back in this agent.)
-3. Update the project's `MEMORY.md` index: remove the discarded entry's
-   index line (`Edit`), leaving every other line untouched.
-4. Append exactly one new log block to the project's
-   `CONSOLIDATION-LOG.md` (created from
-   `references/GLOBAL-CONSOLIDATION-LOG.md.template`'s shape if it doesn't
-   exist yet, same as `nelly-maintenance`'s "Consolidation write-back") —
-   this log is already shared across write-back actions beyond plain
-   consolidation (see "Supersession write-back" above), so a discard reuses
-   it rather than inventing a third log file:
-   - `Action: discarded`
-   - `Entry:` the discarded entry's `name`
-   - `Reason: inferred error-prevention lesson rejected during review — never confirmed`
-   - `Trigger: user request via /nelly-memory review-inferred`
-5. Record the discard in `Written` (e.g. `Written: discarded <name>
-   (archived, never confirmed)`).
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when the caller passes `discard` for an inferred error lesson.
 
 ### Listing inferred error lessons
 
-When the caller passes `list inferred lessons`, this is a read-only
-operation — it never updates `metadata.last_referenced`, never runs the
-promotion judgment, and never mutates anything:
-
-1. Scan this project's `entries/` (`Grep` over `entries/*.md` frontmatter
-   for `type: error-prevention` and `confidence: inferred`, or `Read` each
-   candidate — either is fine, this is a small directory scan, not a
-   hot path) and collect every entry matching both.
-2. For each match, read its `name` (filename stem), `description`, and
-   `metadata.last_referenced`.
-3. Also check `global/GLOBAL-MEMORY.md` for any `confidence: inferred`
-   block. **This should always come back empty, by construction**, and the
-   reply should say so rather than silently omitting the check: the
-   automatic-detection path (below) explicitly never runs promotion
-   judgment on an `inferred` entry, and "Promotion write-back"'s frontmatter
-   shape for a promoted block never even carries a `metadata.confidence`
-   field at all — so nothing at the `global/` tier can ever be `inferred`.
-   If this check ever does find one, that's a bug elsewhere in this agent,
-   not a normal outcome — surface it plainly rather than hiding it.
-4. Return a numbered list, one line per project-tier match: `<n>. <name> —
-   <description> (last written: <metadata.last_referenced>)`. If no matches
-   exist in `entries/`, say so explicitly: "No inferred lessons pending."
-   Never fabricate a placeholder entry.
-
-This action is the read-only counterpart to "Discarding an inferred error
-lesson" above and the pre-existing "Confirming an inferred error lesson" —
-`/nelly-memory review-inferred` calls this first to render the list, then
-drives the user's confirm/discard choices through those two write-back
-actions, one call per entry the user selects.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when the caller passes `list inferred` error lessons.
 
 ### Automatic (best-effort) inferred-lesson detection
 
-This is a narrowly-scoped, judgment-based, best-effort path — not an active
-failure-pattern-mining system. Do not build scanning/heuristic logic for
-this; it is the same kind of LLM judgment call used for every other
-classification in this agent, and it runs at lower priority than the
-explicit `error lesson` capture path above.
-
-While assembling a brief, if you notice the caller's `task description`
-strongly and unambiguously echoes the context of a previously-recorded
-`error-prevention` entry's failure (not a loose or speculative resemblance —
-only when the connection is clear and specific), you MAY write a new
-`error-prevention` entry with `metadata.confidence: inferred`, using the
-same write-then-verify mechanics as "Recording an error lesson" above
-(steps 1-3, 5-10; skip step 4 and set `metadata.confidence: inferred`
-instead). Record the write in `Written` (e.g. `Written: recorded inferred
-error lesson <name> (not yet surfaced — unconfirmed)`).
-
-**This entry is written, never surfaced.** It does not appear in
-`Relevant entries`, `File relevance:`, or any other output this call or any
-future call — see the exclusion rule in "Relevant entries" above — until a
-separate, later `confirm error lesson: <name>` call flips it to `explicit`.
-Do not run the promotion judgment on an `inferred` entry either — an
-unconfirmed lesson has no business being promoted to the global tier; defer
-promotion judgment until (if ever) it is confirmed.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-error-lessons.md` when, while assembling a brief, the caller's `task description` strongly and unambiguously echoes the context of a previously-recorded `error-prevention` entry's failure (a clear, specific connection, not a loose resemblance): automatic (best-effort) inferred-lesson detection.
 
 ### Import (bulk recording from files)
 
@@ -1031,77 +530,11 @@ two files or state in the brief.
 
 ### Promotion write-back (Bucket 1 only)
 
-1. Read `global/GLOBAL-MEMORY.md` (`hooks/nelly_memory.py --global-path` /
-   `global_dir()`'s convention).
-2. Append a new frontmatter block to it, in `references/nelly-entry.template.md`'s
-   exact shape (`name`, `description`, `metadata.type`,
-   `metadata.last_referenced: <today>`, body) — this file stays the
-   reference repo's proven inline-blocks-in-one-file shape at the global
-   tier (there is no per-entry file under `global/`; `entry_path()`/
-   `archive_path()` are per-project only). Use `Edit` to append after the
-   existing content — never rewrite or reorder prior blocks.
-3. Append exactly one new log block to `global/GLOBAL-PROMOTION-LOG.md`, in
-   `references/GLOBAL-PROMOTION-LOG.md.template`'s exact shape:
-   - `Action: promoted`
-   - `Entry:` the promoted entry's `name`
-   - `Source Project(s):` this project's slug
-   - `Reason:` why this looked generalizable and not already represented in
-     `GLOBAL-MEMORY.md`
-   - `Trigger: brief-assembly` (or `user request` if the caller explicitly
-     asked for a promotion pass)
-4. Before promoting, check `GLOBAL-MEMORY.md` for an existing near-duplicate
-   entry. If one already exists, skip promoting this entry as a fresh
-   addition — do not write a second block to `GLOBAL-MEMORY.md` or
-   `GLOBAL-PROMOTION-LOG.md` — and instead record in `Written` that a
-   near-duplicate already exists globally (name it) and no further action
-   was taken. Consolidating global-tier duplicates is out of scope for this
-   feature (`nelly-maintenance`'s Consolidation write-back is per-project only).
-5. This is append-only. Never edit or remove a prior log block. A later
-   removal is logged as a new `Action: removed` block, never by deleting the
-   original `promoted` block.
-6. Record the promotion in `Written`.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-promotion-writeback.md` only when the judgment lands in Bucket 1.
 
 ## Consolidated memories (weekly cleanup output)
 
-The scheduled weekly job (`scripts/nelly_weekly_consolidate.py`, which runs
-`scripts/nelly_cleanup.py` first) reshapes the store to stop it bloating. It works on the
-memory root, which is the shared_memory_root option when set, so every machine sees the
-same result. Know what it leaves behind and how to use it:
-
-- **`SESSION-HISTORY.md`** (per project, append-only). Each old `session-handoff-*` entry
-  becomes one line here (date, files in focus, last commit), and only the newest 5 stay as
-  entries. It is not indexed in `MEMORY.md` or `nelly-index.json`. When a caller asks what
-  was being worked on earlier, or a brief needs continuity beyond the newest handoffs, read
-  the tail of this file and cite it as session history. Never turn its lines back into entries.
-- **Entries merged from a closed worktree.** A worktree's store is folded into its parent
-  repo's store once the worktree is gone and idle, and its entries arrive under their own
-  names. An entry named `<name>--<worktree>.md` clashed with a different `<name>.md` that
-  was already there. Treat the pair as near-duplicate candidates: surface both in a brief if
-  relevant, and leave merging to `/nelly-memory consolidate`. The merge is recorded as an
-  `Action: merged-worktree-store` block in `CONSOLIDATION-LOG.md`.
-- **Completed SDD feature summaries.** agent-isdd condenses each finished and idle feature
-  to `sdd-memory/<project>/completed/<feature>.md` (goal, decisions, open follow-ups,
-  commits). Each new summary starts with `nelly_recorded: no`, and agent-isdd's SessionStart
-  lists them the next time a session opens in that project. The session then passes them to
-  you as a `new facts` batch labelled `Source: agent-isdd completed-feature summary <path>`.
-  This happens in-session because your slug guard only allows writes to the session's own
-  project. For each one:
-  1. Record one `project`-type entry named `feature-<feature-slug>`, holding the goal,
-     the decisions that still constrain future work, and the open follow-ups (`Why:` =
-     what the feature was for; `How to apply:` = what a later change touching this area
-     must respect). If `feature-<feature-slug>` already exists, update it and don't add a
-     second one.
-  2. Record each distinct lesson, workaround, or recurring issue from the decisions and
-     follow-ups as its own entry (`feedback`, or `error-prevention` for a recurring
-     failure), so the promotion judgment below runs on each one separately. That is how a
-     cross-project lesson found during one project's feature reaches `global/`.
-  3. Never copy the whole summary into an entry. The summary file stays in agent-isdd's
-     store as the record. The calling session flips its `nelly_recorded` flag to `yes`
-     once you report success; you don't edit agent-isdd's files yourself.
-- **Weekly reports** (`consolidation-reports/YYYY-MM-DD.md` under the memory root). They
-  list near-duplicate pairs and superseded-but-not-archived anomalies, which only
-  `/nelly-memory consolidate` resolves. If a caller asks about memory health, point them
-  to the newest report.
+Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-consolidated-memories.md` when reading weekly-cleanup output.
 
 ## Staleness flagging, consolidation, and the file-move mechanism
 

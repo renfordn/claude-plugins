@@ -1,6 +1,6 @@
 ---
 name: design-author
-description: "[Internal — use /isdd instead] Turns approved requirements into a testable design.md, grounded in agent-nelly's brief (if available) and research-consolidator's unified codebase research (Phase 2+3)."
+description: "[Internal — use /isdd instead] Turns approved requirements into a testable design.md, grounded in agent-nelly's brief (if available) and research-consolidator's unified codebase research."
 ---
 
 # Design Author
@@ -35,27 +35,10 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    `research-consolidator` with it (whether reused or freshly fetched) so it isn't re-deriving
    project context the memory already has.
 
-   **[File & Folder Summary Cache]** On that same call (fresh or reused), also pass `file summary
-   lookup` for every path the brief's `Relevant entries`/`File relevance:` sub-list already names
-   plus any file explicitly named in the approved `requirements.md` — this is a smaller place to
-   check than re-deriving those paths' purpose from scratch. For each **cache hit**, verify
-   freshness yourself before trusting it: compute the file's current content hash (`Grep`
-   `pattern: "^"`, `output_mode: "count"` isn't a hash — use a `Bash` `git hash-object <path>`
-   call, the same primitive `research-consolidator` uses for `git_hash`) and compare it to the
-   returned `git_hash`; a match is a **confirmed** cache hit, a mismatch is a miss. Pass the list
-   of paths with a confirmed hit down to `research-consolidator` as "already summarized, skip
-   deep-reading unless something in this feature's scope specifically requires re-reading it" —
-   the same skip mechanic it already applies to the brief's `Relevant entries` (see its Pass 1,
-   step 1). This is the read side of the cache; the write side is step 2 below.
-
-   **[Research Digest Cache]** On the same call, also pass `research digest lookup` for the same
-   paths. Unlike a file summary, a digest carries its own freshness: agent-nelly hashes each
-   source itself and marks the digest `fresh` or `stale`, with `changed` listing the sources
-   that changed or were deleted. Pass each `fresh` digest's `summary` to `research-consolidator`
-   as known context, and treat its sources like confirmed file-summary hits (skip deep-reading
-   unless this feature's scope requires it). For a `stale` digest, pass its `summary` as
-   possibly-outdated context and ask `research-consolidator` to re-read only the `changed`
-   files. No digest for a path means research it normally.
+   Read `references/nelly-cache-lookup.md` when you call agent-nelly for the brief: on that same
+   call pass `file summary lookup` and `research digest lookup`. It holds the **[File & Folder
+   Summary Cache]** and **[Research Digest Cache]** read-side steps (hash-verify cache hits, pass
+   confirmed paths and `fresh`/`stale` digests down to `research-consolidator`).
 
 2. **[Phase 2+3]** `research-consolidator` — unified codebase research (single pass) that produces
    **dual output:**
@@ -95,27 +78,10 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    - Also cache the `Prerequisite Work` list in `research/cache.md` so task slicing sees it.
    - Cache `task_findings` in `research/cache.md` (for agent-tdd to reuse)
    - Persist `file_summaries` to agent-nelly's `file summaries` field (see its
-     `agents/agent-nelly.md`'s "File & Folder Summary Cache" section) — **not** for a file that
-     was a confirmed cache hit and skipped deep-reading in step 1 above (nothing changed about it,
-     so there's nothing to re-persist), only for files `research-consolidator` actually deep-read
-     this pass. Each item's `summary` is `research-consolidator`'s one-line file summary,
-     truncated to 240 characters if needed (`file-summary` entries are capped — see the reference
-     above); `exports`/`constraints`/`dependencies`/`tech_debt` and `git_hash` carry straight
-     through from `research-consolidator`'s output.
-   - Also persist one `folder summaries` item per directory containing two or more of the files
-     `research-consolidator` deep-read this pass, when that directory has no existing
-     `folder-summary` cache hit from step 1: a short (≤240 char) description of the directory's
-     overall role, drawn from those files' summaries — not a mechanical file-by-file listing.
-     Skip a directory that already has a confirmed-fresh folder-summary; its purpose hasn't
-     changed just because one more file inside it got touched.
-   - Persist the pass's multi-file findings to agent-nelly's `research digest` field (see its
-     `agents/agent-nelly.md`'s "Research Digest Cache" section): one `{topic, summary, paths}`
-     item per feature topic, where `topic` names what was researched (e.g. "<feature>: index
-     rescan"), `summary` is the `design_findings`/`task_findings` text for that topic (agent-nelly
-     truncates it to 2,000 characters), and `paths` are the repo-relative files it came from.
-     A digest takes at most 30 paths, so split a larger pass into one digest per
-     top-level directory. Re-send a digest that was `stale` in step 1 with the same topic and paths so it
-     is overwritten in place. Skip this when every source was covered by a `fresh` digest.
+     `agents/agent-nelly.md`'s "File & Folder Summary Cache" section). Read
+     `references/nelly-persistence.md` when persisting: it holds the full rules for `file summaries`,
+     `folder summaries` and `research digest` items (skip confirmed cache hits, 240-character
+     truncation, 30-path digest split).
    - If a summary describes a design approach already tried and rejected (not just current
      codebase shape), persist via `error lesson` instead (see `INTEROP.md`'s "→ agent-nelly"
      section for criterion)
@@ -162,76 +128,29 @@ Move forward only when all of the following are true:
 If any of the above are weak or missing: stop, return a partial design draft, list the open
 questions or contradictions, ask the next smallest clarifying question.
 
-**`Track: Fast`** (see `spec-driven-development/SKILL.md`'s "Fast Track" section): the Design
-Gate above is unchanged — still run in full, against a smaller scope. The one difference is the
-`design.md` template's Phase Decision item "Ready to move to Tasks": for `Track: Fast` it means
-"ready for direct Slice Spec handoff to `agent-tdd`" instead, since no `tasks.md` is ever
-produced on this track. **Escape hatch**: if satisfying the Design Gate turns out to need real
-architecture/interface decisions this scope assumed away, say so and report it back to
-`spec-driven-development` instead of forcing a thin design through — same escalation path
-`requirements-agent`'s Fast Track mode uses.
+**`Track: Fast`**: the Design Gate above is unchanged. Read `../spec-driven-development/references/fast-track.md`
+when `Track: Fast` is set (the Phase Decision wording "Ready to move to Tasks" and the escape hatch differ).
 
 ## Diagrams (`show_widget`)
 
-When architecture, a data flow, or a state transition is genuinely clearer as a picture than as
-prose or a table — not by default, and not for every design — render it with
-`mcp__visualize__show_widget` (call `mcp__visualize__read_me` once first, silently, per its own
-instructions). This is a lighter-weight, one-shot visual for explaining the design as you write
-it; it is not the spec canvas (that's `requirements-agent`'s redeployable Artifact over confirmed
-requirements sections, a different artifact for a different phase). Reference the diagram from
-`design.md` in prose (what it shows and why) rather than treating the widget itself as the
-durable record — `design.md` stays the artifact of record.
+Read `references/diagrams.md` when a design's architecture, data flow, or state transition is clearer as a picture
+than as prose; render it with `mcp__visualize__show_widget` (not by default, not for every design).
 
 ## Design Validation: Deep Review (Before Implementation Handoff)
 
 After the Design Gate passes, invoke `/code-reviewer` at **Deep** review level against the design
 content to validate design coherence and slice feasibility before the Implementation handoff.
-**Corrected 2026-09-24 [plan/design gap]**: the Design Gate passing does not by itself mean
-`design.md`/`research/cache.md` are on disk — per "Plan-Mode Drafting" above, that only happens
-once the user approves the plan, which can be after this step (Design Gate approval and the
-implementation request that triggers `ExitPlanMode` are separate events — see `workflow-manager`'s
-"Native Plan Mode Gate"). So while plan mode is still active, point `/code-reviewer` at the
-in-context draft / plan file content directly rather than at `design.md`/`research/cache.md`
-file paths; only use the file-path scope once those files have actually been persisted (plan mode
-was skipped or has already exited).
+Read `references/deep-review.md` when running this Deep Review (Design Validation) pass: it holds the plan-mode scoping rule,
+the `/code-reviewer` invocation (mode, scope, `review_level: Deep`) and the six focus areas.
 
-**Step: Design Coherence Validation**
-
-1. Invoke `/code-reviewer` skill with:
-   - **Mode**: `direct-review` (or `review-improve` if piping findings into user review)
-   - **Scope**: the design content and research basis — as `design.md` + `research/cache.md` file
-     paths once persisted, or as inline content from the plan file / context while plan mode is
-     still active and those files don't yet exist on disk
-   - **`review_level`**: `Deep` (design pattern validation, coherence checks)
-
-2. Focus areas for Deep review in design context:
-   - Design pattern alignment (is the implementation matching the stated patterns?)
-   - Single Responsibility Principle (SRP) validation (do modules/classes have focused scope?)
-   - File touchpoint correctness (are the right files being touched for the right reasons?)
-   - Slice feasibility (can the proposed slices be implemented independently?)
-   - Interface consistency (do stated contracts match across touchpoints?)
-   - Architecture coherence (do design decisions hang together or conflict?)
-
-3. Gate logic:
+**Gate logic:**
    - **Critical findings**: Block advancement to Implementation. Surface issues to user, suggest design rework.
    - **Non-critical findings** (warnings, improvement suggestions): Document as follow-up notes,
      allow advancement to Implementation.
    - **No findings**: Proceed to Implementation.
 
-4. **Corrected 2026-09-24**: there is no separate `task-slicer`/"next phase" handoff on
-   `agent-isdd`'s side to attach findings to — per Phase 2+3, task slicing happens entirely
-   inside `agent-tdd` during the Design Spec handoff (see `INTEROP.md`'s "→ agent-tdd" section),
-   and the Design Spec's fixed fields (`requirements_md`, `design_md`, `research_cache`,
-   `recap_md`) carry no dedicated review-findings field. Output: fold any Deep review findings
-   worth preserving into the design content itself (e.g. its Design Summary or a Risks/Constraints
-   note) before the Design Spec is constructed, so they travel with `design_md` — do not rely on a
-   separate handoff channel that no longer exists. **Corrected 2026-09-24 [plan/design gap]**: if
-   plan mode is still active, fold findings into the plan file's draft (the same in-context/
-   plan-file content this step reviewed), not into `design.md` directly — it isn't writable yet.
-
-**Rationale**: This upfront Deep review catches wrong-shape designs early, before task slicing 
-and implementation, reducing rework during Red-Green-Refactor cycles. See 
-`code-reviewer/skills/code-reviewer/references/parameters.md`'s "Review Levels" section for Deep level definition.
+**Findings:** fold any Deep review findings worth preserving into the design content itself (or the plan file while plan mode is
+active) before the Design Spec is constructed, so they travel with `design_md`; there is no separate handoff channel for them.
 
 ## Required Output
 

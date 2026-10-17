@@ -12,21 +12,33 @@ def _between(text, start, end):
     return text[i:text.index(end, i + len(start))]
 
 
+REFS = ROOT / "skills" / "design-author" / "references"
+
+
+def _ref(name):
+    return (REFS / name).read_text(encoding="utf-8")
+
+
+# Moved situational text lives in references/; each needle is asserted in the file it lives in.
 STEP1 = _between(SKILL, "1. `agent-nelly:agent-nelly`", "2. **[Phase 2+3]** `research-consolidator`")
 STEP2 = _between(SKILL, "2. **[Phase 2+3]** `research-consolidator`", "3. **Independent verification**")
+LOOKUP = _ref("nelly-cache-lookup.md")
+PERSIST = _ref("nelly-persistence.md")
 
 
 def test_step1_looks_up_digests_and_uses_fresh_and_stale_results():
-    assert "**[Research Digest Cache]**" in STEP1
-    assert "`research digest lookup`" in STEP1
-    assert "`fresh`" in STEP1 and "`stale`" in STEP1
-    assert "`changed`" in STEP1
+    assert "references/nelly-cache-lookup.md" in STEP1 and "`research digest lookup`" in STEP1
+    assert "**[Research Digest Cache]**" in LOOKUP
+    assert "`research digest lookup`" in LOOKUP
+    assert "`fresh`" in LOOKUP and "`stale`" in LOOKUP
+    assert "`changed`" in LOOKUP
 
 
 def test_step2_sends_one_digest_per_topic_and_splits_over_30_files():
-    assert "`research digest`" in STEP2
-    assert "30" in STEP2
-    assert "top-level directory" in STEP2
+    assert "references/nelly-persistence.md" in STEP2 and "`research digest`" in STEP2
+    assert "`research digest`" in PERSIST
+    assert "30" in PERSIST
+    assert "top-level directory" in PERSIST
 
 
 def test_interop_documents_digest_request_schema():

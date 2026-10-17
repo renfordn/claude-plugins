@@ -1,7 +1,7 @@
 ---
 name: plan-reviewer-tier3
 description: >-
-  Use this agent when one confirmed blocker or risk survived Tier 2 and needs deep research. Tier 3 of plan-reviewer — deep research on a single confirmed blocker/risk that survived Tier 2. Full read-only toolset including Bash (git blame, call-graph tracing). Never spawned for a whole doc, only for one named risk. <example>user: "This blocker survived Tier 2" assistant: "Spawning plan-reviewer-tier3 for that one risk."</example>
+  Use this agent when one confirmed blocker survived Tier 2 and needs deep research (git blame, call graphs). Tier 3 of plan-reviewer; one named risk per spawn.
 model: sonnet
 tools: [Read, Grep, Glob, Bash]
 ---

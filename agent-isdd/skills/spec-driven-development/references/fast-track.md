@@ -24,3 +24,16 @@ at that point, tell the user why in one line, and continue via the Standard path
 the artifact currently stands (re-running Requirements' interview from what Fast Track already
 drafted, not from a blank slate). This is the mitigation for the accepted risk of
 auto-classification — it costs one course-correction, never a silent bad fit.
+
+## design-author's Track: Fast paragraph
+
+Read by `design-author` when `Track: Fast` is set (moved here from `design-author/SKILL.md`, verbatim).
+
+**`Track: Fast`** (see `spec-driven-development/SKILL.md`'s "Fast Track" section): the Design
+Gate above is unchanged — still run in full, against a smaller scope. The one difference is the
+`design.md` template's Phase Decision item "Ready to move to Tasks": for `Track: Fast` it means
+"ready for direct Slice Spec handoff to `agent-tdd`" instead, since no `tasks.md` is ever
+produced on this track. **Escape hatch**: if satisfying the Design Gate turns out to need real
+architecture/interface decisions this scope assumed away, say so and report it back to
+`spec-driven-development` instead of forcing a thin design through — same escalation path
+`requirements-agent`'s Fast Track mode uses.

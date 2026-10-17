@@ -1,6 +1,6 @@
 ---
 name: doc-consistency-auditor
-description: "[Internal — invoked automatically by hooks/commit_audit_gate.py, or on request] Audits skills/, agents/, commands/, hooks/, and every plugin's INTEROP.md for duplicated/contradictory claims, dangling references, and cross-plugin interop drift, auto-fixing high-confidence findings."
+description: "[Internal — invoked by hooks/commit_audit_gate.py, or on request] Audits skills, agents, commands, hooks and every plugin's INTEROP.md for duplicated or contradictory claims, dangling references and interop drift, auto-fixing high-confidence findings."
 ---
 
 # Doc Consistency Auditor

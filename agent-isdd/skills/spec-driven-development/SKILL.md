@@ -1,6 +1,6 @@
 ---
 name: spec-driven-development
-description: Orchestrates the intent spec-driven workflow — EARS requirements through design and tasks — with hard phase gates, a visible breadcrumb/checklist UI, and goal-aware memory. Hands off to separate implementation/review/memory plugins.
+description: Orchestrates the spec-driven workflow (EARS requirements, design, tasks) with hard phase gates, a breadcrumb UI, and goal-aware memory.
 ---
 
 # Spec Driven Development
@@ -96,35 +96,18 @@ contract at phase boundaries.
 
 ## Start Protocol
 
-0. **Review follow-ups.** If SessionStart listed open review follow-ups and the request is vague
-   ("what's next?", "clean things up") or overlaps an item's files, offer the matching items as
-   candidates in one line each. If the user picks one, run the `set <id> picked` command
-   SessionStart printed and hand that item's file to `requirements-agent` as an existing ticket
-   (step 7) — its steps and files are the draft. Record `Follow-up: <id>` in `workflow-state.md`.
+0. **Review follow-ups.** If SessionStart listed open ones and the request is vague or overlaps an item's files, see
+   step 0 in the start-protocol reference.
 1. Use `workflow-manager` to identify or derive the feature title and slug, and to scaffold or
    locate the per-feature artifact structure (including `intent/` directory).
 2. If `agent-nelly:agent-nelly` is available, call it to read the project's stored
    Intent and seed the feature's `Goal` field in `workflow-state.md` from it when Intent is more
    specific than "not yet captured". Otherwise ask the user for the Goal directly.
-3. **[NEW Phase 1.1]** Create `intent/intent.md` with:
-   - Project Intent (from agent-nelly brief, or "not yet captured")
-   - Feature Goal (seeded from step 2)
-   - Success Signals (brief, 2-3 observable outcomes)
-   - Anti-Patterns (failure indicators)
-   - Intent Anchor: compute SHA256 hash of intent.md content
-4. Update `workflow-state.md` with:
-   - `Intent Hash: <anchor>`
-   - `Intent Alignment Status: unreviewed`
+3. Before step 5 read `references/start-protocol.md` (steps 3, 4, 6: `intent/intent.md` + anchor, `Intent Hash`, `Track`
+   classification) and follow its step 3 (create `intent/intent.md`).
+4. Record `Intent Hash` and `Intent Alignment Status: unreviewed` in `workflow-state.md` (start-protocol reference, step 4).
 5. Initialize `workflow-state.md` with `Current Phase: Requirements` and `recap.md` to match.
-6. **Fast Track classification** (see `references/fast-track.md` for the full contract): judge
-   whether this request is a small, well-defined change — a single behavior change, no new
-   external interface, no data migration, no cross-plugin `INTEROP.md` contract change, testable
-   in one sentence. This is a judgment call, never a keyword regex. Skip this judgment and honor
-   the user's own words directly if they explicitly asked for the full workflow or explicitly
-   asked to fast-track. Set `Track: Fast` or `Track: Standard` in `workflow-state.md`
-   accordingly. When `Track: Fast`, tell the user in one line: "Fast-tracking this as a small
-   change — say 'full workflow' if you'd rather go through the full Requirements interview and
-   task slicing."
+6. **Fast Track classification** (small, well-defined change? set `Track: Fast` or `Standard`): start-protocol reference, step 6.
 7. Route into `requirements-agent`: it interviews from scratch when the input is vague, or
    reviews-and-rewrites when the user hands over an existing ticket/PRD/draft, or — when
    `Track: Fast` — drafts and self-approves a minimal requirement directly (its own Fast Track
@@ -141,24 +124,7 @@ contract at phase boundaries.
 
 ## Continue Protocol
 
-0. **Rollback Request Check:**
-   - The `before_continue` hook automatically checks for pending rollbacks from prior agent-tdd runs.
-   - If agent-tdd found a slicing blocker (task conflicts, design contradiction, research gap), the rollback will be surfaced with reasoning and recommended target phase.
-   - Address the issue and rewind using `/isdd-rewind <target>`, then return to continue the workflow.
-
-1. Use `workflow-manager` to find the relevant feature folder and resolve state (see its
-   Decision Order — `agent-nelly:agent-nelly`'s stored Intent first (when available),
-   then `workflow-state.md`, then `workflow-state.json`, then open blockers, then phase files,
-   then `recap.md`).
-2. **[Phase 1.2]** Check the cached nelly brief in `workflow-state.json` → `nelly_brief_cache`;
-   reuse it if valid, else fetch fresh (rules: `workflow-manager`'s Goal Field Contract).
-3. Continue from the earliest blocked or incomplete phase; auto-advance through later phases
-   whose entry gates are satisfied.
-4. Pause only when a gate fails, a confirmation checkpoint is required, or implementation was
-   not requested.
-
-Do not restart from Requirements if a later phase is already the active incomplete phase,
-unless requirement changes invalidate the design or tasks.
+On continue/resume: FIRST run the Rollback Request Check (`rollback_pending` in `workflow-state.json`; if set, surface it and stop), THEN read `references/continue-protocol.md` before acting.
 
 ## Turn Management: Continuation Guarantee
 
@@ -187,54 +153,23 @@ If you realize mid-turn that you provided guidance and ended without invoking th
 
 ## Internal Routing Rule
 
-Use focused skills internally rather than asking the user to switch prompts:
-- `workflow-manager` — orchestration, phase detection, state repair, transitions, scaffolding.
-- `requirements-agent` — requirements from scratch or from an existing draft/ticket/PRD.
-- `design-author` — design, informed by `research-consolidator` and `agent-nelly:agent-nelly`
-  (when available).
-
-Only expose these skill names when the user explicitly asks which one is being used, wants to
-invoke one directly, or a pause message needs to explain which capability produced the output.
+Read `references/routing-and-task-tracker.md` (Internal Routing Rule) when deciding whether to name `workflow-manager`, `requirements-agent` or
+`design-author` to the user: use focused skills internally, never ask the user to switch prompts.
 
 ## Subagent Delegation
 
-Three capabilities are delegated to **subagents** (two in this plugin's `agents/`, one external) so their bounded work runs in an isolated
-context and returns only a conclusion, keeping this orchestrator thread lean across a long
-workflow:
+Three capabilities are delegated to subagents: `spec-reviewer` (assess an existing draft), **[Phase 2+3]**
+`research-consolidator` (unified research during Design), and the external `agent-nelly:agent-nelly` (goal-aware
+brief). Read `references/subagent-delegation.md` when delegating to any of them, for the roles and delegation rules.
 
-- `spec-reviewer` — delegate when `requirements-agent` needs to assess an existing draft before
-  rewriting it.
-- **[Phase 2+3]** `research-consolidator` — delegate during Design to produce unified research
-  (design_findings, task_findings, file_summaries) in one pass, eliminating redundant research
-  between design-author and agent-tdd. Replaces the prior separate planning-agent calls.
-- `agent-nelly:agent-nelly` — an external peer-plugin subagent, not one of this plugin's
-  own `agents/`, invoked the same way (via the `Agent` tool with that literal `subagent_type`
-  string), gated by the Availability Check — delegate before any phase starts, when available,
-  for a goal-aware brief (Intent, Relevant entries, Intent alignment, Written); it is
-  the sole writer into agent-nelly's own memory store, which agent-isdd never reads or writes
-  directly. **[Phase 2+3]** Also used to query and cache file summaries for cross-feature reuse.
-
-Delegation rules:
-- Prefer the subagent over inlining these when the task is well-scoped.
-- Subagents cannot talk to the user. **You** own every user-facing confirmation checkpoint:
-  take a subagent's returned report, surface it, get confirmation, then update
-  `workflow-state.md` and `recap.md` yourself — per `workflow-manager`'s field-update contract
-  (see its Lifecycle Hooks section), not a separate set of rules.
-- `requirements-agent` and `design-author` stay inline for interviewing the user, but delegate
-  their bounded sub-tasks (`spec-reviewer` for draft assessment; `research-consolidator` for
-  research) to subagents rather than doing that work in the main thread.
+Subagents cannot talk to the user. **You** own every user-facing confirmation checkpoint: take a subagent's
+returned report, surface it, get confirmation, then update `workflow-state.md` and `recap.md` yourself.
 
 ## Implementation Handoff (Phase 2+3 revised)
 
-Once Design is approved and implementation is requested, this skill's job is to hand off to
-`agent-tdd` for implementation — a single, one-directional handoff, not an orchestrated
-multi-stage loop. `Track: Standard` sends a **Design Spec**; `Track: Fast` sends a single
-**Slice Spec** instead, with `Review handoff mode: skip`. Both are one-directional handoffs with
-no orchestrated multi-stage loop; only the spec shape and `agent-tdd` mode differ. See
-`references/implementation-handoff.md` for the full contract: Design Spec construction (file
-list extraction, the `agent-nelly` subtract-then-query step, the recap summarization rule),
-Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
-fallback, the test-author pause/resume steps, and the Handoff Facts write-back.
+Read `references/implementation-handoff.md` when starting the Implementation handoff: one one-directional handoff to
+`agent-tdd` (`Track: Standard` sends a Design Spec; `Track: Fast` a Slice Spec with `Review handoff mode: skip`);
+spec construction, fallbacks and write-back are in that reference.
 
 **Second trigger: `Current Phase: Tasks` on continue.** A rollback-landing state; treat it
 identically to the Design-approved trigger above (rebuild the Design Spec or Slice Spec from the
@@ -252,20 +187,13 @@ historical correction this supersedes, and the inventory of helpers that only te
 
 ## Requirements Gate
 
-Ready to advance only when: all required fields are present, expressed in EARS format, and no
-unresolved ambiguity remains. Minimum content: problem statement, user outcome, constraints,
-non-goals, edge cases, success criteria, dependencies.
-
-If any of the above are weak, vague, or missing: refuse to advance, interview the user to fill
-the weakest areas first, prioritizing the most ambiguous or highest-risk gaps. If ambiguity
-remains after interviewing: stop, return the partial draft, return an explicit gaps list.
+Read `references/requirements-gate.md` when judging whether Requirements may advance (the Requirements Gate:
+EARS format, no unresolved ambiguity) or when the user hands over an existing ticket/PRD/spec. Never treat incoming
+material as automatically sufficient for phase advancement.
 
 ## Existing Ticket Or PRD Handling
 
-When the user provides a ticket, PRD, or existing spec, `requirements-agent`'s review mode
-handles it: review first, rewrite only the weak sections into EARS format, present the changed
-draft, pause for confirmation, and only then treat it as the canonical requirements artifact.
-Never treat incoming material as automatically sufficient for phase advancement.
+See the Requirements Gate section above.
 
 ## Phase Gating
 
@@ -274,44 +202,20 @@ Phase gating, auto-advance rules, pause conditions, and state repair are governe
 
 ## Native Plan Mode
 
-`workflow-manager` owns entering native plan mode (`EnterPlanMode`) at `before-design` and
-exiting it (`ExitPlanMode`) once Design is approved and implementation has been requested (at
-handoff) — there is no agent-isdd `Tasks` checklist to pass first, since `agent-tdd` slices tasks
-inside the handoff. See its "Native Plan Mode Gate" section for the full contract. This stays
-here in the orchestrator because it is a user-facing approval checkpoint.
-Requesting approval this way is in addition to the phase gates above, not instead of them.
+`workflow-manager` owns entering (`EnterPlanMode` at `before-design`) and exiting (`ExitPlanMode` at handoff) native plan mode; it is a
+user-facing approval checkpoint, in addition to the Requirements and Design gates. Read
+`../workflow-manager/references/native-plan-mode.md` before either call.
 
 ## Task Tracker Sync
 
-`tasks.md` is a repo-persisted planning artifact, distinct from the harness's own task tracker.
-Call `TaskCreate`/`TaskUpdate`/`TaskList` directly from this skill at every phase transition
-(self-loaded via `ToolSearch` first) — see "Visible Progress" above.
+Read `references/routing-and-task-tracker.md` (Task Tracker Sync) when calling `TaskCreate`/`TaskUpdate`/`TaskList` at a phase transition
+(see also "Visible Progress" above).
 
 ## Artifact Convention
 
-Per-feature artifacts are plugin-generated state, not source — they live under the project's
-central SDD memory directory (`${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/`), not the repo:
-
-```text
-<sdd-memory-dir>/
-  spec/
-    <YYYY-MM-DD-feature-slug>/
-      workflow-state.md
-      workflow-state.json
-      requirements/requirements.md
-      design/design.md
-      tasks/tasks.md
-      recap/recap.md
-```
-
-`workflow-manager` owns scaffolding this structure and keeping it stable across phases. Use the
-canonical templates in `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`; keep the same section order unless
-the user explicitly asks to change it.
+Read `../workflow-manager/references/scaffolding.md` when scaffolding or writing per-feature artifacts (layout is `workflow-manager`'s);
+templates are in `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`.
 
 ## Writing Style
 
-Structured sections with checklists, concise prose plus bullet lists, for `requirements.md`,
-`design.md`, and `recap.md`. For `tasks.md`, optimize for agent handoff: minimal narration,
-explicit ordered execution steps, concrete validation steps. `tasks.md` itself is written by
-`agent-tdd` during the Design Spec handoff (this skill never drives task slicing), so its
-`Depends On` guidance lives there — see `agent-tdd`'s tasks schema.
+Read `references/writing-style.md` (Writing Style) when writing `requirements.md`, `design.md`, `recap.md` or `tasks.md`.

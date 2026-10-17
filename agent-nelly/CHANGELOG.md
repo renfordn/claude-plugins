@@ -1,4 +1,13 @@
 <!-- TDD-SKIP -->
+## [0.6.6] - 2026-10-17
+
+### Changed
+- `agents/agent-nelly.md` is 50% smaller (71,642 to 35,759 bytes, about 9k fewer tokens per spawn). Eight situational sections moved verbatim into `references/nelly-*.md` (research digest, file/folder summary cache, handoff surfacing, aside-spinoff, batch recording, error lessons, promotion write-back, consolidated memories). Every heading stays in the agent file with a one-line `${CLAUDE_PLUGIN_ROOT}/references/<file>.md` stub that names its trigger, so cross-references still resolve. No behavior change.
+- Added one inline sentence under the error-lesson stub: inferred lessons are never auto-`explicit`; only `confirm error lesson` promotes an entry to `explicit`.
+
+### Added
+- `scripts/test_ref_pointers.py` checks every stub points at an existing reference, each reference opens with a "Read by" line and stays within 400 lines, and the agent file stays under 35,800 bytes.
+
 ## [0.6.5] - 2026-10-05
 
 ### Fixed
