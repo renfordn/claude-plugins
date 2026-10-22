@@ -21,7 +21,7 @@ Resolve the spec directory through agent-isdd, never by hand (the slug and the s
 memory root are configured, not derived from `pwd`):
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path
 ```
 
 List every spec directory under that path. Each directory name is a `<YYYY-MM-DD-feature-slug>`.
@@ -69,7 +69,7 @@ Match each worktree's branch name against spec slugs. A worktree on a branch lik
 Check every spec directory for a lock:
 
 ```bash
-ls "$(python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path)"/*/session-lock.json 2>/dev/null
+ls "$(CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path)"/*/session-lock.json 2>/dev/null
 ```
 
 Each `session-lock.json` looks like:

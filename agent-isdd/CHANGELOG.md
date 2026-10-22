@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.11] - 2026-10-22
+
+### Fixed
+- isdd-pickup: pass `CLAUDE_PLUGIN_DATA` and the shared memory root to `sdd_memory.py --spec-path`, which crashed with `PluginDataDirUnavailable` when run from the skill. A guard test now covers every hand-run `sdd_memory.py` call.
+
 ## [0.5.10] - 2026-10-22
 
 ### Fixed
