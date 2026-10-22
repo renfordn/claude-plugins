@@ -153,8 +153,8 @@ for a specific approach tried and rejected this phase (criterion: `INTEROP.md`'s
 write-back where that write-back applies, otherwise after the Verification Step; only when this
 project's memory dir has a `PLAN-BOARD.md` with an `https://` URL)**: rebuild this feature's
 record and write it to the board so the living page stays current. Run
-`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/plan_board.py" doc <workflow-state.md> --project <git top-level folder name> --out <temp file>`
-(it prints the record's `id`). With `url` = the URL in `PLAN-BOARD.md`, `ArtifactData get` that `id`
+`CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/plan_board.py" doc <workflow-state.md> --project <label> --out <temp file>`
+(it prints the record's `id`; `<label>` = git top-level folder name, main repo's in a worktree). With `url` = the URL in `PLAN-BOARD.md`, `ArtifactData get` that `id`
 in collection `plans` to see whether the record exists, then `ArtifactData set` with `file_path` =
 the temp file and, when the record already exists, `if_version` = the `version` the `get` returned
 (a `set` on an existing record is refused without it). Then run the same command with `doc`

@@ -228,6 +228,19 @@ def _label(memory_dir):
     return max(counts, key=counts.get) if counts else None
 
 
+WORKTREE_MARK = "-claude-worktrees-"
+
+
+def _origin_label(base, name, own_label):
+    """A worktree's memory folder is `<project folder>-claude-worktrees-<name>`: label it with the
+    project's own label so its features sit under the project they came from."""
+    if WORKTREE_MARK in name:
+        origin = _label(os.path.join(base, name.split(WORKTREE_MARK, 1)[0]))
+        if origin:
+            return origin
+    return own_label
+
+
 def central_projects(base):
     """([(label, memory_dir)], [skipped dir names]) for every project dir under `base` with a spec/
     folder whose effective board is the shared one (base/PLAN-BOARD.md) and sync is on."""
@@ -243,7 +256,7 @@ def central_projects(base):
             continue
         if not shared or plan_board.board_url(mem) != shared or not plan_board.sync_enabled(mem):
             continue
-        label = _label(mem)
+        label = _origin_label(base, name, _label(mem))
         (found.append((label, mem)) if label else skipped.append(name))
     return found, skipped
 
@@ -281,13 +294,12 @@ def main_all(argv):
     hashes = {d["id"]: d.get("contentHash", "") for d in board}
     versions = {d["id"]: d["version"] for d in board if d.get("version")}
     local_ids = set()
-    per = {}
+    per = []                  # (label, memory_dir, local {id: hash}, mine {id: hash}); a label may span folders
     for label, mem in projects:
         prefix = plan_board._safe(label) + "--"
         local = {i: d["contentHash"] for i, d in local_docs(mem, label).items()}
         local_ids |= set(local)
-        mine = {i: h for i, h in hashes.items() if i.startswith(prefix)}
-        per[label] = (mem, local, mine)
+        per.append((label, mem, local, {i: h for i, h in hashes.items() if i.startswith(prefix)}))
     # A card is an orphan only when no feature folder anywhere under base has its slug, so cards of
     # skipped (never-synced) or sync-off projects are never offered for deletion.
     all_slugs = set()
@@ -302,40 +314,51 @@ def main_all(argv):
         pass
     orphans = sorted(i for i in hashes if i not in local_ids
                      and (i.split("--", 1)[1] if "--" in i else i) not in all_slugs)
+    # A card whose feature is local but whose id differs (it was written under another label, e.g. a
+    # worktree's own name) is superseded by the local id, not an orphan and not a missing record.
+    by_slug = {i.split("--", 1)[1]: i for i in local_ids if "--" in i}
+    superseded = sorted(i for i in hashes if i not in local_ids and "--" in i
+                        and i.split("--", 1)[1] in by_slug)
+    removable = sorted(set(orphans) | set(superseded))
     if cmd == "verify":
-        out = {"projects": {}, "orphaned": orphans, "skipped": skipped}
+        out = {"projects": {}, "orphaned": orphans, "superseded": superseded, "skipped": skipped}
         if _arg(argv, "--page-file"):
             out["page"] = page_status(_arg(argv, "--page-file"))
-        for label, (mem, local, mine) in per.items():
+        for label, mem, local, mine in per:
             d = diff_records(local, mine)
-            out["projects"][label] = {"missing": d["missing"], "mismatched": d["mismatched"]}
+            mm = out["projects"].setdefault(label, {"missing": [], "mismatched": []})
+            mm["missing"] = sorted(set(mm["missing"]) | set(d["missing"]))
+            mm["mismatched"] = sorted(set(mm["mismatched"]) | set(d["mismatched"]))
             stamp_verified(mem)
         print(json.dumps(out, indent=1))
     elif cmd == "resync":
-        batch = {"writes": [], "ids": [], "skipped": skipped}
-        for label, (mem, _local, mine) in per.items():
+        best = {}             # doc id -> (write, memory_dir): the same slug in two folders is written once
+        for label, mem, _local, mine in per:
             b = build_batch(mem, label, mine, versions)
-            batch["writes"] += b["writes"]
-            batch["ids"] += b["ids"]
-        print(json.dumps(batch, indent=1))
+            for w in b["writes"]:
+                cur = best.get(w["doc_id"])
+                if cur is None or str(w["data"].get("updatedAt") or "") > str(cur["data"].get("updatedAt") or ""):
+                    best[w["doc_id"]] = w
+        writes = [best[i] for i in sorted(best)]
+        print(json.dumps({"writes": writes, "ids": [w["doc_id"] for w in writes], "skipped": skipped}, indent=1))
     elif cmd == "mark":
         done = []
         for i in _ids(argv):
-            for label, (mem, _l, _m) in per.items():
+            for label, mem, _l, _m in per:
                 if i.startswith(plan_board._safe(label) + "--"):
                     done += mark_success(mem, label, [i])
-        print("\n".join(done))
+        print("\n".join(sorted(set(done))))
     elif "--confirm" in argv:
         out = {"removed": [], "board_instructions": []}
-        for mem, _l, _m in per.values():
-            r = apply_prune(plan_board._sync_path(mem), orphans, True, versions)
+        for mem in sorted({m for _lb, m, _l, _mi in per}):
+            r = apply_prune(plan_board._sync_path(mem), removable, True, versions)
             out["removed"] += r["removed"]
         out["board_instructions"] = [dict({"op": "delete", "collection": plan_board.COLLECTION, "doc_id": i},
                                           **({"if_version": versions[i]} if versions.get(i) else {}))
-                                     for i in orphans]
+                                     for i in removable]
         print(json.dumps(out, indent=1))
-    elif orphans:
-        print(plan_prune(orphans)["confirmation"])
+    elif removable:
+        print(plan_prune(removable)["confirmation"])
     return 0
 
 

@@ -10,7 +10,7 @@ Let `SYNC` be `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_S
    shared `PLAN-BOARD.md`). Write a JSON file holding a list of `{id, contentHash, version}` for
    each record (`contentHash` is empty for old schema-1 records; `version` is needed to overwrite
    or delete an existing one). Also save the live page with `Artifact read` (`path: "index.html"`, any `out_dir`) and pass it as `--page-file <that index.html>`. Run `SYNC verify --board-json <file> --page-file <file>`. It prints, per project label,
-   the `missing` and `mismatched` record ids, then `orphaned` (cards no project has) and `skipped`
+   the `missing` and `mismatched` record ids, then `orphaned` (cards no project has), `superseded` (cards written under another label for a feature whose id is now different, e.g. a worktree's own name: resync writes the new id, prune offers the old card) and `skipped`
    (project folders never synced, so their label is unknown; run `/isdd-board-sync` once from
    that project with `plan_board_sync.py resync --board-json <file>` to label it), and stamps
    `lastVerified` for each project. `page` is `current`, `stale` or `unreadable`: when `stale`, republish the
@@ -21,7 +21,7 @@ Let `SYNC` be `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_S
    unchanged as one `ArtifactData batch`, then run `SYNC mark <id>...` with only the ids whose
    write succeeded; failed ones stay stale and SessionStart will list them. Never block on a
    failure: note it in the feature's recap.md and continue.
-3. **Prune.** If there are orphans, run `SYNC prune --board-json <file>` to list them, show the
+3. **Prune.** If there are orphans or superseded cards, run `SYNC prune --board-json <file>` to list them, show the
    list to the user, and ask for confirmation before deleting anything. Only after an explicit
    yes, run `SYNC prune --board-json <file> --confirm` and send the printed `board_instructions`
    (deletes with `doc_id` and `if_version`) as one `ArtifactData batch`. Without a yes, remove nothing.

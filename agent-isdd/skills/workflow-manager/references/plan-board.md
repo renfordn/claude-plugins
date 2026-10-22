@@ -47,7 +47,10 @@ All are `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/plan_board.py" <command>`:
 | `mark-synced <workflow-state.md> --project <label>` | Records that the record was written |
 
 `<label>` is the basename of the project's git top-level folder, the value the `SessionStart` nudge
-prints after `--project`. Use the same label every time: a different one makes a different record
+prints after `--project`. For a git worktree it is the main repo's folder, so a feature worked on in a
+worktree stays under the project it came from. The central run does the same for a
+`<project>-claude-worktrees-<name>` memory folder; until the project itself has synced (so it has no
+label to borrow) the worktree folder falls back to its own label. Use the same label every time: a different one makes a different record
 id, and the feature would stay out of date. Two projects whose folders share a name would also
 share ids. `stale`, and any state file outside the `spec/` layout, need `CLAUDE_PLUGIN_DATA` and
 `CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT` in front, as in the `sdd_memory.py` commands elsewhere in
@@ -126,12 +129,13 @@ Statuses `Paused`, `Blocked` and `Awaiting …` (the template's `Awaiting Confir
 `/isdd-board-sync` runs `plan_board_sync.py` (same folder as `plan_board.py`):
 
 - `verify --board-json <file>` compares the board's `plans` records (an `ArtifactData list` saved to
-  a file) with local state and prints missing, mismatched and orphaned ids (and, with `--page-file`,
+  a file) with local state and prints missing, mismatched, orphaned and superseded ids (and, with `--page-file`,
   `page: current|stale|unreadable`). It stamps `lastVerified`; `SessionStart` reminds you to verify when that is over 24 hours old.
 - `resync [--board-json <file>]` prints one `ArtifactData batch` of `set` writes for every stale or
   missing record. `mark <id>...` then records only the ids that succeeded; failed ones stay stale.
 - `prune [--board-json <file>]` lists orphans (board records or sync entries with no feature) and
-  deletes nothing. Only after the user confirms, `prune --confirm` removes the sync entries and
+  superseded cards (a card under another label, such as an old worktree name, for a feature whose id
+  is now different) and deletes nothing. Only after the user confirms, `prune --confirm` removes the sync entries and
   prints the board deletes to apply. A feature the weekly cleanup archived (a `completed/<slug>.md`
   summary, spec folder gone) is history, not an orphan: verify and prune never report or offer it,
   so its closed card stays on the board.

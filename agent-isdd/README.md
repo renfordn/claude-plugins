@@ -65,7 +65,7 @@ invalid. Cross-feature file caching via agent-nelly can skip re-reading files on
 - `/isdd-continue` — force-continue from the current phase.
 - `/isdd-rewind` — rewind to an earlier phase (Requirements | Design | Tasks).
 - `/isdd-init` — first-run onboarding for a new project.
-- `/isdd-board-sync` — verify the Plan Board against local state, resync stale records in one batch, prune orphans after confirmation.
+- `/isdd-board-sync` — verify the Plan Board against local state, resync stale records in one batch, prune orphaned and superseded cards after confirmation.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
 
 ## Plan Board (optional)

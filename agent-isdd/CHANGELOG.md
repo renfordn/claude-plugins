@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.10] - 2026-10-22
+
+### Fixed
+- Features worked on in a git worktree now belong to the originating project. `repo_label()` resolves a worktree (its `.git` file) to its main repo's name, and the central run labels a `<project>-claude-worktrees-<name>` memory folder with the project's own label, so a worktree session and a main-repo session write the same record id and the board no longer grows one "project" per worktree.
+- `all verify` reports `superseded` cards (a card under another label, such as an old worktree name, for a feature whose id is now different); `all prune` offers them with the orphans, still only after confirmation, and `resync` writes the new id once even when a slug is in two folders. This also stops the central run proposing a duplicate card for a feature the main repo already carded.
+
 ## [0.5.9] - 2026-10-17
 
 ### Changed

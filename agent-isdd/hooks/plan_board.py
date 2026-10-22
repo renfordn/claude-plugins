@@ -107,10 +107,32 @@ def _phase_states(phase, status, track):
     return [{"name": n, "state": s} for n, s in zip(PHASES, states)]
 
 
+def _main_repo_root(git_file):
+    """For the `.git` file `git worktree add` writes ("gitdir: <main>/.git/worktrees/<name>"), the main
+    repo's root; None for anything else (a submodule's `.git` file, an unreadable one). No subprocess."""
+    try:
+        with open(git_file, "r", encoding="utf-8") as fh:
+            line = fh.readline().strip()
+    except OSError:
+        return None
+    if not line.startswith("gitdir:"):
+        return None
+    gitdir = line[len("gitdir:"):].strip()
+    if not os.path.isabs(gitdir):
+        gitdir = os.path.normpath(os.path.join(os.path.dirname(git_file), gitdir))
+    try:
+        with open(os.path.join(gitdir, "commondir"), "r", encoding="utf-8") as fh:
+            common = os.path.normpath(os.path.join(gitdir, fh.read().strip()))
+    except OSError:
+        common = os.path.dirname(os.path.dirname(gitdir))   # <main>/.git/worktrees/<name>
+    return os.path.dirname(common) if os.path.basename(common) == ".git" else None
+
+
 def repo_label(cwd):
     """The project label: basename of the realpath of cwd's nearest ancestor holding a `.git`
-    (the git top-level folder), else of cwd itself. No subprocess; realpath so a symlinked path
-    and its target give the same label (and so the same record ids)."""
+    (the git top-level folder), else of cwd itself. A git worktree is labelled with its MAIN repo, so
+    a feature worked on in a worktree stays under the project it came from. No subprocess; realpath so
+    a symlinked path and its target give the same label (and so the same record ids)."""
     start = os.path.realpath(cwd or os.getcwd())
     cur = start
     while not os.path.exists(os.path.join(cur, ".git")):
@@ -119,6 +141,11 @@ def repo_label(cwd):
             cur = start
             break
         cur = parent
+    git_file = os.path.join(cur, ".git")
+    if os.path.isfile(git_file):
+        main = _main_repo_root(git_file)
+        if main:
+            cur = os.path.realpath(main)
     return os.path.basename(cur) or "project"
 
 
