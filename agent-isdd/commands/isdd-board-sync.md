@@ -10,7 +10,9 @@ Let `SYNC` be `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_S
    shared `PLAN-BOARD.md`). Write a JSON file holding a list of `{id, contentHash, version}` for
    each record (`contentHash` is empty for old schema-1 records; `version` is needed to overwrite
    or delete an existing one). Also save the live page with `Artifact read` (`path: "index.html"`, any `out_dir`) and pass it as `--page-file <that index.html>`. Run `SYNC verify --board-json <file> --page-file <file>`. It prints, per project label,
-   the `missing` and `mismatched` record ids, then `orphaned` (cards no project has), `superseded` (cards written under another label for a feature whose id is now different, e.g. a worktree's own name: resync writes the new id, prune offers the old card) and `skipped`
+   the `missing` and `mismatched` record ids, plus `unknown` (cards whose workflow-state.md had no readable
+   status or phase: fix the file's fields) and `stale` (open cards with no implementation report for 14 days:
+   check each against git and the deploy notes, and close shipped ones with workflow-manager `complete`), then `orphaned` (cards no project has), `superseded` (cards written under another label for a feature whose id is now different, e.g. a worktree's own name: resync writes the new id, prune offers the old card) and `skipped`
    (project folders never synced, so their label is unknown; run `/isdd-board-sync` once from
    that project with `plan_board_sync.py resync --board-json <file>` to label it), and stamps
    `lastVerified` for each project. `page` is `current`, `stale` or `unreadable`: when `stale`, republish the
@@ -26,4 +28,4 @@ Let `SYNC` be `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_S
    yes, run `SYNC prune --board-json <file> --confirm` and send the printed `board_instructions`
    (deletes with `doc_id` and `if_version`) as one `ArtifactData batch`. Without a yes, remove nothing.
 
-Report one line per project for verify and resync, then one line for prune.
+Report one line per project for verify (including any `unknown` and `stale` ids) and resync, then one line for prune.

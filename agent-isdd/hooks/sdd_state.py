@@ -50,6 +50,27 @@ def active_state_file(root):
     return files[0] if files else None
 
 
+# Fields a workflow-state.md may also write without the leading `- ` (hand-written or older files).
+# Only these are read in bare form, so ordinary prose like "Note: ..." is never mistaken for a field.
+BARE_FIELDS = frozenset((
+    "feature", "title", "slug", "goal", "date", "track", "current phase", "previous phase",
+    "workflow status", "pause reason", "next action", "implementation requested", "recap",
+))
+_BULLET_FIELD = re.compile(r"^\s*[-*]\s*([A-Za-z][A-Za-z /]+?):\s*(.*\S)?\s*$")
+_BARE_FIELD = re.compile(r"^([A-Za-z][A-Za-z /]+?):\s*(.*\S)?\s*$")
+
+
+def match_field(line):
+    """(lowercased key, value) for a `- Field: value` line or a bare `Field: value` line naming a
+    BARE_FIELDS key; None otherwise."""
+    m = _BULLET_FIELD.match(line)
+    if not m:
+        m = _BARE_FIELD.match(line)
+        if not m or m.group(1).strip().lower() not in BARE_FIELDS:
+            return None
+    return m.group(1).strip().lower(), (m.group(2) or "").strip()
+
+
 def parse_state(path):
     """Parse the `- Field: value` lines of a workflow-state.md into a dict.
 
@@ -62,10 +83,9 @@ def parse_state(path):
     except OSError:
         return fields
     for line in text.splitlines():
-        m = re.match(r"\s*[-*]\s*([A-Za-z][A-Za-z /]+?):\s*(.*\S)?\s*$", line)
+        m = match_field(line)
         if m:
-            key = m.group(1).strip().lower()
-            val = (m.group(2) or "").strip()
+            key, val = m
             if key not in fields:
                 fields[key] = val
     return fields

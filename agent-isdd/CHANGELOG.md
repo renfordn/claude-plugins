@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.5.12] - 2026-11-02
+
+### Fixed
+- workflow-state.md fields written without the leading `- ` (`Workflow Status: Complete`) are now read for the known state fields, in both `sdd_state.parse_state` and the Plan Board parser, which share `sdd_state.match_field`. Such files previously showed as Unknown on the board and never counted as Complete.
+
+### Added
+- `all verify` lists `unknown` cards (no readable status or phase) and `stale` cards (open, no implementation report for 14 days, often shipped but never closed) per project, and `/isdd-board-sync` reports them.
+
 ## [0.5.11] - 2026-10-22
 
 ### Fixed

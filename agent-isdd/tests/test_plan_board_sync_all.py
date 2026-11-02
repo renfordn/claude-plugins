@@ -54,8 +54,10 @@ def _run(base, *args):
 def test_verify_covers_every_project_and_only_true_orphans(tmp_path):
     base, dump, a, b, _ = _setup(tmp_path)
     out = json.loads(_run(base, "verify", "--board-json", dump))
-    assert out["projects"]["alpha"] == {"missing": [], "mismatched": [a["2026-10-02-a2"]["id"]]}
-    assert out["projects"]["beta"] == {"missing": [b["2026-10-03-b1"]["id"]], "mismatched": []}
+    assert out["projects"]["alpha"] == {"missing": [], "mismatched": [a["2026-10-02-a2"]["id"]],
+                                      "unknown": [], "stale": []}
+    assert out["projects"]["beta"] == {"missing": [b["2026-10-03-b1"]["id"]], "mismatched": [],
+                                     "unknown": [], "stale": []}
     assert out["orphaned"] == ["gone--2026-01-01-x"]
     assert out["skipped"] == ["users-me-nolabel"]
 

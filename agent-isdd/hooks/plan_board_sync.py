@@ -30,6 +30,34 @@ def local_docs(memory_dir, project):
     return docs
 
 
+STALE_DAYS = 14
+
+
+def attention(docs, today=None, stale_days=STALE_DAYS):
+    """Cards verify should surface even when the board matches local state.
+
+    `unknown`: status or phase parsed as Unknown -- the workflow-state.md has no readable fields.
+    `stale`: not Complete, and no implementation report (or file date) for `stale_days` -- often a
+    feature that shipped but was never closed, so it needs checking against git.
+    """
+    today = datetime.date.fromisoformat(today) if today else datetime.date.today()
+    unknown, stale = [], []
+    for i, d in sorted(docs.items()):
+        status = str(d.get("status") or "")
+        if "Unknown" in (status, d.get("phase")):
+            unknown.append(i)
+            continue
+        if status.lower() == "complete" or str(d.get("phase") or "").lower() == "complete":
+            continue
+        last = d.get("lastImplDay") or d.get("updatedAt") or ""
+        try:
+            if (today - datetime.date.fromisoformat(last)).days > stale_days:
+                stale.append(i)
+        except ValueError:
+            pass
+    return {"unknown": unknown, "stale": stale}
+
+
 def build_batch(memory_dir, project, board_hashes, versions=None):
     """One `ArtifactData batch` payload (`writes` is passed to the tool as-is): a `set` write for every
     record the board lacks or holds with a different hash. `board_hashes` is the board's id->contentHash
@@ -297,9 +325,10 @@ def main_all(argv):
     per = []                  # (label, memory_dir, local {id: hash}, mine {id: hash}); a label may span folders
     for label, mem in projects:
         prefix = plan_board._safe(label) + "--"
-        local = {i: d["contentHash"] for i, d in local_docs(mem, label).items()}
+        docs = local_docs(mem, label)
+        local = {i: d["contentHash"] for i, d in docs.items()}
         local_ids |= set(local)
-        per.append((label, mem, local, {i: h for i, h in hashes.items() if i.startswith(prefix)}))
+        per.append((label, mem, local, {i: h for i, h in hashes.items() if i.startswith(prefix)}, docs))
     # A card is an orphan only when no feature folder anywhere under base has its slug, so cards of
     # skipped (never-synced) or sync-off projects are never offered for deletion.
     all_slugs = set()
@@ -324,16 +353,18 @@ def main_all(argv):
         out = {"projects": {}, "orphaned": orphans, "superseded": superseded, "skipped": skipped}
         if _arg(argv, "--page-file"):
             out["page"] = page_status(_arg(argv, "--page-file"))
-        for label, mem, local, mine in per:
+        for label, mem, local, mine, docs in per:
             d = diff_records(local, mine)
-            mm = out["projects"].setdefault(label, {"missing": [], "mismatched": []})
-            mm["missing"] = sorted(set(mm["missing"]) | set(d["missing"]))
-            mm["mismatched"] = sorted(set(mm["mismatched"]) | set(d["mismatched"]))
+            a = attention(docs)
+            mm = out["projects"].setdefault(label, {"missing": [], "mismatched": [], "unknown": [], "stale": []})
+            for key, ids in (("missing", d["missing"]), ("mismatched", d["mismatched"]),
+                             ("unknown", a["unknown"]), ("stale", a["stale"])):
+                mm[key] = sorted(set(mm[key]) | set(ids))
             stamp_verified(mem)
         print(json.dumps(out, indent=1))
     elif cmd == "resync":
         best = {}             # doc id -> (write, memory_dir): the same slug in two folders is written once
-        for label, mem, _local, mine in per:
+        for label, mem, _local, mine, _docs in per:
             b = build_batch(mem, label, mine, versions)
             for w in b["writes"]:
                 cur = best.get(w["doc_id"])
@@ -344,13 +375,13 @@ def main_all(argv):
     elif cmd == "mark":
         done = []
         for i in _ids(argv):
-            for label, mem, _l, _m in per:
+            for label, mem, _l, _m, _d in per:
                 if i.startswith(plan_board._safe(label) + "--"):
                     done += mark_success(mem, label, [i])
         print("\n".join(sorted(set(done))))
     elif "--confirm" in argv:
         out = {"removed": [], "board_instructions": []}
-        for mem in sorted({m for _lb, m, _l, _mi in per}):
+        for mem in sorted({m for _lb, m, _l, _mi, _d in per}):
             r = apply_prune(plan_board._sync_path(mem), removable, True, versions)
             out["removed"] += r["removed"]
         out["board_instructions"] = [dict({"op": "delete", "collection": plan_board.COLLECTION, "doc_id": i},

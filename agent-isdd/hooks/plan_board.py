@@ -25,6 +25,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import feature_paths  # noqa: E402
 import plan_brief  # noqa: E402
+from sdd_state import match_field  # noqa: E402
 
 SCHEMA = 2
 PHASES = ("Requirements", "Design", "Tasks", "Implementation")
@@ -38,13 +39,12 @@ COLLECTION = "plans"
 PAGE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     "skills", "workflow-manager", "assets", "plan-board.html")
 
-_FIELD = re.compile(r"^\s*[-*]\s*([A-Za-z][A-Za-z /]+?):\s*(.*\S)?\s*$")
 _CONTINUATION = re.compile(r"^\s{2,}(\S.*)$")
 _PATH_UNSAFE = re.compile(r"[^A-Za-z0-9_.~:@+-]+")
 
 
 def parse_fields(text):
-    """`- Field: value` lines of a workflow-state.md as {lowercased field: value}.
+    """`- Field: value` lines (or bare `Field: value` for sdd_state.BARE_FIELDS) of a workflow-state.md as {lowercased field: value}.
 
     A value can continue on following indented lines (workflow-state.md wraps long Goal and Next
     Action text); those are joined with single spaces. The first occurrence of a field wins.
@@ -52,12 +52,12 @@ def parse_fields(text):
     fields = {}
     current = None
     for line in text.splitlines():
-        m = _FIELD.match(line)
+        m = match_field(line)
         if m:
-            key = m.group(1).strip().lower()
+            key, val = m
             current = key if key not in fields else None
             if current:
-                fields[current] = (m.group(2) or "").strip()
+                fields[current] = val
             continue
         cont = _CONTINUATION.match(line)
         if cont and current:
