@@ -53,6 +53,15 @@
               "type": "string"
             }
           },
+          "test_level": {
+            "type": "string",
+            "enum": ["unit", "extend", "integration", "e2e"],
+            "description": "Cheapest test level that catches this behavior's failure. extend = add a case to an existing (parametrized) test rather than a new test. Omitted means unit."
+          },
+          "parallel_group": {
+            "type": ["string", "null"],
+            "description": "Slices sharing a group have disjoint files and no dependency path between them, so they can be implemented and tested side by side."
+          },
           "test_intent": {
             "type": "string",
             "description": "One-line description of the observable behavior a test must pin down"

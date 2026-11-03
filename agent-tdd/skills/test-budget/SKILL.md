@@ -43,6 +43,19 @@ the framework, read the file directly and apply the same questions.
 | Slice fixes a reported bug | **Regression test**: keep it, name it for the bug, put it in the project's existing regression location, if any |
 | Fast, pure, one function, new edge case | **Plain unit test**: add it; no ceremony needed |
 
+Speed is part of the budget, not an afterthought. While the file is open, also look for:
+
+- **Real waits**: `sleep`/`setTimeout`/polling loops → fake clock or event wait.
+- **Expensive setup per test**: DB, server, subprocess, or large fixture built in every test
+  when tests only read it → widen fixture scope (module/session, `beforeAll`) or use an
+  in-memory fake.
+- **Real network or disk** where a boundary fake would pin the same behavior.
+- **Parallel blockers**: shared mutable state, fixed ports/paths, order-dependent tests. Fix
+  them so the suite can run in workers (pytest-xdist `-n auto`, Jest/Vitest workers,
+  `t.Parallel()` in Go); if the project has no parallel runner and the suite is slow, propose
+  enabling one as its own step.
+- **Whole-suite validation**: a slice validated by running everything → narrow to its test.
+
 Two guardrails keep this from becoming over-pruning. Never delete a test just because it is
 old; delete it because you can name the test that covers the same behavior better. And never
 promote to e2e something that is cheap and deterministic as a unit test, since e2e tests are
@@ -58,6 +71,7 @@ Test budget: tests/test_orders.py — 84 tests, 1,240 lines, 31% of suite runtim
 - Stale: test_legacy_price_helper (helper removed in a1b2c3d)
 - Plan for this slice: add 1 case to the parametrized total test; no new file
 - Regression/e2e candidate: checkout → payment → receipt flow (new slice spans 3 modules)
+- Speed: db fixture rebuilt per test (84×) → session scope; time.sleep(2) in 3 tests → fake clock
 Verdict: ok to proceed | consolidate first | promote to e2e
 ```
 

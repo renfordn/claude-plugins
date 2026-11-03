@@ -210,6 +210,16 @@ Concise, concrete evidence over narrative.
      `refactor` slices before the features that extend that code, then `feature` slices declaring
      their prep slices in Depends On. Number slices in execution order, not design.md's order;
      unrelated prep doesn't jump the queue.
+   - *Test cost pass:* every slice's tests run on every future pipeline, so pin each behavior at
+     the cheapest level that catches its failure. **Test Level**: `unit` by default; `extend` to
+     add a case to an existing parametrized test; `integration`/`e2e` only when the failure shows
+     only when wired together, one per feature flow. Merge tests differing only in input/expected
+     into one parametrized test; drop ones a higher-level test pins; a `refactor` slice deletes
+     tests the feature makes stale (naming the replacement). No real sleeps, network, or
+     per-test heavy setup (share read-only fixtures at module/session scope); no shared mutable
+     state or ordering, so tests run in parallel workers. Slices with disjoint Files and no
+     Depends On path share a **Parallel Group**. Validation Target runs only the slice's test,
+     never the whole suite; the full suite runs once, at the coherence request.
 3. **Validation.** Before implementing, check every slice is within size, the dependency graph
    is acyclic and complete (no slice uses another's code without declaring it), every feature
    slice depends on the prep slices for its files and comes after them, and every ordered step
@@ -245,6 +255,8 @@ tasks.md format:
 **Risk Tier:** standard | high-risk
 **Depends On:** (none | Slice N, Slice M)
 **Files:** src/file1.ts, src/file2.ts
+**Test Level:** unit | extend <existing test> | integration | e2e
+**Parallel Group:** (none | A, B, ...)
 
 ### Test Intent
 <Observable behavior to test>

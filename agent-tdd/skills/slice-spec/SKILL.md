@@ -50,7 +50,10 @@ Seven fields, two required:
 
 On a long-running project, also run the `test-budget` skill on the slice's target test file
 before spawning, so the Red test lands in a file that isn't already bloated and the slice isn't
-adding a unit test where a regression/e2e test belongs.
+adding a unit test where a regression/e2e test belongs. Phrase the Acceptance criteria at the
+cheapest level that catches the failure: if the behavior is a new case of an existing test, say
+"add a case to `<test>`" rather than implying a new test, and name the targeted test command
+(not the whole suite) the slice should validate with.
 
 ## Validating before spawning
 
