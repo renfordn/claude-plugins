@@ -11,7 +11,8 @@ Implement `$ARGUMENTS` test-first.
    request holds several, list them and do the first unless the user picks another.
 2. **High-risk?** If the Risk Tier is `high-risk`, spawn `agent-tdd:test-author` first and pass
    its test file(s) and failure confirmation into the next spawn, per the slice-spec skill.
-3. **Implement.** Spawn `agent-tdd:agent-TDD` with the Slice Spec. It stops at `green_pause`.
+3. **Implement.** Spawn `agent-tdd:agent-TDD` with the Slice Spec, setting the `Agent` call's
+   `model` to the spec's Model Tier (`sonnet` unless the spec says otherwise; same for step 2). It stops at `green_pause`.
 4. **Review.** Run an independent review of the files in its Review Request, per code-reviewer's
    INTEROP.md "Independent review" (spawn `code-reviewer:code-reviewer`, else
    `scripts/review_headless.sh`). Then resume agent-TDD with `SendMessage`, passing the verdict

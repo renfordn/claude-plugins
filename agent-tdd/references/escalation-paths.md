@@ -203,7 +203,7 @@ instead. Slice 3 implementation blocked until this gap is clarified.
 **Agent-isdd Action**:
 - Detect the Model Escalation Marker in agent-tdd's handoff report when agent-TDD stops
   (agent-isdd's `subagent_report.py` SubagentStop hook records `escalation_pending`)
-- Re-spawn agent-tdd at the suggested model tier (e.g., Sonnet) with the same Slice Spec plus
+- Re-spawn agent-tdd with the `Agent` tool's `model` set to `to_model` (e.g., Sonnet) with the same Slice Spec plus
   the lower-tier report's findings (tests written, failing output, files touched, escalation
   reason) pasted into the prompt, so it continues where the lower-tier agent left off
 - Higher-tier agent reuses scaffolding (test definitions, error patterns) but re-reasons solution

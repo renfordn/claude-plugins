@@ -1,4 +1,9 @@
 <!-- TDD-SKIP -->
+
+## [0.5.1] - 2026-11-04
+
+### Changed
+- Model tiers: `agent-TDD` and `test-author` run on `sonnet`. Slice Spec Model Tier defaults to `sonnet` (was `inherit`), `haiku` only for trivial changes, and callers (`/tdd`, isdd handoff, escalation re-spawn) now pass it as the `Agent` call's `model`, so the tier and MODEL-ESCALATE actually take effect.
 ## [0.5.0] - 2026-11-03
 
 - **Feature**: test-cost-aware slicing. Design Spec task slicing adds a *test cost pass*: each slice picks the cheapest catching **Test Level** (`unit`, `extend` an existing parametrized test, `integration`, `e2e` once per flow), merges input-only-variant tests, drops tests a higher level already pins, schedules deletion of tests made stale, avoids sleeps/network/per-test heavy setup, and marks independent slices with a **Parallel Group**. Validation Targets run only the slice's tests; the full suite runs once at coherence. `tasks-schema.json` gains optional `test_level` and `parallel_group`; `test-budget` checks speed (real waits, fixture scope, parallel blockers); `slice-spec` asks for criteria at the cheapest level.

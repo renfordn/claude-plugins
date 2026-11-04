@@ -37,7 +37,7 @@ through gathering and validating these fields by hand.
 | Task description | string | yes | The behavior to implement, plain language |
 | Acceptance criteria / Test Intent | string | yes | The observable behavior a test must pin down. If you can't state this yet, don't spawn the agent — it will stop and report the gap |
 | Risk Tier | enum (standard \| high-risk) | no | Drives whether the test-author split applies. Default: standard |
-| Model Tier | enum (inherit \| haiku \| sonnet \| opus) | no | Suggested model tier for this slice based on complexity. 'inherit' uses the caller's default model. Default: inherit |
+| Model Tier | enum (inherit \| haiku \| sonnet \| opus) | no | Model for this slice; the caller passes it as the `Agent` tool's `model` parameter. `sonnet` for implementation, `haiku` only for trivial changes. Default: sonnet |
 | Data Contracts And Interfaces | object | no | Type signatures, module boundaries, API shapes you already know. Skip if you don't have this; the agent will explore the codebase itself |
 | Pre-Slice Brief | object | no | Prior project context you already gathered (e.g. from a memory subagent like agent-nelly). Purely additive — omitting it is not an error |
 | Review handoff mode | enum (skip) | no | Leave unset for the default (mandatory pause after Green). Set explicitly to "skip" only when you have deliberately decided no review step will happen this session |

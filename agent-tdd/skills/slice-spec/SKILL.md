@@ -31,10 +31,12 @@ Seven fields, two required:
 3. **Risk Tier** (optional, default `standard`) — set `high-risk` only when the slice traces to a
    named risk in the caller's own design/risk documentation, or is a high-risk migration (e.g.
    money handling, auth, data migrations touching production data). Most slices stay `standard`.
-4. **Model Tier** (optional, default `inherit`) — suggest a model tier for this slice based on
-   complexity. Use `haiku` for simple, low-risk slices; `sonnet` for medium-complexity slices
-   requiring reasoning; `opus` for complex or novel tasks. `inherit` uses the caller's default
-   model tier. This field is guidance only — the calling context determines the actual model tier.
+4. **Model Tier** (optional, default `sonnet`) — the model the slice runs on. Implementation runs
+   on `sonnet`. Use `haiku` only rarely, for a trivial, inconsequential change (a rename, a
+   constant, a message string) where a wrong answer is obvious and cheap; when in doubt, keep
+   `sonnet`. Use `opus` only when the slice itself needs planning-grade reasoning. The caller
+   **passes this value as the `Agent` tool's `model` parameter** when spawning `agent-TDD` (and
+   `test-author`); the spec text alone does not change the model.
 5. **Data Contracts And Interfaces** (optional) — type signatures, module boundaries, or API
    shapes already known. Skip this field entirely rather than guessing — a stale or invented
    value here is worse than omitting it, since `agent-TDD` will trust what's given and only
@@ -76,7 +78,7 @@ Emit the spec as a spawn-prompt-ready block, matching the field names and phrasi
 - **Task description**: <plain-language behavior to implement>
 - **Acceptance criteria / Test Intent**: <observable behavior a test must pin down>
 - **Risk Tier**: `standard` | `high-risk` (<why, if high-risk>)
-- **Model Tier**: `inherit` | `haiku` | `sonnet` | `opus` (optional; default `inherit`)
+- **Model Tier**: `sonnet` | `haiku` | `opus` | `inherit` (optional; default `sonnet`; pass it as the spawn's `model`)
 - **Data Contracts And Interfaces**: <known signatures/boundaries, or "(none — agent-TDD will explore the codebase itself)">
 - **Pre-Slice Brief**: <prior context, or "(none)">
 - **Review handoff mode**: unset (default pause) | `skip` (<why>)

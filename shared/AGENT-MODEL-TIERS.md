@@ -30,6 +30,15 @@ per-invocation signal a caller can use to pick a tier at spawn time. The
 frontmatter `model:` field, by contrast, is the agent definition's own fixed declaration and takes
 precedence for any agent that isn't `inherit`.
 
+## This repo's tier policy
+
+- **Planning → `opus`**: requirements/design review and research agents (agent-isdd's
+  `plan-reviewer-tier1..3`, `research-consolidator`, `spec-reviewer`).
+- **Implementation → `sonnet`**: `agent-TDD` and `test-author`.
+- **Trivial, inconsequential changes → `haiku`**, rarely: set per slice through the Slice Spec's
+  Model Tier, which the caller passes as the `Agent` tool's `model` parameter (that parameter
+  overrides frontmatter for that one spawn).
+
 ## Worked frontmatter examples
 
 A narrowly-scoped rendering agent, fixed at Haiku:

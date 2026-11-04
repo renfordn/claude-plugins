@@ -26,8 +26,8 @@
     "modelTier": {
       "type": "string",
       "enum": ["inherit", "haiku", "sonnet", "opus"],
-      "default": "inherit",
-      "description": "Suggested model tier for this slice based on complexity. 'inherit' uses the caller's default model. Defaults to 'inherit' when omitted."
+      "default": "sonnet",
+      "description": "Model tier the caller passes as the Agent tool's `model` parameter when spawning for this slice. `sonnet` for implementation (default); `haiku` only for trivial, inconsequential changes; `opus` for slices that need planning-grade reasoning; `inherit` uses the session model. Defaults to 'sonnet' when omitted."
     },
     "dataContractsAndInterfaces": {
       "type": "string",

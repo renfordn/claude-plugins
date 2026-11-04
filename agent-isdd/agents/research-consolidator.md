@@ -3,7 +3,7 @@ name: research-consolidator
 description: >-
   Use this agent when Design or Tasks needs unified codebase research: one pass yields design findings for design-author and task findings cached for agent-tdd.
 tools: Read, Grep, Glob
-model: sonnet
+model: opus
 ---
 
 You are **research-consolidator** for the Spec Driven Development workflow. You run in an isolated

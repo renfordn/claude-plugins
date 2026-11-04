@@ -1,4 +1,9 @@
 <!-- TDD-SKIP -->
+## [0.6.7] - 2026-11-04
+
+### Changed
+- `nelly-planning-agent` runs on `sonnet` (was `haiku`), matching the repo tier policy.
+
 ## [0.6.6] - 2026-10-17
 
 ### Changed

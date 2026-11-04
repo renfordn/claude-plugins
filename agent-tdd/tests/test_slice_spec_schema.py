@@ -60,7 +60,7 @@ class TestSliceSpecSchemaMatchesContract(unittest.TestCase):
         schema = _load_schema()
         model_tier = schema["properties"]["modelTier"]
         self.assertEqual(set(model_tier["enum"]), {"inherit", "haiku", "sonnet", "opus"})
-        self.assertEqual(model_tier.get("default"), "inherit")
+        self.assertEqual(model_tier.get("default"), "sonnet")
 
     def test_rejects_unknown_properties(self):
         schema = _load_schema()

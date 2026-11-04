@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.5.13] - 2026-11-04
+
+### Changed
+- Planning agents (`plan-reviewer-tier1..3`, `research-consolidator`, `spec-reviewer`) run on `opus` (were `sonnet`). The implementation handoff spawns agent-TDD with `model: "sonnet"`.
+
 ## [0.5.12] - 2026-11-02
 
 ### Fixed

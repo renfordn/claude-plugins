@@ -46,7 +46,8 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
    is not installed in this session — install it before requesting implementation") rather than
    attempting the work internally.
-5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool). If this spawn
+5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool, `model: "sonnet"`; for a
+   Fast-track Slice Spec use its Model Tier, which may be `haiku` for a trivial change). If this spawn
    fails at the tool-call layer itself (a `PreToolUse` schema-validation error on the `Agent`
    call, not an error from the spawned agent) and reproduces identically on retry and for an
    unrelated agent type in the same session, this is the harness `Agent`-spawn bug, not an

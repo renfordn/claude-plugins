@@ -2,7 +2,7 @@
 name: plan-reviewer-tier1
 description: >-
   Use this agent when a design/plan doc's factual claims need verifying against the codebase. Tier 1 of plan-reviewer: fixed claim list, Read/Grep/Glob only.
-model: sonnet
+model: opus
 tools: [Read, Grep, Glob]
 ---
 
