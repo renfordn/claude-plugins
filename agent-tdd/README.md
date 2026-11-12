@@ -30,6 +30,7 @@ A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD imple
   (mandatory caller-driven review pause) → Refactor → Validate per slice.
 - **`test-author`** — for `high-risk`-tier slices only, writes just the failing Red test from the
   Slice Spec.
+- **`test-strategist`** — read-only test researcher: maps existing coverage of an area across unit/integration/e2e and returns the minimum test plan (covered / extend / modify / new at the cheapest level), mutation-checked in a throwaway copy, consolidation candidates, and measured speed/parallelism fixes. Spawn it before planning tests, or directly when the suite is slow or over-tested.
 - **`slice-spec`** skill — assembles and validates a Slice Spec before spawning either agent.
 - **`test-budget`** skill — pre-flight on the target test file before planning new tests: flags bloat, stale tests, consolidation (parametrize) candidates, and unit tests better promoted to regression/e2e.
 - **`references/slice-spec.schema.json`** — machine-checkable JSON Schema for Slice Spec.

@@ -67,6 +67,26 @@ For a `high-risk`-tier slice:
 See a full worked transcript of both separate invocations in
 [`references/examples/high-risk-tier-slice.md`](references/examples/high-risk-tier-slice.md).
 
+## Test-strategist (optional, before planning tests)
+
+`test-strategist` is a read-only agent that answers "which tests does this change actually need?"
+before `test-author` or `agent-TDD` writes any. Spawn it from the main thread with an **Area**
+(files, module, feature, or "whole suite"), and optionally the **Planned change** (behaviors with
+acceptance criteria) and **Constraints**. It returns a report starting with
+`<!--TEST-STRATEGY-REPORT-->`: existing coverage across levels, a per-behavior decision
+(covered / extend / modify / new at the cheapest catching level) with a Red check per planned
+test, a "Pins checked (mutation)" table proving its load-bearing claims in a throwaway copy,
+consolidation candidates that name the surviving test, measured speed and parallelism fixes, and the narrowest validation
+command.
+
+How to use the report: put "covered" behaviors nowhere, turn "extend"/"modify" decisions into the
+Slice Spec's Test Intent ("add a case to `<test>`"; a test whose mutation survived is a "modify"),
+pass the chosen Test Level and validation
+command through, and put any consolidation or deletion to the user as its own step outside
+`agent-TDD`'s Red/Green/Refactor. `test-budget` remains the quick per-file pre-flight; use
+`test-strategist` when the change spans files or levels, when a bug escaped existing tests, or
+when the suite is slow.
+
 ## The mandatory review pause
 
 `agent-TDD` always stops after Green and hands back a report (see its own file for the exact

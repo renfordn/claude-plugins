@@ -1,9 +1,15 @@
 <!-- TDD-SKIP -->
+## [Unreleased]
+
+## [0.6.0] - 2026-11-12
+
+- **Feature**: `test-strategist` agent. Read-only test researcher spawned before tests are planned (by the caller ahead of agent-TDD/test-author, or directly for "do I need a test for this?" / "why is the suite slow?"). Maps what existing unit/integration/e2e tests already pin in the affected area, then per planned behavior says covered / extend / modify / new-at-cheapest-level, lists consolidation candidates (naming the surviving test), proves the claims its plan relies on by mutating a throwaway `mktemp -d` copy and checking the named test fails (survivors become "modify: strengthen the assertion"), gives a Red check per planned test, and measures area runtime to rank speed and parallelism fixes. Returns a `<!--TEST-STRATEGY-REPORT-->` plan; never edits project files. Pinned to `opus` per the planning tier in `shared/AGENT-MODEL-TIERS.md`.
 
 ## [0.5.1] - 2026-11-04
 
 ### Changed
 - Model tiers: `agent-TDD` and `test-author` run on `sonnet`. Slice Spec Model Tier defaults to `sonnet` (was `inherit`), `haiku` only for trivial changes, and callers (`/tdd`, isdd handoff, escalation re-spawn) now pass it as the `Agent` call's `model`, so the tier and MODEL-ESCALATE actually take effect.
+
 ## [0.5.0] - 2026-11-03
 
 - **Feature**: test-cost-aware slicing. Design Spec task slicing adds a *test cost pass*: each slice picks the cheapest catching **Test Level** (`unit`, `extend` an existing parametrized test, `integration`, `e2e` once per flow), merges input-only-variant tests, drops tests a higher level already pins, schedules deletion of tests made stale, avoids sleeps/network/per-test heavy setup, and marks independent slices with a **Parallel Group**. Validation Targets run only the slice's tests; the full suite runs once at coherence. `tasks-schema.json` gains optional `test_level` and `parallel_group`; `test-budget` checks speed (real waits, fixture scope, parallel blockers); `slice-spec` asks for criteria at the cheapest level.

@@ -33,7 +33,7 @@ precedence for any agent that isn't `inherit`.
 ## This repo's tier policy
 
 - **Planning → `opus`**: requirements/design review and research agents (agent-isdd's
-  `plan-reviewer-tier1..3`, `research-consolidator`, `spec-reviewer`).
+  `plan-reviewer-tier1..3`, `research-consolidator`, `spec-reviewer`; agent-tdd's `test-strategist`).
 - **Implementation → `sonnet`**: `agent-TDD` and `test-author`.
 - **Trivial, inconsequential changes → `haiku`**, rarely: set per slice through the Slice Spec's
   Model Tier, which the caller passes as the `Agent` tool's `model` parameter (that parameter

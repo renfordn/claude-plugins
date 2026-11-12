@@ -91,6 +91,10 @@ a decision about what the project stops protecting.
 
 ## Periodic sweep (optional)
 
+For anything wider than one file (a change that spans levels, a bug existing tests missed, or a
+slow suite), spawn the `test-strategist` agent instead: it maps coverage across unit,
+integration and e2e and measures runtime before recommending a plan.
+
 When the user asks about overall suite health rather than one slice, run the script on the whole
 test directory with a JUnit report, list the top files by runtime and by cluster count, and
 propose a ranked consolidation backlog (biggest runtime saved per effort first).
