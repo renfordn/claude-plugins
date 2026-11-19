@@ -5,26 +5,31 @@ description: >
   another session or worktree (avoid overlap), and recommend the next one. Use proactively at start of /isdd or
   /isdd-continue when no feature is named, and any time the question is what to do next: "what should I work on next",
   "what's stalled", "what's on the brief board", "anything blocked?".
+context: fork
+agent: Explore
 ---
 
 # ISDD Session Pickup & Coordinator
 
 Surveys the project's SDD spec memory, cross-references it with active git worktrees,
-and produces a ranked feature list with a clear recommendation. Also manages lightweight
-session locks so two worktrees never race on the same spec.
+and produces a ranked feature list with a clear recommendation. It then returns instructions
+for the main session to claim and release a lightweight session lock (so two worktrees never
+race on the same spec); it does not manage locks itself.
 
 ---
 
 ## Step 1 — Locate the SDD memory for this project
 
-Resolve the spec directory through agent-isdd, never by hand (the slug and the shared
-memory root are configured, not derived from `pwd`):
+Resolve the project's memory directory through agent-isdd, never by hand (the slug and the
+shared memory root are configured, not derived from `pwd`). Use the no-argument form: it only
+prints the path and creates nothing (the creating forms, with a flag, are for the main session):
 
 ```bash
-CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py"
 ```
 
-List every spec directory under that path. Each directory name is a `<YYYY-MM-DD-feature-slug>`.
+`<spec_root>` is that printed path plus `/spec`. If it does not exist, report "no specs" and
+stop. Otherwise list every spec directory under `<spec_root>`. Each directory name is a `<YYYY-MM-DD-feature-slug>`.
 
 ---
 
@@ -69,8 +74,10 @@ Match each worktree's branch name against spec slugs. A worktree on a branch lik
 Check every spec directory for a lock:
 
 ```bash
-ls "$(CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" CLAUDE_PLUGIN_OPTION_SHARED_MEMORY_ROOT="${user_config.shared_memory_root}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/sdd_memory.py" --spec-path)"/*/session-lock.json 2>/dev/null
+ls "${SPEC_ROOT}"/*/session-lock.json
 ```
+
+(`SPEC_ROOT` is `<spec_root>` from Step 1. No match just means no locks.)
 
 Each `session-lock.json` looks like:
 
@@ -84,8 +91,8 @@ Each `session-lock.json` looks like:
 }
 ```
 
-- **Active lock**: `expires_at` is in the future → treat that spec as claimed
-- **Stale lock**: `claimed_at` > 4 hours ago and no recent git activity on that worktree → ignore the lock, note it as stale
+- **Active lock**: `expires_at` is in the future → treat that spec as claimed (the file is read-only to you; reading it is all the fork does)
+- **Expired lock**: `expires_at` is in the past → ignore the lock, note it as stale (see Overlap prevention for the single staleness rule)
 
 ---
 
@@ -127,60 +134,56 @@ Priority rules (higher = better candidate to pick up):
 > 🎯 Recommended: `admin-nav-queue-redesign` — furthest along (Tasks phase), stalled 5 days,
 > no active session holding it.
 
-If everything is either active or blocked, say so clearly and ask whether to force-claim or wait.
+If everything is either active or blocked, say so clearly and have the main session ask (Step 6) whether to force-claim or wait.
 
 ---
 
-## Step 6 — Claim a session lock
+## Step 6 — Return "Main-session actions" (the fork never writes)
 
-When the user confirms which feature to work on, write `session-lock.json` to that spec's
-directory before handing off to `/isdd-continue`:
+This skill runs forked in a read-only Explore agent. The fork never writes, deletes, or waits
+for the user. It ends by returning the Step 5 table and recommendation, then the block below
+copied verbatim, with every `<placeholder>` filled in. Report each candidate's lock status
+(none / active until `<expires_at>` held by `<worktree>` / expired) in the table; the lock may
+change before the main session acts, which is why the claim step re-reads it.
 
-```bash
-# ISO timestamps (macOS)
-CLAIMED=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-EXPIRES=$(date -u -v+4H +"%Y-%m-%dT%H:%M:%SZ")
-
-cat > "${spec_dir}/session-lock.json" <<EOF
-{
-  "session_id": "${SESSION_ID:-unknown}",
-  "worktree": "$(git worktree list | head -1 | awk '{print $1}')",
-  "feature": "${FEATURE_SLUG}",
-  "claimed_at": "${CLAIMED}",
-  "expires_at": "${EXPIRES}"
-}
-EOF
+```text
+Main-session actions
+1. Ask the user via AskUserQuestion to pick or confirm a feature: <recommended feature>,
+   <other candidates>, or wait.
+2. Claim the lock for the chosen feature. Just before writing
+   <spec_root>/<feature>/session-lock.json, re-read that file. If it exists and its expires_at is
+   still in the future, do not overwrite it: offer the Overlap prevention options (wait, force-claim,
+   pick another) via AskUserQuestion. Otherwise write the file with these fields:
+     session_id:  <current session id, or "unknown">
+     worktree:    <output of `git rev-parse --show-toplevel` run in the claiming session>
+     feature:     <YYYY-MM-DD-feature-slug>
+     claimed_at:  <UTC now, ISO 8601, e.g. 2026-10-14T10:00:00Z>
+     expires_at:  <claimed_at + 4 hours, same format>
+3. Release: delete <spec_root>/<feature>/session-lock.json when the session finishes, is
+   interrupted, or hands off. If never released, it stops counting at its expires_at.
+4. Then continue with /isdd-continue for the chosen feature.
 ```
 
-Then continue with `/isdd-continue` for that feature as normal.
-
----
-
-## Step 7 — Release the lock
-
-When a session finishes, is interrupted, or explicitly hands off, remove the lock:
-
-```bash
-rm "${spec_dir}/session-lock.json"
-```
-
-The lock also auto-expires after 4 hours — stale locks are ignored at Step 3, so orphaned
-locks from crashed sessions don't block future work.
+Fill `<spec_root>` (from Step 1) and the `<feature>` values for the recommended feature and each
+alternative, so the main session needs no further lookup.
 
 ---
 
 ## Overlap prevention
 
-If a user tries to `/isdd-continue` a spec that has an **active, non-expired lock**:
+One staleness rule everywhere: a lock is **active** while its `expires_at` (claim time + 4 hours)
+is in the future, and **expired** after, so it is ignored and may be claimed without asking. The
+4-hour window is the only time threshold; there is no separate "older than N hours" test.
 
-1. Show who holds the lock, from which worktree, and when it expires.
-2. Offer three options:
-   - **(a) Wait** — check back later or set a reminder
-   - **(b) Force-claim** — override the lock (use if the locking session crashed)
-   - **(c) Pick a different feature** — run the ranked list and recommend the next best
+When the chosen spec has an **active** lock, the main session must not claim. It shows who holds
+the lock, from which worktree, and when it expires, then offers via AskUserQuestion:
 
-Only proceed with force-claim after explicit user confirmation, and only if the lock is
-> 2 hours old or the locking worktree is no longer in `git worktree list`.
+- **(a) Wait** — check back later or set a reminder
+- **(b) Force-claim** — override the lock; only after explicit user confirmation, and only when
+  the locking worktree is no longer in `git worktree list` (its session likely crashed)
+- **(c) Pick a different feature** — re-run the ranked list and recommend the next best
+
+This is the only place the force-claim rule is defined; Step 6 refers here.
 
 ---
 
@@ -192,8 +195,8 @@ when no specific feature is identified in the user's request. The triggering che
 > "Does the user's message name a specific feature or spec slug?"
 
 - Named → skip this skill, proceed directly.
-- Not named → run Steps 1–5, present the table, wait for the user to confirm, then claim the
-  lock (Step 6) before continuing.
+- Not named → run Steps 1–5 and return the table plus Main-session actions; the main session
+  asks the user (AskUserQuestion), claims the lock (Step 6), then continues.
 
 ---
 
