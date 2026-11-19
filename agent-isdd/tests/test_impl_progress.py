@@ -131,14 +131,14 @@ def test_marker_beats_title_alnum_and_case_normalised(tmp_path):
     assert impl_progress.summary(d)["slices"] == {"3": "green_pause", "2F2": "green_pause"}
 
 
-def test_reviewed_map_is_durable_strict_and_leaves_workflow_state_alone(tmp_path):
+def test_review_reports_never_write_a_reviewed_map_and_leave_workflow_state_alone(tmp_path):
     d = str(tmp_path)
     scoped = "<!--CODE-REVIEWER-REPORT-->\n<!--REVIEW-SCOPE: slice=4-->\n**Plan**\nReuses Slice 1 helper\n"
     assert impl_progress.record(d, scoped)
     assert impl_progress.record(d, "<!--CODE-REVIEWER-REPORT-->\nReviewed Slice 5 prose only\n")
     for _ in range(impl_progress.MAX_EVENTS + 5):
         impl_progress.record(d, tdd("green_pause", "Slice 1: churn"))
-    assert impl_progress.load(d)["reviewed"] == {"4": True}
+    assert "reviewed" not in impl_progress.load(d)  # review_tracking is the sole reviewed writer
     assert not os.path.exists(os.path.join(d, "workflow-state.json"))
 
 
@@ -153,3 +153,32 @@ def test_same_line_plan_heading_forms_key_tdd_reports_but_not_reviews(tmp_path):
     os.makedirs(d)
     impl_progress.record(d, "<!--CODE-REVIEWER-REPORT-->\n**Plan** \u2014 Slice 2: x\n")
     assert not impl_progress.load(d).get("reviewed")
+
+
+def test_progress_writes_go_through_the_locked_update_json(tmp_path):
+    from unittest import mock
+    import sdd_state
+    d = str(tmp_path)
+    with mock.patch.object(sdd_state, "locked_rewrite_text", wraps=sdd_state.locked_rewrite_text) as m:
+        assert impl_progress.record(d, tdd("green_pause", "Slice 1: x"))
+    assert m.called
+    assert impl_progress.summary(d)["slices"] == {"1": "green_pause"}
+
+
+def test_record_folds_into_the_file_as_read_under_the_lock(tmp_path):
+    """A write landing between record()'s start and its locked rewrite must survive."""
+    from unittest import mock
+    import sdd_state
+    d = str(tmp_path)
+    assert impl_progress.record(d, tdd("green_pause", "Slice 1: x"))
+    real = sdd_state.locked_rewrite_text
+
+    def racing(path, fn, **kw):
+        real(path, lambda _t: json.dumps({"slices": {"1": "green_pause", "9": "refactor_complete"},
+                                          "allComplete": False, "events": []}))
+        return real(path, fn, **kw)
+
+    with mock.patch.object(sdd_state, "locked_rewrite_text", side_effect=racing):
+        assert impl_progress.record(d, tdd("green_pause", "Slice 2: y"))
+    assert impl_progress.summary(d)["slices"] == {"1": "green_pause", "9": "refactor_complete",
+                                                  "2": "green_pause"}

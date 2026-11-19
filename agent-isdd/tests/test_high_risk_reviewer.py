@@ -461,6 +461,58 @@ class MainSlicingCompleteTests(unittest.TestCase):
                 with open(jp, encoding="utf-8") as fh:
                     self.assertNotIn("test_author_pending", json.load(fh))
 
+    def test_user_led_wave_plan_points_to_coach_not_tdd_parallel(self):
+        for mode in ("user", "User (walk the slices)"):
+            with h.temp_git_repo() as repo, h.temp_home() as home:
+                feature_dir = h.feature_spec_dir(home, repo)
+                h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress",
+                                  implementation_mode=mode)
+                self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Risky migration
+
+**Risk Tier:** high-risk
+**Files:** `src/migrate.py`
+**Wave:** 1
+""")
+                msg, rc = h.run_hook_message(
+                    "high_risk_reviewer.py",
+                    {"cwd": repo, "last_assistant_message": "<!--AGENT-TDD-REPORT-->\n"
+                     "<!--AGENT-TDD-PHASE:slicing_complete-->\nWave plan ready."},
+                    env_extra={"HOME": home},
+                )
+                self.assertEqual(rc, 0)
+                self.assertIn("Risky migration", msg or "")
+                self.assertIn("isdd-coach", msg)
+                self.assertIn("user-led", msg)
+                self.assertIn("code-reviewer", msg)
+                self.assertNotIn("Run agent-tdd:tdd-parallel", msg)
+
+    def test_user_led_without_wave_stamps_also_points_to_coach_and_writes_nothing(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress",
+                              implementation_mode="User")
+            self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Risky migration
+
+**Risk Tier:** high-risk
+**Files:** `src/migrate.py`
+""")
+            msg, rc = h.run_hook_message(
+                "high_risk_reviewer.py",
+                {"cwd": repo, "last_assistant_message": "<!--AGENT-TDD-REPORT-->\n"
+                 "<!--AGENT-TDD-PHASE:slicing_complete-->\nReady."},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("isdd-coach", msg or "")
+            jp = os.path.join(feature_dir, "workflow-state.json")
+            if os.path.exists(jp):
+                with open(jp, encoding="utf-8") as fh:
+                    self.assertNotIn("test_author_pending", json.load(fh))
+
     def test_slicing_complete_with_zero_high_risk_makes_no_write(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)

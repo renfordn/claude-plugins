@@ -74,9 +74,8 @@ def evaluate(payload, state_path=None):
     not covered. Fails open (None) on missing data."""
     if not state_path or not isinstance(payload, dict):
         return None
-    from sdd_state import parse_state
-    mode = parse_state(state_path).get("implementation mode", "").strip().lower()
-    if mode != "user":
+    from sdd_state import is_user_led, parse_state
+    if not is_user_led(parse_state(state_path)):
         return None
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
