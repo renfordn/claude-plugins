@@ -7,7 +7,7 @@
   tdd_check.py start    --slice T [--slice-id N --base B] [--kind K] [--risks n --inspected n --run n]
   tdd_check.py coverage --slice T [...] --mutant "<shell cmd>" -- <test command...>
   tdd_check.py bypass   --slice T [...] --reason "<why>"
-  tdd_check.py done     [--slice T]
+  tdd_check.py done     [--slice T] [--slice-id N --base B]
   tdd_check.py integration --wave N --cmd "<suite command>"
   tdd_check.py verify <token>...          (used by hooks/tdd_subagent_stop.py)
 
@@ -232,8 +232,8 @@ def run_bypass(slice_title, reason, cwd=".", slice_id=None, base=None):
     return True, _line("bypass", token, None, True, "", recorded), ""
 
 
-def run_done(slice_title=None, cwd="."):
-    entry = {"phase": "done", "confirmed": True}
+def run_done(slice_title=None, cwd=".", slice_id=None, base=None):
+    entry = _ids({"phase": "done", "confirmed": True}, slice_id, base)
     if slice_title:
         entry["slice"] = slice_title
     token, recorded = _record(entry, cwd)
@@ -310,6 +310,8 @@ def main(argv=None):
             p.add_argument("--reason", required=True, help="why Red-first is bypassed")
     dn = sub.add_parser("done")
     dn.add_argument("--slice", help="slice title being closed (optional)")
+    dn.add_argument("--slice-id")
+    dn.add_argument("--base")
     ig = sub.add_parser("integration")
     ig.add_argument("--wave", type=int, required=True)
     ig.add_argument("--cmd", dest="suite_cmd", required=True)
@@ -326,7 +328,7 @@ def main(argv=None):
         print(line)
         return 0 if ok else 1
     if a.phase == "done":
-        ok, line, output = run_done(a.slice)
+        ok, line, output = run_done(a.slice, slice_id=a.slice_id, base=a.base)
         print(line)
         return 0
     if a.slice_id is not None:

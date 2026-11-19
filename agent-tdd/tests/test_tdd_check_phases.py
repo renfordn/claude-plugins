@@ -118,6 +118,14 @@ class CliTests(unittest.TestCase):
         r, line = _run(self.repo, ["green", "--slice", "T"], PASS)
         self.assertEqual(r.returncode, 0, line)
 
+    def test_done_accepts_parallel_ids(self):
+        """2F review F1: parallel workers pass --slice-id/--base to every phase, including done."""
+        _run(self.repo, ["start", "--slice", "Slice 3: x", "--slice-id", "3", "--base", "abc"])
+        r, line = _run(self.repo, ["done", "--slice", "Slice 3: x", "--slice-id", "3", "--base", "abc"])
+        self.assertEqual(r.returncode, 0, line)
+        last = tdd_check.read_log(self.repo)[-1]
+        self.assertEqual((last["phase"], last.get("slice_id"), last.get("base")), ("done", "3", "abc"))
+
     def test_worktree_ignores_inherited_git_dir(self):
         other = tempfile.TemporaryDirectory()
         old = os.environ.get("GIT_DIR")
