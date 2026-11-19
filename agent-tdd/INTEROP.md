@@ -146,7 +146,7 @@ passing each worker `sliceId`, `ownedFiles` and `baseCommit`. Protocol:
 code-reviewer: the caller tells each slice reviewer `Review cwd: <worktreePath>`,
 `--base <baseCommit>` and `Review scope: slice=N`; code-reviewer echoes
 `<!--REVIEW-SCOPE: slice=N-->` and only that slice's gate clears. Old reviewers that don't echo
-leave the gate open until exactly one gate remains.
+the scope are unscoped: an unscoped review clears all open gates when none carries a slice id, otherwise only a sole open gate; gates older than 24h are ignored and pruned.
 
 ## Plan Validity Flag (optional signal that the task itself, not just the code, may be wrong)
 

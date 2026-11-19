@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -279,17 +280,21 @@ class ValidationKindTests(unittest.TestCase):
                 self.assertTrue(any("no Files" in e for e in errs), (kind, files))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class SliceIdPatternTests(unittest.TestCase):
-    def test_id_matches_markers_id(self):
+    def test_id_comes_from_markers_and_fallback_literal_matches(self):
         mspec = importlib.util.spec_from_file_location(
             "markers", SCRIPT.parent.parent / "hooks" / "markers.py")
         markers = importlib.util.module_from_spec(mspec)
         mspec.loader.exec_module(markers)
         self.assertEqual(pp.ID, markers.ID)
+        self.assertIs(pp.ID, pp._m.ID)  # imported, not the except-branch fallback
+        m = re.search(r"except Exception:.*\n\s+ID = r\"(.*)\"", SCRIPT.read_text())
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), markers.ID)
+
+    def test_header_with_alnum_id_parses_to_that_id(self):
+        sl = pp.parse("# Tasks\n\n" + slice_md("2F1", "x", files="a.py"))
+        self.assertEqual([s["number"] for s in sl], ["2F1"])
 
     def test_alnum_suffix_ids_parse(self):
         md = "# Tasks\n\n" + slice_md("2F1", "a", files="a.py") + slice_md("2F2", "b", deps="Slice 2F1", files="b.py")
@@ -299,3 +304,7 @@ class SliceIdPatternTests(unittest.TestCase):
             r = subprocess.run([sys.executable, str(SCRIPT), "waves", str(p), "--json"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("2F2", r.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

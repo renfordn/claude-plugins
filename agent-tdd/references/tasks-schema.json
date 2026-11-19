@@ -22,8 +22,9 @@
         "additionalProperties": false,
         "properties": {
           "number": {
-            "type": "integer",
-            "description": "Slice number (1, 2, 3, ...)"
+            "type": ["integer", "string"],
+            "pattern": "^\\d+[A-Za-z0-9]*$",
+            "description": "Slice number: an integer (1, 2, 3, ...) or an alphanumeric id such as 0a or 2F1"
           },
           "title": {
             "type": "string",

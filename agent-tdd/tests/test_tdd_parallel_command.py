@@ -31,6 +31,12 @@ class TddParallelCommandTests(unittest.TestCase):
             self.assertIn(n, text, n)
         self.assertNotIn("--base <base>)", text)
 
+    def test_design_spec_entry_step(self):
+        text = REF.read_text()
+        for n in ["Design Spec", "Parallel: on", "slicing_complete", "agent-tdd:test-author",
+                  "commondir", "outside the repo"]:
+            self.assertIn(n, text, n)
+
     def test_scripts_use_plugin_root(self):
         text = REF.read_text()
         self.assertIn('python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parallel_plan.py"', text)
