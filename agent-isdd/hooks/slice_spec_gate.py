@@ -8,8 +8,8 @@ then disabled entirely (removed from hooks.json) once Phase 2+3 made the Design 
 text) the normal path -- applying this gate's field checks to a Design Spec prompt would deny
 every spawn, since a Design Spec has no "Task description"/"Test Intent" labels at all.
 
-Re-enabled 2026-09-17 for `Track: Fast` (see spec-driven-development/SKILL.md's "Fast Track"
-section), which reintroduces a genuine single-slice Slice Spec handoff. Only `agent-tdd:
+Re-enabled 2026-09-17 for `Track: Fast` (see spec-driven-development/references/fast-track.md),
+which reintroduces a genuine single-slice Slice Spec handoff. Only `agent-tdd:
 agent-TDD`'s prompt shape is ambiguous between the two tracks (Design Spec vs. Slice Spec), so
 only that subagent_type is `Track`-gated: this hook reads the active feature's `Track` first
 and no-ops immediately for `Track: Standard` (or no active workflow) before ever looking at

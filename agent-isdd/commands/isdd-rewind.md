@@ -8,7 +8,7 @@ Rewind the active spec-driven-development workflow to the target phase named in 
 $ARGUMENTS
 
 This command does not implement rewind logic itself. Delegate entirely to the
-`workflow-manager` skill's **Rewind Contract** section (`skills/workflow-manager/SKILL.md`):
+`workflow-manager` skill's **Rewind Contract** (`skills/workflow-manager/references/rewind-and-rollback.md`):
 
 1. Resolve the active feature's `workflow-state.md`/`workflow-state.json` and confirm the
    requested target phase (`Requirements`, `Design`, or `Tasks`) is earlier than or equal to

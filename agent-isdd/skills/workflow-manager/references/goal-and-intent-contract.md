@@ -1,6 +1,6 @@
 # Goal Field Contract: brief cache management
 
-Read by `workflow-manager` at `start` and `before-continue` when applying the `nelly_brief_cache` validity rules (verbatim from SKILL.md's Goal Field Contract).
+Read by `workflow-manager` at `start` and `before-continue` when applying the `nelly_brief_cache` validity rules (the full Goal Field contract lives in `track-and-availability-details.md`).
 
 - **[Phase 1.2] Brief cache management:** On workflow start, fetch fresh nelly brief and cache
   it in `workflow-state.json` → `nelly_brief_cache` with structure: `{brief_text, fetched_at,

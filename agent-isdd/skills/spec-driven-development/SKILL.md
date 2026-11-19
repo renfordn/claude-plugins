@@ -5,7 +5,7 @@ description: Orchestrates the spec-driven workflow (EARS requirements, design, t
 
 # Spec Driven Development
 
-Single user-facing entrypoint; routes to `workflow-manager`, `requirements-agent`, `design-author` and `research-consolidator` internally. It owns Requirements and Design only; task slicing and implementation belong to `agent-tdd` via one one-directional Design Spec handoff (see `INTEROP.md`).
+Single user-facing entrypoint; routes to `workflow-manager`, `requirements-agent`, `design-author` and `research-consolidator` internally. It owns Requirements and Design only; task slicing and implementation belong to `agent-tdd` via the Design Spec handoff (see `INTEROP.md`).
 
 ## Input
 
@@ -27,7 +27,7 @@ The handoff to `agent-tdd` is made, `workflow-state.md` and `recap.md` match. Co
 - **Risk-scaled depth.** `Risk: low | elevated | high` with `Risk Reason`; depth and review scale with it. Fast only at `low`, Standard never becomes Fast, risk only rises. Signals and depth table: `references/risk-depth.md`; `state_guard` enforces it.
 - **Phase review levels** are in `references/review-levels.md` (Review Level Guidance per phase: Standard, Deep, Ultra).
 - **Fast Track** (`Track: Fast | Standard`, set once at Start): Slice Spec instead of Design Spec, no `tasks.md`; see `references/fast-track.md`.
-- **User-led mode.** When `Implementation Mode` is `user`, point the user to the `isdd-coach` skill; `user_led_guard` blocks non-test edits. Never flip the mode yourself.
+- **User-led mode.** When `Implementation Mode` is `user`, point the user to the `isdd-coach` skill; `user_led_guard` blocks non-test edits. Change the mode only on the user's say-so.
 
 ## Goal-Aware Memory
 
@@ -83,7 +83,7 @@ Read `references/routing-and-task-tracker.md` (Internal Routing Rule) when decid
 
 ## Implementation Handoff
 
-Read `references/implementation-handoff.md` when starting the handoff: one one-directional handoff to `agent-tdd` (`Track: Standard` a Design Spec; `Track: Fast` a Slice Spec with `Review handoff mode: skip`). Offer Implementation Mode (`agent` | `user`) via `AskUserQuestion` there.
+Read `references/implementation-handoff.md` when starting the handoff to `agent-tdd`: Standard sends a Design Spec with `Parallel: on` and you lead `agent-tdd:tdd-parallel`; Fast sends one serial Slice Spec (`Review handoff mode: skip`). Ask Implementation Mode first.
 
 **Second trigger: `Current Phase: Tasks` on continue.** A rollback-landing state; treat it like Design-approved: rebuild the spec from the still-approved `requirements.md`/`design.md` and re-spawn `agent-tdd:agent-TDD` (rule in `workflow-manager/SKILL.md`'s `continue` Action Rule).
 
