@@ -6,12 +6,13 @@ Red Test — verify that Strategic Review Placement table and Ralph Loops integr
 
 from pathlib import Path
 
-_INTEROP_PATH = Path(__file__).resolve().parent.parent / "INTEROP.md"
+_ROOT = Path(__file__).resolve().parent.parent
+_INTEROP_PATHS = [_ROOT / "INTEROP.md", *sorted((_ROOT / "references").glob("interop-*.md"))]
 
 
 def read_isdd_interop():
     """Read the agent-isdd INTEROP.md file."""
-    return _INTEROP_PATH.read_text()
+    return "\n".join(p.read_text() for p in _INTEROP_PATHS)
 
 
 def test_strategic_review_placement_section_exists():
