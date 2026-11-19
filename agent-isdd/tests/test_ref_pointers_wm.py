@@ -38,8 +38,8 @@ def test_wm_table_rows_and_plan_board_paragraph_stay_inline():
 def test_wm_size_gate_and_scaffolding_anchor():
     wm_dir = SKILLS / "workflow-manager"
     wm = (wm_dir / "SKILL.md").read_text(encoding="utf-8")
-    assert (wm_dir / "SKILL.md").stat().st_size <= 21140
-    assert len(wm.splitlines()) <= 400
+    assert (wm_dir / "SKILL.md").stat().st_size <= 17500
+    assert len(wm.splitlines()) <= 160
     assert "sdd_memory.py" in wm and "--spec-path" in wm  # path resolution stays inline
     scaf = (wm_dir / "references" / "scaffolding.md").read_text(encoding="utf-8")
     assert "<sdd-memory-dir>/" in scaf and "only `tasks.md` inside it is conditional on `Track`" in scaf
