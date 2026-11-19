@@ -81,12 +81,12 @@ def evaluate(payload, state_path=None):
         return None
     old = _parse_text(old_text)
     new = _parse_text(simulate_write(tool, tool_input, old_text))
-    old_track, new_track = _first_token(old.get("track", "")), new.get("track", "").strip().lower()
-    old_risk, new_risk = _first_token(old.get("risk", "")), new.get("risk", "").strip().lower()
+    old_track, new_track = _first_token(old.get("track", "")), _first_token(new.get("track", ""))
+    old_risk, new_risk = _first_token(old.get("risk", "")), _first_token(new.get("risk", ""))
     if old_track == "standard" and new_track != "standard":
         return ("Track cannot change from Standard (to %r). Only Fast -> Standard is a legal "
                 "change; ask the user if the scope has really shrunk." % (new_track or "unset"))
-    if _first_token(new.get("track", "")) == "fast" and new_risk not in ("", "low"):
+    if new_track == "fast" and new_risk not in ("", "low"):
         return ("Risk above low requires Track: Standard (Risk is %r) -- set Track: Standard in "
                 "the same edit." % new_risk)
     if old_risk in _RISK_RANK and (new_risk not in _RISK_RANK

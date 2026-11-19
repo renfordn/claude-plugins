@@ -22,7 +22,6 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import markers
 import review_tracking
 import sdd_state
 
@@ -42,14 +41,6 @@ def _status(text):
     return ""
 
 
-def _read(path):
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return fh.read()
-    except OSError:
-        return ""
-
-
 def _fields_from_text(text):
     fields = {}
     for line in (text or "").splitlines():
@@ -57,47 +48,6 @@ def _fields_from_text(text):
         if m and m[0] not in fields:
             fields[m[0]] = m[1]
     return fields
-
-
-def _tasks_text(feature_dir):
-    return _read(os.path.join(feature_dir, "tasks", "tasks.md"))
-
-
-def _reviewed_ids(feature_dir):
-    reviewed = sdd_state.read_reviewed(os.path.join(feature_dir, "workflow-state.json"))
-    return {markers.normalize_slice_id(str(k)) for k, v in reviewed.items() if v}
-
-
-def feature_unreviewed(feature_dir, fields):
-    """Unreviewed slice ids under the feature-level `Risk: high` rule ([] when not applicable or
-    satisfied; ["(feature)"] when there is no tasks.md and nothing is reviewed)."""
-    if (fields.get("risk") or "").strip().lower() != "high":
-        return []
-    waived = review_tracking._fallback_ids(fields.get("review fallback"))
-    if waived is None:
-        return []
-    reviewed = _reviewed_ids(feature_dir)
-    ids = []
-    for m in review_tracking._HEADING.finditer(_tasks_text(feature_dir)):
-        sid = markers.normalize_slice_id(m.group(1))
-        if sid not in ids:
-            ids.append(sid)
-    if not ids:
-        return [] if reviewed else ["(feature)"]
-    return [i for i in ids if i not in reviewed and i not in waived]
-
-
-def _unreviewed(feature_dir, fields):
-    tier = review_tracking.high_risk_slices(_tasks_text(feature_dir))
-    waived = review_tracking._fallback_ids(fields.get("review fallback"))
-    out = []
-    if waived is not None:
-        reviewed = _reviewed_ids(feature_dir)
-        out = [i for i in tier if i not in waived and i not in reviewed]
-    for i in feature_unreviewed(feature_dir, fields):
-        if i not in out:
-            out.append(i)
-    return out
 
 
 def _deny_text(ids):
@@ -123,12 +73,12 @@ def evaluate(payload, state_path=None):
     target = tool_input.get("file_path")
     if not isinstance(target, str) or not target or not _same_file(target, state_path):
         return None
-    current = _read(state_path)
+    current = review_tracking.read_text(state_path)
     new = sdd_state.simulate_write(payload.get("tool_name"), tool_input, current)
     if _status(new) != "complete" or _status(current) == "complete":
         return None
     feature_dir = os.path.dirname(os.path.abspath(state_path))
-    unreviewed = _unreviewed(feature_dir, _fields_from_text(new))
+    unreviewed = review_tracking.unreviewed(feature_dir, _fields_from_text(new))
     return _deny_text(unreviewed) if unreviewed else None
 
 

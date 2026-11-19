@@ -136,6 +136,28 @@ class StopCheckTests(unittest.TestCase):
             self.assertIn("review", out["reason"].lower())
             self.assertIsNone(self._stop(home, repo, stop_hook_active=True).get("decision"))
 
+    def test_complete_risk_high_with_unreviewed_standard_slice_blocks(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            fd = h.feature_spec_dir(home, repo)
+            h.seed_state_file(fd, title="My Feature", current_phase="Implementation",
+                              workflow_status="Complete", risk="high (auth)")
+            h.seed_feature_artifact(
+                fd, "tasks/tasks.md", "# Tasks\n\n## Slice 1: x\n\n**Risk Tier:** standard\n")
+            out = self._stop(home, repo)
+            self.assertEqual(out.get("decision"), "block")
+            self.assertIn("review", out["reason"].lower())
+            self.assertIn("Slice 1", out["reason"])
+
+    def test_backstop_feature_level_wording_has_no_slice_feature(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            fd = h.feature_spec_dir(home, repo)
+            h.seed_state_file(fd, title="My Feature", current_phase="Implementation",
+                              workflow_status="Complete", risk="high")
+            out = self._stop(home, repo)
+            self.assertEqual(out.get("decision"), "block")
+            self.assertNotIn("(feature)", out["reason"])
+            self.assertIn("high-risk feature", out["reason"])
+
     def test_backstop_blocks_once_per_change_and_rearms(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             fd = h.feature_spec_dir(home, repo)
