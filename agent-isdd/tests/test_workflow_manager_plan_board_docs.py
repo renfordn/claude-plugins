@@ -125,7 +125,7 @@ def test_the_reference_documents_the_brief_toggle_and_drift_commands():
 def test_the_sync_step_names_the_post_write_reminder_and_the_repair_command():
     step = _step()
     assert "post-write" in step and "/isdd-board-sync" in step
-    assert len(_read(SKILL).splitlines()) <= 400
+    assert len(_read(SKILL).splitlines()) <= 160
 
 
 def test_readme_and_interop_describe_the_reworked_board():
