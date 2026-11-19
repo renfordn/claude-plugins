@@ -42,7 +42,10 @@ def test_key_discriminating_assertions_pinned():
 
 def test_tier1_eval_has_enough_planted_claims():
     ev = next(e for e in load()["evals"] if e["name"] == "tier1-sonnet-vs-opus")
-    assert ev["prompt"].count("[PLANTED-") >= 8
+    planted = [k for k, v in ev["answer_key"].items() if v.startswith("PLANTED-")]
+    assert len(planted) >= 8
+    # the answer key must never leak into what the model sees
+    assert "PLANTED" not in ev["prompt"] and "[TRUE]" not in ev["prompt"]
 
 
 def test_top_level_shape():

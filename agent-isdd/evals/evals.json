@@ -49,8 +49,8 @@
     {
       "id": 4,
       "name": "tier1-sonnet-vs-opus",
-      "prompt": "Run plan-reviewer-tier1 on this design doc and list every claim that is false or inconsistent. Verify claims against the code in the agent-isdd plugin (Read/Grep) as well as the repo facts below; do not trust the doc.\n\nREPO FACTS: hooks live in agent-isdd/hooks/; pre_write_dispatch.py is the PreToolUse dispatcher for Write|Edit|MultiEdit|NotebookEdit; the individual write guards (state_guard, complete_guard, user_led_guard) are NOT registered in hooks.json; all workflow-state.json writes go through sdd_state.update_json(path, fn); workflow-state.json's reviewed map is written only via review_tracking -> sdd_state.mark_reviewed.\n\nDESIGN DOC:\n# Design: export audit trail\n1. Each guard (state_guard, complete_guard, user_led_guard) is registered individually in hooks.json with its own 30s timeout. [PLANTED-1]\n2. The audit writer opens workflow-state.json directly with open(path, 'w') for speed. [PLANTED-2]\n3. complete_guard writes the workflow-state.json reviewed map when a slice passes. [PLANTED-3]\n4. The approval hash is computed over design.md and tasks.md. [PLANTED-4]\n5. agent-isdd ships 7 agents, so the audit reviewer is the 8th. [PLANTED-5]\n6. The resume_context.py UserPromptSubmit hook is registered with a 30s timeout. [PLANTED-6]\n7. post_write_check.FIELD_MAP mirrors approval_hash into workflow-state.json. [PLANTED-7]\n8. post_write_check.FIELD_MAP maps the 'risk reason' field to the JSON key risk_why. [PLANTED-8]\n9. precompact_snapshot.py is registered with a 5s timeout. [PLANTED-9]\n10. Guards return a deny string or None via evaluate(payload, state_path=None). [TRUE]\n11. Locking is provided by sdd_state.update_json. [TRUE]\n12. pre_write_dispatch.py is registered with a 5s timeout. [TRUE]\n\nOutput the claims you judge false or inconsistent, each with the evidence that contradicts it.",
-      "expected_output": "Per run, tier1 flags planted claims 1-9 (6-9 need Read/Grep of hooks.json, post_write_check.py, agents/) and not true claims 10-12. Run at least 3 times per model via the Agent tool model override (sonnet vs opus) on agent-isdd:plan-reviewer-tier1, effort left at the frontmatter value. PASS = sonnet mean caught >= opus mean and no planted claim missed by sonnet in every run. Slice 33 gates on this.",
+      "prompt": "Run plan-reviewer-tier1 on this design doc and list every claim that is false or inconsistent. Verify claims against the code in the agent-isdd plugin (Read/Grep) as well as the repo facts below; do not trust the doc.\n\nREPO FACTS: hooks live in agent-isdd/hooks/; pre_write_dispatch.py is the PreToolUse dispatcher for Write|Edit|MultiEdit|NotebookEdit; the individual write guards (state_guard, complete_guard, user_led_guard) are NOT registered in hooks.json; all workflow-state.json writes go through sdd_state.update_json(path, fn); workflow-state.json's reviewed map is written only via review_tracking -> sdd_state.mark_reviewed.\n\nDESIGN DOC:\n# Design: export audit trail\n1. Each guard (state_guard, complete_guard, user_led_guard) is registered individually in hooks.json with its own 30s timeout.\n2. The audit writer opens workflow-state.json directly with open(path, 'w') for speed.\n3. complete_guard writes the workflow-state.json reviewed map when a slice passes.\n4. The approval hash is computed over design.md and tasks.md.\n5. agent-isdd ships 7 agents, so the audit reviewer is the 8th.\n6. The resume_context.py UserPromptSubmit hook is registered with a 30s timeout.\n7. post_write_check.FIELD_MAP mirrors approval_hash into workflow-state.json.\n8. post_write_check.FIELD_MAP maps the 'risk reason' field to the JSON key risk_why.\n9. precompact_snapshot.py is registered with a 5s timeout.\n10. Guards return a deny string or None via evaluate(payload, state_path=None).\n11. Locking is provided by sdd_state.update_json.\n12. pre_write_dispatch.py is registered with a 5s timeout.\nOutput the claims you judge false or inconsistent, each with the evidence that contradicts it.",
+      "expected_output": "Per run, tier1 flags planted claims 1-9 (6-9 need Read/Grep of hooks.json, post_write_check.py, agents/) and not true claims 10-12. Run at least 3 times per model via the Agent tool model override (sonnet vs opus) on agent-isdd:plan-reviewer-tier1, effort left at the frontmatter value. PASS = sonnet mean caught >= opus mean and no planted claim missed by sonnet in every run. Slice 33 gates on this. Answer key (claim number -> label) is in answer_key; it is never shown to the model.",
       "files": [],
       "assertions": [
         "Run plan-reviewer-tier1 >= 3 times per model (sonnet override and opus override); record planted claims (PLANTED-1..9) caught per run for both models",
@@ -59,7 +59,21 @@
         "Neither model flags TRUE claims 10-12 as false; sonnet mean false positives must not exceed opus mean",
         "Each flagged claim cites the specific repo fact or file (hooks.json, post_write_check.py, agents/) that contradicts it",
         "Result is recorded as tier1 sonnet vs opus: PASS or FAIL; slice 33 flips plan-reviewer-tier1 to sonnet/medium only on PASS"
-      ]
+      ],
+      "answer_key": {
+        "1": "PLANTED-1",
+        "2": "PLANTED-2",
+        "3": "PLANTED-3",
+        "4": "PLANTED-4",
+        "5": "PLANTED-5",
+        "6": "PLANTED-6",
+        "7": "PLANTED-7",
+        "8": "PLANTED-8",
+        "9": "PLANTED-9",
+        "10": "TRUE",
+        "11": "TRUE",
+        "12": "TRUE"
+      }
     }
   ]
 }
