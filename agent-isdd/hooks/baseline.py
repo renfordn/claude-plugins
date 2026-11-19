@@ -90,7 +90,9 @@ def diff(cwd, state_json):
     """Changes since the recorded baseline: branch_changed [old, new], head_moved [old, new],
     files_changed (committed since baseline head, newly dirty, or pre-dirty files whose content
     changed or that are clean now). "incomplete": True when the committed range could not be
-    diffed. Fails open to empty."""
+    diffed, or when a baseline exists but git failed (never a false "no changes"). Fails open to
+    empty when there is no baseline."""
+    base = None
     try:
         base = sdd_state.read_baseline(state_json)
         if not base:
@@ -98,7 +100,7 @@ def diff(cwd, state_json):
         deadline = time.monotonic() + BUDGET
         snap = _snapshot(cwd, deadline)
         if snap is None:
-            return empty()
+            return dict(empty(), incomplete=True)
         out = empty()
         branch, head, dirty = snap
         if base.get("branch") != branch:
@@ -120,7 +122,7 @@ def diff(cwd, state_json):
         out["files_changed"] = sorted(files)
         return out
     except Exception:
-        return empty()
+        return dict(empty(), incomplete=True) if base else empty()
 
 
 def evaluate(payload):

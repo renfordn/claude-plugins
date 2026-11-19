@@ -108,3 +108,16 @@ def test_snapshot_rename_and_space_paths(tmp_path):
 def test_snapshot_none_when_git_fails(tmp_path):
     assert baseline._snapshot(str(tmp_path), baseline.time.monotonic() + 3) is None
     assert baseline._snapshot(str(tmp_path), baseline.time.monotonic() - 1) is None
+
+
+def test_diff_marks_incomplete_when_git_fails_with_a_baseline(tmp_path, monkeypatch):
+    """Slice 22 review F1: a recorded baseline + a failed snapshot is not "no changes"."""
+    repo, state = make_repo(tmp_path)
+    baseline.record(str(repo), state)
+    monkeypatch.setattr(baseline, "_snapshot", lambda *a, **k: None)
+    assert baseline.diff(str(repo), state).get("incomplete") is True
+
+    def boom(*a, **k):
+        raise RuntimeError("git exploded")
+    monkeypatch.setattr(baseline, "_snapshot", boom)
+    assert baseline.diff(str(repo), state).get("incomplete") is True
