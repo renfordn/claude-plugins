@@ -41,6 +41,7 @@ through gathering and validating these fields by hand.
 | Data Contracts And Interfaces | object | no | Type signatures, module boundaries, API shapes you already know. Skip if you don't have this; the agent will explore the codebase itself |
 | Pre-Slice Brief | object | no | Prior project context you already gathered (e.g. from a memory subagent like agent-nelly). Purely additive — omitting it is not an error |
 | Review handoff mode | enum (skip) | no | Leave unset for the default (mandatory pause after Green). Set explicitly to "skip" only when you have deliberately decided no review step will happen this session |
+| Slice id / Owned files / Base commit | string / string[] / sha | no | Parallel delivery (`sliceId`, `ownedFiles`, `baseCommit`): worker verifies the base is an ancestor, edits only owned files, echoes `<!--SLICE-ID: N-->` |
 
 ## Two-part invocation (the high-risk split)
 
@@ -127,23 +128,25 @@ fails open if the hook itself errors.
 Both agents run in an isolated context and pay for every token you put in their spawn prompt —
 padding it with more than the slice needs is pure waste, not safety margin. Concretely:
 
-- **Data Contracts And Interfaces should be exact excerpts, not whole files.** Paste the specific
-  signature(s), type(s), or module boundary the slice touches — a few lines, not a pasted file.
-  Both agents have `Read`/`Grep`/`Glob` and will fetch anything else they actually need; the field
-  exists to save them a lookup you already did, not to preload the file.
-- **Scope it to this slice.** Only include contracts/interfaces the slice's acceptance criteria
-  actually touch. A wider dump doesn't reduce ambiguity — it makes the one relevant fact harder to
-  find in the prompt.
-- **Don't restate the Slice Spec when resuming.** Resuming the same `agent-TDD` instance after the
-  review pause (see above) continues its existing context — send only the review outcome/decision
-  ("cleared, proceed to Refactor" or the specific blocking finding to fix), not the Slice Spec
-  again.
-- **Omit optional fields you don't have** (Pre-Slice Brief, Data Contracts And Interfaces) rather
-  than filling them with placeholder text or speculative content — an absent field costs nothing;
-  an invented one costs tokens and risks steering the agent on a guess.
-- **`test-author` gets a strict subset.** Pass it only Task description, Test Intent, and Data
-  Contracts And Interfaces — not Risk Tier, Pre-Slice Brief, or Review handoff mode, none of which
-  it acts on.
+- **Data Contracts And Interfaces: exact excerpts, scoped to this slice.** A few lines of the
+  signature(s) the criteria touch, not whole files; the agents have `Read`/`Grep`/`Glob`.
+- **Don't restate the Slice Spec when resuming.** Send only the review outcome ("cleared,
+  proceed to Refactor" or the blocking finding).
+- **Omit optional fields you don't have** rather than inventing placeholders.
+- **`test-author` gets a strict subset:** Task description, Test Intent, Data Contracts And
+  Interfaces only.
+
+## Parallel slice delivery
+
+With `Parallel: on` agent-TDD slices a Design Spec into disjoint-file waves (contract slice
+first) and stops at `slicing_complete`; the caller fans each wave out to isolated worktrees,
+passing each worker `sliceId`, `ownedFiles` and `baseCommit`. Protocol:
+[`references/parallel-delivery.md`](references/parallel-delivery.md), entered via
+[`commands/tdd-parallel.md`](commands/tdd-parallel.md). Review-scope contract with
+code-reviewer: the caller tells each slice reviewer `Review cwd: <worktreePath>`,
+`--base <baseCommit>` and `Review scope: slice=N`; code-reviewer echoes
+`<!--REVIEW-SCOPE: slice=N-->` and only that slice's gate clears. Old reviewers that don't echo
+leave the gate open until exactly one gate remains.
 
 ## Plan Validity Flag (optional signal that the task itself, not just the code, may be wrong)
 
@@ -194,26 +197,15 @@ cache) and need agent-tdd to:
 
 ### One implementation of this mode (the modular alternative was retired)
 
-**Added 2026-09-15, documenting existing (undocumented) drift; retired 2026-09-16.** Steps 1–3
-above used to exist as two separate, independently-maintained implementations in this plugin,
-discovered as undocumented drift and then removed once neither documentation nor any real caller
-justified keeping both:
+**Retired 2026-09-16.** A second, modular implementation (`skills/design-spec/SKILL.md`, five
+separate subagents) emitted its own incompatible marker vocabulary that `agent-isdd` never
+recognized and no caller used, so it was removed rather than kept as a dead alternative.
 
 `agent-TDD` itself performs Research Validation, Task Slicing, all three Ralph Loops, Risk Tier
-Assignment, and the Readiness Check as its own instructions (see `agents/agent-TDD.md`'s "Design
-Spec Workflow" section) — a single spawn of `agent-TDD` with a Design Spec does the entire
-pipeline through to implementation. This is the only path there has ever been a real caller for:
-`agent-isdd`'s `spec-driven-development` skill spawns `agent-tdd:agent-TDD` directly, and this is
-the only source of the `<!--AGENT-TDD-PLAN-FLAG:reason="..."-->` marker (see "Plan Validity Flag"
-above) and `<!--AGENT-TDD-PHASE:...-->`.
-
-A second, modular implementation (`skills/design-spec/SKILL.md`, orchestrating five separate
-subagents — `research-validator`, `task-slicer`, `ralph-loops`, `risk-assign`, `readiness-check`,
-one phase each) existed alongside it, emitting its own incompatible escalation-marker vocabulary
-that `agent-isdd`'s `hooks/subagent_report.py` never recognized. No known caller ever invoked it — `agent-isdd` always bypassed it in
-favor of the inline path above — so it was removed rather than kept as a documented-but-dead
-alternative. If you want its per-phase token-accounting/resume-caching behavior back, that's a
-fresh design decision, not something to resurrect from `git log`.
+Assignment and the Readiness Check (see `agents/agent-TDD.md`'s "Design Spec workflow"): one
+spawn with a Design Spec does the whole pipeline through implementation. `agent-isdd`'s
+`spec-driven-development` skill spawns `agent-tdd:agent-TDD` directly, and this is the only
+source of the `<!--AGENT-TDD-PLAN-FLAG:reason="..."-->` and `<!--AGENT-TDD-PHASE:...-->` markers.
 
 ### Design Spec Input Format
 
@@ -225,6 +217,7 @@ Pass a **Design Spec** inline in the spawn prompt (exact field names required):
 | design_md | string | yes | Full approved design.md with file touchpoints, interfaces, research basis section |
 | research_cache | object | yes | Research findings: design_findings, task_findings, file_summaries (keyed by path), git_hashes |
 | recap_md | string | yes | Summary, known risks, blockers, Goal alignment notes (summarized, not full history) |
+| Parallel | on \| off | no | Default off (serial). On: slice into waves and stop at `slicing_complete`; see Parallel slice delivery |
 | nelly_brief_cache | object | no | Pre-fetched cached context from agent-nelly (if available) |
 
 ### Research Validation Phase

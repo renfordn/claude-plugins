@@ -31,8 +31,8 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["fix", "refactor", "feature", "contract"],
-            "description": "Slice kind. fix and refactor slices are preparatory: they put the affected code in shape (latent defects fixed, structure ready) before the feature slices that build on it, and are ordered ahead of them via depends_on. contract slices land shared interfaces, types or fixtures that parallel slices then build against, and are ordered ahead of them via depends_on. Omitted means feature."
+            "enum": ["fix", "refactor", "feature", "contract", "validation"],
+            "description": "Slice kind. fix and refactor slices are preparatory: they put the affected code in shape (latent defects fixed, structure ready) before the feature slices that build on it, and are ordered ahead of them via depends_on. contract slices land shared interfaces, types or fixtures that parallel slices then build against, and are ordered ahead of them via depends_on. validation slices only run checks (no files) and run alone. Omitted means feature."
           },
           "risk_tier": {
             "type": "string",

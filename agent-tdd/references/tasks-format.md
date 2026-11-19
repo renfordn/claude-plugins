@@ -7,7 +7,7 @@
 
 ## Slice 1: <One-sentence behavior>
 
-**Kind:** fix | refactor | feature | contract
+**Kind:** fix | refactor | feature | contract | validation
 **Risk Tier:** standard | high-risk
 **Depends On:** (none | Slice N, Slice M)
 **Files:** src/file1.ts, src/file2.ts
@@ -29,6 +29,7 @@
 Add only when they apply; slices without them stay valid.
 
 - `**Kind:** contract` lands shared interfaces, types or fixtures that parallel slices build against; order it ahead of them via Depends On.
+- `**Kind:** validation` runs checks only (e.g. the full suite after merges) with `**Files:** none`; it edits nothing.
 - `**Test Files:**` test files the slice owns exclusively.
 - `**Shared Files:**` files touched but not exclusively owned (hooks.json, conftest.py, manifests, `__init__.py`); slices sharing a file must not run in the same wave.
 - `**Wave:**` integer >= 0, written by a script, never by hand.
@@ -41,3 +42,7 @@ Validation**, **Task Slicing**, **Risk Tier Distribution**, **High-Risk Slices**
 Summary**, **Implementation Summary**, **Validation Summary** with every slice's `TDD-EVIDENCE`
 lines, **Review Request**, **Risks and Follow-ups**, **Handoff Facts**). Per-slice reports in
 between use the slice report format.
+
+## Parallel mode
+
+With `Parallel: on`, every slice lists owned Files, Test Files, Shared Files and Depends On; shared interfaces go in `contract` slices. `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parallel_plan.py" check <tasks.md>` verifies disjointness and `... waves --write <tasks.md>` writes each slice's Wave. The `slicing_complete` report then carries the wave table and the caller fans slices out per `references/parallel-delivery.md`. A worker's slice report also carries `<!--SLICE-ID: N-->` (after the PHASE line) so hooks key evidence and review gates per slice.

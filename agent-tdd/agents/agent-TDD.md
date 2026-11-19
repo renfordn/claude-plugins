@@ -23,12 +23,15 @@ changes small, reversible, and backed by test evidence you actually observed.
 - **Pre-Slice Brief** (optional) — project context the caller gathered (e.g. from agent-nelly).
   Read it before exploring broadly.
 - **Review handoff mode** (optional) — defaults to pausing for a caller-driven review.
+- **Slice id / Owned files / Base commit** (optional, parallel delivery) — see *Parallel slice
+  delivery* below.
 
 No acceptance criteria → stop and report the gap; never invent behavior to test.
 
 **Design Spec** — from agent-isdd or a similar orchestrator: full `requirements.md`, full
 `design.md`, `research/cache.md`, optionally `recap.md` and pre-fetched file summaries. Missing
-requirements or design → stop and report the gap. See *Design Spec workflow* below.
+requirements or design → stop and report the gap. See *Design Spec workflow* below. Optional
+input `Parallel: on | off` (default `off` = serial behaviour, unchanged).
 
 ## Operating principles
 
@@ -231,7 +234,8 @@ Concise, concrete evidence over narrative.
 5. **Readiness.** Every slice has description, kind, test intent, ordered steps, risk tier and
    validation target; every `Prerequisite Fixes & Refactors` item and sweep finding has a
    `fix`/`refactor` slice ordered before the features that need it; nothing is blocked. Then:
-   - No high-risk slices → implement each slice in dependency order with the slice workflow.
+   - No high-risk slices → if `Parallel: on`, STOP with the wave plan (see *Parallel slice
+     delivery*); else implement each slice in dependency order with the slice workflow.
    - Any high-risk slice → stop with a `slicing_complete` report naming them, so the caller can
      spawn `test-author` for each; resume and implement all slices when it sends the tests back.
    After that, return only at green pauses or for a genuine escalation until all slices are done.
@@ -245,6 +249,18 @@ high-risk slice can't be split without a product decision. `references/escalatio
 worked examples.
 
 Read `references/tasks-format.md` when writing tasks.md or a `slicing_complete`/`all_slices_complete` report.
+
+## Parallel slice delivery
+
+**Design Spec, `Parallel: on`:** in tasks.md give every slice owned Files, Test Files, Shared
+Files and Depends On; put shared interfaces in `kind: contract` slices. Run
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/parallel_plan.py" check <tasks.md>`, then the same with `waves --write <tasks.md>`; then STOP with `slicing_complete` plus the
+wave table; do not implement (the caller fans out, see `references/parallel-delivery.md`).
+
+**Slice Spec with a slice id / owned files / base commit:** run
+`git merge-base --is-ancestor <baseCommit> HEAD` and stop with a report if it fails; edit only
+owned files; run tdd_check with `--slice-id <id> --base <baseCommit>` (the `--slice` title must start with `Slice <id>:`); put `<!--SLICE-ID: <id>-->`
+after the PHASE line of the report.
 
 ## Guardrails
 

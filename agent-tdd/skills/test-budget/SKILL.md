@@ -1,6 +1,6 @@
 ---
 name: test-budget
-description: Check the test file a TDD slice is about to grow, before planning new tests. Flags bloated or stale test files, tests that should be merged into a parametrized/table-driven test, unit tests that duplicate behavior already covered at a higher level, and good candidates to promote to a regression or e2e test instead of another unit test. Use whenever planning tests for a slice, running /tdd or slice-spec on a long-running project, when CI or the test suite is getting slow, or when the user mentions test bloat, too many tests, slow pipeline, consolidating tests, pruning tests, or "should this be an e2e test". Use it even if the user only says "add tests for X" and the target test file is already large.
+description: Check the test file a TDD slice is about to grow, before planning new tests. Flags bloated or stale test files, tests to merge into a parametrized test, unit tests duplicating higher-level coverage, and candidates to promote to regression/e2e. Use whenever planning tests for a slice, running /tdd or slice-spec on a long-running project, when CI or the test suite is getting slow, or when the user mentions test bloat, too many tests, slow pipeline, consolidating tests, pruning tests, or "should this be an e2e test". Use it even if the user only says "add tests for X" and the target test file is already large.
 ---
 
 # Test budget: check the file before adding to it

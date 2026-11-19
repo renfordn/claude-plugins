@@ -18,6 +18,9 @@ EXPECTED_PROPERTIES = {
     "dataContractsAndInterfaces",
     "preSliceBrief",
     "reviewHandoffMode",
+    "sliceId",
+    "ownedFiles",
+    "baseCommit",
 }
 EXPECTED_REQUIRED = {"taskDescription", "acceptanceCriteria"}
 
