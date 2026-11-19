@@ -27,6 +27,24 @@ Rollback request markers (`rollback_pending`, `SDD-ROLLBACK-REQUEST`), the revie
 follow-ups, Strategic Review Placement, Ralph Loops integration, Auto-Detection Rules and review
 tracking: [`references/interop-reviewers.md`](references/interop-reviewers.md).
 
+## Moved sections (index for older citations)
+
+Sections other docs cite as "`INTEROP.md`'s …" now live in the split references:
+
+- **`references/interop-agent-tdd.md`**:
+  - "Fallback — Direct Implementation (harness `Agent`-spawn failure)" (its Detection conditions)
+  - Design Spec fields, including the `file_summaries` field description
+  - "Exception — Test-Author Gate"
+  - "Exception — Code-Review Gate"
+  - "Design Spec completeness gate"
+  - "Agent-tdd Design Spec workflow (pointer)"
+  - "Parallel handoff"
+- **`references/interop-reviewers.md`**:
+  - "← agent-tdd / code-reviewer (rollback request)"
+  - "→ code-reviewer (review gate)"
+  - "Strategic Review Placement via Review Levels"
+  - "Review tracking and user-run commands"
+
 ## → agent-ux (removed)
 
 agent-ux was retired. The calling skills now make its `mark_chapter`/`Artifact` calls directly,
