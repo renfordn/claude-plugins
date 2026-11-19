@@ -1,6 +1,6 @@
 # Internal routing and task tracker sync
 
-Read by `spec-driven-development` for the Internal Routing Rule and Task Tracker Sync (`TaskCreate`) sections whose stubs name this file; text is verbatim from SKILL.md.
+Read by `spec-driven-development` for the Internal Routing Rule and Task Tracker Sync (`TaskCreate`) sections whose stubs name this file.
 
 ## Internal Routing Rule
 
@@ -15,6 +15,5 @@ invoke one directly, or a pause message needs to explain which capability produc
 
 ## Task Tracker Sync
 
-`tasks.md` is a repo-persisted planning artifact, distinct from the harness's own task tracker.
-Call `TaskCreate`/`TaskUpdate`/`TaskList` directly from this skill at every phase transition
-(self-loaded via `ToolSearch` first) — see "Visible Progress" above.
+`TaskCreate` checklist rules: `references/ux-conventions.md` (plugin root), "Phase tick list".
+State-field ownership: `workflow-manager/references/state-write-responsibilities.md`.
