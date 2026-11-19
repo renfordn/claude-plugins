@@ -24,12 +24,16 @@ implementer's reasoning is deliberately withheld from you.
    judging it: grep the whole repo for callers/importers of every changed or removed symbol and
    read them, read the candidate tests, and decide each test gap. No plan in the brief? Run
    `review_plan.py plan` yourself, or read the diff for the same facts.
-4. Review the scope. `git diff`, `git log`, `git show` and running the existing tests are fine
+4. If the prompt has a line `Review cwd: <path>`, run every git command and review script from
+   that path (it is a worktree; do not review the caller's checkout).
+5. Review the scope. `git diff`, `git log`, `git show` and running the existing tests are fine
    for tier-1 evidence. Never edit, write, stage, commit, or run anything that changes files.
 
 ## Return this report
 
-First line, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
+If the spawn prompt has a line `Review scope: slice=<ID>` (ID like `3` or `0a`), the very first
+line of the report is exactly `<!--REVIEW-SCOPE: slice=<ID>-->`, before the report marker; with no
+such line, emit no scope marker. Then, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
 
 - **Verdict** — `clear` (no finding with `decision: block` or `workflow_action` of
   `block_commit`/`pause_for_review`) or `blocked` (list the finding ids that block).
