@@ -236,3 +236,22 @@ def test_every_section_survives_clipping(tmp_path):
 def test_small_brief_is_not_clipped(tmp_path):
     _w(tmp_path, "recap/recap.md", RECAP_H2)
     assert plan_brief.parse_brief(str(tmp_path), {"goal": "g"})["decisions"][0] == "Merge into Plan Board (user)."
+
+
+def test_marker_must_be_standalone_unfenced_first_and_after_heading(tmp_path):
+    _w(tmp_path, "tasks/tasks.md",
+       "<!--SLICE-ID: 99-->\n## Slice 1: A\n<!--SLICE-ID: 1x-->\n<!--SLICE-ID: 1y-->\n\n"
+       "## Slice 2: B\nUse `<!--SLICE-ID: 55-->` here\n```\n<!--SLICE-ID: 56-->\n```\n\n"
+       "## Slice 3: C\ntext <!--SLICE-ID: 77--> trailing\n")
+    items = plan_brief.parse_brief(str(tmp_path), {})["slices"]["items"]
+    assert [i["n"] for i in items] == ["1X", 2, 3]
+
+
+def test_alphanumeric_slice_headings_and_marker_preference(tmp_path):
+    _w(tmp_path, "tasks/tasks.md",
+       "## Slice 2F2: Alpha\n**Risk Tier:** high-risk\n\n## Slice 7: Numeric\n\n"
+       "## Slice 9: Marked\n<!--SLICE-ID: 9b-->\n**Risk Tier:** standard\n")
+    items = plan_brief.parse_brief(str(tmp_path), {})["slices"]["items"]
+    assert items == [{"n": "2F2", "title": "Alpha", "tier": "high-risk"},
+                     {"n": 7, "title": "Numeric", "tier": ""},
+                     {"n": "9B", "title": "Marked", "tier": "standard"}]

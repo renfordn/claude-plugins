@@ -87,5 +87,32 @@ class HooksJsonStructureTests(unittest.TestCase):
                          "as design_spec_gate.py's own ordering.")
 
 
+class Release2HooksRegisteredTests(unittest.TestCase):
+    def test_single_pre_write_dispatch_registered(self):
+        config = _load()
+        entries = [e for e in config["hooks"]["PreToolUse"]
+                   if any("pre_write_dispatch.py" in h["command"] for h in e["hooks"])]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["matcher"], "Write|Edit|MultiEdit|NotebookEdit")
+        hooks = [h for h in entries[0]["hooks"] if "pre_write_dispatch.py" in h["command"]]
+        self.assertEqual(hooks[0].get("timeout"), 5)
+
+    def test_guards_not_registered_separately(self):
+        config = _load()
+        for event in ("PreToolUse",):
+            commands = _commands_for(config, event)
+            for name in ("state_guard.py", "complete_guard.py", "user_led_guard.py"):
+                self.assertFalse(any(name in c for c in commands), name)
+
+    def test_approval_on_exit_plan_mode(self):
+        self.assertTrue(any("approval.py" in c for c in _commands_for(_load(), "PostToolUse", "ExitPlanMode")))
+
+    def test_resume_context_user_prompt_submit_timeout_5(self):
+        entries = _load()["hooks"]["UserPromptSubmit"]
+        hooks = [h for e in entries for h in e["hooks"] if "resume_context.py" in h["command"]]
+        self.assertEqual(len(hooks), 1)
+        self.assertEqual(hooks[0].get("timeout"), 5)
+
+
 if __name__ == "__main__":
     unittest.main()

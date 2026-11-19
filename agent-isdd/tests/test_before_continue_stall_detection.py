@@ -24,7 +24,30 @@ class BeforeContinueStallDetectionTests(unittest.TestCase):
         with open(os.path.join(design_dir, "design.md"), "w", encoding="utf-8") as fh:
             fh.write("# Design\n\n- State: Approved\n")
 
-    def test_design_approved_with_no_tasks_file_surfaces_stall(self):
+    def test_requirements_approved_with_no_design_file_surfaces_stall(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(
+                feature_dir,
+                title="My Feature",
+                current_phase="Requirements",
+                workflow_status="In Progress",
+            )
+            req_dir = os.path.join(feature_dir, "requirements")
+            os.makedirs(req_dir, exist_ok=True)
+            with open(os.path.join(req_dir, "requirements.md"), "w", encoding="utf-8") as fh:
+                fh.write("# Requirements\n\n- State: Approved\n")
+            msg, rc = h.run_hook_message(
+                "before_continue.py", {"cwd": repo}, env_extra={"HOME": home}
+            )
+            self.assertEqual(rc, 0)
+            self.assertIsNotNone(msg, "expected a stall message, got none")
+            self.assertIn("Stall", msg)
+            self.assertIn("Design", msg)
+            self.assertNotIn("marked Complete", msg)
+            self.assertIn("Approved", msg)
+
+    def test_design_approved_with_no_tasks_file_is_not_a_stall(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)
             h.seed_state_file(
@@ -38,9 +61,7 @@ class BeforeContinueStallDetectionTests(unittest.TestCase):
                 "before_continue.py", {"cwd": repo}, env_extra={"HOME": home}
             )
             self.assertEqual(rc, 0)
-            self.assertIsNotNone(msg, "expected a stall message, got none")
-            self.assertIn("Stall", msg)
-            self.assertIn("Tasks", msg)
+            self.assertIsNone(msg)
 
     def test_design_approved_with_tasks_file_present_is_not_a_stall(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:

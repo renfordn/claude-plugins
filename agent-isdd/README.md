@@ -68,6 +68,35 @@ invalid. Cross-feature file caching via agent-nelly can skip re-reading files on
 - `/isdd-board-sync` — verify the Plan Board against local state, resync stale records in one batch, prune orphaned and superseded cards after confirmation.
 - `/isdd-memory` — view or migrate this project's central memory (redirects to `agent-nelly`).
 
+## Risk levels
+
+`workflow-state.md` records `Risk: low | elevated | high` with a `Risk Reason`. Risk sets depth: **low**
+takes the compact path (`Track: Fast` allowed, review skipped), **elevated** the full path, **high** the
+full path plus a review of every slice before the feature can be marked Complete. Risk is judged by what
+the change touches, never by diff size, and can only rise. See
+`skills/spec-driven-development/references/risk-depth.md`.
+
+## Implementation Mode
+
+At the handoff you choose who implements. **Agent** (default): agent-tdd runs the slices; the Standard
+track sends `Parallel: on`, so the tdd-parallel lead fans independent slices out in waves and runs
+`test-author` for high-risk ones. **User-led**: you write the production code and the `isdd-coach` skill
+coaches (tests, reviews, next step); user mode still has agent-tdd slice the work, but never implement it.
+Claude's production edits are blocked by a guard, and switching mode is always your call.
+
+## Approval
+
+Plan approval is recorded and the requirements + design hash is frozen at the first agent-TDD spawn. If
+the scope changes afterwards you are asked to re-approve. Only after you answer an `AskUserQuestion`, the
+approval CLI records it: `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/approval.py" approve <spec_dir>` (when plan
+mode is unavailable) or `... refreeze <spec_dir>` (after re-approving changed scope).
+
+## Commands you run yourself
+
+`/isdd-rewind` and `/isdd-board-sync` can only be run by you; Claude asks you to run them rather than
+running them. The design-author, requirements-agent and isdd-coach skills are reached through the
+workflow, not invoked directly.
+
 ## Plan Board (optional)
 
 A living Artifact page that shows every feature's phase, status and next step, and stays current as

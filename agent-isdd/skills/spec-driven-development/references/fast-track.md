@@ -3,7 +3,8 @@
 `Track: Fast | Standard` (`workflow-state.md`'s Status section, `"track"` in
 `workflow-state.json`; absent/unset means `Standard` — no migration needed for in-flight
 features) is set once at Start (see Start Protocol step 6) for a small, well-defined change,
-and never changed automatically once Design begins. It changes exactly two things, both
+and never changed automatically once Design begins. Fast is allowed only when Risk is low; the
+Fast/Risk rules live in `references/risk-depth.md`. It changes exactly two things, both
 described in full where they apply:
 
 - `requirements-agent` runs its Fast Track entry mode instead of interviewing from scratch
@@ -12,9 +13,9 @@ described in full where they apply:
   just against a smaller scope.
 - The Implementation Handoff (see `references/implementation-handoff.md`) sends a single Slice
   Spec instead of a Design Spec, with `Review handoff mode: skip` — no `tasks.md` is ever
-  produced. The **inline status line** this skill renders itself (see "Visible Progress" in the
-  main SKILL.md) omits the `Tasks` segment for `Track: Fast` (`Requirements [✓] → Design [✓] →
-  Implementation [▶]`) rather than showing it as permanently pending.
+  produced. The phase tick list (see `references/ux-conventions.md`, section "Breadcrumb") omits the
+  `Tasks` segment for `Track: Fast` (`Requirements [✓] → Design [✓] → Implementation [▶]`) rather
+  than showing it as permanently pending.
 
 **Escape hatch**: if `requirements-agent` or `design-author` discovers mid-flight that the
 change is bigger than the initial classification assumed (real interface/architecture
@@ -27,9 +28,9 @@ auto-classification — it costs one course-correction, never a silent bad fit.
 
 ## design-author's Track: Fast paragraph
 
-Read by `design-author` when `Track: Fast` is set (moved here from `design-author/SKILL.md`, verbatim).
+Read by `design-author` when `Track: Fast` is set (moved here from `design-author/SKILL.md`).
 
-**`Track: Fast`** (see `spec-driven-development/SKILL.md`'s "Fast Track" section): the Design
+**`Track: Fast`** (see the top of this file): the Design
 Gate above is unchanged — still run in full, against a smaller scope. The one difference is the
 `design.md` template's Phase Decision item "Ready to move to Tasks": for `Track: Fast` it means
 "ready for direct Slice Spec handoff to `agent-tdd`" instead, since no `tasks.md` is ever

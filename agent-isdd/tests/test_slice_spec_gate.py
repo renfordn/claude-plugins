@@ -155,6 +155,15 @@ class SliceSpecGateTests(unittest.TestCase):
         self.assertEqual(decision["permissionDecision"], "deny")
         self.assertIn("Task description", decision["permissionDecisionReason"])
 
+    def test_annotated_fast_track_is_still_gated(self):
+        """Coherence review: Track is compared by first token, like state_guard."""
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="Fast Feature", track="Fast (one-liner)")
+            decision, rc = self._call(repo, home, "agent-tdd:agent-TDD", _prompt_without("Task description:"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(decision["permissionDecision"], "deny")
+
     def test_missing_test_intent_is_denied(self):
         decision, rc = self._call_fast_track("agent-tdd:agent-TDD", _prompt_without("Test Intent:"))
         self.assertEqual(rc, 0)

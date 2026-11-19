@@ -61,6 +61,8 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 - Current Phase: <Requirements | Design | Tasks | Implementation | Complete>
 - Track: <Fast | Standard>
+- Risk: <low | elevated | high>
+- Risk Reason: <one line; Risk only rises, never by diff size>
 - Previous Phase: <None | Requirements | Design | Tasks | Implementation>
 - Workflow Status: <In Progress | Blocked | Awaiting Confirmation | Awaiting Implementation Request | Complete>
 - Pause Reason: <None | blocker | confirmation required | waiting for implementation request>
@@ -77,6 +79,9 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 - Current Owner: <User | Spec Driven Development>
 - Implementation Requested: <Yes | No>
+- Implementation Mode: <agent | user>
+- Approval Hash: <hash recorded at ExitPlanMode approval>
+- Review Fallback: <None | reason a high-risk slice shipped without a reviewer run>
 
 ## Last Updated
 
@@ -101,7 +106,7 @@ Use `workflow-state.md` as a compact machine-readable summary for the workflow.
   `Current Phase: Tasks`, `spec-driven-development` re-invokes its Implementation Handoff step
   directly — rebuilding the Design Spec from the still-approved `requirements.md`/`design.md` and
   re-spawning `agent-tdd` — rather than re-entering Requirements or Design authoring.
-- `Track` is set once at Start (see `spec-driven-development/SKILL.md`'s "Fast Track" section) and absent/unset means `Standard` — no migration needed for features started before this field existed. `Track: Fast` means `requirements-agent` used its Fast Track entry mode and the Implementation Handoff will send a single Slice Spec with review skipped, never a Design Spec; no `tasks.md` is produced. It can flip from `Fast` to `Standard` mid-flight (the Fast Track escape hatch) but never the other way around.
+- `Track` is set once at Start (see `skills/spec-driven-development/references/fast-track.md`) and absent/unset means `Standard` — no migration needed for features started before this field existed. `Track: Fast` means `requirements-agent` used its Fast Track entry mode and the Implementation Handoff will send a single Slice Spec with review skipped, never a Design Spec; no `tasks.md` is produced. It can flip from `Fast` to `Standard` mid-flight (the Fast Track escape hatch) but never the other way around.
 - `Goal` is seeded once via `agent-nelly:agent-nelly` (if available) when the feature starts and rarely rewritten; `agent-nelly:agent-nelly` uses it for the goal-alignment check in every brief it returns.
 - `Workflow Status` determines whether the next action is to continue, pause, hand off, or complete.
 - `Pause Reason` must align with any unresolved blocker or confirmation checkpoint in the phase artifacts.

@@ -8,6 +8,7 @@ files were exercising dead code.
 """
 import json
 import os
+import subprocess
 import unittest
 
 import hook_test_utils as h
@@ -174,6 +175,128 @@ class PostWriteCheckJsonSyncTests(unittest.TestCase):
             )
             self.assertEqual(rc, 0)
             self.assertIsNotNone(msg)
+
+
+class PostWriteCheckSlice12Tests(unittest.TestCase):
+    """Slice 12: extra mirrored fields, baseline on phase change, stale Next Action warning."""
+
+    def _run(self, home, repo, md_fields, json_fields):
+        feature_dir = h.feature_spec_dir(home, repo)
+        md_path = h.seed_state_file(feature_dir, **md_fields)
+        json_path = os.path.join(feature_dir, "workflow-state.json")
+        with open(json_path, "w", encoding="utf-8") as fh:
+            json.dump(json_fields, fh)
+        msg, rc = h.run_hook_message(
+            "post_write_check.py",
+            {"tool_input": {"file_path": md_path}, "cwd": repo},
+            env_extra={"HOME": home},
+        )
+        with open(json_path) as fh:
+            return msg, rc, json.load(fh)
+
+    def test_new_fields_sync_to_json(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            _, rc, data = self._run(
+                home, repo,
+                {"current_phase": "Design", "track": "Standard", "risk": "high",
+                 "risk_reason": "schema", "implementation_mode": "tdd",
+                 },
+                {"current_phase": "Design"},
+            )
+            self.assertEqual(rc, 0)
+            self.assertEqual(data["track"], "Standard")
+            self.assertEqual(data["risk"], "high")
+            self.assertEqual(data["risk_reason"], "schema")
+            self.assertEqual(data["implementation_mode"], "tdd")
+
+    def _commit(self, repo):
+        subprocess.run(["git", "commit", "-q", "--allow-empty", "-m", "init"], cwd=repo, check=True)
+
+    def test_approval_fields_are_not_mirrored_from_md(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            _, _, data = self._run(
+                home, repo,
+                {"current_phase": "Design", "approval_hash": "", "approval_pending": "yes"},
+                {"current_phase": "Design", "approval_hash": "frozen1", "approval_pending": "no"},
+            )
+            self.assertEqual(data["approval_hash"], "frozen1")
+            self.assertEqual(data["approval_pending"], "no")
+
+    def test_entering_implementation_records_baseline(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            self._commit(repo)
+            _, _, data = self._run(
+                home, repo, {"current_phase": "Implementation"}, {"current_phase": "Design"})
+            self.assertIn("head", data["baseline"])
+
+    def test_other_phase_change_does_not_record_baseline(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            self._commit(repo)
+            _, _, data = self._run(
+                home, repo, {"current_phase": "Tasks"}, {"current_phase": "Design"})
+            self.assertEqual(data["current_phase"], "Tasks")
+            self.assertNotIn("baseline", data)
+
+    def test_no_phase_change_no_baseline(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            self._commit(repo)
+            _, _, data = self._run(
+                home, repo, {"current_phase": "Implementation", "risk": "low"},
+                {"current_phase": "Implementation"})
+            self.assertNotIn("baseline", data)
+
+    def test_root_state_written_before_baseline_snapshot(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            self._commit(repo)
+            _, _, data = self._run(
+                home, repo, {"current_phase": "Implementation"}, {"current_phase": "Design"})
+            final = subprocess.run(
+                ["git", "hash-object", ".sdd-state.json"], cwd=repo,
+                capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(data["baseline"]["dirty_hashes"][".sdd-state.json"], final)
+
+    def test_bash_path_syncs_new_fields_and_warns(self):
+        with h.temp_home() as home:
+            cwd = os.path.join(home, "repo")
+            os.makedirs(cwd)
+            slug = "2026-10-07-bash-s12"
+            spec = h.feature_spec_dir(home, cwd, slug)
+            h.seed_state_file(spec, current_phase="Complete", workflow_status="Complete",
+                              next_action="Ship it", risk="high")
+            json_path = os.path.join(spec, "workflow-state.json")
+            with open(json_path, "w") as fh:
+                json.dump({"current_phase": "Complete", "phase_state": "Complete"}, fh)
+            cmd = f'echo x >> "$HOME/x/sdd-memory/proj/spec/{slug}/workflow-state.md"'
+            msg, rc = h.run_hook_message(
+                "post_write_check.py",
+                {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": cwd},
+                env_extra={"HOME": home})
+            self.assertEqual(rc, 0)
+            self.assertIn("stale", (msg or "").lower())
+            with open(json_path) as fh:
+                self.assertEqual(json.load(fh)["risk"], "high")
+
+    def test_complete_with_stale_next_action_warns(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            msg, rc, _ = self._run(
+                home, repo,
+                {"current_phase": "Complete", "workflow_status": "Complete",
+                 "next_action": "Run the review"},
+                {"current_phase": "Complete", "phase_state": "Complete"},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("Next Action", msg)
+            self.assertIn("stale", msg.lower())
+
+    def test_complete_with_none_next_action_no_warning(self):
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            msg, _, _ = self._run(
+                home, repo,
+                {"current_phase": "Complete", "workflow_status": "Complete",
+                 "next_action": "None"},
+                {"current_phase": "Complete", "phase_state": "Complete"},
+            )
+            self.assertNotIn("stale", msg.lower())
 
 
 class PostWriteCheckRootStateTests(unittest.TestCase):

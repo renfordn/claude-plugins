@@ -1,4 +1,6 @@
-# Track Field Contract & Availability Check — full details
+# Track Field Contract, Availability Check & Goal Field — full details
+
+Read by `workflow-manager` for the full Track, Risk, Availability Check and Goal/Intent-alignment rules its SKILL.md summarises.
 
 ## Track Field Contract
 
@@ -12,6 +14,10 @@
 - Can flip `Fast` → `Standard` mid-flight via the Fast Track escape hatch (`requirements-agent`
   or `design-author` reporting the change is bigger than assumed); never the reverse — a
   workflow that started `Standard` stays `Standard`.
+- `Risk: low | elevated | high` (with `Risk Reason`) is separate from `Track`: Track is the spec
+  shape, Risk drives depth and review. Classification: `../../spec-driven-development/references/risk-depth.md`.
+  `state_guard` denies `Track: Fast` unless `Risk` is `low` (or blank), so a Fast start writes
+  `Risk: low` with `Risk Reason` before or together with `Track: Fast`; Risk can only rise.
 - `Track: Fast` means no `tasks/tasks.md` is ever scaffolded or written for this feature (see
   Scaffolding in the main SKILL.md) and the Implementation Handoff sends a Slice Spec, not a
   Design Spec — this changes what `spec-driven-development` does at handoff, not anything
@@ -34,3 +40,25 @@ this skill's own context. When that happens for `agent-nelly:agent-nelly` specif
 immediately correct `agent_nelly_available` to `false` in `workflow-state.json` before
 proceeding, rather than leaving the stale cached `true` for a later step to trust and fail
 against again.
+
+## Goal Field Contract (full)
+
+- Source of truth for this feature's `Goal`: `workflow-state.md`'s own `Goal` field, one line per
+  feature, written directly by the SDD workflow. It is seeded from, and alignment-checked against,
+  `agent-nelly:agent-nelly`'s stored `Intent` (one line per project; coarser than Goal, expected
+  to be consistent with it, not identical).
+- On `start`, when the Availability Check found nelly available, call it (`Agent` tool,
+  `subagent_type: agent-nelly:agent-nelly`) to read the stored Intent. If more specific than "not
+  yet captured", seed `Goal` from it; otherwise ask the user. If unavailable, always ask the user.
+- On every `before-continue`, run the Intent-alignment check inline (no nelly spawn):
+  1. Read Intent Hash from `workflow-state.md` (stored at start).
+  2. Read the current Intent Hash from session context (the `Intent: <text>` line surfaced at
+     session start, or `intent/intent.md` if the session is new).
+  3. Hashes match: `Intent Alignment Status = aligned`, no pause.
+  4. Hashes differ: `Intent Alignment Status = drift`; pause with reason "Intent has changed;
+     review and confirm direction".
+  5. No Intent available: skip the check (graceful degradation).
+  A clear divergence is pause-worthy, not something to note and continue past.
+- `workflow-state.md`'s `Goal` stays authoritative once seeded; Intent is a coarser alignment
+  signal, not a value to repair `workflow-state.md` against on every disagreement.
+- Brief cache rules (`nelly_brief_cache`): `goal-and-intent-contract.md`.

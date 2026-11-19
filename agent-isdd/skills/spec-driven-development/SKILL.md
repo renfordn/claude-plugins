@@ -5,216 +5,107 @@ description: Orchestrates the spec-driven workflow (EARS requirements, design, t
 
 # Spec Driven Development
 
-## Purpose
+Single user-facing entrypoint; routes to `workflow-manager`, `requirements-agent`, `design-author` and `research-consolidator` internally. It owns Requirements and Design only; task slicing and implementation belong to `agent-tdd` via the Design Spec handoff (see `INTEROP.md`).
 
-Use this skill when the user wants one workflow that can:
-- generate or review specs
-- enforce a spec-driven process with hard phase gates
-- research the codebase and produce a testable design
-- hand off to implementation (research validation, task slicing, Red-Green-Refactor)
-- keep visible progress (breadcrumb + checklist) and goal-aware memory throughout
+## Input
 
-This is the only user-facing entrypoint for the workflow unless the user explicitly asks for a
-focused skill by name. It routes work across the companion skills internally:
-- `workflow-manager`
-- `requirements-agent`
-- `design-author`
-- **[Phase 2+3]** `research-consolidator` (unified research, replaces separate planning-agent calls)
+A feature request, an existing ticket/PRD/draft, or continue/resume/advance of the current feature. Proceed on natural-language intents; never ask the user to name another skill.
 
-It owns Requirements and Design only. Task slicing and implementation are owned by agent-tdd
-(`agent-tdd`), invoked once via a one-directional Design Spec handoff — this skill never drives
-task slicing, the Red-Green-Refactor loop, or the implementation code-review gate itself (only `design-author`'s one Deep design review is requested from this side). See `INTEROP.md` at
-the repo root for the full handoff contract.
+## Output
 
-The user should not need to manually prompt each phase skill in order to move through the
-workflow.
+`requirements.md`, `design.md`, `recap.md` and `workflow-state.md` (source of truth for phase and continuation), then an `agent-tdd` handoff. Status responses start with one inline line: `**SDD** Requirements [✓] → Design [▶] → Tasks [·] → Implementation [·]`; at each phase transition call `mark_chapter`, then render the breadcrumb; keep the phase checklist current (`TaskList` before `TaskCreate`, refreshed on each status change). Detail: `references/ux-conventions.md` (plugin root).
 
-## Entry Commands
+## Done when
 
-Support these natural-language intents through this single skill: start the workflow, continue
-it, resume this feature's workflow, advance to the next phase, continue from the current phase.
-Interpret the request and continue automatically — never ask the user to name another skill
-first.
+The handoff to `agent-tdd` is made, `workflow-state.md` and `recap.md` match. Complete is set only after every high-risk slice is reviewed (R3, enforced by `complete_guard`).
 
 ## Workflow Contract
 
-Phase-driven, always in this order: `Requirements` → `Design` → `Tasks` → `Implementation`.
-`Recap` is maintained throughout as ongoing memory and handoff context. `workflow-state.md` is
-the source of truth for current phase and continuation state. `Implementation` here means "the
-handoff to `agent-tdd` has been made" (a Design Spec, or — for `Track: Fast` — a Slice Spec; see
-`references/fast-track.md`) — this skill's own responsibility ends there.
+`Requirements` → `Design` → `Tasks` → `Implementation`; never skip a phase that is incomplete or blocked. `Implementation` means the handoff was made (Design Spec, or a Slice Spec for `Track: Fast`, see `references/fast-track.md`).
 
-Do not skip forward across phases unless the current phase is complete and not blocked.
-
-## Review Level Guidance per Phase
-
-Each ISDD phase uses specific `/code-reviewer` review levels to validate artifacts at appropriate
-depth, tailored to each phase's concerns. See `references/review-levels.md` for the full
-per-phase table, review-level definitions, and how findings feed back into each phase.
-
-## Fast Track
-
-`Track: Fast | Standard` is set once at Start for a small, well-defined change and changes how
-`requirements-agent` enters and how the Implementation Handoff is shaped (Slice Spec instead of
-Design Spec, no `tasks.md`). See `references/fast-track.md` for the full contract, including the
-escape hatch back to `Track: Standard`.
-
-## Visible Progress (every phase-transition or status response)
-
-Two distinct rendering paths — use the right one based on whether a phase transition is occurring:
-
-**Phase transitions** (Requirements → Design → Tasks → Implementation, or a restart/rewind):
-call `mark_chapter` directly, then render the breadcrumb below. See
-`references/ux-conventions.md` (plugin root) for chapter and breadcrumb rules.
-
-**Status responses that are not a phase transition**: render the progress line **inline** —
-no chapter mark. Format:
-
-```
-**SDD** Requirements [✓] → Design [▶] → Tasks [·] → Implementation [·]
-```
-
-Use `workflow-state.md` to determine each phase's status marker: `✓` approved/complete,
-`▶` in progress, `✗` blocked, `·` pending. Emit the line before the rest of the response.
-
-Render/refresh the phase `TaskCreate` checklist in the same response: self-load the three
-tools via `ToolSearch` (`select:TaskCreate,TaskUpdate,TaskList`) once per session if not already
-loaded, call `TaskList` to check for existing items before creating, then `TaskCreate`/
-`TaskUpdate` per `references/ux-conventions.md`'s Phase tick list rules.
+- **Approval is `ExitPlanMode` only.** Requirements auto-advance once they pass the gate; ask with `AskUserQuestion` only for real gaps (Open Gaps, hash re-approval, review fallback, mode choice). The approval hash is frozen at the first agent-TDD spawn; the spec gates deny a missing or mismatched hash.
+- **Risk-scaled depth.** `Risk: low | elevated | high` with `Risk Reason`; depth and review scale with it. Fast only at `low`, Standard never becomes Fast, risk only rises. Signals and depth table: `references/risk-depth.md`; `state_guard` enforces it.
+- **Phase review levels** are in `references/review-levels.md` (Review Level Guidance per phase: Standard, Deep, Ultra).
+- **Fast Track** (`Track: Fast | Standard`, set once at Start): Slice Spec instead of Design Spec, no `tasks.md`; see `references/fast-track.md`.
+- **User-led mode.** When `Implementation Mode` is `user`, point the user to the `isdd-coach` skill; `user_led_guard` blocks non-test edits. Change the mode only on the user's say-so.
 
 ## Goal-Aware Memory
 
-Before starting or continuing meaningful phase work, when agent-nelly is available (per the
-Availability Check defined in `workflow-manager/SKILL.md`), delegate to
-`agent-nelly:agent-nelly` for a holistic brief (Intent, Relevant entries, Intent alignment,
-Written) instead of reading `${CLAUDE_PLUGIN_DATA}/sdd-memory/` files directly. If it flags an
-Intent-alignment concern, surface it to the user before proceeding — don't silently continue
-past a stated drift. Reuse an already-fetched brief or subagent finding within the same
-continuous stretch of phase work rather than re-fetching. See `references/goal-aware-memory.md`
-for the full reuse/re-fetch trigger rules, brief-caching mechanics, and the memory write-back
-contract at phase boundaries.
+Before meaningful phase work, when agent-nelly is available (Availability Check in `workflow-manager/SKILL.md`), delegate to `agent-nelly:agent-nelly` for a brief instead of reading `${CLAUDE_PLUGIN_DATA}/sdd-memory/` directly. Surface Intent-alignment concerns first. Reuse/re-fetch rules and write-back: `references/goal-aware-memory.md`.
 
 ## Start Protocol
 
-0. **Review follow-ups.** If SessionStart listed open ones and the request is vague or overlaps an item's files, see
-   step 0 in the start-protocol reference.
-1. Use `workflow-manager` to identify or derive the feature title and slug, and to scaffold or
-   locate the per-feature artifact structure (including `intent/` directory).
-2. If `agent-nelly:agent-nelly` is available, call it to read the project's stored
-   Intent and seed the feature's `Goal` field in `workflow-state.md` from it when Intent is more
-   specific than "not yet captured". Otherwise ask the user for the Goal directly.
-3. Before step 5 read `references/start-protocol.md` (steps 3, 4, 6: `intent/intent.md` + anchor, `Intent Hash`, `Track`
-   classification) and follow its step 3 (create `intent/intent.md`).
-4. Record `Intent Hash` and `Intent Alignment Status: unreviewed` in `workflow-state.md` (start-protocol reference, step 4).
+0. **Review follow-ups.** If SessionStart listed open ones and the request is vague or overlaps an item's files, see step 0 in the start-protocol reference.
+1. Use `workflow-manager` to derive the title and slug and to scaffold or locate the feature structure (including `intent/`).
+2. If `agent-nelly:agent-nelly` is available, seed `Goal` from its stored Intent when more specific than "not yet captured"; otherwise ask the user.
+3. Before step 5 read `references/start-protocol.md` (steps 3, 4, 6: `intent/intent.md` + anchor, `Intent Hash`, `Track` classification) and follow its step 3 (create `intent/intent.md`).
+4. Record `Intent Hash` and `Intent Alignment Status: unreviewed` (start-protocol reference, step 4).
 5. Initialize `workflow-state.md` with `Current Phase: Requirements` and `recap.md` to match.
-6. **Fast Track classification** (small, well-defined change? set `Track: Fast` or `Standard`): start-protocol reference, step 6.
-7. Route into `requirements-agent`: it interviews from scratch when the input is vague, or
-   reviews-and-rewrites when the user hands over an existing ticket/PRD/draft, or — when
-   `Track: Fast` — drafts and self-approves a minimal requirement directly (its own Fast Track
-   entry mode; see `requirements-agent/SKILL.md`) — three entry modes, same gate.
-8. **After Requirements are approved, immediately invoke `design-author` in this turn** (see
-   "Turn Management: Continuation Guarantee" below for the critical constraint). Do not end your
-   turn after approving requirements — advance to Design without stopping.
-9. **After Design is approved, immediately prepare and invoke `agent-tdd` for Implementation
-   handoff in this turn** (same constraint applies). Do not end your turn after approving design
-   — proceed to handoff without stopping.
-10. After Implementation handoff, stop with a clear handoff message. (Implementation ownership
-    transfers to `agent-tdd`.) If `workflow-state.md` has a `Follow-up: <id>`, mark it `done` with
-    the same `followups.py set` command once the implementation is reported complete.
+6. **Fast Track classification** and `Risk` (small, well-defined change? `Track: Fast` needs `Risk: low` written with or before it): start-protocol reference, step 6; classify `Risk` per `references/risk-depth.md`.
+7. Route into `requirements-agent` (interview, rewrite, or Fast Track).
+8. When Requirements pass the gate, invoke `design-author` in this turn.
+9. When Design is approved via `ExitPlanMode`, prepare and invoke `agent-tdd` in this turn (`Parallel: on` for 4+ slices; on `slicing_complete` with waves run `agent-tdd:tdd-parallel`; details in `references/implementation-handoff.md`).
+10. After handoff, stop with a clear handoff message. If `workflow-state.md` has `Follow-up: <id>`, mark it `done` with `followups.py set` once implementation is reported complete.
 
 ## Continue Protocol
 
-On continue/resume: FIRST run the Rollback Request Check (`rollback_pending` in `workflow-state.json`; if set, surface it and stop), THEN read `references/continue-protocol.md` before acting.
+On continue/resume: FIRST run the Rollback Request Check (`rollback_pending` in `workflow-state.json`; if set, surface it and stop), THEN read `references/continue-protocol.md` before acting. The `UserPromptSubmit` hook (`resume_context`) injects what changed since the baseline (branch, head, files).
 
 ## Turn Management: Continuation Guarantee
 
 **Critical constraint to prevent mid-workflow stalls:**
 
-After advancing to a new phase (Requirements → Design → Tasks → Implementation), the orchestrator **must stay in this turn** to invoke the next phase skill. Providing guidance, decisions, or explanations at a phase boundary is not a stopping point — it is a prerequisite to invoking the next skill.
+After advancing to a new phase, stay in this turn and invoke the next phase skill. Guidance, decisions or explanations at a phase boundary are a prerequisite to invoking the next skill, not a stopping point. The stall Stop hook only backstops one case (Requirements approved, no `design.md`, once per change); it is not a general guarantee.
 
 ### When to NOT End Your Turn
-- **After Requirements approval**: You have approved requirements. Do NOT stop here. Immediately invoke `design-author` in this turn.
-- **After Design approval**: You have approved design. Do NOT stop here. Immediately invoke `agent-tdd` for implementation handoff in this turn.
-- **After delegating to a subagent**: You invoked `design-author`, `research-consolidator`, or another subagent. Do NOT end your turn and wait passively. When the subagent's work is complete, immediately integrate its results and continue to the next phase in this turn.
+- **After Requirements pass the gate**: requirements auto-advance. Immediately invoke `design-author` in this turn.
+- **After Design approval**: Immediately invoke `agent-tdd` for implementation handoff in this turn.
+- **After delegating to a subagent**: integrate its results and continue to the next phase in this turn; never wait passively.
 
 ### Guidance is a Step, Not a Stop
-Providing guidance ("These are the tradeoffs," "Consider this approach," "Next we'll...") or decisions ("Proceed with Category 1") is an intermediate step within a turn, not a turn-ending checkpoint. **Always follow guidance with the next actionable step** — invoke the next skill or confirm a decision — in the same turn. If you cannot proceed in this turn, explicitly tell the user why and ask for permission to pause.
+Guidance is an intermediate step. Follow it with the next actionable step in the same turn. If you cannot proceed, say why and ask permission to pause.
 
 ### Exception: Explicit Pause Conditions
 Stop your turn **only** when:
-1. A hard gate blocks you (Requirements ambiguous, Design contradicts requirements) → surface the blocker and pause for user input
-2. The user explicitly asks you to stop or wait for confirmation
-3. The next phase requires the user's explicit permission (`EnterPlanMode` gate, implementation approval)
+1. A hard gate blocks you (Open Gaps in Requirements, Design contradicts requirements) → surface the blocker and ask via `AskUserQuestion`
+2. The user explicitly asks you to stop or wait
+3. The next step needs the user's approval: the `ExitPlanMode` design approval, or an `AskUserQuestion` for a real gap
 
-If none of these apply, **do not end your turn.**
-
-### Recovery from Stalls
-If you realize mid-turn that you provided guidance and ended without invoking the next skill, **do not rely on the user to notice and run /isdd-continue**. Recognize the stall immediately and invoke the next phase skill retroactively in your very next message — the session may have ended, but the workflow state already reflects phase completion, so continuing via `/isdd-continue` will resume correctly.
+Otherwise **do not end your turn.** If you ended a turn after guidance without invoking the next skill, invoke it in your very next message; `workflow-state.md` already reflects the phase, so `/isdd-continue` resumes correctly.
 
 ## Internal Routing Rule
 
-Read `references/routing-and-task-tracker.md` (Internal Routing Rule) when deciding whether to name `workflow-manager`, `requirements-agent` or
-`design-author` to the user: use focused skills internally, never ask the user to switch prompts.
+Read `references/routing-and-task-tracker.md` (Internal Routing Rule) when deciding whether to name `workflow-manager`, `requirements-agent` or `design-author` to the user, and `references/routing-and-task-tracker.md` (Task Tracker Sync: `TaskCreate`/`TaskUpdate`/`TaskList`) at phase transitions: use focused skills internally, never ask the user to switch prompts.
 
 ## Subagent Delegation
 
-Three capabilities are delegated to subagents: `spec-reviewer` (assess an existing draft), **[Phase 2+3]**
-`research-consolidator` (unified research during Design), and the external `agent-nelly:agent-nelly` (goal-aware
-brief). Read `references/subagent-delegation.md` when delegating to any of them, for the roles and delegation rules.
+`spec-reviewer`, `research-consolidator` and `agent-nelly:agent-nelly` are delegated to; read `references/subagent-delegation.md` before delegating. Subagents cannot talk to the user. **You** own every user-facing confirmation: surface the report, get confirmation, then update `workflow-state.md` and `recap.md` yourself.
 
-Subagents cannot talk to the user. **You** own every user-facing confirmation checkpoint: take a subagent's
-returned report, surface it, get confirmation, then update `workflow-state.md` and `recap.md` yourself.
+## Implementation Handoff
 
-## Implementation Handoff (Phase 2+3 revised)
+Read `references/implementation-handoff.md` when starting the handoff to `agent-tdd`: Standard sends a Design Spec with `Parallel: on` and you lead `agent-tdd:tdd-parallel`; Fast sends one serial Slice Spec (`Review handoff mode: skip`). Ask Implementation Mode first.
 
-Read `references/implementation-handoff.md` when starting the Implementation handoff: one one-directional handoff to
-`agent-tdd` (`Track: Standard` sends a Design Spec; `Track: Fast` a Slice Spec with `Review handoff mode: skip`);
-spec construction, fallbacks and write-back are in that reference.
+**Second trigger: `Current Phase: Tasks` on continue.** A rollback-landing state; treat it like Design-approved: rebuild the spec from the still-approved `requirements.md`/`design.md` and re-spawn `agent-tdd:agent-TDD` (rule in `workflow-manager/SKILL.md`'s `continue` Action Rule).
 
-**Second trigger: `Current Phase: Tasks` on continue.** A rollback-landing state; treat it
-identically to the Design-approved trigger above (rebuild the Design Spec or Slice Spec from the
-still-approved `requirements.md`/`design.md`, re-spawn `agent-tdd:agent-TDD`). The full rule lives
-in `workflow-manager/SKILL.md`'s `continue` Action Rule.
+## Code-Reviewer Checkpoint Tracking
 
-## Code-Reviewer Checkpoint Tracking (High-Risk Slices)
-
-After agent-tdd spawns and begins Red-Green-Refactor, it marks each slice with a Risk Tier
-(`standard` or `high-risk`). On each `agent-tdd` `SubagentStop`, the `high_risk_reviewer` hook
-tracks high-risk phases (and standard phases touching a high-risk file path) and surfaces a
-passive reminder — no automatic invocation or auto-resume. See
-`references/code-reviewer-checkpoint.md` for the full contract, the tracking config shape, the
-historical correction this supersedes, and the inventory of helpers that only tests use.
+agent-isdd's `SubagentStop` hook on code-reviewer stops (`review_tracking`) is the sole writer of the reviewed map, and a review counts only when the code-reviewer prompt carries `Review scope: slice=N`. `Risk: high` needs every slice reviewed; `complete_guard` blocks Complete otherwise. Fallback: `AskUserQuestion`, recorded as `Accepted via AskUserQuestion: <ids|all>: <reason>`. Contract: `references/code-reviewer-checkpoint.md`.
 
 ## Requirements Gate
 
-Read `references/requirements-gate.md` when judging whether Requirements may advance (the Requirements Gate:
-EARS format, no unresolved ambiguity) or when the user hands over an existing ticket/PRD/spec. Never treat incoming
-material as automatically sufficient for phase advancement.
-
-## Existing Ticket Or PRD Handling
-
-See the Requirements Gate section above.
+Read `references/requirements-gate.md` when judging the Requirements Gate (may Requirements advance? EARS format, no unresolved ambiguity) or when the user hands over an existing ticket/PRD/spec; incoming material is never automatically sufficient.
 
 ## Phase Gating
 
-Phase gating, auto-advance rules, pause conditions, and state repair are governed entirely by
-`workflow-manager` — see its `SKILL.md`.
+Auto-advance, pause conditions and state repair: `workflow-manager`.
 
 ## Native Plan Mode
 
-`workflow-manager` owns entering (`EnterPlanMode` at `before-design`) and exiting (`ExitPlanMode` at handoff) native plan mode; it is a
-user-facing approval checkpoint, in addition to the Requirements and Design gates. Read
-`../workflow-manager/references/native-plan-mode.md` before either call.
-
-## Task Tracker Sync
-
-Read `references/routing-and-task-tracker.md` (Task Tracker Sync) when calling `TaskCreate`/`TaskUpdate`/`TaskList` at a phase transition
-(see also "Visible Progress" above).
+`workflow-manager` owns `EnterPlanMode`/`ExitPlanMode`, a user-facing approval checkpoint: read `../workflow-manager/references/native-plan-mode.md` before either call.
 
 ## Artifact Convention
 
-Read `../workflow-manager/references/scaffolding.md` when scaffolding or writing per-feature artifacts (layout is `workflow-manager`'s);
-templates are in `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`.
+Read `../workflow-manager/references/scaffolding.md` when scaffolding or writing per-feature artifacts; templates are in `${CLAUDE_PLUGIN_ROOT}/references/artifact-templates.md`.
 
 ## Writing Style
 

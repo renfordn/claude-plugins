@@ -8,6 +8,8 @@ import json
 import os
 import re
 
+import markers
+
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _ITEM = re.compile(r"^\s*[-*]\s+(?:\[([ xX])\]\s*)?(\S.*?)\s*$")
 
@@ -78,13 +80,35 @@ def _design(text):
             "openQuestions": _items(_section(text, "Open Questions"), open_only=True)}
 
 
+_MARKER_LINE = re.compile(r"^\s*<!--\s*SLICE-ID:\s*(" + markers.ID + r")\s*-->\s*$")
+
+
+def _slice_n(ident):
+    return int(ident) if ident.isdigit() else markers.normalize_slice_id(ident)
+
+
 def _slices(text, state_path, closed=False):
-    items, cur = [], None
+    items, cur, marked, fenced = [], None, False, False
     for line in text.splitlines():
-        m = re.match(r"^##\s+Slice\s+(\d+)\s*:\s*(.*?)\s*$", line)
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        # Only `##` headings: tasks.md slices are level-2; deeper headings are sub-sections.
+        m = re.match(r"^##\s+Slice\s+(" + markers.ID + r")\s*:\s*(.*?)\s*$", line)
         if m:
-            cur = {"n": int(m.group(1)), "title": m.group(2), "tier": ""}
+            ident = m.group(1)
+            cur = {"n": _slice_n(ident),
+                   "title": m.group(2), "tier": ""}
             items.append(cur)
+            marked = False
+            continue
+        mk = _MARKER_LINE.match(line)
+        if mk and cur is not None and not marked:
+            ident = mk.group(1)
+            cur["n"] = _slice_n(ident)
+            marked = True
             continue
         t = re.match(r"^\*\*Risk Tier:\*\*\s*(\S+)", line)
         if t and cur is not None and not cur["tier"]:

@@ -8,275 +8,42 @@ for both agent-isdd's own maintainers and the sibling plugins' maintainers to cr
 > since been finalized. The refactor's requirements/design/tasks live in the author's local SDD
 > memory (machine-local, not in this repo).
 
+
 ## → agent-tdd (implementation, Phase 2+3 revised)
 
-**[Phase 2+3]** At the end of Design, once Design is approved and implementation is requested,
-`agent-isdd` constructs a **Design Spec** from the approved `requirements.md`/`design.md`, the
-cached research findings, and pre-fetched file summaries, then spawns `agent-tdd` for research
-validation, task slicing, and implementation.
+At the end of Design, once Design is approved and implementation is requested, `agent-isdd` builds a
+**Design Spec** (requirements_md, design_md, research_cache incl. the per-repo line-count ceiling
+`{value, source}`, recap_md; optional file_summaries) and spawns `agent-tdd`. `Track: Standard` always
+sends `Parallel: on` and, on the wave plan, acts as the `agent-tdd:tdd-parallel` lead; `Track: Fast`
+stays serial. Implementation Mode (`agent`/`user`) is asked before the spawn unless the user already stated it.
 
-**Design Spec** includes:
+Full contract (Design Spec field table, Test-Author Gate, Code-Review Gate, Design Spec completeness
+gate and approval hash, availability check, Direct Implementation fallback, Parallel handoff):
+[`references/interop-agent-tdd.md`](references/interop-agent-tdd.md).
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| requirements_md | string | yes | Full approved requirements.md |
-| design_md | string | yes | Full approved design.md (with Research Basis section) |
-| research_cache | object | yes | Research findings including design_findings, task_findings, file_summaries, git_hashes, and the resolved per-repo line-count ceiling (`{value, source}`) |
-| recap_md | string | yes | Summarized recap of summary, known risks, blockers, and Goal alignment notes |
+## ← agent-tdd / code-reviewer, → code-reviewer, Strategic Review Placement
 
-**Optional fields** (passed through but not validated):
+Rollback request markers (`rollback_pending`, `SDD-ROLLBACK-REQUEST`), the review gate, review
+follow-ups, Strategic Review Placement, Ralph Loops integration, Auto-Detection Rules and review
+tracking: [`references/interop-reviewers.md`](references/interop-reviewers.md).
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| file_summaries | object | no | Pre-fetched file summaries from agent-nelly cache (if available), merged into research_cache for files not already covered by fresh file_summaries — see skills/spec-driven-development/references/implementation-handoff.md's Standard step 2 for deduplication rationale |
+## Moved sections (index for older citations)
 
-**Agent-tdd responsibilities** (Phase 2+3):
-1. **Research Validation** (validate only — never re-researches)
-   - Validate design.md's file touchpoints against research cache
-   - If cache is thin or inconsistent: flag the exact gaps and pause; agent-isdd runs the
-     targeted `research-consolidator` on those gaps and resumes (agent-tdd does not re-research)
-   - If design contradicts research: escalate back to agent-isdd
+Sections other docs cite as "`INTEROP.md`'s …" now live in the split references:
 
-2. **Task Slicing** (produce `tasks.md`)
-   - Produce phased, TDD-sized slices from Design + task_findings
-   - Validate slice safety (3 files max, testable, acyclic dependencies)
-   - Assign Risk Tiers (high-risk → spawn test-author first)
-
-3. **Implementation** (Red-Green-Refactor per slice, existing behavior)
-
-This is a **one-directional handoff**: agent-isdd does not resume or monitor agent-tdd past
-the initial spawn, with two scoped exceptions — Test-Author Gate (immediately below) and Model
-Escalation (**corrected 2026-09-24**: this used to say "one scoped exception," stale since
-`hooks/model_escalate_marker.py` added automatic re-spawn-at-higher-tier handling in 0.1.39; see
-`hooks/subagent_report.py`'s model-escalation detection (at agent-TDD's SubagentStop) and `agent-tdd/references/
-escalation-paths.md`'s "Model Insufficiency (Model Escalation)" section for the marker `agent-tdd`
-emits — note the marker vocabulary and resume flow are documented on the `agent-tdd` side and in
-this hook's own docstring, not elsewhere in this file). Task slicing happens inside agent-tdd
-(not handed back to agent-isdd as Slice Specs). Escalations back to agent-isdd (design
-contradicts research, research too thin) pause with explicit reason; agent-isdd resumes via its
-`before-continue` hook when user re-enters after addressing the escalation.
-
-**Exception — Test-Author Gate (automatic, `spec-driven-development` skill-driven,
-added 2026-09-16)**: `agent-tdd` already determines every slice's Risk Tier during Task Slicing
-and Risk Tier Assignment (Phases 2 and 4 below), *before* per-slice implementation begins — so a
-high-risk slice needing `test-author` is never actually discovered mid-pipeline, it's known at
-the `slicing_complete` checkpoint. When `tasks.md` contains at least one `high-risk` slice,
-`agent-TDD` stops there and hands back a report naming them (its **High-Risk Slices** field —
-see `agent-tdd`'s own `agents/agent-TDD.md`). `hooks/high_risk_reviewer.py` (on `SubagentStop`)
-detects this and writes `test_author_pending` to `workflow-state.json`, structurally parallel to
-this file's existing `rollback_pending` field.
-`skills/spec-driven-development/references/implementation-handoff.md`'s Standard step 6 reads it,
-spawns `agent-tdd:test-author` once per named slice,
-bundles the results, and resumes the same `agent-TDD` instance via `SendMessage` — the *only*
-point this skill ever resumes `agent-tdd`. Zero high-risk slices means zero behavior change:
-`agent-TDD` proceeds straight through exactly as before this exception existed. This closes a
-gap from an earlier attempt at the same problem (a caller-side marker,
-`TEST_AUTHOR_NEEDED_MARKER`, added and then removed the same day it was added, once it became
-clear no marker was needed at all — see `hooks/subagent_report.py`'s own comment for that
-history).
-
-**Exception — Code-Review Gate (manual, caller-driven)**: `agent-TDD`'s Review pause between
-Green and Refactor is mandatory for *every* slice (see `agent-tdd`'s own `INTEROP.md`, "The
-mandatory review pause"), not just high-risk ones — the passive checkpoint tracking described in
-`skills/spec-driven-development/references/code-reviewer-checkpoint.md` only covers high-risk
-slices and standard slices that touch a high-risk file path (and it only reminds, it never
-invokes), so every slice still goes through this manual path. Corrected
-2026-09-15: this used to (incorrectly) claim the `before-continue` hook detects agent-tdd's
-paused state and auto-resumes it via `SendMessage`; neither `hooks/before_continue.py` nor
-`spec-driven-development/SKILL.md` implement that — both explicitly disclaim owning
-resumption of a paused `agent-tdd` (see their own source comments/scope notes) — and a hook
-could not do this even in principle: hooks are blocking subprocesses with no `Agent`/`SendMessage`
-tool access, the same constraint documented for `agent-nelly`'s hook-bound-consumer pattern in
-its own `INTEROP.md`.
-
-What actually happens, matching `agent-tdd`'s own generic guidance ("What you do with that
-pause is up to you" / resume via `SendMessage`): the user (or whichever context is driving)
-runs an independent review (`code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠
-author)": spawn the reviewer agent, else its headless script, else a labelled self-review), then
-manually resumes the still-live `agent-tdd` session —
-via `SendMessage` to its agent id, in the *same* session — passing along whether/what review
-found. This is a same-session, live-agent-id operation; it has no relationship to
-`/isdd-continue` or `workflow-state.json`, both of which resume the SDD *workflow* across
-sessions, not a specific paused subagent instance within one.
-
-### Agent-tdd Design Spec workflow (pointer)
-
-`agent-tdd/agents/agent-TDD.md`'s "Design Spec workflow" is the authoritative definition of what
-`agent-tdd` does with a Design Spec: research validation (validate only), task slicing (one
-behavior per slice, at most 3 files, acyclic Depends On, prerequisite `fix`/`refactor` slices
-ordered first), a validation pass ("Ralph Loops": size, dependency, traceability; re-slice at most 3 rounds, else escalate), Risk Tier
-assignment, and a readiness check. This file does not restate those rules; it only pins the
-agent-isdd side of the boundary: the Design Spec fields above, the escalations that return here
-(research too thin, design contradicts research, slicing blocked by the design, or a high-risk
-slice that cannot be split without a product decision), and the handoff report.
-
-**Handoff Report Format:** marker-tagged with `<!--AGENT-TDD-PHASE:slicing_complete-->` and the fields
-**Research Validation**, **Task Slicing**, **Risk Tier Distribution**, **High-Risk Slices** (exact names
-or "none"), **Readiness Verdict** (`ready for implementation`, or `paused` with the reason),
-**Tasks File Path**, **Handoff Facts**, and **File Summaries**. `agent-tdd/agents/agent-TDD.md`
-(Design Spec workflow) and `agent-tdd/INTEROP.md`'s "Design Spec Handoff Report" are authoritative for the
-exact shape.
-
-**After Tasks readiness passes:**
-- If verdict == `ready` and no slice is `high-risk`: proceed to Red-Green-Refactor per slice
-  directly (existing agent-tdd behavior, unchanged).
-- If verdict == `ready` and one or more slices are `high-risk`: stop and hand back the report
-  (naming them) instead of proceeding — see "Exception — Test-Author Gate" above for the full
-  contract. This is not an escalation/pause in the sense of the paths below (nothing is wrong;
-  the plan is fine); it's a different reason to return, requiring `test-author` output before
-  implementation can start.
-- If verdict == `paused`: return reason; user re-enters agent-isdd to address it.
-- Do NOT proceed to implementation until readiness checklist fully passes, and (when
-  applicable) until the Test-Author Gate has been satisfied.
-
-**Design Spec completeness gate**: `hooks/design_spec_gate.py` (`PreToolUse`, matcher `Agent`,
-scoped to `subagent_type: agent-tdd:agent-TDD`) hard-denies the spawn unless the active
-feature's `requirements.md` and `design.md` are both `State: Approved` on disk — modeled on
-`slice_spec_gate.py`'s `deny()` shape. `slice_spec_gate.py` validates a different, incompatible
-(Slice Spec) schema and is not involved in this Design Spec path — it was removed from
-`hooks.json` when Phase 2+3 eliminated unconditional per-slice Slice Spec validation, then
-**re-enabled 2026-09-17** scoped to `Track: Fast`'s single-slice Slice Spec handoff (the hook
-itself reads `workflow-state.json`'s `Track` and no-ops for `Track: Standard` — see
-`tests/test_hooks_json.py`'s `test_slice_spec_gate_reenabled_for_fast_track`). Read-only; never
-mutates state; falls through with no decision when no SDD workflow is active at all.
-
-**Availability check**: unlike `agent-nelly`, which is checked eagerly at `before-requirements`
-and cached in `workflow-state.json` because it is used throughout the workflow, `agent-tdd` is
-only needed once — at the handoff. Check availability inline at that point by scanning the
-current session's `<system-reminder>` agent-types block for the string `agent-tdd:agent-TDD`.
-No caching or `workflow-state.json` field is needed. If absent, pause with a concrete,
-actionable message (e.g. "agent-tdd is not installed in this session — install it before
-requesting implementation") rather than attempting the work internally.
-
-**Fallback — Direct Implementation (harness `Agent`-spawn failure)**: distinct from
-"`agent-tdd` not installed" above, this covers the case where `agent-tdd:agent-TDD` *is*
-installed but every attempt to spawn it fails at the tool-call layer itself — a genuine Claude
-Code harness bug, not something a differently-worded prompt, a retry, or a different spawn
-call-site can work around. First observed 2026-09-15 on the `2026-09-15-expand-error-logger`
-feature (investigation notes live in that feature's `workflow-state.md` in the author's local SDD
-memory, not in this repo, so this is unverified here): a PreToolUse hook rejected the `Agent`
-call with `"description type expected as string but provided as unknown"`. The author's
-investigation attributed it to the harness (no enabled hook was thought to be producing that
-`updatedInput`, and the failure reproduced for a plain `claude` agent type), i.e. it blocks *all*
-`Agent`-tool spawns in the affected session, not something specific to this handoff.
-
-**Detection** — treat the spawn as harness-blocked, not a one-off flake, only once **all** of
-these hold:
-1. The `Agent` call fails with a `PreToolUse` schema-validation error on the tool call itself
-   (not an error returned *by* the spawned agent).
-2. A repeat attempt with the same Design Spec reproduces the identical error text.
-3. A trivial `Agent` spawn to an unrelated agent type (e.g. plain `claude`) in the same session
-   also fails the same way — confirming it's session/harness-wide, not specific to
-   `agent-tdd:agent-TDD` or to this feature's Design Spec content.
-
-Do not retry blind beyond this. If a later `/isdd-continue` session re-hits a rollback or
-escalation that traces back to this same blocker, check for a harness fix first (retry once)
-rather than repeating the full investigation.
-
-**Fallback action** — once confirmed harness-blocked, `agent-isdd` (or whichever skill/session is
-driving) invokes `agent-tdd:design-spec-direct`
-(`agent-tdd/skills/design-spec-direct/SKILL.md`) via the `Skill` tool, never `Agent` — that skill
-exists specifically because a `Skill` call is not subject to this harness bug. It reproduces
-Design Spec Mode's Research Validation/Task Slicing/Ralph Loops/Risk Tier Assignment (its `plan`
-sub-mode) and Slice Spec Mode's per-slice Red/Green/Review/Refactor contract (its `test-author`/
-`slice`/`refactor` sub-modes), one slice at a time, with `agent-isdd` itself owning the loop
-instead of trusting an isolated subagent to run it unsupervised:
-
-1. Call `plan` once → `tasks.md` + readiness verdict. Escalate exactly as a real `agent-TDD`
-   spawn would on a `paused` verdict.
-2. For each slice in dependency order: if `high-risk`, call `test-author <slice-id>` first
-   (passing only Task description/Test Intent/Data Contracts — see that skill's own prompt-
-   hygiene rule for why), then call `slice <slice-id>` → "Implementation Complete" handoff
-   (Red confirmed, Green done, Refactor still pending).
-3. Review that slice's touched files with the headless independent reviewer
-   (`code-reviewer/INTEROP.md`'s "Independent review (reviewer ≠ author)", path 2 — skip the
-   spawn attempt, it's already known broken here). Reviewing inline with the skill would be this
-   same conversation grading its own code; do that only if the headless run also fails, labelled
-   `self-reviewed`.
-4. No blocking finding → call `refactor <slice-id>`, mark the slice done, advance to the next
-   slice. Blocking finding → pause on this slice; do not call `refactor` and do not advance.
-5. Once every slice is `done`, call `summary` → final handoff. Run the full regression suite
-   (not just new tests) and confirm no unrelated pre-existing failures were introduced.
-6. Record in `workflow-state.md`: that this was a direct-implementation fallback (not a normal
-   `agent-tdd` handoff), the harness bug's signature and detection evidence, and the review/
-   regression results — so a later session doesn't mistake "implemented directly" for "never
-   implemented" or re-attempt an already-fixed handoff blindly. Persist per-slice progress in
-   `direct-mode-state.json` (see `design-spec-direct/SKILL.md`'s "Caller-owned loop" section) so
-   a session restart mid-loop resumes at the right slice.
-
-This preserves the *procedural* shape of test-author's isolation (a test written before its
-implementer commits to an approach) and every per-slice review checkpoint a real spawn would
-have — see that skill's "What is genuinely lost" section for what a `Skill` call cannot
-replicate (true context isolation, agent-enforced loop prevention) even with this structure.
-
-This is a fallback, not a preferred path — always attempt the real `agent-tdd:agent-TDD` spawn
-first on every fresh attempt at this handoff; only fall back once Detection's three conditions
-are all met for *that* attempt.
-
-## ← agent-tdd / code-reviewer (rollback request)
-
-Sometimes `agent-tdd`'s Green→Refactor review pause (or `code-reviewer`) discovers that the
-*task* itself — not just the implementation — was wrong. There is no cross-plugin IPC to build
-a live push channel for this, so the return path is a documented marker convention plus a
-check `agent-isdd` performs on its own re-entry, not agent-isdd reaching into `agent-tdd`'s
-active loop. Two genuinely different marker formats feed two different paths below — this used
-to be documented as one marker with two delivery paths, which was wrong: `agent-tdd` never emits
-SDD-specific vocabulary (see its own `INTEROP.md`), so it cannot literally emit the human-relay
-marker below itself. That was a real gap, not just a documentation gap — closed by giving
-`agent-tdd` its own generic marker instead of assuming it would speak agent-isdd's.
-
-**Automatic path** (agent-tdd's own generic signal): `agent-tdd`'s **Plan Validity Flag** (see
-`agent-tdd/INTEROP.md`'s section of the same name) is a caller-agnostic marker —
-`<!--AGENT-TDD-PLAN-FLAG:reason="..."-->` — with no target phase, since `agent-tdd` has no
-concept of agent-isdd's phase vocabulary. When `agent-tdd:agent-TDD`'s spawn report contains it,
-`hooks/subagent_report.py`'s `SubagentStop` handler recognizes it (independently of its normal
-narrative-report capture, which excludes implementation-phase reports otherwise), defaults the
-rewind target to `Requirements` (policy and rationale: `references/rollback-guide.md`'s "Which
-target phase to name"), and writes `rollback_pending` to `workflow-state.json` plus a
-`Pending Rollback Request` line to `workflow-state.md`, with the reason text tagged so a later
-reader (or `workflow-manager`'s "Rollback Request Intake," which can re-target forward) knows
-`Requirements` was defaulted, not derived from the reason. The next `before-continue` hook checks for it first and routes into the Rewind
-Contract. A reason starting `rescope (design):` comes from agent-TDD's Red-Phase Rescope: implementation
-found a prerequisite fix/refactor that changes a design contract. Re-target it to `Design`, fold
-the mini re-spec into `design.md`'s `Prerequisite Fixes & Refactors`, then re-slice.
-
-**Human-relay path** (agent-isdd's own vocabulary, for a human relaying a finding): a human (or
-whichever context is driving) who already knows agent-isdd's phase names can paste this marker
-directly into a message re-entering agent-isdd:
-
-```
-<!--SDD-ROLLBACK-REQUEST: target=<Requirements|Design|Tasks> reason="..."-->
-```
-
-`before-continue` recognizes it in user input the same way, when present — this is the path for
-`code-reviewer`'s findings, or any `agent-tdd` resume happening via `SendMessage` in a session
-agent-isdd isn't part of, since neither has an automatic hook of its own. For step-by-step
-instructions on both paths, see [`references/rollback-guide.md`](references/rollback-guide.md).
-
-Do not treat either path as a fully automatic guarantee on its own: the automatic path only
-fires when `agent-tdd` actually raises a Plan Validity Flag on its *initial* spawn report (not
-on a later `SendMessage` resume, which this hook does not observe), and only ever targets
-`Requirements` by default — human-relay remains the only path with an explicit target, and the
-only path for `code-reviewer` altogether.
-
-## → code-reviewer (review gate)
-
-The agent-isdd workflow layer does not invoke `code-reviewer` directly. However, agent-isdd's 
-constituent skills — particularly `design-author` — invoke it at appropriate phase boundaries 
-(see Strategic Review Placement below). For implementation-phase reviews, it is `agent-tdd`'s 
-responsibility (per `agent-tdd`'s own `INTEROP.md`) to arrange the review gate with whichever 
-context is driving implementation after the handoff above.
-
-## ← code-reviewer (review follow-ups)
-
-code-reviewer writes refactor / consolidation / deferred-defect items as `followups` in its
-findings.json (default `<git dir>/code-review/findings.json`; schema in code-reviewer's SKILL.md
-"findings.json"). agent-isdd's SessionStart ingests them into
-`<sdd memory>/<project>/followups/<id>.md` (one file each, frontmatter `kind`, `status:
-open|picked|done|dismissed`, `nelly_recorded`, `files`), lists the open ones, and hands
-unrecorded ones to agent-nelly as `file-relevance` entries, so editing one of those files later
-surfaces the item. `hooks/followups.py` moves items through their states; the Start Protocol offers
-open items as feature candidates. Neither plugin imports the other: findings.json is the contract.
+- **`references/interop-agent-tdd.md`**:
+  - "Fallback — Direct Implementation (harness `Agent`-spawn failure)" (its Detection conditions)
+  - Design Spec fields, including the `file_summaries` field description
+  - "Exception — Test-Author Gate"
+  - "Exception — Code-Review Gate"
+  - "Design Spec completeness gate"
+  - "Agent-tdd Design Spec workflow (pointer)"
+  - "Parallel handoff"
+- **`references/interop-reviewers.md`**:
+  - "← agent-tdd / code-reviewer (rollback request)"
+  - "→ code-reviewer (review gate)"
+  - "Strategic Review Placement via Review Levels"
+  - "Review tracking and user-run commands"
 
 ## → agent-ux (removed)
 
@@ -421,38 +188,3 @@ Artifact tools); `SessionStart` is the backstop that lists out-of-date features,
 `/isdd-board-sync` (`hooks/plan_board_sync.py`) verifies, resyncs and prunes in bulk. Nothing else in the plugin depends on the board. See
 `skills/workflow-manager/references/plan-board.md`.
 
-## Strategic Review Placement via Review Levels (Current Approach)
-
-The tiered review-level feature (Quick/Standard/Deep/Ultra) provides the design pattern for 
-strategic review placement across ISDD phases. Rather than hooks managing invocation, 
-callers (agent-tdd, spec-driven-development skills) invoke `/code-reviewer` directly at the 
-appropriate level for each phase context. This is simpler, debuggable, and respects the 
-harness constraint that hooks cannot invoke skills.
-
-The per-phase table (which level, when, and who invokes it) lives once, in
-`skills/spec-driven-development/references/review-levels.md`. In short: `design-author` requests
-one Deep review of the design before handoff; agent-tdd requests Standard (Deep if high-risk) at
-each slice's Green pause and one Deep coherence review after all slices, which the caller may
-raise to Ultra when most slices are high-risk. Requirements and Tasks reviews are not
-implemented.
-
-### Ralph Loops Integration
-
-Review findings feed into ralph loops validation at multiple checkpoints:
-
-- **Design-phase Deep review** → Traceability validation input: does design.md touch the right files?
-- **Tasks-phase Standard review** → not implemented (see the Tasks row above)
-- **Per-slice Standard review** → Per-slice correctness: implementation matches slice requirements
-- **Coherence review (Deep/Ultra)** → Cross-slice Traceability validation: did all slices co-evolve correctly?
-
-Each review level produces findings appropriate to its scope; ralph loops' Traceability validation 
-then confirms that design-level decisions were respected through implementation.
-
-### Auto-Detection Rules
-
-When a caller does not pass `review_level`, `code-reviewer` infers it from context (explicit
-request, then ISDD workflow phase, risk tier / file scope, prior context, fallback `Standard`).
-`code-reviewer/skills/code-reviewer/references/parameters.md`'s "Auto-Detection Rules" section is the
-authoritative definition, and `code-reviewer/INTEROP.md` relies on it. Callers (agent-tdd,
-design-author) still pass an explicit level where the table above names one, since an explicit
-request takes priority.
