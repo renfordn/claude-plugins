@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Stop hook: non-blocking reminder when the active workflow is paused or stalled.
+"""Stop hook: end-of-turn gate and reminder for the active SDD workflow.
 
-Detects two conditions:
-1. Explicit pause: workflow status contains "block", "await", or "confirm"
-2. Mid-workflow stall: a phase marked Complete but next phase not yet entered
-
-Blocks the stop only for the Plan Board gate (_plan_board_gate), once per changed record.
+Reminds (non-blocking) when the workflow is paused (status contains "block", "await" or
+"confirm"). Blocks the stop (one `decision: block` per invocation, reasons merged, never when
+`stop_hook_active`) for the Plan Board gate, a stalled phase (artifact Approved, next phase not
+entered) and the R3 backstop (Complete while a high-risk slice lacks review evidence). Each block
+fires once per change (see _once_per_change); a changed state re-arms it.
 """
 import datetime
 import json
@@ -13,24 +13,11 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_state import active_state_file, parse_state  # noqa: E402
+import review_tracking  # noqa: E402
+from sdd_state import active_state_file, parse_state, detect_stall, is_complete_state  # noqa: E402
 from sdd_memory import local_state_dir, memory_dir  # noqa: E402
 
 
-PHASE_ORDER = ["Requirements", "Design", "Tasks"]  # Expected phase progression
-PHASE_FILES = {
-    "Requirements": "requirements/requirements.md",
-    "Design": "design/design.md",
-    "Tasks": "tasks/tasks.md",
-}
-# Phases that have a completion gate of their own (an artifact with a `- State:` field the
-# orchestrator sets to Approved). Tasks has no such artifact-level gate here -- see
-# workflow-manager's `continue` row: `Current Phase: Tasks` only ever arises as a rollback
-# landing state, not a phase this hook watches for stalling out of.
-PHASE_ARTIFACT_FILE = {
-    "Requirements": "requirements/requirements.md",
-    "Design": "design/design.md",
-}
 
 
 def _write_last_stop_marker(cwd):
@@ -46,42 +33,30 @@ def _write_last_stop_marker(cwd):
         pass
 
 
-def _detect_stalled_phase(state_fields, feature_dir):
-    """Check if the current phase's own artifact is Approved but the next phase hasn't
-    been entered.
-
-    `Workflow Status: Complete` is NOT the per-phase completion signal -- per
-    workflow-manager's contract it is set only once, at the whole feature's final
-    handoff/completion, never for an individual phase finishing mid-workflow. The real
-    per-phase signal is the phase artifact's own `- State: Approved` field (set by
-    requirements-agent/design-author immediately on approval), which is exactly what stays
-    true while the orchestrator has provided guidance at a phase boundary and stalled before
-    invoking the next phase in the same turn.
-
-    Returns (is_stalled, phase_name, next_phase) or (False, None, None).
-    """
-    current = state_fields.get("current phase", "").strip()
-
-    # Find current phase in order
-    for i, phase in enumerate(PHASE_ORDER):
-        if current.startswith(phase):
-            artifact_file = PHASE_ARTIFACT_FILE.get(phase)
-            if artifact_file and i + 1 < len(PHASE_ORDER):
-                artifact_path = os.path.join(feature_dir, artifact_file)
-                artifact_state = parse_state(artifact_path).get("state", "").strip().lower()
-                if artifact_state == "approved":
-                    next_phase = PHASE_ORDER[i + 1]
-                    next_file = os.path.join(feature_dir, PHASE_FILES[next_phase])
-                    if not os.path.exists(next_file):
-                        # Phase's artifact approved but next phase not entered — stalled
-                        return (True, phase, next_phase)
-            break
-
-    return (False, None, None)
-
-
 RECENT_S = 24 * 3600
 NUDGED_FILE = "plan-board-stop-nudged.json"
+
+
+def _once_per_change(project_cwd, key, digest):
+    """True (and record it) when `digest` differs from the last one recorded for `key`;
+    False when this exact change was already nudged. Persists in local_state_dir JSON."""
+    path = os.path.join(local_state_dir(project_cwd), NUDGED_FILE)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            nudged = json.load(fh)
+        nudged = nudged if isinstance(nudged, dict) else {}
+    except (OSError, ValueError):
+        nudged = {}
+    if nudged.get(key) == digest:
+        return False
+    nudged[key] = digest
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(nudged, fh)
+    except OSError:
+        pass
+    return True
 
 
 def _main_repo(cwd):
@@ -131,13 +106,6 @@ def _plan_board_gate(payload, cwd):
         return ""
     project = plan_board.repo_label(project_cwd)
     now = datetime.datetime.now().timestamp()
-    nudged_path = os.path.join(local_state_dir(project_cwd), NUDGED_FILE)
-    try:
-        with open(nudged_path, "r", encoding="utf-8") as fh:
-            nudged = json.load(fh)
-        nudged = nudged if isinstance(nudged, dict) else {}
-    except (OSError, ValueError):
-        nudged = {}
     due = []
     for slug, path, doc in plan_board.stale_features(mem, project):
         recent = False
@@ -147,17 +115,10 @@ def _plan_board_gate(payload, cwd):
             except OSError:
                 pass
         h = plan_board.content_hash(doc)
-        if recent and nudged.get(doc["id"]) != h:
+        if recent and _once_per_change(project_cwd, doc["id"], h):
             due.append((slug, path, doc))
-            nudged[doc["id"]] = h
     if not due:
         return ""
-    try:
-        os.makedirs(os.path.dirname(nudged_path), exist_ok=True)
-        with open(nudged_path, "w", encoding="utf-8") as fh:
-            json.dump(nudged, fh)
-    except OSError:
-        pass
     import shlex
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plan_board.py")
     url = plan_board.board_url(mem)
@@ -172,6 +133,37 @@ def _plan_board_gate(payload, cwd):
     return "\n".join(lines)
 
 
+def _recent_complete_states(cwd):
+    """Every workflow-state.md changed in the last 24h whose status is Complete (they drop out of
+    active_state_file, so the R3 backstop looks for them here), newest first."""
+    import glob
+    now = datetime.datetime.now().timestamp()
+    found = []
+    for p in glob.glob(os.path.join(memory_dir(cwd), "spec", "*", "workflow-state.md")):
+        try:
+            m = os.path.getmtime(p)
+        except OSError:
+            continue
+        if now - m <= RECENT_S and is_complete_state(p):
+            found.append((m, p))
+    return [p for _m, p in sorted(found, reverse=True)]
+
+
+def _stall_reason(title, phase, next_phase):
+    return (f"SDD workflow stalled: '{title}'. Phase {phase} is approved but {next_phase} has not "
+            f"been entered; the orchestrator likely gave guidance and ended its turn. Invoke the "
+            f"{next_phase} phase now (or run /isdd-continue) before ending the turn.")
+
+
+def _backstop_reason(items):
+    lines = ["SDD completion backstop: feature(s) marked Complete have high-risk slice(s) with no "
+             "independent code-reviewer evidence. Run the review, or record `Accepted via "
+             "AskUserQuestion: <slice ids | all>: <reason>` as the Review Fallback, or set "
+             "Workflow Status back from Complete."]
+    lines += [f"- '{title}': slice(s) {', '.join(ids)}" for title, ids in items]
+    return "\n".join(lines)
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -179,53 +171,59 @@ def main():
         payload = {}
 
     cwd = payload.get("cwd") or os.getcwd()
+    active = bool(payload.get("stop_hook_active"))
+    reasons = []
     try:
-        reason = _plan_board_gate(payload, cwd)
+        board = _plan_board_gate(payload, cwd)
     except Exception:
-        reason = ""                    # best-effort: never break Stop over the board
-    if reason:
-        print(json.dumps({"decision": "block", "reason": reason}))
-        sys.exit(0)
+        board = ""                     # best-effort: never break Stop over the board
+    if board:
+        reasons.append(board)
+
+    reminder = None
     state = active_state_file(cwd)
-    if not state:
-        sys.exit(0)
+    if state:
+        _write_last_stop_marker(cwd)
+        f = parse_state(state)
+        title = f.get("title", "the active feature")
+        status = f.get("workflow status", "").lower()
+        feature_dir = os.path.dirname(state)
+        if "block" in status or "await" in status or "confirm" in status:
+            pause_reason = f.get("pause reason", "").strip()
+            next_action = f.get("next action", "").strip()
+            if pause_reason and next_action:
+                detail = f"{pause_reason}. Next: {next_action}"
+            else:
+                detail = pause_reason or next_action or "see workflow-state.md"
+            reminder = (f"SDD reminder: '{title}' is paused ({f.get('workflow status', '?')}) — "
+                        f"{detail}. Run /isdd-continue when ready.")
+        elif not active:
+            try:
+                stall = detect_stall(f, feature_dir)
+                if stall:
+                    req = parse_state(os.path.join(feature_dir, "requirements", "requirements.md"))
+                    digest = f"{stall[0]}|{req.get('state', '')}|{status}"
+                    if _once_per_change(cwd, "stall:" + state, digest):
+                        reasons.append(_stall_reason(title, stall[0], stall[1]))
+            except Exception:
+                pass                   # best-effort: fail open
 
-    _write_last_stop_marker(cwd)
+    if not active:
+        try:
+            items = []
+            for done in _recent_complete_states(cwd):
+                ids = review_tracking.unreviewed_high_risk(os.path.dirname(done))
+                if ids and _once_per_change(cwd, "backstop:" + done, ",".join(sorted(ids))):
+                    items.append((parse_state(done).get("title", os.path.basename(os.path.dirname(done))), ids))
+            if items:
+                reasons.append(_backstop_reason(items))
+        except Exception:
+            pass
 
-    f = parse_state(state)
-    title = f.get("title", "the active feature")
-    status = f.get("workflow status", "").lower()
-    feature_dir = os.path.dirname(state)
-
-    # Check for explicit pause (block/await/confirm)
-    if "block" in status or "await" in status or "confirm" in status:
-        pause_reason = f.get("pause reason", "").strip()
-        next_action = f.get("next action", "").strip()
-        if pause_reason and next_action:
-            detail = f"{pause_reason}. Next: {next_action}"
-        else:
-            detail = pause_reason or next_action or "see workflow-state.md"
-        print(json.dumps({
-            "systemMessage": (
-                f"SDD reminder: '{title}' is paused ({f.get('workflow status', '?')}) — "
-                f"{detail}. Run /isdd-continue when ready."
-            )
-        }))
-        sys.exit(0)
-
-    # Check for stalled phase (completed but next not entered)
-    is_stalled, phase_name, next_phase = _detect_stalled_phase(f, feature_dir)
-    if is_stalled:
-        print(json.dumps({
-            "systemMessage": (
-                f"⚠️  SDD workflow stalled: '{title}'\n\n"
-                f"**Phase {phase_name} marked Complete** but **{next_phase} phase not yet entered**.\n\n"
-                f"This likely means the orchestrator provided guidance/decisions and stopped its turn "
-                f"before invoking the next phase. Run `/isdd-continue` to resume and advance to {next_phase}."
-            )
-        }))
-        sys.exit(0)
-
+    if reasons and not active:
+        print(json.dumps({"decision": "block", "reason": "\n\n".join(reasons)}))
+    elif reminder:
+        print(json.dumps({"systemMessage": reminder}))
     sys.exit(0)
 
 

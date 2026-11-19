@@ -78,3 +78,15 @@ def test_worktree_session_uses_the_main_repo_board():
         subprocess.run(["git", "worktree", "add", "-q", "-b", "wt1", wt], cwd=repo, check=True)
         out = _stop(home, wt)
         assert out.get("decision") == "block" and SLUG in out["reason"]
+
+
+def test_plan_board_and_stall_merge_into_a_single_block():
+    with h.temp_git_repo() as repo, h.temp_home() as home:
+        spec = h.feature_spec_dir(home, repo, SLUG)
+        h.seed_state_file(spec, title="Gate Feature", slug=SLUG,
+                          current_phase="Requirements", workflow_status="In Progress")
+        h.seed_feature_artifact(spec, "requirements/requirements.md", "# R\n\n- State: Approved\n")
+        h.seed_plan_board_url(os.path.dirname(os.path.dirname(spec)))
+        out = _stop(home, repo)
+        assert out.get("decision") == "block"
+        assert "ArtifactData" in out["reason"] and "stalled" in out["reason"].lower()
