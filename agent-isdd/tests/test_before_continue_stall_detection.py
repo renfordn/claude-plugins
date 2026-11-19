@@ -44,6 +44,8 @@ class BeforeContinueStallDetectionTests(unittest.TestCase):
             self.assertIsNotNone(msg, "expected a stall message, got none")
             self.assertIn("Stall", msg)
             self.assertIn("Design", msg)
+            self.assertNotIn("marked Complete", msg)
+            self.assertIn("Approved", msg)
 
     def test_design_approved_with_no_tasks_file_is_not_a_stall(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:

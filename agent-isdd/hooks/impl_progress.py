@@ -10,7 +10,6 @@ import json
 import os
 import re
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import markers  # noqa: E402
@@ -67,25 +66,30 @@ def record(feature_dir, report):
     if not ev:
         return False
     kind, phase, slice_no = ev
-    data = load(feature_dir) or {"slices": {}, "allComplete": False, "events": []}
-    if kind == "tdd" and phase == "all_slices_complete":
-        data["allComplete"] = True
-    elif kind == "tdd" and slice_no and phase in ("green_pause", DONE):
-        if data["slices"].get(slice_no) != DONE:
-            data["slices"][slice_no] = phase
-    if kind == "review" and slice_no:
-        reviewed = data.get("reviewed")
-        data["reviewed"] = dict(reviewed if isinstance(reviewed, dict) else {}, **{slice_no: True})
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    data["events"] = (data.get("events") or [])[-(MAX_EVENTS - 1):] + [
-        {"at": now, "kind": kind, "phase": phase, "slice": slice_no}]
+
+    def _fold(old_text):
+        try:
+            data = json.loads(old_text)
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):
+            data = {"slices": {}, "allComplete": False, "events": []}
+        if not isinstance(data.get("slices"), dict):
+            data["slices"] = {}
+        if kind == "tdd" and phase == "all_slices_complete":
+            data["allComplete"] = True
+        elif kind == "tdd" and slice_no and phase in ("green_pause", DONE):
+            if data["slices"].get(slice_no) != DONE:
+                data["slices"][slice_no] = phase
+        data["events"] = (data.get("events") or [])[-(MAX_EVENTS - 1):] + [
+            {"at": now, "kind": kind, "phase": phase, "slice": slice_no}]
+        return json.dumps(data, indent=1, sort_keys=True)
+
     try:
-        fd, tmp = tempfile.mkstemp(dir=feature_dir, suffix=".tmp")
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=1, sort_keys=True)
-        os.chmod(tmp, 0o644)
-        os.replace(tmp, path(feature_dir))
-    except OSError:
+        from sdd_state import locked_rewrite_text  # lazy: needs CLAUDE_PLUGIN_DATA; stdlib otherwise
+        locked_rewrite_text(path(feature_dir), _fold, errors="replace")
+    except Exception:
         return False
     return True
 

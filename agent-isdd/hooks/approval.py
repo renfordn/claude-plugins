@@ -11,18 +11,11 @@ PreToolUse hook; the CLI below is the recovery path after a mismatch:
 approval_hash(requirements_text, design_text) -- the parameter slots keep the contract stub's
 positional order; callers pass requirements.md then design.md text.
 """
-import contextlib
 import hashlib
 import json
 import os
 import re
 import sys
-import tempfile
-
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 if __name__ == "__main__" and len(sys.argv) > 1 and not os.environ.get("CLAUDE_PLUGIN_DATA"):
@@ -33,7 +26,8 @@ if __name__ == "__main__" and len(sys.argv) > 1 and not os.environ.get("CLAUDE_P
     except PluginDataDirUnavailable as _e:
         print(str(_e), file=sys.stderr)
         sys.exit(1)
-from sdd_state import active_state_file, match_field, parse_state, update_json  # noqa: E402
+from sdd_state import (  # noqa: E402
+    active_state_file, locked_rewrite_text, match_field, parse_state, update_json)
 
 
 def _norm(text):
@@ -112,42 +106,8 @@ def _set_fields(text, updates):
     return "\n".join(out) + "\n"
 
 
-@contextlib.contextmanager
-def _locked(path):
-    lock = None
-    try:
-        if fcntl is not None:
-            lock = open(path + ".lock", "a")
-            fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
-    finally:
-        if lock is not None:
-            lock.close()
-
-
-def _atomic_write(path, text):
-    """Locked (same `<path>.lock` flock as update_json), mode-preserving atomic replace."""
-    with _locked(path):
-        try:
-            mode = os.stat(path).st_mode & 0o777
-        except OSError:
-            mode = 0o644
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".wsmd.")
-        try:
-            os.fchmod(fd, mode)
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(text)
-            os.replace(tmp, path)
-        except BaseException:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
-
-
 def _record(state_md, md_updates, json_updates):
-    _atomic_write(state_md, _set_fields(_read(state_md), md_updates))
+    locked_rewrite_text(state_md, lambda text: _set_fields(text, md_updates), prefix=".wsmd.")
     json_path = os.path.join(os.path.dirname(state_md), "workflow-state.json")
     if os.path.isfile(json_path):
         update_json(json_path, lambda d: dict(d, **json_updates))
@@ -179,10 +139,17 @@ def evaluate(payload):
     state_md = active_state_file(payload.get("cwd") or os.getcwd())
     if not state_md:
         return None
-    if parse_state(state_md).get("current phase", "").strip().lower() != "design":
+    fields = parse_state(state_md)
+    if fields.get("current phase", "").strip().lower() != "design":
         return None
-    _record(state_md, {"implementation requested": "Yes", "approval pending": "yes"},
-            {"implementation_requested": "Yes", "approval_pending": "yes"})
+    updates = {"implementation requested": "Yes", "approval pending": "yes"}
+    json_updates = {"implementation_requested": "Yes", "approval_pending": "yes"}
+    if _hash_or_blank(fields.get("approval hash")):
+        # Re-approval after a rewind: the recorded hash is stale. Blank it so the next agent-TDD
+        # spawn freezes fresh (design.md is not final yet, so refreezing here would hash old text).
+        updates["approval hash"] = ""
+        json_updates["approval_hash"] = ""
+    _record(state_md, updates, json_updates)
     return None
 
 

@@ -128,7 +128,7 @@ def main():
         title = state_md.get("title", "the active feature")
         messages.append(
             f"🔄 **Workflow Stall Detected**: '{title}'\n\n"
-            f"**Phase {current_phase} is marked Complete** but **{next_phase} has not been entered**.\n\n"
+            f"**Phase {current_phase} is Approved** (its artifact says `State: Approved`) but **{next_phase} has not been entered** (no {next_phase.lower()}.md yet).\n\n"
             f"This typically means the orchestrator provided guidance/decisions at a phase boundary "
             f"and then ended its turn instead of continuing with the next phase skill.\n\n"
             f"**Resuming now** will automatically advance to the {next_phase} phase and continue the workflow. "

@@ -221,6 +221,33 @@ class EvaluateTests(_Base):
             self._run(home, repo)
             self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
 
+    def test_reapproval_with_existing_hash_clears_stale_hash_for_fresh_freeze(self):
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as repo:
+            make_git_repo(repo)
+            fdir = self._setup(home, repo, DESIGN_STATE + ["- Approval Pending: no"])
+            old = approval.freeze(fdir)
+            with open(os.path.join(fdir, "design", "design.md"), "w") as f:
+                f.write("redesigned after rewind\n")
+            self._run(home, repo)
+            md = self._md(fdir)
+            self.assertNotIn(old, md)
+            self.assertIn("- Approval Pending: yes", md)
+            self.assertEqual(md.count("Approval Hash:"), 1)
+            self.assertNotIn(old, json.dumps(self._js(fdir)))
+            fields = approval.parse_state(os.path.join(fdir, "workflow-state.md"))
+            self.assertEqual(approval.verify(fields, "req\ntext\n", "redesigned after rewind\n",
+                                             self._js(fdir)), "pending")
+            new = approval.freeze(fdir)
+            self.assertEqual(new, approval.approval_hash("req\ntext\n", "redesigned after rewind\n"))
+            self.assertNotEqual(new, old)
+
+    def test_first_approval_still_writes_no_hash_field(self):
+        with tempfile.TemporaryDirectory() as home, tempfile.TemporaryDirectory() as repo:
+            make_git_repo(repo)
+            fdir = self._setup(home, repo, DESIGN_STATE)
+            self._run(home, repo)
+            self.assertNotIn("Approval Hash", self._md(fdir))
+
 
 class FreezeTests(_Base):
     def test_freeze_records_hash_and_clears_pending(self):

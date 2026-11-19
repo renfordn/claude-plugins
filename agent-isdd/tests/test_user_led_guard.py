@@ -105,6 +105,20 @@ def test_noop_when_not_user_mode(env, mode):
     assert user_led_guard.evaluate(_payload(repo, "src/app.py"), state_path=_state(mem, mode)) is None
 
 
+def test_mode_with_trailing_words_enables_guard(env):
+    tmp, repo, mem = env
+    state = _state(mem, "User (walk the slices)")
+    assert user_led_guard.evaluate(_payload(repo, "src/app.py"), state_path=state)
+
+
+def test_is_user_led_compares_lowercased_first_token():
+    import sdd_state
+    assert sdd_state.is_user_led({"implementation mode": "User (walk)"})
+    assert sdd_state.is_user_led({"implementation mode": "user"})
+    assert not sdd_state.is_user_led({"implementation mode": "agent"})
+    assert not sdd_state.is_user_led({})
+
+
 def test_noop_without_state_or_path(env):
     tmp, repo, mem = env
     assert user_led_guard.evaluate(_payload(repo, "src/app.py"), state_path=None) is None

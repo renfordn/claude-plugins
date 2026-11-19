@@ -111,12 +111,12 @@ def parse_state_json(path):
         return {}
 
 
-def update_json(path, fn):
-    """Locked, atomic read-modify-write of a JSON file. Missing/corrupt/non-dict -> {}.
-
-    Sidecar `<path>.lock` flock serializes writers; the new content goes to a mkstemp file in
-    the same directory and is os.replace'd in, preserving the file mode. Returns the new data.
-    """
+def locked_rewrite_text(path, fn, prefix=".tmp-", errors="strict"):
+    """Locked, atomic read-modify-write of a text file: `fn(current_text) -> new_text` ("" when the
+    file is missing). A sidecar `<path>.lock` flock serializes writers; the new content goes to a
+    mkstemp file in the same directory and is os.replace'd in, preserving the file mode. Returns
+    the new text. Undecodable content raises (`errors` is the decoding policy) so a caller never
+    silently wipes a file it could not read."""
     d = os.path.dirname(path) or "."
     os.makedirs(d, exist_ok=True)
     lock = None
@@ -125,23 +125,20 @@ def update_json(path, fn):
             lock = open(path + ".lock", "a")
             fcntl.flock(lock, fcntl.LOCK_EX)
         try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-        except (OSError, ValueError):
-            data = {}
-        if not isinstance(data, dict):
-            data = {}
+            with open(path, "r", encoding="utf-8", errors=errors) as fh:
+                current = fh.read()
+        except OSError:
+            current = ""
         try:
             mode = os.stat(path).st_mode & 0o777
         except OSError:
             mode = 0o644
-        data = fn(data)
-        fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
+        text = fn(current)
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=prefix)
         try:
             os.fchmod(fd, mode)
             with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                json.dump(data, fh, indent=2)
-                fh.write("\n")
+                fh.write(text)
             os.replace(tmp, path)
         except BaseException:
             try:
@@ -149,16 +146,42 @@ def update_json(path, fn):
             except OSError:
                 pass
             raise
-        return data
+        return text
     finally:
         if lock is not None:
             lock.close()
+
+
+def update_json(path, fn):
+    """Locked, atomic read-modify-write of a JSON file. Missing/corrupt/non-dict -> {}.
+    Returns the new data."""
+    result = []
+
+    def _rewrite(text):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        data = fn(data)
+        result.append(data)
+        return json.dumps(data, indent=2) + "\n"
+
+    locked_rewrite_text(path, _rewrite, errors="replace")  # non-UTF-8 reads as corrupt -> {}
+    return result[0]
 
 
 def write_state_json(path, data):
     """Write a workflow-state.json dict back to disk (atomic, locked; 2-space indent, trailing
     newline). Shared by every hook that mutates it."""
     update_json(path, lambda _old: data)
+
+
+def _drop_key(path, key):
+    """Remove `key` under the lock; a missing file stays missing."""
+    if os.path.exists(path):
+        update_json(path, lambda d: {k: v for k, v in d.items() if k != key})
 
 
 def write_rollback_pending(path, target, reason, source):
@@ -190,20 +213,12 @@ def write_test_author_pending(path, slices, detected_at):
 
 def clear_test_author_pending(path):
     """Remove test_author_pending from workflow-state.json. No-op if file or field missing."""
-    data = parse_state_json(path)
-    if "test_author_pending" not in data:
-        return
-    del data["test_author_pending"]
-    write_state_json(path, data)
+    _drop_key(path, "test_author_pending")
 
 
 def clear_rollback_pending(path):
     """Remove rollback_pending from workflow-state.json. No-op if file or field is missing."""
-    data = parse_state_json(path)
-    if "rollback_pending" not in data:
-        return
-    del data["rollback_pending"]
-    write_state_json(path, data)
+    _drop_key(path, "rollback_pending")
 
 
 def read_escalation_pending(path):
@@ -213,18 +228,12 @@ def read_escalation_pending(path):
 
 def write_escalation_pending(path, escalation):
     """Set workflow-state.json's escalation_pending field, preserving other fields."""
-    data = parse_state_json(path)
-    data["escalation_pending"] = escalation
-    write_state_json(path, data)
+    update_json(path, lambda d: dict(d, escalation_pending=escalation))
 
 
 def clear_escalation_pending(path):
     """Remove escalation_pending from workflow-state.json. No-op if file or field is missing."""
-    data = parse_state_json(path)
-    if "escalation_pending" not in data:
-        return
-    del data["escalation_pending"]
-    write_state_json(path, data)
+    _drop_key(path, "escalation_pending")
 
 
 def write_escalation_outcome(path, entry):
@@ -236,15 +245,22 @@ def write_escalation_outcome(path, entry):
 
     `entry` is expected to be {reason, from_model, to_model, detected_at, outcome, resolved_at}.
     """
-    data = parse_state_json(path)
-    history = data.get("escalation_history")
-    if not isinstance(history, list):
-        history = []
-    history.append(entry)
-    data["escalation_history"] = history[-MAX_ESCALATION_HISTORY:]
-    if "escalation_pending" in data:
-        del data["escalation_pending"]
-    write_state_json(path, data)
+    def _fn(data):
+        history = data.get("escalation_history")
+        if not isinstance(history, list):
+            history = []
+        history.append(entry)
+        data["escalation_history"] = history[-MAX_ESCALATION_HISTORY:]
+        data.pop("escalation_pending", None)
+        return data
+
+    update_json(path, _fn)
+
+
+def is_user_led(fields):
+    """True when `Implementation Mode` is user (lowercased first token, like Track/Risk)."""
+    tokens = (fields or {}).get("implementation mode", "").strip().lower().split()
+    return bool(tokens) and tokens[0] == "user"
 
 
 def is_pre_implementation(fields):

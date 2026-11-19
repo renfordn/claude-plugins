@@ -15,8 +15,12 @@ import re
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from sdd_state import active_state_file, parse_state_json, write_test_author_pending
+    from sdd_state import active_state_file, is_user_led, parse_state, parse_state_json, write_test_author_pending
 except ImportError:
+    def parse_state(path):
+        return {}
+    def is_user_led(fields):
+        return False
     def active_state_file(cwd):
         return None
     def parse_state_json(path):
@@ -161,8 +165,7 @@ def _waves_stamped(feature_dir):
 def get_high_risk_phases(tasks_md_phases):
     """Filter phases to only high-risk ones.
 
-    Note: This function maintains backward compatibility with existing code.
-    For new code, prefer get_applicable_phases() which handles file-path scoping.
+    Whether each high-risk slice was reviewed is decided by review_tracking, not here.
 
     Args:
         tasks_md_phases: List of phase objects from read_tasks_md()
@@ -267,6 +270,14 @@ def main(payload=None):
         if phase_name == "slicing_complete" and high_risk:
             slices = [{"name": p["name"], "files": p.get("files", [])} for p in high_risk]
             names = "\n".join(f"- {s['name']}" for s in slices)
+            if is_user_led(parse_state(state_path)):
+                return (
+                    f"agent-TDD: wave plan ready with {len(slices)} high-risk slice(s):\n{names}\n\n"
+                    "This is user-led mode (Implementation Mode: user): do not run agent-tdd:tdd-parallel "
+                    "or resume agent-TDD. Walk the slices with the isdd-coach skill; high-risk "
+                    "slices still need a scoped code-reviewer review (or the AskUserQuestion "
+                    "fallback) before Complete."
+                )
             if _waves_stamped(feature_dir):
                 # Parallel: on — the tdd-parallel lead owns test-author per wave; a serial
                 # resume here would make agent-TDD implement everything alongside the workers.

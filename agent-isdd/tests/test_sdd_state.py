@@ -390,5 +390,89 @@ class Release2ReviewFixTests(unittest.TestCase):
                     self.assertTrue(m.called)
 
 
+class UpdateJsonCorruptTests(unittest.TestCase):
+    def test_non_utf8_file_is_read_as_empty_dict(self):
+        import tempfile
+        import sdd_state
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.json")
+            with open(p, "wb") as fh:
+                fh.write(b"\xff\xfe")
+            seen = []
+            out = sdd_state.update_json(p, lambda data: seen.append(dict(data)) or dict(data, k=1))
+            self.assertEqual(seen, [{}])
+            self.assertEqual(out, {"k": 1})
+
+    def test_locked_rewrite_text_does_not_swallow_decode_errors(self):
+        import tempfile
+        import sdd_state
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.md")
+            with open(p, "wb") as fh:
+                fh.write(b"\xff\xfe")
+            with self.assertRaises(UnicodeDecodeError):
+                sdd_state.locked_rewrite_text(p, lambda t: "x")
+            with open(p, "rb") as fh:
+                self.assertEqual(fh.read(), b"\xff\xfe")
+
+
+class StaleWriteTests(unittest.TestCase):
+    """F6: escalation/pending writers must modify the fresh dict under the lock, not write back
+    a copy read earlier (a concurrent mark_reviewed would be lost)."""
+
+    def setUp(self):
+        import sdd_state
+        self.s = sdd_state
+
+    def _race(self, seed, call):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.json")
+            self.s.write_state_json(p, dict(seed))
+            real = self.s.parse_state_json
+            fired = []
+
+            def racing(path):
+                data = real(path)
+                if not fired:
+                    fired.append(1)
+                    self.s.mark_reviewed(path, "7")  # lands between the old read and write
+                return data
+
+            real_update = self.s.update_json
+
+            def racing_update(path, fn):
+                if not fired:
+                    fired.append(1)
+                    self.s.mark_reviewed(path, "7")  # arrives just before the locked rewrite
+                return real_update(path, fn)
+
+            with mock.patch.object(self.s, "parse_state_json", side_effect=racing), \
+                    mock.patch.object(self.s, "update_json", side_effect=racing_update):
+                call(p)
+            return real(p)
+
+    def test_concurrent_mark_reviewed_survives_each_writer(self):
+        cases = [
+            ({}, lambda p: self.s.write_escalation_pending(p, {"reason": "r"})),
+            ({}, lambda p: self.s.write_escalation_outcome(p, {"outcome": "o"})),
+            ({"rollback_pending": {"t": 1}}, self.s.clear_rollback_pending),
+            ({"test_author_pending": {"slices": []}}, self.s.clear_test_author_pending),
+            ({"escalation_pending": {"r": 1}}, self.s.clear_escalation_pending),
+        ]
+        for seed, call in cases:
+            out = self._race(seed, call)
+            self.assertEqual(out.get("reviewed"), {"7": True}, (seed, out))
+
+    def test_writers_still_apply_their_change(self):
+        out = self._race({"rollback_pending": {"t": 1}}, self.s.clear_rollback_pending)
+        self.assertNotIn("rollback_pending", out)
+        out = self._race({"escalation_pending": {"r": 1}},
+                         lambda p: self.s.write_escalation_outcome(p, {"outcome": "o"}))
+        self.assertEqual(out["escalation_history"], [{"outcome": "o"}])
+        self.assertNotIn("escalation_pending", out)
+
+
 if __name__ == "__main__":
     unittest.main()
