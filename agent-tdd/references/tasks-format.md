@@ -32,6 +32,8 @@ Add only when they apply; slices without them stay valid.
 - `**Kind:** validation` runs checks only (e.g. the full suite after merges) with `**Files:** none`; it edits nothing.
 - `**Test Files:**` test files the slice owns exclusively.
 - `**Shared Files:**` files touched but not exclusively owned (hooks.json, conftest.py, manifests, `__init__.py`); slices sharing a file must not run in the same wave.
+- `**UI:** true` marks a slice that changes UI: its Red must be an E2E test in the repo's harness (`references/slice-discipline.md` §4).
+- `**Blocked:** <reason>` is written by the lead for a slice that reported `<!--AGENT-TDD-BLOCKED-->`; the lead then skips it and its dependents by hand, using the `parallel_plan.py waves` output (the script is unchanged).
 - `**Wave:**` integer >= 0, written by a script, never by hand.
 
 ## Design Spec report fields

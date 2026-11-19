@@ -36,6 +36,9 @@ test must call into (function signatures, module boundaries, existing test file 
    as an update, never a fresh creation.
 3. Run the test and confirm it fails for the intended reason (missing behavior, not a setup/typo
    error). If it fails for the wrong reason, fix the test itself, not any production code.
+   If it passes on first run, don't contrive a failing test: run `coverage --mutant` as in
+   `references/slice-discipline.md` §2. Confirmed: report it as coverage-only (copy the
+   `coverage` TDD-EVIDENCE line). Not confirmed: strengthen the test.
 4. Do not write, edit, or suggest production code. If the test can't be made to fail correctly
    without a production stub existing (e.g. an import target doesn't exist yet), state that
    exact blocker instead of creating the stub yourself.

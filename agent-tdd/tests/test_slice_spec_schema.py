@@ -13,6 +13,7 @@ SCHEMA_PATH = REPO_ROOT / "references" / "slice-spec.schema.json"
 EXPECTED_PROPERTIES = {
     "taskDescription",
     "acceptanceCriteria",
+    "ui",
     "riskTier",
     "modelTier",
     "dataContractsAndInterfaces",

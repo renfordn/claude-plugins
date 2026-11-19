@@ -88,6 +88,14 @@
             "description": "Files this slice touches but does not exclusively own, e.g. hooks.json, conftest.py, manifests, __init__.py (optional). Slices sharing a file must not run in the same wave.",
             "items": {"type": "string"}
           },
+          "ui": {
+            "type": "boolean",
+            "description": "True when the slice changes UI: its Red must be an E2E test in the repo's harness (optional)."
+          },
+          "blocked": {
+            "type": "string",
+            "description": "Reason the slice was skipped after an AGENT-TDD-BLOCKED report, e.g. 'no e2e harness' (optional). Its dependents are skipped too."
+          },
           "wave": {
             "type": "integer",
             "minimum": 0,

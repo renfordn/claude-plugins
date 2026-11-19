@@ -65,6 +65,7 @@ Check the assembled spec against
 - `taskDescription` and `acceptanceCriteria` are both non-empty strings — required.
 - `riskTier`, if set, is exactly `standard` or `high-risk`.
 - `modelTier`, if set, is exactly `inherit`, `haiku`, `sonnet`, or `opus`.
+- `ui`, if set, is a boolean: `true` when the slice changes UI (needs an E2E Red; no harness means a BLOCKED report).
 - `reviewHandoffMode`, if set, is exactly `pause` or `skip`.
 - No other field names — the schema sets `additionalProperties: false`, so a typo'd field name
   (e.g. `riskTeir`) would silently be ignored by a human reader but should be caught here instead.

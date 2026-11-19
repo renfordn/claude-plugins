@@ -63,10 +63,16 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tdd_check.py" green --slice "<slice title
 prints a `TDD-EVIDENCE <phase> <token> ... CONFIRMED` line. Copy those lines verbatim into
 **Validation Evidence**: the caller's hook checks the tokens against the log and flags any slice
 without them. Run the narrowest test invocation that covers the new test. If `red` says NOT CONFIRMED
-because the test already passes, the test doesn't pin the new behavior — fix the test, don't
-proceed. If tests genuinely can't run here, say so and why; don't fabricate a token.
+because the test already passes, don't contrive a Red: read `references/slice-discipline.md` §2
+(coverage-only pass). If tests genuinely can't run here, say so and why; don't fabricate a token.
 
 ## Slice workflow
+
+Read `references/slice-discipline.md` at the start of every slice: it holds the procedures for
+gap discovery (log `tdd_check.py start` before Red), the first-run coverage pass
+(`<!--AGENT-TDD-OUTCOME: coverage-only-->`), the red-first edit guard (`bypass` / `done`), and
+UI slices. If the slice touches UI (Slice Spec `ui: true`, or `e2e_harness.py ui` on the planned files) and the repo has no E2E harness, stop
+with `<!--AGENT-TDD-BLOCKED: reason="no e2e harness: ..."-->` and no phase marker (see that file §4).
 
 **Plan** — Read the Pre-Slice Brief, find the smallest safe slice, the tests that describe the
 behavior, and a rollback point. If the real code diverges materially from the Slice Spec's Data
@@ -103,7 +109,7 @@ review your own work: the caller runs an independent reviewer (code-reviewer's I
 "Independent review") and resumes you via SendMessage with its findings. On resume:
 
 - Blocking finding on the test (unclear intent, wrong criterion): rewrite the test and re-run
-  `red` and `green` before Refactor.
+  `red` and `green` before Refactor (for a coverage-only slice re-run `coverage --mutant`, not red/green).
 - Blocking finding on the implementation or the refactor intent: fix it, or escalate in your
   report; don't refactor over it.
 - Non-blocking findings: note them under **Risks and Follow-ups** and continue.
