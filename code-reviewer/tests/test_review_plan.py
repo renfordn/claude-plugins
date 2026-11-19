@@ -148,3 +148,75 @@ def test_cli_validate_exit_codes(tmp_path):
                                    capture_output=True, text=True)
     assert run(good).returncode == 0
     assert run(bad).returncode == 1
+
+
+def test_working_tree_plan_includes_untracked_not_ignored(tmp_path, monkeypatch):
+    repo = tmp_path / "wt"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _write(repo, ".gitignore", "ignored.log\n")
+    _write(repo, "app/a.py", "def a():\n    return 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "base")
+    _write(repo, "app/a.py", "def a():\n    return 2\n")
+    _write(repo, "app/new_feature.py", "def brand_new():\n    return 3\n")
+    _write(repo, "ignored.log", "noise\n")
+    monkeypatch.chdir(repo)
+    text, source = review_plan.read_diff()
+    plan = review_plan.build_plan(text, source)
+    paths = json.dumps(plan)
+    assert source == "working-tree"
+    assert "app/a.py" in paths and "app/new_feature.py" in paths
+    assert "ignored.log" not in paths
+    assert "brand_new" in paths
+
+
+def _wt_repo(tmp_path, monkeypatch):
+    repo = tmp_path / "wt2"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _write(repo, "app/a.py", "def a():\n    return 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "base")
+    return repo
+
+
+def test_base_head_on_branch_ahead_sees_uncommitted_and_untracked(tmp_path, monkeypatch):
+    repo = _wt_repo(tmp_path, monkeypatch)
+    _git(repo, "checkout", "-q", "-b", "worker")
+    _write(repo, "app/b.py", "def b():\n    return 1\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "ahead")
+    _write(repo, "app/a.py", "def a():\n    return 2\n")
+    _write(repo, "app/new_feature.py", "def brand_new():\n    return 3\n")
+    monkeypatch.chdir(repo)
+    plan = json.dumps(_plan(base="HEAD"))
+    assert "working-tree" in plan
+    assert "app/a.py" in plan and "app/new_feature.py" in plan
+    assert "app/b.py" not in plan
+
+
+def test_untracked_paths_are_repo_relative_from_subdir(tmp_path, monkeypatch):
+    repo = _wt_repo(tmp_path, monkeypatch)
+    _write(repo, "app/new_feature.py", "def brand_new():\n    return 3\n")
+    monkeypatch.chdir(repo / "app")
+    text, _ = review_plan.read_diff()
+    assert "diff --git a/app/new_feature.py b/app/new_feature.py" in text
+
+
+def test_large_untracked_file_gets_placeholder(tmp_path, monkeypatch):
+    repo = _wt_repo(tmp_path, monkeypatch)
+    _write(repo, "big.dat", "x" * (300 * 1024))
+    monkeypatch.chdir(repo)
+    text, _ = review_plan.read_diff()
+    plan = review_plan.build_plan(text, "working-tree")
+    assert "big.dat" in json.dumps(plan)
+    assert "xxxxxxxx" not in text
+
+
+def test_non_ascii_untracked_name_is_unquoted(tmp_path, monkeypatch):
+    repo = _wt_repo(tmp_path, monkeypatch)
+    _write(repo, "app/café.py", "def c():\n    return 1\n")
+    monkeypatch.chdir(repo)
+    text, _ = review_plan.read_diff()
+    assert "app/café.py" in text

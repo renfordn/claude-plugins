@@ -55,6 +55,23 @@ each path in order and stopping at the first that returns a `<!--CODE-REVIEWER-R
    reported — the handoff, `REVIEW-HISTORY.md`, and the implementer's resume message. Never let
    a self-review pass as independent.
 
+**Scoped review (parallel slices).** When several slice workers run in separate worktrees, add
+these lines to the brief:
+
+- `Review scope: slice=<ID>`: the reviewer reviews only that slice's changes and must begin its
+  report with the line `<!--REVIEW-SCOPE: slice=<ID>-->` before `<!--CODE-REVIEWER-REPORT-->`, so
+  the caller can match the report to the slice. `<ID>` matches `\d+[A-Za-z0-9]*`.
+- `Review cwd: <path>`: the worktree to review in (the reviewer reads and diffs there).
+
+`review_headless.sh` emits both lines for you: `--scope <ID>` / `--cwd <path>` (or env
+`REVIEW_SCOPE` / `REVIEW_CWD`); `--cwd` also changes into that directory. The scope line is
+added only for the `code-reviewer` agent, not `finding-verifier`.
+
+To review uncommitted slice work, run `review_plan.py plan --base HEAD`: it means "the
+uncommitted working tree against HEAD plus untracked, non-ignored files (as new-file diffs; files
+over 256 KB appear as header-only placeholders)". Without `--base`, a worker branch ahead of
+main diffs `origin/main...HEAD` and never sees uncommitted changes.
+
 **Large diffs** (`review_plan.py plan` reports `large`) and `Deep`/`Ultra`: run
 `scripts/review_loop.py` instead of a single reviewer. It repeats fresh headless reviewer passes,
 each briefed with the findings so far, until one adds nothing (max 3), and prints the merged
