@@ -62,6 +62,18 @@ python3 <agent-tdd plugin>/scripts/tdd_check.py red   --slice "Slice N: <title>"
 python3 <agent-tdd plugin>/scripts/tdd_check.py green --slice "Slice N: <title>" -- <test cmd>
 ```
 
+Open each slice with `tdd_check.py start --slice "Slice N: <title>" --kind feature` and close it with
+`tdd_check.py done --slice "Slice N: <title>"` (recommended; they scope `red_first_guard`).
+
+- **First-run pass:** if the user's new test already passes, do not contrive a Red. Run
+  `tdd_check.py coverage --mutant "<cmd>" --slice ... -- <test cmd>`; confirmed means a coverage-only
+  slice (no production change, still reviewed).
+- **Bypass:** `tdd_check.py bypass --slice ... --reason "<why>"` only when Red cannot come first.
+- **Guards:** the user edits outside Claude's tools, so `red_first_guard` and `user_led_guard` only
+  constrain Claude's own writes. Both may deny; either deny wins.
+- **UI slice with no E2E harness:** agent-tdd reports `AGENT-TDD-BLOCKED`; follow
+  `implementation-handoff.md` step 7 (skip dependents, ask the user).
+
 Red must fail and Green must pass. Quote the `TDD-EVIDENCE` lines back to the user. Never claim
 Red or Green you did not observe.
 
