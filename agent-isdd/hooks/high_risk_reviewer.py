@@ -9,7 +9,6 @@ slices complete to verify code-reviewer was run on each high-risk slice.
 import datetime
 import json
 import os
-import subprocess
 import sys
 import re
 
@@ -25,6 +24,9 @@ except ImportError:
     def write_test_author_pending(path, slices, detected_at):
         pass
 
+import markers
+import review_tracking
+
 try:
     from subagent_report import report_text_from_payload
 except ImportError:
@@ -33,12 +35,9 @@ except ImportError:
 
 
 # Regex patterns for markdown parsing
-_PHASE_PATTERN = r'##\s+(?:Slice|Phase)\s+\d+:\s+([^\n]+)'
-_RISK_TIER_NEW_FORMAT = r'\*\*Risk Tier:\*\*\s+(high-risk|standard)'
-_RISK_TIER_OLD_FORMAT = r'###\s+Risk Tier\s*\n\s*-\s*`(high-risk|standard)`'
+# Slice heading and Risk Tier parsing live in review_tracking (shared, alphanumeric ids).
 _FILES_PATTERN = r'\*\*Files:\*\*\s+(.+?)(?=\n\n|\n###|\Z)'
 _FILE_PATH_PATTERN = r'`([^`]+)`'
-_RISKS_SECTION_PATTERN = r'##\s+Risks\s+And\s+Tradeoffs\s*\n(.*?)(?=\n##|\Z)'
 
 
 def _extract_backtick_paths(text: str) -> list:
@@ -113,28 +112,25 @@ def read_tasks_md(feature_dir):
         return []
 
     phases = []
+    heads = list(review_tracking._HEADING.finditer(content))
 
-    for phase_match in re.finditer(_PHASE_PATTERN, content):
-        phase_name = phase_match.group(1).strip()
+    for i, phase_match in enumerate(heads):
+        line_end = content.find("\n", phase_match.end())
+        line_end = len(content) if line_end == -1 else line_end
+        phase_name = content[phase_match.end():line_end].strip()
         phase_start = phase_match.start()
-
-        # Find next phase or end of content
-        next_phase = re.search(_PHASE_PATTERN, content[phase_match.end():])
-        phase_end = phase_match.end() + next_phase.start() if next_phase else len(content)
+        phase_end = heads[i + 1].start() if i + 1 < len(heads) else len(content)
         phase_text = content[phase_start:phase_end]
 
-        # Try new format first: **Risk Tier:** standard | high-risk
-        risk_match = re.search(_RISK_TIER_NEW_FORMAT, phase_text)
-
-        # Fall back to old format: ### Risk Tier\n- `high-risk` or `standard`
-        if not risk_match:
-            risk_match = re.search(_RISK_TIER_OLD_FORMAT, phase_text)
+        # New format (**Risk Tier:** x) first, then old (### Risk Tier\n- `x`)
+        risk_match = (review_tracking._TIER_NEW.search(phase_text)
+                      or review_tracking._TIER_OLD.search(phase_text))
 
         if not risk_match:
             # No risk tier found, skip this phase
             continue
 
-        risk_tier = risk_match.group(1)
+        risk_tier = risk_match.group(1).lower()
 
         # Extract Files: **Files:** `file1`, `file2`, ...
         files = []
@@ -144,82 +140,13 @@ def read_tasks_md(feature_dir):
             files = _extract_backtick_paths(files_text)
 
         phases.append({
+            "id": markers.normalize_slice_id(phase_match.group(1)),
             "name": phase_name,
             "risk": risk_tier,
             "files": files
         })
 
     return phases
-
-
-def parse_design_md_risks(design_md_path: str) -> list:
-    """Parse design.md to extract high-risk file paths from Risks And Tradeoffs section.
-
-    Scans the "Risks And Tradeoffs" section of design.md and extracts all file paths
-    that appear to be mentioned in risk descriptions (paths are expected to be
-    enclosed in backticks).
-
-    Args:
-        design_md_path: Path to design.md file
-
-    Returns:
-        List of file paths mentioned in Risks And Tradeoffs section.
-        Returns empty list if file not found or section missing.
-    """
-    try:
-        with open(design_md_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-    except (OSError, FileNotFoundError):
-        return []
-
-    # Find Risks And Tradeoffs section
-    risks_match = re.search(_RISKS_SECTION_PATTERN, content, re.DOTALL | re.IGNORECASE)
-
-    if not risks_match:
-        return []
-
-    risks_section = risks_match.group(1)
-
-    # Extract backtick-quoted file paths from the risks section
-    # Only match paths ending in .py or containing .py extension
-    file_paths = re.findall(r'`([^`]+\.py[^`]*)`', risks_section)
-
-    return file_paths
-
-
-def get_applicable_phases(phases: list, high_risk_paths: list) -> list:
-    """Filter phases to those applicable for code review.
-
-    Returns all high-risk phases plus standard phases that touch high-risk files.
-
-    Args:
-        phases: List of phase objects from read_tasks_md():
-                [{"name": "...", "risk": "...", "files": [...]}, ...]
-        high_risk_paths: List of file paths configured as high-risk
-
-    Returns:
-        Filtered list of applicable phases in original order.
-        - All phases with risk_tier = "high-risk"
-        - All phases with risk_tier = "standard" where files[] intersect high_risk_paths
-    """
-    applicable = []
-
-    for phase in phases:
-        risk_tier = phase.get("risk", "standard")
-
-        # Always include high-risk phases
-        if risk_tier == "high-risk":
-            applicable.append(phase)
-            continue
-
-        # For standard phases, include only if files intersect high-risk paths
-        if risk_tier == "standard":
-            phase_files = set(phase.get("files", []))
-            high_risk_set = set(high_risk_paths)
-            if phase_files & high_risk_set:  # Non-empty intersection
-                applicable.append(phase)
-
-    return applicable
 
 
 def get_high_risk_phases(tasks_md_phases):
@@ -237,60 +164,29 @@ def get_high_risk_phases(tasks_md_phases):
     return [p for p in tasks_md_phases if p.get("risk") == "high-risk"]
 
 
-def read_workflow_state_json(feature_dir):
-    """Read workflow-state.json."""
-    json_path = os.path.join(feature_dir, "workflow-state.json")
-    return parse_state_json(json_path)
-
-
-def write_workflow_state_json(feature_dir, state):
-    """Write workflow-state.json."""
-    json_path = os.path.join(feature_dir, "workflow-state.json")
-    try:
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(state, f, indent=2)
-        return True
-    except OSError:
-        return False
-
-
-def init_code_reviewer_tracking(feature_dir, high_risk_phases):
-    """Initialize code-reviewer tracking in workflow-state.json."""
-    state = read_workflow_state_json(feature_dir)
-
-    if "code_reviewer_tracking" not in state:
-        state["code_reviewer_tracking"] = {
-            "high_risk_phases": [p["name"] for p in high_risk_phases],
-            "reviewed_phases": []
-        }
-
-    write_workflow_state_json(feature_dir, state)
-
-
 def get_code_reviewer_checkpoint(feature_dir):
-    """Get checkpoint message about high-risk slices."""
-    tasks_md_phases = read_tasks_md(feature_dir)
-    high_risk = get_high_risk_phases(tasks_md_phases)
+    """Checkpoint about high-risk slices; reviewed state comes from review_tracking
+    (the workflow-state.json `reviewed` map and any Review Fallback)."""
+    high_risk = get_high_risk_phases(read_tasks_md(feature_dir))
 
     if not high_risk:
         return None  # No high-risk slices; no checkpoint needed
 
-    state = read_workflow_state_json(feature_dir)
-    tracking = state.get("code_reviewer_tracking", {})
-    reviewed = tracking.get("reviewed_phases", [])
-
-    unreviewed = [p["name"] for p in high_risk if p["name"] not in reviewed]
+    unreviewed_ids = review_tracking.unreviewed_high_risk(feature_dir)
+    titles = {p["id"]: p["name"] for p in high_risk}
+    unreviewed = [f"Slice {i}: {titles.get(i, '')}".rstrip(": ") for i in unreviewed_ids]
+    reviewed_count = len(high_risk) - len(unreviewed_ids)
 
     if unreviewed:
         return {
             "type": "checkpoint",
             "high_risk_count": len(high_risk),
-            "reviewed_count": len(reviewed),
+            "reviewed_count": reviewed_count,
             "unreviewed_phases": unreviewed,
             "message": (
-                f"⚠️  **Code Review Checkpoint**\n\n"
+                f"\u26a0\ufe0f  **Code Review Checkpoint**\n\n"
                 f"**High-Risk Slices**: {len(high_risk)} total\n"
-                f"**Reviewed**: {len(reviewed)}\n"
+                f"**Reviewed**: {reviewed_count}\n"
                 f"**Pending Review**: {len(unreviewed)}\n\n"
                 f"Recommended: Run `code-reviewer` on these high-risk slices if not already done:\n"
             ) + "\n".join(f"- {p}" for p in unreviewed) +
@@ -301,468 +197,10 @@ def get_code_reviewer_checkpoint(feature_dir):
     return {
         "type": "success",
         "message": (
-            f"✅ **All high-risk slices reviewed** ({len(high_risk)} total)\n\n"
-            f"code-reviewer was run on all {len(high_risk)} high-risk phases."
+            f"\u2705 **All high-risk slices reviewed** ({len(high_risk)} total)\n\n"
+            f"code-reviewer was run on all {len(high_risk)} high-risk slices."
         )
     }
-
-
-
-
-def update_reviewed_phases(workflow_state_json: dict, phase_name: str, severity: str,
-                          findings: list, reviewer_version: str) -> dict:
-    """
-    Update workflow-state.json reviewed_phases with new review result.
-
-    Appends a new reviewed phase entry to the code_reviewer_tracking.reviewed_phases
-    array, including severity, findings count, and findings detail.
-
-    Args:
-        workflow_state_json: The current workflow-state.json dict
-        phase_name: Name of the phase that was reviewed (e.g., "Phase 1: Foo")
-        severity: Severity classification ("clean", "non-major", "major")
-        findings: List of findings from code-reviewer, each with:
-                 {"dimension": "...", "status": "...", "finding_text": "..."}
-        reviewer_version: Version string of code-reviewer used (e.g., "code-reviewer@0.1.x")
-
-    Returns:
-        Updated workflow_state_json with new entry appended to reviewed_phases
-        (replacing any earlier entry for the same phase_name).
-        Creates code_reviewer_tracking structure if missing.
-    """
-    from datetime import datetime, timezone
-
-    if "code_reviewer_tracking" not in workflow_state_json:
-        workflow_state_json["code_reviewer_tracking"] = {
-            "high_risk_phases": [],
-            "reviewed_phases": [],
-            "config": {}
-        }
-
-    tracking = workflow_state_json["code_reviewer_tracking"]
-    if "reviewed_phases" not in tracking:
-        tracking["reviewed_phases"] = []
-
-    reviewed_entry = {
-        "phase_name": phase_name,
-        "severity": severity,
-        "findings_count": len(findings) if findings else 0,
-        "findings": findings if findings else [],
-        "reviewed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "reviewer_version": reviewer_version
-    }
-
-    # A re-review of the same phase supersedes its earlier entry, so the list stays
-    # bounded by the number of phases rather than growing with every re-review.
-    tracking["reviewed_phases"] = [
-        e for e in tracking["reviewed_phases"]
-        if not (isinstance(e, dict) and e.get("phase_name") == phase_name)
-    ]
-    tracking["reviewed_phases"].append(reviewed_entry)
-    return workflow_state_json
-
-
-def get_high_risk_file_paths_config(workflow_state_json: dict) -> list:
-    """
-    Extract high-risk file paths from workflow-state.json config.
-
-    Reads the code_reviewer_tracking.config.high_risk_file_paths array.
-    Defaults to empty list if config is missing (backward compatible).
-
-    Args:
-        workflow_state_json: The workflow-state.json dict
-
-    Returns:
-        List of high-risk file paths configured, or empty list if not present.
-    """
-    tracking = workflow_state_json.get("code_reviewer_tracking", {})
-    config = tracking.get("config", {})
-    return config.get("high_risk_file_paths", [])
-
-
-def construct_rollback_marker(findings: list, target: str = "Tasks") -> str:
-    """
-    Construct SDD-ROLLBACK-REQUEST marker for major findings.
-
-    Emits an HTML comment marker that signals to the SDD workflow that a rollback
-    is needed due to major code-review findings. The marker is consumed by
-    subagent_report.py and triggers a pause back to the target phase.
-
-    Args:
-        findings: List of code-reviewer findings: [{"dimension": "...", "status": "...", "finding_text": "..."}, ...]
-        target: Target phase to rollback to (default "Tasks", alternatives: "Requirements")
-
-    Returns:
-        Formatted marker string: <!--SDD-ROLLBACK-REQUEST: target=<target> reason="<reason>"/>-->
-        or empty string if no findings provided.
-
-    Note:
-        - Marker format must match subagent_report.py regex for detection
-        - reason text is summarized from top 2-3 findings, truncated to ~200 chars if needed
-        - Dimension + status from findings is extracted to form reason summary
-    """
-    if not findings:
-        return ""
-
-    # Summarize findings: extract dimension + status from top 2-3 findings
-    summary_parts = []
-    for finding in findings[:3]:
-        dim = finding.get("dimension", "unknown")
-        status = finding.get("status", "FAIL")
-        finding_text = finding.get("finding_text", "issue found")
-        summary_parts.append(f"{dim} ({status}): {finding_text}")
-
-    reason = "; ".join(summary_parts)
-
-    # Truncate if too long
-    if len(reason) > 200:
-        reason = reason[:197] + "..."
-
-    marker = f'<!--SDD-ROLLBACK-REQUEST: target={target} reason="{reason}"/>-->'
-    return marker
-
-
-def construct_resume_message(phase_name: str, severity: str, findings: list = None) -> str:
-    """
-    Construct resume message for non-major/clean code-review results.
-
-    Formats a human-readable message to communicate code-review completion
-    status back to the user (via SendMessage) when severity is non-major or clean.
-
-    Args:
-        phase_name: Name of the phase reviewed (e.g., "Phase 1: Foo Bar")
-        severity: Severity result ("clean" or "non-major")
-        findings: Optional list of findings (used to count non-major issues)
-
-    Returns:
-        Formatted message string suitable for SendMessage output.
-
-    Message format:
-        "Code review complete on [phase]. Severity: [severity]. [N findings or 'no issues found'].
-        Proceeding to refactor. Tracked [N] follow-ups for post-refactor triage."
-    """
-    findings_count = len(findings) if findings else 0
-
-    if severity == "clean":
-        findings_text = "No issues found"
-        follow_up_text = "0 follow-ups"
-    else:  # non-major
-        findings_text = f"{findings_count} finding{'s' if findings_count != 1 else ''} found"
-        follow_up_text = f"{findings_count} follow-up{'s' if findings_count != 1 else ''}"
-
-    message = (
-        f"Code review complete on {phase_name}. "
-        f"Severity: {severity}. "
-        f"{findings_text}. "
-        f"Proceeding to refactor. "
-        f"Tracked {follow_up_text} for post-refactor triage."
-    )
-
-    return message
-
-
-def classify_severity(dimensions_dict: dict) -> str:
-    """
-    Classify severity from code-reviewer dimensions.
-
-    Maps code-reviewer's dimension-level PASS/FAIL/WARN status to a binary
-    major/non-major classification for auto-advance logic.
-
-    Dimensions are grouped into two categories:
-    - Critical (intent, regressions, security): FAIL/WARN → major
-    - Standard (best_practices, naming, scalability): FAIL/WARN → non-major
-
-    Args:
-        dimensions_dict: Code-reviewer JSON output with dimensions.
-                        Expected shape:
-                        {
-                            "intent": {"status": "PASS|FAIL|WARN", "findings": [...]},
-                            "regressions": {"status": "...", ...},
-                            "security": {"status": "...", ...},
-                            "best_practices": {"status": "...", ...},
-                            "naming": {"status": "...", ...},
-                            "scalability": {"status": "...", ...}
-                        }
-
-    Returns:
-        str: "clean" (all PASS), "major" (any FAIL/WARN on critical), or
-             "non-major" (any FAIL/WARN on standard, no majors)
-
-    Note:
-        - If a dimension is missing, treated as PASS (tolerates incomplete input)
-        - Status matching is case-insensitive for robustness
-        - Returns "non-major" if only standard dimensions have issues
-    """
-    critical_dims = {"intent", "regressions", "security"}
-    standard_dims = {"best_practices", "naming", "scalability"}
-
-    # Check for major issues in critical dimensions
-    for dim in critical_dims:
-        if dim in dimensions_dict:
-            status = dimensions_dict[dim].get("status", "PASS").upper()
-            if status in ("FAIL", "WARN"):
-                return "major"
-
-    # Check for non-major issues in standard dimensions
-    for dim in standard_dims:
-        if dim in dimensions_dict:
-            status = dimensions_dict[dim].get("status", "PASS").upper()
-            if status in ("FAIL", "WARN"):
-                return "non-major"
-
-    # All dimensions PASS
-    return "clean"
-
-
-def create_follow_up_tasks(phase_name: str, findings: list) -> list:
-    """
-    Create TaskCreate items for non-major findings (Slice 8, high-risk).
-
-    Calls TaskCreate API to queue implementation follow-up tasks for each finding.
-    Error handling is non-blocking: failures don't interrupt refactor flow.
-
-    Args:
-        phase_name: Name of the phase reviewed (e.g., "Phase 1: Add Schema")
-        findings: List of findings: [{"dimension": "...", "status": "...", "finding_text": "..."}, ...]
-
-    Returns:
-        List of created task IDs (may be empty if TaskCreate fails or no findings)
-
-    Behavior:
-        - For each finding, calls TaskCreate with:
-          - title: "[Code Review] <dimension>: <summary>"
-          - body: Detailed finding description
-          - tags: ["code-review-finding", "follow-up", "<phase_name>"]
-        - On API error: logs error, returns empty list (doesn't raise)
-        - On partial failure: returns task IDs created before failure
-    """
-    if not findings:
-        return []
-
-    task_ids = []
-
-    for finding in findings:
-        try:
-            dimension = finding.get("dimension", "unknown")
-            status = finding.get("status", "WARN")
-            finding_text = finding.get("finding_text", "issue found")
-
-            title = f"[Code Review] {dimension}: {status} — {finding_text[:50]}"
-            body = (
-                f"Phase: {phase_name}\n"
-                f"Dimension: {dimension}\n"
-                f"Status: {status}\n"
-                f"Finding: {finding_text}\n\n"
-                f"Post-refactor triage task for code review finding."
-            )
-            tags = ["code-review-finding", "follow-up", phase_name.replace(" ", "-").lower()]
-
-            # Attempt TaskCreate via subprocess (CLI)
-            cmd = [
-                "claude",
-                "task",
-                "create",
-                "--title", title,
-                "--body", body,
-                "--tags", ",".join(tags)
-            ]
-
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-
-            if result.returncode == 0:
-                # Extract task ID from output (format varies by CLI version)
-                # For now, accept success as task created
-                task_ids.append(f"{dimension}_{findings.index(finding)}")
-            else:
-                # Log error but continue (non-blocking)
-                pass
-
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-            # TaskCreate command not found or timeout; continue (non-blocking)
-            pass
-
-    return task_ids
-
-
-def append_to_recap_md(recap_path: str, phase_name: str, severity: str,
-                      findings: list = None, task_ids: list = None,
-                      issue_urls: list = None) -> bool:
-    """
-    Append findings to recap.md for post-implementation review (Slice 9, standard).
-
-    Adds a structured Code-Review Findings section to recap.md with severity,
-    task links, and GitHub issue URLs. Idempotent: duplicate findings are skipped.
-
-    Args:
-        recap_path: Path to recap.md file (creates if missing)
-        phase_name: Name of reviewed phase
-        severity: Severity classification ("clean", "non-major", "major")
-        findings: Optional list of findings to log
-        task_ids: Optional list of created task IDs
-        issue_urls: Optional list of GitHub issue URLs
-
-    Returns:
-        True if write succeeded, False otherwise
-
-    Side effects:
-        - Creates recap.md if not present
-        - Appends findings section (or adds to existing)
-        - Idempotent: same finding logged twice results in single entry
-    """
-    if not findings:
-        findings = []
-    if not task_ids:
-        task_ids = []
-    if not issue_urls:
-        issue_urls = []
-
-    try:
-        # Read existing recap or create
-        if os.path.exists(recap_path):
-            with open(recap_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        else:
-            content = ""
-
-        # Format findings entries
-        findings_lines = []
-        for i, finding in enumerate(findings):
-            dim = finding.get("dimension", "unknown")
-            status = finding.get("status", "WARN")
-            text = finding.get("finding_text", "issue")
-
-            task_id = task_ids[i] if i < len(task_ids) else None
-            issue_url = issue_urls[i] if i < len(issue_urls) else None
-
-            entry = f"- {phase_name} / {dim} ({status}): {text}"
-            if task_id:
-                entry += f" [task:{task_id}]"
-            if issue_url:
-                entry += f" [issue:{issue_url}]"
-
-            findings_lines.append(entry)
-
-        # Add findings section header if needed
-        if "## Code-Review Findings" not in content:
-            content += "\n## Code-Review Findings\n\n"
-
-        # Append findings (avoid exact duplicates)
-        for line in findings_lines:
-            if line not in content:
-                content += line + "\n"
-
-        # Write back
-        with open(recap_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-
-        return True
-
-    except (OSError, IOError):
-        return False
-
-
-def create_github_issues(repo_url: str, phase_name: str, findings: list,
-                        task_ids: list = None) -> list:
-    """
-    Create GitHub issues for non-major findings (Slice 10, high-risk).
-
-    Invokes gh CLI to create issues for code-review findings. Non-blocking:
-    failures don't interrupt refactor flow.
-
-    Args:
-        repo_url: GitHub repo URL (e.g., "https://github.com/org/repo")
-        phase_name: Name of reviewed phase
-        findings: List of findings to create issues for
-        task_ids: Optional list of associated task IDs
-
-    Returns:
-        List of GitHub issue URLs created (may be empty on error)
-
-    Behavior:
-        - For each finding, calls: gh issue create --title "..." --body "..." --labels "..."
-        - On CLI error or timeout: logs and continues (non-blocking)
-        - Labels: "code-review", "follow-up", "<phase-slug>"
-    """
-    if not findings:
-        return []
-    if not task_ids:
-        task_ids = []
-
-    issue_urls = []
-
-    for i, finding in enumerate(findings):
-        try:
-            dimension = finding.get("dimension", "unknown")
-            status = finding.get("status", "WARN")
-            finding_text = finding.get("finding_text", "issue")
-            task_id = task_ids[i] if i < len(task_ids) else None
-
-            title = f"[Code Review] {phase_name} — {dimension} ({status})"
-            body = (
-                f"## Code Review Finding\n\n"
-                f"**Phase:** {phase_name}\n"
-                f"**Dimension:** {dimension}\n"
-                f"**Status:** {status}\n"
-                f"**Finding:** {finding_text}\n"
-            )
-
-            if task_id:
-                body += f"\n**Task ID:** {task_id}\n"
-
-            body += "\nReview this finding post-refactor for triage."
-
-            labels = ["code-review", "follow-up", phase_name.replace(" ", "-").lower()]
-
-            # Parse repo URL to extract owner/repo
-            # URL format: https://github.com/owner/repo or git@github.com:owner/repo.git
-            if "github.com" in repo_url:
-                if repo_url.startswith("git@"):
-                    # git@github.com:owner/repo.git
-                    parts = repo_url.split(":")[1].replace(".git", "").split("/")
-                else:
-                    # https://github.com/owner/repo
-                    parts = repo_url.rstrip("/").split("/")[-2:]
-                repo_slug = f"{parts[0]}/{parts[1]}"
-            else:
-                repo_slug = repo_url
-
-            cmd = [
-                "gh",
-                "issue",
-                "create",
-                "-R", repo_slug,
-                "--title", title,
-                "--body", body,
-                "--label", ",".join(labels)
-            ]
-
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
-            if result.returncode == 0:
-                # Extract issue URL from output or construct it
-                # gh CLI returns: "https://github.com/owner/repo/issues/123"
-                if result.stdout:
-                    issue_url = result.stdout.strip()
-                else:
-                    # Fallback URL construction
-                    issue_url = f"https://github.com/{repo_slug}/issues/new"
-                issue_urls.append(issue_url)
-
-        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-            # gh CLI not found, timeout, or other error; continue (non-blocking)
-            pass
-
-    return issue_urls
 
 
 def main(payload=None):
@@ -784,6 +222,18 @@ def main(payload=None):
             payload = json.load(sys.stdin)
         except (json.JSONDecodeError, ValueError):
             payload = {}
+
+    # review_tracking is the sole writer of the `reviewed` map; fail open.
+    try:
+        review_tracking.evaluate(payload)
+    except Exception as exc:  # noqa: BLE001
+        sys.stderr.write(f"[high_risk_reviewer] review_tracking failed: {exc}\n")
+
+    # The passive reminder/checkpoint only applies to agent-TDD and code-reviewer stops.
+    # (A payload with no agent_type, e.g. a legacy standalone invocation, is not filtered.)
+    agent = str(payload.get("agent_type") or "").split(":")[-1].lower()
+    if agent and agent not in ("agent-tdd", "code-reviewer"):
+        return None
 
     cwd = payload.get("cwd") or os.getcwd()
     state_path = active_state_file(cwd)
@@ -817,9 +267,6 @@ def main(payload=None):
                 "Recorded as test_author_pending in workflow-state.json. Spawn test-author "
                 "for each, then resume agent-TDD via SendMessage with the bundled results."
             )
-
-    if high_risk:
-        init_code_reviewer_tracking(feature_dir, high_risk)
 
     # Get checkpoint message
     checkpoint = get_code_reviewer_checkpoint(feature_dir)

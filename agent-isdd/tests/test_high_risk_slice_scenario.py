@@ -248,14 +248,10 @@ def main():
             tasks_md_phases = high_risk_reviewer.read_tasks_md(feature_dir)
             high_risk = high_risk_reviewer.get_high_risk_phases(tasks_md_phases)
 
-            if high_risk:
-                high_risk_reviewer.init_code_reviewer_tracking(feature_dir, high_risk)
-
             checkpoint = high_risk_reviewer.get_code_reviewer_checkpoint(feature_dir)
 
             assert checkpoint is not None
             print(f"  ✓ Hook initialization successful")
-            print(f"  ✓ Tracking initialized with {len(high_risk)} high-risk phases")
             print(f"  ✓ Checkpoint would surface to user")
 
         finally:
