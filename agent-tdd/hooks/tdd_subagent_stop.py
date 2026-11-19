@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 from tdd_state import (update_json, state_cwd, tdd_memory_dir,  # noqa: E402
                        extract_last_assistant_text, TAIL_BYTES)
-from markers import SLICE_TITLE_RE, _MARKER_RE  # noqa: E402
+from markers import parse_slice_id_strict, normalize_slice_id as _norm, _section_text  # noqa: E402
 import tdd_check  # noqa: E402
 
 EVIDENCE_RE = re.compile(r"TDD-EVIDENCE (red|green) ([0-9a-f]{8})")
@@ -32,34 +32,9 @@ SECTION_RE = re.compile(r"^\*\*([^*]+)\*\*", re.MULTILINE)
 _extract_last_assistant_text = extract_last_assistant_text  # compat alias
 
 
-def _section_text(report, header):
-    """Extract text under a **Header** section, up to the next **Header** or end."""
-    pattern = re.compile(
-        r"\*\*" + re.escape(header) + r"\*\*\s*(.*?)(?=\*\*[^*]|\Z)",
-        re.DOTALL,
-    )
-    m = pattern.search(report)
-    if not m:
-        return ""
-    return m.group(1).strip()
-
-
 FEATURE_RE = re.compile(
     r"<!--\s*(?:FEATURE|SPEC):\s*([^>]*?)\s*-->|^\s*(?:Feature|Spec)\s*:\s*(.+?)\s*$",
     re.IGNORECASE | re.MULTILINE)
-
-
-def _strict_slice_id(text):
-    """Slice id only from an explicit <!--SLICE-ID: N--> marker or the first Plan line's
-    "Slice N:" title; a prose mention elsewhere ("reusing Slice 1's helper") is not an id."""
-    m = _MARKER_RE.search(text)
-    if m:
-        return m.group(1)
-    for ln in _section_text(text, "Plan").splitlines():
-        if ln.strip():
-            t = SLICE_TITLE_RE.match(ln)
-            return t.group(1) if t else None
-    return None
 
 
 def _feature(text):
@@ -174,7 +149,7 @@ def main():
     entry = _parse_report(text)
     entry["evidence"] = _evidence(text, cwd)
 
-    slice_id = _strict_slice_id(text)
+    slice_id = parse_slice_id_strict(text)
     feature = _feature(text)
     if slice_id:
         entry["slice"] = slice_id
@@ -188,7 +163,7 @@ def main():
         match = None
         for existing in slices:
             if slice_id:
-                if (existing.get("slice") == slice_id
+                if (_norm(existing.get("slice")) == slice_id
                         and existing.get("status") != "refactor_complete"
                         and existing.get("feature") == feature):
                     match = existing

@@ -47,20 +47,6 @@ def _read(cwd):
         return {}
 
 
-def _strict_slice_id(text):
-    """Slice id from an explicit SLICE-ID marker or a line-start 'Slice N:' title, else None."""
-    import markers
-    text = text or ""
-    m = markers._MARKER_RE.search(text)
-    if m:
-        return m.group(1)
-    for line in text.splitlines():
-        m = markers.SLICE_TITLE_RE.match(line)
-        if m:
-            return m.group(1)
-    return None
-
-
 def clear_gates(cwd, scope=None):
     """Mark gates reviewed. scope given: only gates whose slice == scope. scope None: the one
     open gate if exactly one is open, else none. Returns a systemMessage dict when an unscoped
@@ -72,7 +58,9 @@ def clear_gates(cwd, scope=None):
         open_gates = [g for g in gates.values()
                       if isinstance(g, dict) and not g.get("reviewed")]
         if scope is not None:
-            targets = [g for g in open_gates if g.get("slice") == scope]
+            from markers import normalize_slice_id
+            targets = [g for g in open_gates
+                       if normalize_slice_id(g.get("slice")) == normalize_slice_id(scope)]
             if open_gates and not targets:
                 listed = ", ".join(str(g.get("slice")) if g.get("slice") is not None
                                    else "none" for g in open_gates)
@@ -110,7 +98,8 @@ def on_subagent_stop(payload, cwd):
     if TDD_MARKER in text and agent_id:
         from tdd_state import update_json
         opened = GREEN_PAUSE in text
-        slice_id = _strict_slice_id(text)
+        from markers import parse_slice_id_strict
+        slice_id = parse_slice_id_strict(text)
 
         def fn(gates):
             if opened:
