@@ -12,10 +12,14 @@ PreToolUse         SendMessage to an agent whose gate is open and unreviewed is 
   (SendMessage)    the message carries an explicit label: self-reviewed, review skipped, or
                    reviewed by: <who>. That keeps every bypass on record in the transcript.
 
-Scoping: a scoped review clears only gates of that slice. An unscoped review clears the sole
-open gate (backward compatible; a residual risk if the reviewer meant another slice) and clears
-nothing when several are open, warning via systemMessage. State lives in the main checkout's
-memory dir so worktree subagents and the lead share it.
+Scoping: a scoped review clears only gates of that slice (stale ones included). An unscoped
+review clears every open gate when none carries a slice id (serial /tdd); when some do, it
+clears the sole open gate, or nothing when several are open, warning via systemMessage.
+Clearing more than one gate is reported by systemMessage naming the agent ids. Open gates
+older than 24h (opened_at) are stale: excluded from unscoped counting but never deleted, so
+they keep blocking their agent until a scoped review or a bypass label. Only reviewed gates
+past the TTL are pruned. State lives in the main checkout's memory dir so worktree subagents
+and the lead share it.
 
 Fails open: any error here is logged to stderr and the tool call proceeds.
 """
@@ -47,35 +51,64 @@ def _read(cwd):
         return {}
 
 
+STALE_AFTER = datetime.timedelta(hours=24)
+
+
+def _opened_at(gate):
+    try:
+        dt = datetime.datetime.fromisoformat(gate.get("opened_at"))
+    except (TypeError, ValueError):
+        return None
+    return dt.astimezone() if dt.tzinfo is None else dt  # naive legacy values are local time
+
+
+def _is_stale(gate):
+    opened = _opened_at(gate)
+    if opened is None:
+        return False
+    return datetime.datetime.now(datetime.timezone.utc) - opened > STALE_AFTER
+
+
+def _open_gates(gates, include_stale=False):
+    return {k: g for k, g in gates.items()
+            if isinstance(g, dict) and not g.get("reviewed")
+            and (include_stale or not _is_stale(g))}
+
+
 def clear_gates(cwd, scope=None):
-    """Mark gates reviewed. scope given: only gates whose slice == scope. scope None: the one
-    open gate if exactly one is open, else none. Returns a systemMessage dict when an unscoped
-    review was ignored, else None."""
+    """Mark gates reviewed (rules in the module docstring). Returns a systemMessage dict when
+    an unscoped review was ignored or cleared several gates, else None."""
     from tdd_state import update_json
     result = {}
 
     def fn(gates):
-        open_gates = [g for g in gates.values()
-                      if isinstance(g, dict) and not g.get("reviewed")]
+        for k in [k for k, g in gates.items()
+                  if isinstance(g, dict) and g.get("reviewed") and _is_stale(g)]:
+            del gates[k]
+        fresh = _open_gates(gates)
         if scope is not None:
             from markers import normalize_slice_id
-            targets = [g for g in open_gates
-                       if normalize_slice_id(g.get("slice")) == normalize_slice_id(scope)]
-            if open_gates and not targets:
+            want = normalize_slice_id(scope)
+            targets = [g for g in _open_gates(gates, include_stale=True).values()
+                       if normalize_slice_id(g.get("slice")) == want]
+            if fresh and not targets:
                 listed = ", ".join(str(g.get("slice")) if g.get("slice") is not None
-                                   else "none" for g in open_gates)
+                                   else "none" for g in fresh.values())
                 result["msg"] = (
                     f"review-gate: review scoped to slice {scope} matched no open gate; "
                     f"open gates are for slices: {listed}. None was cleared.")
-        elif len(open_gates) == 1:
-            targets = open_gates
+        elif len(fresh) == 1 or all(g.get("slice") is None for g in fresh.values()):
+            targets = list(fresh.values())
+            if len(targets) > 1:
+                result["msg"] = (
+                    "review-gate: the unscoped review cleared every open serial gate: "
+                    + ", ".join(fresh) + ".")
         else:
             targets = []
-            if open_gates:
-                result["msg"] = (
-                    f"review-gate: the review was unscoped (no <!--REVIEW-SCOPE: slice=N--> "
-                    f"marker) and {len(open_gates)} agent-TDD gates are open, so none was "
-                    "cleared. Re-run the review with a scope marker.")
+            result["msg"] = (
+                f"review-gate: the review was unscoped (no <!--REVIEW-SCOPE: slice=N--> "
+                f"marker) and {len(fresh)} agent-TDD gates are open, so none was "
+                "cleared. Re-run the review with a scope marker.")
         for g in targets:
             g["reviewed"] = True
         return gates
@@ -104,7 +137,8 @@ def on_subagent_stop(payload, cwd):
         def fn(gates):
             if opened:
                 gates[agent_id] = {
-                    "opened_at": datetime.datetime.now().isoformat(timespec="seconds"),
+                    "opened_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
+                        timespec="seconds"),
                     "reviewed": False, "slice": slice_id}
             else:
                 gates.pop(agent_id, None)
