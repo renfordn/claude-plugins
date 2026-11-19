@@ -57,12 +57,17 @@ def _mark_reviewed(cwd):
         _write(cwd, gates)
 
 
+def clear_gates(cwd, scope=None):
+    """Stub: scoping arrives in a later slice; for now clears every open gate."""
+    return _mark_reviewed(cwd)
+
+
 def _subagent_text(payload):
     text = payload.get("last_assistant_message")
     if text:
         return text
-    from tdd_subagent_stop import _extract_last_assistant_text
-    return _extract_last_assistant_text(payload.get("agent_transcript_path", ""))[0]
+    from tdd_state import extract_last_assistant_text
+    return extract_last_assistant_text(payload.get("agent_transcript_path", ""))[0]
 
 
 def on_subagent_stop(payload, cwd):

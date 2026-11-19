@@ -17,7 +17,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
-from tdd_state import read_tdd_progress, write_tdd_progress  # noqa: E402
+from tdd_state import (read_tdd_progress, write_tdd_progress,  # noqa: E402
+                       extract_last_assistant_text, TAIL_BYTES)
 import tdd_check  # noqa: E402
 
 EVIDENCE_RE = re.compile(r"TDD-EVIDENCE (red|green) ([0-9a-f]{8})")
@@ -27,56 +28,7 @@ PHASE_RE = re.compile(r"<!--AGENT-TDD-PHASE:(\w+)-->")
 PLAN_FLAG_RE = re.compile(r'<!--AGENT-TDD-PLAN-FLAG:\s*reason="[^"]*"-->')
 SECTION_RE = re.compile(r"^\*\*([^*]+)\*\*", re.MULTILINE)
 
-TAIL_BYTES = 32768
-
-
-def _extract_last_assistant_text(transcript_path):
-    """Tail-read transcript JSONL and return the last assistant message text.
-    Returns (text, truncated) where truncated=True means the file was larger than
-    TAIL_BYTES so the head of the file was not read.
-    """
-    try:
-        with open(transcript_path, "rb") as fh:
-            fh.seek(0, 2)
-            size = fh.tell()
-            start = max(0, size - TAIL_BYTES)
-            fh.seek(start)
-            raw = fh.read()
-    except OSError:
-        return "", False
-
-    truncated = start > 0
-    lines = raw.split(b"\n")
-    if truncated:
-        lines = lines[1:]  # drop potentially partial first line
-
-    blocks = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            ev = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if not isinstance(ev, dict):
-            continue
-        msg = ev.get("message") if isinstance(ev.get("message"), dict) else None
-        role = ev.get("type") or (msg.get("role") if msg else "")
-        is_assistant = role == "assistant" or (msg and msg.get("role") == "assistant")
-        if not is_assistant:
-            continue
-        content = msg.get("content") if msg else ev.get("content")
-        if isinstance(content, str):
-            blocks.append(content)
-        elif isinstance(content, list):
-            parts = [c.get("text", "") for c in content
-                     if isinstance(c, dict) and c.get("type") == "text"]
-            joined = "\n".join(p for p in parts if p)
-            if joined:
-                blocks.append(joined)
-
-    return (blocks[-1].strip() if blocks else ""), truncated
+_extract_last_assistant_text = extract_last_assistant_text  # compat alias
 
 
 def _section_text(report, header):

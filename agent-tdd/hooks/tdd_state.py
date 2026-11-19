@@ -9,11 +9,16 @@ Intentionally self-contained: slug algorithm is copied verbatim from
 agent-isdd/hooks/sdd_memory.py rather than imported, to avoid a cross-plugin
 dependency. The two modules must stay in sync if the slug algorithm ever changes.
 """
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 
 # path_resolution.py lives alongside this file (a per-plugin copy -- see its own
 # docstring for why it isn't imported from a monorepo-relative shared/ directory).
@@ -90,4 +95,110 @@ def write_tdd_progress(cwd, data):
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2)
         fh.write("\n")
+
+
+TAIL_BYTES = 32768
+
+
+def extract_last_assistant_text(transcript_path):
+    """Tail-read transcript JSONL and return the last assistant message text.
+    Returns (text, truncated) where truncated=True means the file was larger than
+    TAIL_BYTES so the head of the file was not read.
+    """
+    try:
+        with open(transcript_path, "rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            start = max(0, size - TAIL_BYTES)
+            fh.seek(start)
+            raw = fh.read()
+    except OSError:
+        return "", False
+
+    truncated = start > 0
+    lines = raw.split(b"\n")
+    if truncated:
+        lines = lines[1:]  # drop potentially partial first line
+
+    blocks = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(ev, dict):
+            continue
+        msg = ev.get("message") if isinstance(ev.get("message"), dict) else None
+        role = ev.get("type") or (msg.get("role") if msg else "")
+        is_assistant = role == "assistant" or (msg and msg.get("role") == "assistant")
+        if not is_assistant:
+            continue
+        content = msg.get("content") if msg else ev.get("content")
+        if isinstance(content, str):
+            blocks.append(content)
+        elif isinstance(content, list):
+            parts = [c.get("text", "") for c in content
+                     if isinstance(c, dict) and c.get("type") == "text"]
+            joined = "\n".join(p for p in parts if p)
+            if joined:
+                blocks.append(joined)
+
+    return (blocks[-1].strip() if blocks else ""), truncated
+
+
+def update_json(path, fn):
+    """Locked read-modify-write of a JSON file. Missing/corrupt -> {}. Returns the new data."""
+    d = os.path.dirname(path) or "."
+    os.makedirs(d, exist_ok=True)
+    lock = None
+    try:
+        if fcntl is not None:
+            lock = open(path + ".lock", "a")
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        try:
+            mode = os.stat(path).st_mode & 0o777
+        except OSError:
+            mode = 0o644
+        data = fn(data)
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
+        try:
+            os.fchmod(fd, mode)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(data, fh, indent=2)
+                fh.write("\n")
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+        return data
+    finally:
+        if lock is not None:
+            lock.close()
+
+
+def state_cwd(cwd):
+    """Main worktree toplevel for cwd (so linked worktrees share state); cwd on any failure."""
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+    try:
+        proc = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                              cwd=cwd, capture_output=True, text=True, timeout=5, env=env)
+        common = proc.stdout.strip().rstrip("/")
+        if proc.returncode == 0 and os.path.basename(common) == ".git":
+            return os.path.dirname(common)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return cwd
 
