@@ -149,6 +149,15 @@ def read_tasks_md(feature_dir):
     return phases
 
 
+def _waves_stamped(feature_dir):
+    """True when tasks.md carries `**Wave:**` stamps (parallel_plan waves --write, Parallel: on)."""
+    try:
+        with open(os.path.join(feature_dir, "tasks", "tasks.md"), encoding="utf-8") as fh:
+            return bool(re.search(r"^\*\*Wave:\*\*\s*\d", fh.read(), re.M))
+    except OSError:
+        return False
+
+
 def get_high_risk_phases(tasks_md_phases):
     """Filter phases to only high-risk ones.
 
@@ -256,11 +265,19 @@ def main(payload=None):
     if report_text:
         _, phase_name = parse_agent_tdd_phase(report_text)
         if phase_name == "slicing_complete" and high_risk:
-            json_path = os.path.join(feature_dir, "workflow-state.json")
             slices = [{"name": p["name"], "files": p.get("files", [])} for p in high_risk]
+            names = "\n".join(f"- {s['name']}" for s in slices)
+            if _waves_stamped(feature_dir):
+                # Parallel: on — the tdd-parallel lead owns test-author per wave; a serial
+                # resume here would make agent-TDD implement everything alongside the workers.
+                return (
+                    f"agent-TDD: wave plan ready with {len(slices)} high-risk slice(s):\n{names}\n\n"
+                    "Run agent-tdd:tdd-parallel as lead; it spawns test-author for each "
+                    "high-risk slice in its wave before the implementers."
+                )
+            json_path = os.path.join(feature_dir, "workflow-state.json")
             detected_at = datetime.datetime.now().isoformat(timespec="seconds")
             write_test_author_pending(json_path, slices, detected_at)
-            names = "\n".join(f"- {s['name']}" for s in slices)
             return (
                 f"agent-TDD: {len(slices)} high-risk slice(s) need test-author before "
                 f"implementation can proceed:\n{names}\n\n"

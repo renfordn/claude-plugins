@@ -426,6 +426,41 @@ class MainSlicingCompleteTests(unittest.TestCase):
             with open(os.path.join(feature_dir, "workflow-state.json"), encoding="utf-8") as fh:
                 self.assertIn("test_author_pending", json.load(fh))
 
+    def test_parallel_slicing_complete_routes_high_risk_to_lead(self):
+        """Slice 21 review F1: a wave-stamped tasks.md (Parallel: on) must not ask the caller to
+        resume agent-TDD serially; the tdd-parallel lead runs test-author per wave."""
+        with h.temp_git_repo() as repo, h.temp_home() as home:
+            feature_dir = h.feature_spec_dir(home, repo)
+            h.seed_state_file(feature_dir, title="My Feature", workflow_status="In Progress")
+            self._write_tasks_md(feature_dir, """# Tasks
+
+## Slice 1: Risky migration
+
+**Risk Tier:** high-risk
+**Files:** `src/migrate.py`
+**Wave:** 1
+
+## Slice 2: Safe rename
+
+**Risk Tier:** standard
+**Files:** `src/rename.py`
+**Wave:** 1
+""")
+            msg, rc = h.run_hook_message(
+                "high_risk_reviewer.py",
+                {"cwd": repo, "last_assistant_message": "<!--AGENT-TDD-REPORT-->\n"
+                 "<!--AGENT-TDD-PHASE:slicing_complete-->\nWave plan ready."},
+                env_extra={"HOME": home},
+            )
+            self.assertEqual(rc, 0)
+            self.assertIn("Risky migration", msg or "")
+            self.assertIn("tdd-parallel", msg)
+            self.assertNotIn("resume agent-TDD", msg)
+            jp = os.path.join(feature_dir, "workflow-state.json")
+            if os.path.exists(jp):
+                with open(jp, encoding="utf-8") as fh:
+                    self.assertNotIn("test_author_pending", json.load(fh))
+
     def test_slicing_complete_with_zero_high_risk_makes_no_write(self):
         with h.temp_git_repo() as repo, h.temp_home() as home:
             feature_dir = h.feature_spec_dir(home, repo)
