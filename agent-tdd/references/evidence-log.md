@@ -11,12 +11,12 @@ One JSON object per line in `<git common dir>/agent-tdd/evidence.jsonl`, shared 
 | `start` | `start --slice T [--slice-id N --base B] [--kind K] [--risks n --inspected n --run n]` | `kind` (`feature\|fix\|refactor\|contract\|validation\|ui`, default `feature`), `gaps` {`risks`, `inspected`, `run`} (integers, default 0) | always (`confirmed: true`) |
 | `red` | `red --slice T [--slice-id N --base B] -- <cmd>` | `cmd`, `exit`, `confirmed`, `note` | the command exits non-zero |
 | `green` | `green --slice T [...] -- <cmd>` | `cmd`, `exit`, `confirmed`, `note` | exits 0 and a confirmed `red` exists (rule below) |
-| `coverage` | `coverage --slice T [...] --mutant "<shell cmd>" -- <cmd>` | `cmd`, `mutant`, `exit`, `mutant_exit`, `confirmed`, `note` | `exit == 0` and `mutant_exit != 0` |
+| `coverage` | `coverage --slice T [...] --mutant "<shell cmd>" -- <cmd>` | `cmd`, `mutant`, `exit`, `mutant_exit`, `confirmed`, `note` | `exit == 0` and the mutant ran and failed: `mutant_exit` > 0 and not 126/127 (command not runnable) or 4/5 (pytest usage error / no tests collected); a negative exit (signal) is NOT CONFIRMED |
 | `bypass` | `bypass --slice T [...] --reason "<why>"` | `reason` | always (`confirmed: true`) |
 | `done` | `done [--slice T]` | — | always (`confirmed: true`) |
 | `integration` | `integration --wave N --cmd "<cmd>"` | `wave`, `cmd`, `exit`, `confirmed`, `note` | the command exits 0 |
 
-`--mutant` is a full shell command the caller builds: copy the module to a `mktemp -d` directory, change the behavior under test there, and run the same test against the copy (test-strategist's mutation procedure). `tdd_check.py` only runs it and records `mutant_exit`; it never mutates files itself.
+`--mutant` is a full shell command the caller builds: copy the module to a `mktemp -d` directory, change the behavior under test there, and run the same test against the copy (test-strategist's mutation procedure). `tdd_check.py` only runs it and records `mutant_exit` (plus the tail of its output in `note` when not confirmed); it never mutates files itself. A mutant that never ran proves nothing, so it never confirms.
 
 ## Printed line
 
