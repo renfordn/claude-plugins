@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tdd_state import read_tdd_progress, tdd_memory_dir  # noqa: E402
+from tdd_state import read_tdd_progress, progress_path  # noqa: E402
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
     if not pending:
         sys.exit(0)
 
-    lines = [f"agent-TDD state for this project: {tdd_memory_dir(cwd)}", ""]
+    lines = [f"agent-TDD state for this project: {os.path.dirname(progress_path(cwd))}", ""]
     if pending:
         lines.append(f"Slices awaiting review resume ({len(pending)}):")
         for s in pending:

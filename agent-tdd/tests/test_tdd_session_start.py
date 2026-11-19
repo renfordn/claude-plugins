@@ -84,6 +84,7 @@ class SessionStartOutputTests(unittest.TestCase):
             input="not json",
             capture_output=True,
             text=True,
+            cwd=tempfile.mkdtemp(),
         )
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), "")

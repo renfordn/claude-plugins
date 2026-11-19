@@ -74,9 +74,26 @@ def tdd_memory_dir(cwd):
     return os.path.join(BASE, project_slug(cwd))
 
 
+def progress_path(cwd):
+    """tdd-progress.json under the main-checkout state dir (shared by linked worktrees)."""
+    return os.path.join(tdd_memory_dir(state_cwd(cwd)), "tdd-progress.json")
+
+
 def read_tdd_progress(cwd):
     """Read tdd-progress.json. Returns {"slices": []} on missing or malformed file."""
-    path = os.path.join(tdd_memory_dir(cwd), "tdd-progress.json")
+    data = _read_progress_file(progress_path(cwd))
+    # Read-only migration fallback: state written before per-main-checkout sharing lives under
+    # the worktree's own slug. Merge its slices (never deleted); shared-state ids win.
+    legacy_path = os.path.join(tdd_memory_dir(cwd), "tdd-progress.json")
+    if legacy_path != progress_path(cwd):
+        seen = {s.get("id") for s in data["slices"] if isinstance(s, dict)}
+        for s in _read_progress_file(legacy_path)["slices"]:
+            if not isinstance(s, dict) or s.get("id") not in seen:
+                data["slices"].append(s)
+    return data
+
+
+def _read_progress_file(path):
     try:
         with open(path, "r", encoding="utf-8") as fh:
             data = json.load(fh)
@@ -89,12 +106,7 @@ def read_tdd_progress(cwd):
 
 def write_tdd_progress(cwd, data):
     """Write tdd-progress.json, creating parent dirs as needed."""
-    d = tdd_memory_dir(cwd)
-    os.makedirs(d, exist_ok=True)
-    path = os.path.join(d, "tdd-progress.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2)
-        fh.write("\n")
+    update_json(progress_path(cwd), lambda _old: data)
 
 
 TAIL_BYTES = 32768
