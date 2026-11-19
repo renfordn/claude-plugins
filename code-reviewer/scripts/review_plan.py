@@ -5,7 +5,8 @@
       Parse the diff and print a JSON plan: per-file kind/churn/risk, changed and removed
       symbols, candidate tests, test gaps, and whether the diff is large.
       Diff source: --diff-file, else `git diff <base>...HEAD` (base defaults to the merge-base
-      with origin/main or main), else the working tree against HEAD.
+      with origin/main or main), else (and for `--base HEAD`) the uncommitted working tree against HEAD plus untracked,
+      non-ignored files as new-file diffs.
   review_plan.py findings-path [--state-dir DIR]
       Print where findings.json goes: DIR/findings.json, else <git-dir>/code-review/findings.json.
   review_plan.py validate FILE
@@ -41,9 +42,9 @@ _HOT_RE = re.compile(r"auth|login|session|token|secret|crypt|password|permission
                      r"sql|query|db|migration|api|security|upload|exec|shell", re.I)
 
 
-def _git(*args, cwd=None):
-    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
-    return r.stdout if r.returncode == 0 else None
+def _git(*args, cwd=None, ok_codes=(0,)):
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, errors="replace")
+    return r.stdout if r.returncode in ok_codes else None
 
 
 def default_base():
@@ -59,11 +60,40 @@ def read_diff(base=None, diff_file=None):
         with open(diff_file, encoding="utf-8", errors="replace") as fh:
             return fh.read(), f"file:{diff_file}"
     base = base or default_base()
+    top = (_git("rev-parse", "--show-toplevel") or "").strip() or None
+    diff = ("-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff")
     if base:
-        out = _git("diff", "--no-color", "--no-ext-diff", f"{base}...HEAD")
+        out = _git(*diff, f"{base}...HEAD", cwd=top)
         if out:
             return out, f"{base}...HEAD"
-    return _git("diff", "--no-color", "--no-ext-diff", "HEAD") or "", "working-tree"
+    tracked = _git(*diff, "HEAD", cwd=top) or ""
+    return tracked + _untracked_diff(top), "working-tree"
+
+
+MAX_UNTRACKED_BYTES = 256 * 1024
+
+
+def _untracked_diff(top=None):
+    """New-file diffs for untracked, non-ignored files (uncommitted parallel-slice work).
+
+    Runs from the repo root so paths are repo-relative; files over MAX_UNTRACKED_BYTES get a
+    header-only placeholder so they still show as added.
+    """
+    names = _git("-c", "core.quotePath=false", "ls-files", "--others", "--exclude-standard",
+                 "-z", cwd=top) or ""
+    parts = []
+    for name in filter(None, names.split("\0")):
+        path = os.path.join(top or ".", name)
+        if os.path.getsize(path) > MAX_UNTRACKED_BYTES:
+            parts.append(f"diff --git a/{name} b/{name}\nnew file mode 100644\n"
+                         f"(untracked file over {MAX_UNTRACKED_BYTES // 1024} KB; content omitted)\n")
+            continue
+        # --no-index exits 1 when the files differ.
+        out = _git("-c", "core.quotePath=false", "diff", "--no-index", "--no-color",
+                   "--no-ext-diff", "--", os.devnull, name, cwd=top, ok_codes=(0, 1))
+        if out:
+            parts.append(out)
+    return "".join(parts)
 
 
 def _def_name(line):
