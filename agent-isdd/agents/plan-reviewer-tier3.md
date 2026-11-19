@@ -3,6 +3,7 @@ name: plan-reviewer-tier3
 description: >-
   Use this agent when one confirmed blocker survived Tier 2 and needs deep research (git blame, call graphs). Tier 3 of plan-reviewer; one named risk per spawn.
 model: opus
+effort: xhigh
 tools: [Read, Grep, Glob, Bash]
 ---
 

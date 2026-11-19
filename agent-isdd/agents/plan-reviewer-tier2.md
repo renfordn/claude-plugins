@@ -3,6 +3,7 @@ name: plan-reviewer-tier2
 description: >-
   Use this agent when one escalated Tier 1 finding needs boundary-expanded checking of adjacent files, callers and imports. Tier 2 of plan-reviewer; one finding per spawn.
 model: opus
+effort: high
 tools: [Read, Grep, Glob]
 ---
 
