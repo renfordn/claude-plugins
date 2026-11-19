@@ -80,7 +80,7 @@ def test_end_of_turn_gate_fires_on_a_new_report_even_when_the_state_file_is_old(
 
 def test_slice_number_comes_from_the_plan_section_first(tmp_path):
     report = ("<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:refactor_complete-->\n"
-              "Follows Slice 1's review.\n\n**Plan** — Slice 3: the third behaviour\n")
+              "Follows Slice 1's review.\n\n**Plan**\nSlice 3: the third behaviour\n")
     impl_progress.record(str(tmp_path), report)
     assert impl_progress.summary(str(tmp_path))["slices"] == {"3": "refactor_complete"}
 
@@ -121,3 +121,35 @@ def test_record_carries_the_last_report_day_only_so_it_changes_once_a_day(tmp_pa
         json.dump(data, fh)
     old = plan_board.build_doc(state, project="p")
     assert old["lastImplDay"] == "2026-10-01" and old["contentHash"] != first["contentHash"]
+
+
+def test_marker_beats_title_alnum_and_case_normalised(tmp_path):
+    d = str(tmp_path)
+    assert impl_progress.record(d, tdd("green_pause", "Slice 2F2: x\n<!--SLICE-ID: 3-->"))
+    assert impl_progress.record(d, tdd("green_pause", "Slice 2f2: alnum"))
+    assert impl_progress.record(d, tdd("green_pause", "Slice 9: y\n<!--SLICE-ID: 2F2-->"))
+    assert impl_progress.summary(d)["slices"] == {"3": "green_pause", "2F2": "green_pause"}
+
+
+def test_reviewed_map_is_durable_strict_and_leaves_workflow_state_alone(tmp_path):
+    d = str(tmp_path)
+    scoped = "<!--CODE-REVIEWER-REPORT-->\n<!--REVIEW-SCOPE: slice=4-->\n**Plan**\nReuses Slice 1 helper\n"
+    assert impl_progress.record(d, scoped)
+    assert impl_progress.record(d, "<!--CODE-REVIEWER-REPORT-->\nReviewed Slice 5 prose only\n")
+    for _ in range(impl_progress.MAX_EVENTS + 5):
+        impl_progress.record(d, tdd("green_pause", "Slice 1: churn"))
+    assert impl_progress.load(d)["reviewed"] == {"4": True}
+    assert not os.path.exists(os.path.join(d, "workflow-state.json"))
+
+
+def test_same_line_plan_heading_forms_key_tdd_reports_but_not_reviews(tmp_path):
+    for i, sep in enumerate(["\u2014", "\u2013", "-", ":"]):
+        d = str(tmp_path / str(i))
+        os.makedirs(d)
+        impl_progress.record(d, "<!--AGENT-TDD-REPORT-->\n<!--AGENT-TDD-PHASE:green_pause-->\n"
+                                "**Plan** %s Slice 2: x\nReuses Slice 1.\n" % sep)
+        assert impl_progress.summary(d)["slices"] == {"2": "green_pause"}, sep
+    d = str(tmp_path / "r")
+    os.makedirs(d)
+    impl_progress.record(d, "<!--CODE-REVIEWER-REPORT-->\n**Plan** \u2014 Slice 2: x\n")
+    assert not impl_progress.load(d).get("reviewed")
