@@ -185,3 +185,19 @@ def test_hook_history_trimmed_and_attempted(state, tmp_path):
     assert len(hist) == 100
     assert hist[-1]["outcome"] == "Attempted"
     assert hist[-1]["timestamp"].endswith("Z")
+
+
+_BARE = "# State\n- Feature: f\n- Current Phase: Requirements\n"
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+@pytest.mark.parametrize("added,denied", [
+    ("- Track: Fast\n- Risk: low\n- Risk Reason: one doc file\n", False),  # Start: one write adds both
+    ("- Track: Fast\n", False),                                             # Risk still blank
+    ("- Track: Fast\n- Risk: elevated\n", True),
+])
+def test_start_time_fast_and_risk_written_together(state, tool, added, denied):
+    """Slice 23 review F4: the documented Start step (Risk: low with/before Track: Fast)."""
+    state.write_text(_BARE)
+    payload = _payload(tool, state, _BARE, _BARE + added, state.parent)
+    assert bool(state_guard.evaluate(payload, state_path=str(state))) is denied
