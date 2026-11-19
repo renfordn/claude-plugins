@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-19
+
 ### Added
 - Write guards `state_guard` (Track/Risk rules: Fast only when Risk is low, Standard never becomes Fast, Risk only rises; mode switches logged), `complete_guard` (no Complete without high-risk review evidence) and `user_led_guard` (blocks Claude production edits in user-led mode), run through one `pre_write_dispatch` PreToolUse hook that returns the first deny.
 - Approval hash: the plan approval is recorded, the requirements + design hash is frozen at the first agent-TDD spawn and verified afterwards (a changed scope needs re-approval). `hooks/approval.py approve <spec_dir>` and `refreeze <spec_dir>` are the CLI; run them only after an `AskUserQuestion` answer.
@@ -33,6 +35,12 @@
 - `high_risk_reviewer` routes a wave-stamped `slicing_complete` to the tdd-parallel lead instead of the test-author resume path.
 - Docs no longer tell the model to run `/isdd-rewind` or `/isdd-board-sync`; they ask the user.
 - The doc audit tracks the split `references/interop-*.md`; stale "Visible Progress" and "Fast Track section" citations retargeted; Start-time `Track: Fast` + `Risk` writes pinned in `state_guard` tests.
+- Annotated values (`Track: Standard (escalated from Fast)`, `Risk: high (auth)`) no longer make `state_guard` deny every later state edit: Track, Risk and Implementation Mode compare by first token everywhere (`state_guard`, `complete_guard`, `slice_spec_gate`, `sdd_state.is_user_led`).
+- One review rule, `review_tracking.unreviewed`, is shared by `complete_guard` and the Stop backstop, so a `Risk: high` feature with an unreviewed standard slice is also caught at Stop; review tracking falls back to the subagent's own transcript (never the parent's).
+- Escalation/clear state writers and `impl-progress.json` writes now read-modify-write under the lock (no lost `reviewed` entries when parallel workers stop together); the unused impl-progress `reviewed` map is gone.
+- Re-approving in plan mode after a Design rewind refreezes the approval hash instead of leaving a mismatch.
+- User-led mode: agent-TDD still slices (Standard, `Parallel: on`, stops at `slicing_complete`) so the coach walks real `tasks.md` slices; Fast coaches the Slice Spec; a mode the user already stated is recorded without asking again; `high_risk_reviewer` routes user mode to `isdd-coach`.
+- A user-run `/isdd-rewind` clears a `rollback_pending` whose target it reaches; the Design Spec names `<feature>/tasks/tasks.md`; `code-reviewer-checkpoint.md` describes the current review contract.
 
 ### Known limits
 - Bash writes bypass the PreToolUse guards (they only see Write, Edit, MultiEdit and NotebookEdit).

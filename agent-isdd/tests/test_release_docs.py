@@ -7,8 +7,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _unreleased():
+    """Release 2 entries: under [Unreleased] until CUPS dates them, then under the newest version."""
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    return text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    sections = text.split("## [Unreleased]", 1)[1].split("\n## [")
+    return sections[0] if "### " in sections[0] else sections[1]
 
 
 def test_changelog_unreleased_groups_and_items():
@@ -27,12 +29,11 @@ def test_changelog_unreleased_groups_and_items():
         assert term.lower() in low, term
 
 
-def test_no_version_bump():
+def test_plugin_version_matches_newest_changelog_heading():
     version = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["version"]
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert re.search(r"^## \[Unreleased\]\n+(?:###|-)", changelog, re.M)
-    assert changelog.index("## [Unreleased]") < changelog.index(f"## [{version}]")
-    assert re.search(r"^## \[(\d+\.\d+\.\d+)\]", changelog.split("## [Unreleased]", 1)[1], re.M).group(1) == version
+    after = changelog.split("## [Unreleased]", 1)[1]
+    assert re.search(r"^## \[(\d+\.\d+\.\d+)\]", after, re.M).group(1) == version
 
 
 def test_readme_documents_user_facing_changes():
