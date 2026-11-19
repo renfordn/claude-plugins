@@ -6,7 +6,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tdd_state import read_tdd_progress, progress_path  # noqa: E402
+from tdd_state import read_tdd_progress, progress_path, summarize_open_slices  # noqa: E402
 
 
 def main():
@@ -17,15 +17,17 @@ def main():
 
     cwd = payload.get("cwd") or os.getcwd()
     data = read_tdd_progress(cwd)
-    pending = [s for s in data["slices"] if s.get("status") == "green_pending_review"]
-    if not pending:
+    pending, blocked = summarize_open_slices(data)
+    if not pending and not blocked:
         sys.exit(0)
 
     lines = [f"agent-TDD state for this project: {os.path.dirname(progress_path(cwd))}", ""]
+    if blocked:
+        lines.append("Blocked slices:")
+        lines.extend(blocked)
     if pending:
         lines.append(f"Slices awaiting review resume ({len(pending)}):")
-        for s in pending:
-            lines.append(f"  - [{s['id']}] {s['description']}")
+        lines.extend(pending)
         lines.append(
             "Resume via SendMessage to the agent-TDD instance id, "
             "or re-spawn with the same Slice Spec."

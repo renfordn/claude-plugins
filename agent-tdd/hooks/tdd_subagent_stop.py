@@ -19,10 +19,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 from tdd_state import (update_json, progress_path,  # noqa: E402
                        extract_last_assistant_text, TAIL_BYTES)
-from markers import parse_slice_id_strict, normalize_slice_id as _norm, _section_text  # noqa: E402
+from markers import (parse_slice_id_strict, normalize_slice_id as _norm, _section_text,  # noqa: E402
+                     EVIDENCE_PHASES, parse_outcome, parse_blocked)
 import tdd_check  # noqa: E402
 
-EVIDENCE_RE = re.compile(r"TDD-EVIDENCE (red|green) ([0-9a-f]{8})")
+# Lookup only needs phase + token (the log is the source of truth), so exit/status are optional.
+EVIDENCE_TOKEN_RE = re.compile(r"TDD-EVIDENCE (?P<phase>" + "|".join(EVIDENCE_PHASES) + r") (?P<token>[0-9a-f]{8})")
 
 REPORT_MARKER = "<!--AGENT-TDD-REPORT-->"
 PHASE_RE = re.compile(r"<!--AGENT-TDD-PHASE:(\w+)-->")
@@ -48,6 +50,8 @@ def _parse_report(text):
     phase_m = PHASE_RE.search(text)
     status = "refactor_complete" if (phase_m and phase_m.group(1) == "refactor_complete") \
         else "green_pending_review"
+    if parse_blocked(text) is not None:
+        status = "blocked"
 
     # Description: first non-empty line of the **Plan** section (most slice-specific text).
     # Fallback: first non-empty non-marker line in the whole report.
@@ -88,7 +92,9 @@ def _parse_report(text):
     facts_text = _section_text(text, "Handoff Facts")
     has_handoff_facts = bool(facts_text) and facts_text.lower() not in ("", "none", "n/a")
 
+    blocked_reason = parse_blocked(text)
     return {
+        **({"blocked_reason": blocked_reason} if blocked_reason else {}),
         "evidence": {},
         "description": description or "(no description)",
         "status": status,
@@ -101,23 +107,53 @@ def _parse_report(text):
 
 
 def _evidence(text, cwd):
-    """{"red": "verified"|"not confirmed"|"unrecorded"|"missing", "green": ...} from the report's
-    TDD-EVIDENCE tokens, checked against scripts/tdd_check.py's log (the last token per phase wins)."""
+    """{"red": ..., "green": ...} always, plus "coverage" / "bypass" when the report carries such a
+    token; each "verified"|"not confirmed"|"unrecorded"|"missing" (bypass: the logged reason when
+    verified). Checked against scripts/tdd_check.py's log (the last token per phase wins)."""
     tokens = {}
-    for phase, token in EVIDENCE_RE.findall(text):
-        tokens[phase] = token
+    for m in EVIDENCE_TOKEN_RE.finditer(text):
+        tokens[m.group("phase")] = m.group("token")
     logged = tdd_check.verify(list(tokens.values()), cwd) if tokens else {}
     out = {}
-    for phase in ("red", "green"):
+    for phase in ("red", "green", "coverage", "bypass"):
         t = tokens.get(phase)
+        if phase in ("coverage", "bypass") and not t:
+            continue
         e = logged.get(t) if t else None
         if not t:
             out[phase] = "missing"
         elif e is None or e.get("phase") != phase:
             out[phase] = "unrecorded"
+        elif not e.get("confirmed"):
+            out[phase] = "not confirmed"
+        elif phase == "bypass":
+            out[phase] = e.get("reason") or "verified"
         else:
-            out[phase] = "verified" if e.get("confirmed") else "not confirmed"
+            out[phase] = "verified"
     return out
+
+
+def _start_info(text, cwd):
+    """(kind, multiple) of the slice's start: the report's start token if it has one, else the latest
+    start in the log for the slice title of the report's other evidence tokens. (None, False) if unknown."""
+    tokens = {m.group("token"): m.group("phase") for m in EVIDENCE_TOKEN_RE.finditer(text)}
+    if not tokens:
+        return None, False
+    log = tdd_check.read_log(cwd)
+    by_token = {e.get("token"): e for e in log}
+    title = None
+    start = None
+    for t in tokens:
+        e = by_token.get(t)
+        if not e:
+            continue
+        if e.get("phase") == "start":
+            start = e
+        title = title or e.get("slice")
+    starts = [e for e in log if e.get("phase") == "start" and e.get("slice") == title] if title else []
+    if start is None and starts:
+        start = starts[-1]
+    return (start.get("kind") if start else None), len(starts) > 1
 
 
 def main():
@@ -169,10 +205,11 @@ def main():
                     match = existing
                     break
             elif (existing.get("description") == entry["description"]
-                    and existing.get("status") == "green_pending_review"):
+                    and existing.get("status") in ("green_pending_review", "blocked")):
                 match = existing
                 break
         if match is not None:
+            match.pop("blocked_reason", None)
             match.update(entry)
         else:
             ids = [s.get("id") for s in slices if isinstance(s.get("id"), int)]
@@ -188,13 +225,25 @@ def main():
     facts = "yes" if entry["has_handoff_facts"] else "no"
     ev = entry["evidence"]
     evidence = f"red={ev['red']} green={ev['green']}"
-    warn = "" if ev == {"red": "verified", "green": "verified"} else (
+    if "coverage" in ev:
+        evidence += f" coverage={ev['coverage']}"
+    if "bypass" in ev:
+        evidence += f" bypass={ev['bypass']}"
+    blocked = parse_blocked(text)
+    outcome = parse_outcome(text)
+    coverage_only = outcome == "coverage-only" and ev.get("coverage") == "verified" and ev["green"] == "missing"
+    proven = (ev["green"] == "verified" and (ev["red"] == "verified" or (
+        ev.get("coverage") == "verified" and outcome == "refactor"))) or coverage_only
+    warn = "" if proven or blocked is not None else (
         " — ⚠ Red→Green was not verified by scripts/tdd_check.py; treat the TDD claim as unproven "
         "and check the tests yourself before accepting the slice.")
+    kind, multi = _start_info(text, cwd)
+    evidence += f" outcome={outcome or 'none'} kind={kind or 'unknown'}" + (" (multiple starts)" if multi else "")
     print(json.dumps({"systemMessage": (
         f"agent-TDD [{entry['status']}]: {entry['description']} "
         f"| AC: {entry['acceptance_criteria_status']} "
         f"| gap={gap} | plan_flag={plan_flag} | facts={facts} | {evidence}{warn}"
+        + (f" | blocked: {blocked}" if blocked is not None else "")
     )}))
     sys.exit(0)
 

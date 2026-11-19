@@ -48,6 +48,7 @@ Merge them before any later wave so workers fork from a HEAD that contains the c
    - "do not commit"; and the report must include `<!--SLICE-ID: N-->` plus BASE, WORKTREE, BRANCH.
    Concurrent worktree creation can race ("failed to read .../worktrees/<x>/commondir"); if a
    spawn fails that way, retry that one spawn once.
+   A worker reporting `<!--AGENT-TDD-BLOCKED-->` (no phase marker) is not reviewed or merged: the lead writes `**Blocked:** <reason>` into tasks.md for it and manually skips it and every slice depending on it (using the `parallel_plan.py waves` output), continues the independent slices, and asks the user about it at the end. The lead also asks about any `bypass` label a worker's report surfaces (`references/slice-discipline.md` §3).
 3. Each worker stops at `green_pause` with its changes uncommitted. For each, the lead:
    - checks the working tree, not commits: `git -C <worktreePath> diff --stat <base>` and
      `git -C <worktreePath> status --porcelain` (untracked files count). Empty on both means the

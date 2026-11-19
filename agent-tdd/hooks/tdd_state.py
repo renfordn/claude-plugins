@@ -242,3 +242,39 @@ def state_cwd(cwd):
         return os.path.dirname(common)
     return cwd
 
+
+
+BLOCKED_MAX_AGE_HOURS = 72
+BLOCKED_MAX_ROWS = 5
+
+
+def summarize_open_slices(data, now=None):
+    """(pending_lines, blocked_lines) for the session hooks. Pending: every green_pending_review
+    slice. Blocked: "waiting on the user: <reason or description>" rows updated within 72h (rows with
+    no readable timestamp count as fresh), newest first, capped at 5, then "(+N older)" for the rest."""
+    import datetime
+    now = now or datetime.datetime.now()
+    slices = [s for s in data.get("slices", []) if isinstance(s, dict)]
+    pending = ["  - [%s] %s" % (s.get("id"), s.get("description")) for s in slices
+               if s.get("status") == "green_pending_review"]
+    fresh, older = [], 0
+    for s in slices:
+        if s.get("status") != "blocked":
+            continue
+        try:
+            at = datetime.datetime.fromisoformat(s.get("timestamp"))
+            age = now - at
+        except (ValueError, TypeError):
+            fresh.append((datetime.datetime.min, s))
+            continue
+        if age > datetime.timedelta(hours=BLOCKED_MAX_AGE_HOURS):
+            older += 1
+        else:
+            fresh.append((at, s))
+    fresh.sort(key=lambda t: t[0], reverse=True)
+    older += max(0, len(fresh) - BLOCKED_MAX_ROWS)
+    blocked = ["  - [%s] waiting on the user: %s" % (s.get("id"), s.get("blocked_reason") or s.get("description"))
+               for _, s in fresh[:BLOCKED_MAX_ROWS]]
+    if older:
+        blocked.append("  (+%d older)" % older)
+    return pending, blocked

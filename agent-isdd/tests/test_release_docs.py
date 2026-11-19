@@ -7,10 +7,9 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _unreleased():
-    """Release 2 entries: under [Unreleased] until CUPS dates them, then under the newest version."""
+    """Release 2 entries live under [0.6.0]."""
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    sections = text.split("## [Unreleased]", 1)[1].split("\n## [")
-    return sections[0] if "### " in sections[0] else sections[1]
+    return text.split("## [0.6.0]", 1)[1].split("\n## [", 1)[0]
 
 
 def test_changelog_unreleased_groups_and_items():

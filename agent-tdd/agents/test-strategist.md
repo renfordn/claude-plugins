@@ -68,6 +68,8 @@ outcome, not just code that executes the path.
 
 ### 4. Prove the pins the plan rests on (mutation check)
 
+agent-TDD reuses these definitions for gap discovery: `references/slice-discipline.md`.
+
 A plan built on "already covered" or "delete X, Y covers it" is only as good as that claim, and
 reading a test is how weak assertions slip through (a rounding test whose inputs never land on a
 half, an API test that only checks the status code). So check the claims the plan leans on by

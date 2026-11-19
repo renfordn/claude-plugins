@@ -205,3 +205,23 @@ are all met for *that* attempt.
   (plan mode unavailable; run only after the user approves via `AskUserQuestion`) and
   `... refreeze <spec_dir>` (only after the user re-approves a changed scope via `AskUserQuestion`).
   The deny message prints the exact command with resolved paths.
+
+## Release 3 additions (pointer)
+
+Authoritative: `agent-tdd/INTEROP.md`, `agent-tdd/references/slice-discipline.md`,
+`agent-tdd/references/evidence-log.md`, `agent-tdd/hooks/markers.py`. Handling rules:
+`implementation-handoff.md` (step 7).
+
+- **OUTCOME marker.** `<!--AGENT-TDD-OUTCOME: coverage-only-->` next to the phase marker: the test
+  passed first time and `coverage --mutant` confirmed it; no production change. A normal reviewable slice.
+  `<!--AGENT-TDD-OUTCOME: refactor-->`: a `refactor`/`contract` slice proven by `coverage` then `green` (no Red); also reviewable.
+- **BLOCKED marker.** `<!--AGENT-TDD-REPORT-->` plus `<!--AGENT-TDD-BLOCKED: reason="..."-->` and no
+  `AGENT-TDD-PHASE` marker. The hooks (`impl_progress`, `high_risk_reviewer`, `subagent_report`)
+  tolerate it: no slice state, no rollback. The lead asks the user (harness slice / accept without E2E / pause).
+- **Fields.** Slice Spec `ui` (true forces the UI path); tasks.md `**UI:**` and `**Blocked:**` per slice.
+- **red_first_guard.** `agent-tdd/hooks/red_first_guard.py` denies production Write/Edit in an open
+  slice (after `tdd_check.py start`, until `done`) until a confirmed Red, a logged `bypass`, or (only for `--kind refactor|contract` starts) a confirmed coverage. Its deny text carries the start's `--slice-id`/`--base` and a `done` command: run `done` on every stop that ends a slice early (BLOCKED, research request, escalation).
+  Known limit: Bash writes (`sed -i`, redirects) bypass it, as they do `user_led_guard`.
+- **Bypass surfacing.** `tdd_check.py bypass --slice ... --reason ...` logs a `bypass` evidence line;
+  agent-TDD copies it into Validation Evidence and agent-tdd's SubagentStop hook surfaces the bypasses
+  to the caller, who should read the reasons at review time.

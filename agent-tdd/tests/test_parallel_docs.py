@@ -58,13 +58,11 @@ def test_tasks_format_documents_parallel():
     assert "<!--SLICE-ID" in text and "validation" in text
 
 
-def test_changelog_mentions_parallel_in_latest_entry():
-    # Unreleased until CUPS moves it under the newest version heading; accept either.
+def test_changelog_mentions_parallel_in_its_release():
+    # Parallel slice delivery shipped in 0.7.0; pin that section so later releases don't break this.
     text = (ROOT / "CHANGELOG.md").read_text()
-    after = text.split("## [Unreleased]", 1)[1]
-    sections = after.split("\n## [")
-    latest = sections[0] + (sections[1] if len(sections) > 1 else "")
-    assert "parallel slice delivery" in latest.lower()
+    section = text.split("## [0.7.0]", 1)[1].split("\n## [", 1)[0]
+    assert "parallel slice delivery" in section.lower()
     assert "tdd-parallel" in (ROOT / "README.md").read_text()
 
 
