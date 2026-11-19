@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Before-continue hook: surface workflow stalls, rollbacks, or model escalations.
+"""Before-continue hook: surface workflow stalls, escalations, rollbacks and spawn-model warnings.
 
-Handles three conditions (checked in priority order):
-1. Stalled phases (phase Complete but next phase not entered)
-2. Rollback requests from agent-tdd (task conflicts, design contradictions)
-3. Model escalations (agent ran out of reasoning at current tier, needs higher tier)
+Workflow conditions (priority order; the first that applies wins):
+1. Stalled phases (Requirements approved but Design not entered; via sdd_state.detect_stall)
+2. Model escalations (agent ran out of reasoning at its tier; recorded via sdd_state.update_json)
+3. Rollback requests from agent-tdd (task conflicts, design contradictions)
 
-Stalled phase detection: when a phase is marked Complete but the next phase's artifact
+Independently, a PreToolUse Agent spawn of agent-TDD or test-author with an explicit non-sonnet
+model adds a neutral warning (skipped when it matches a pending escalation's to_model). The
+warning never denies and is joined with any workflow message into one systemMessage.
+
+Stalled phase detection: when a phase's artifact is Approved but the next phase's artifact
 hasn't been created, the orchestrator likely provided guidance and ended its turn instead
 of continuing to the next phase. This hook surfaces the stall so /isdd-continue can auto-resume.
 
@@ -18,7 +22,7 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_state import active_state_file, parse_state, parse_state_json  # noqa: E402
+from sdd_state import active_state_file, detect_stall, parse_state, parse_state_json, update_json  # noqa: E402
 from subagent_report import extract_last_assistant_text  # noqa: E402
 from model_escalate_marker import detect_model_escalate_in_report, escalation_message  # noqa: E402
 
@@ -51,62 +55,53 @@ def _detect_model_escalate_marker(transcript_path):
     }
 
 
-PHASE_ORDER = ["Requirements", "Design", "Tasks"]
-PHASE_FILES = {
-    "Requirements": "requirements/requirements.md",
-    "Design": "design/design.md",
-    "Tasks": "tasks/tasks.md",
-}
-# Phases with an artifact-level completion gate of their own (a `- State:` field the
-# orchestrator sets to Approved). Tasks has no such gate here -- `Current Phase: Tasks`
-# only ever arises as a rollback-landing state (see workflow-manager's `continue` row),
-# not a phase this hook watches for stalling out of.
-PHASE_ARTIFACT_FILE = {
-    "Requirements": "requirements/requirements.md",
-    "Design": "design/design.md",
-}
+_WATCHED_AGENTS = {"agent-TDD", "test-author"}
 
 
-def _detect_stalled_phase(state_fields, feature_dir):
-    """Detect if the current phase's own artifact is Approved but the next phase hasn't
-    been entered.
+def _spawn_target(payload):
+    """(agent, model) for an Agent spawn of a watched agent with an explicit model, else None."""
+    if payload.get("tool_name") != "Agent":
+        return None
+    ti = payload.get("tool_input") or {}
+    agent = str(ti.get("subagent_type", "")).split(":")[-1]
+    model = str(ti.get("model") or "").strip()
+    if agent not in _WATCHED_AGENTS or not model or "sonnet" in model.lower():
+        return None
+    return agent, model
 
-    `Workflow Status: Complete` is NOT the per-phase completion signal -- per
-    workflow-manager's contract it is set only once, at the whole feature's final
-    handoff/completion, never for an individual phase finishing mid-workflow. The real
-    per-phase signal is the phase artifact's own `- State: Approved` field.
 
-    Returns (is_stalled, current_phase, next_phase) or (False, None, None).
-    """
-    current = state_fields.get("current phase", "").strip()
+def _model_warning(target, pending_escalation):
+    """Neutral warning for a non-sonnet spawn; None when it matches a pending escalation."""
+    if not target:
+        return None
+    agent, model = target
+    to_model = str((pending_escalation or {}).get("to_model") or "").strip().lower()
+    if to_model and to_model in model.lower():
+        return None
+    return (
+        f"{agent} default is sonnet; confirm '{model}' is the slice's Model Tier "
+        f"or an escalation."
+    )
 
-    for i, phase in enumerate(PHASE_ORDER):
-        if current.startswith(phase):
-            artifact_file = PHASE_ARTIFACT_FILE.get(phase)
-            if artifact_file and i + 1 < len(PHASE_ORDER):
-                artifact_path = os.path.join(feature_dir, artifact_file)
-                artifact_state = parse_state(artifact_path).get("state", "").strip().lower()
-                if artifact_state == "approved":
-                    next_phase = PHASE_ORDER[i + 1]
-                    next_file = os.path.join(feature_dir, PHASE_FILES[next_phase])
-                    if not os.path.exists(next_file):
-                        return (True, phase, next_phase)
-            break
 
-    return (False, None, None)
+def _emit(messages):
+    if messages:
+        print(json.dumps({"systemMessage": "\n\n".join(messages)}))
+    sys.exit(0)
 
 
 def main():
-    """Check for pending rollback, model escalation, or stalled phases; surface if found."""
+    """Surface stalls, escalations, rollbacks and spawn-model warnings as one systemMessage."""
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         payload = {}
 
+    target = _spawn_target(payload)
     cwd = payload.get("cwd") or os.getcwd()
     state = active_state_file(cwd)
     if not state:
-        sys.exit(0)
+        _emit([w for w in [_model_warning(target, None)] if w])
 
     feature_dir = os.path.dirname(state)
     json_path = os.path.join(feature_dir, "workflow-state.json")
@@ -116,11 +111,22 @@ def main():
     state_json = parse_state_json(json_path)
     state_md = parse_state(state)
 
-    # Check for stalled phase FIRST (workflow continuity issue)
-    is_stalled, current_phase, next_phase = _detect_stalled_phase(state_md, feature_dir)
-    if is_stalled:
+    messages = []
+    pending = state_json.get("escalation_pending")
+
+    stall = detect_stall(state_md, feature_dir)
+    escalation = None if stall else _detect_model_escalate_marker(transcript_path)
+    if escalation:
+        pending = escalation
+
+    warning = _model_warning(target, pending)
+    if warning:
+        messages.append(warning)
+
+    if stall:
+        current_phase, next_phase = stall
         title = state_md.get("title", "the active feature")
-        message = (
+        messages.append(
             f"🔄 **Workflow Stall Detected**: '{title}'\n\n"
             f"**Phase {current_phase} is marked Complete** but **{next_phase} has not been entered**.\n\n"
             f"This typically means the orchestrator provided guidance/decisions at a phase boundary "
@@ -128,51 +134,30 @@ def main():
             f"**Resuming now** will automatically advance to the {next_phase} phase and continue the workflow. "
             f"This is expected behavior — no action needed on your end."
         )
-        print(json.dumps({"systemMessage": message}))
-        sys.exit(0)
+        _emit(messages)
 
-    # Check for model escalation (highest priority remaining)
-    escalation = _detect_model_escalate_marker(transcript_path)
     if escalation:
-        # Record escalation in workflow state (top-level key; agent-tdd's
-        # rollback_pending is also top-level, so this mirrors that contract)
-        state_json["escalation_pending"] = escalation
-
-        # Write updated state
+        # Top-level key, mirroring agent-tdd's rollback_pending contract.
         try:
-            with open(json_path, 'w') as f:
-                json.dump(state_json, f, indent=2)
+            update_json(json_path, lambda d: {**d, "escalation_pending": escalation})
         except Exception:
             pass  # Silent failure — don't block user
+        messages.append(escalation_message(escalation))
+        _emit(messages)
 
-        message = escalation_message(escalation)
-
-        print(json.dumps({"systemMessage": message}))
-        sys.exit(0)
-
-    # Check for rollback (lower priority)
     rollback = state_json.get("rollback_pending")
-    if not rollback:
-        # Check for agent-tdd paused mid-refactor (code-review gate)
-        # This is handled by spec-driven-development skill when it resumes,
-        # not here. This hook only handles rollback requests and state checks.
-        sys.exit(0)  # no pending rollback — continue normally
-
-    target = rollback.get("target", "Requirements")
-    reason = rollback.get("reason", "unknown issue")
-    source = rollback.get("source", "agent-tdd")
-
-    # Surface to user with clear action
-    message = (
-        f"⚠️ **Rollback Pending** (from {source})\n\n"
-        f"**Issue:** {reason}\n\n"
-        f"**Suggested action:** Rewind to **{target}** phase to address the issue.\n\n"
-        f"To proceed, reply with: `/isdd-rewind {target}`\n"
-        f"Or type a message to discuss first."
-    )
-
-    print(json.dumps({"systemMessage": message}))
-    sys.exit(0)
+    if rollback:
+        target_phase = rollback.get("target", "Requirements")
+        reason = rollback.get("reason", "unknown issue")
+        source = rollback.get("source", "agent-tdd")
+        messages.append(
+            f"⚠️ **Rollback Pending** (from {source})\n\n"
+            f"**Issue:** {reason}\n\n"
+            f"**Suggested action:** Rewind to **{target_phase}** phase to address the issue.\n\n"
+            f"To proceed, reply with: `/isdd-rewind {target_phase}`\n"
+            f"Or type a message to discuss first."
+        )
+    _emit(messages)
 
 
 if __name__ == "__main__":
