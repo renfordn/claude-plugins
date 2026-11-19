@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
-from tdd_state import (update_json, state_cwd, tdd_memory_dir,  # noqa: E402
+from tdd_state import (update_json, progress_path,  # noqa: E402
                        extract_last_assistant_text, TAIL_BYTES)
 from markers import parse_slice_id_strict, normalize_slice_id as _norm, _section_text  # noqa: E402
 import tdd_check  # noqa: E402
@@ -180,7 +180,7 @@ def main():
             slices.append(entry)
         return data
 
-    path = os.path.join(tdd_memory_dir(state_cwd(cwd)), "tdd-progress.json")
+    path = progress_path(cwd)
     update_json(path, _upsert)
 
     gap = "yes" if entry["has_research_gap"] else "no"

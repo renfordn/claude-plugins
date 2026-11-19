@@ -28,12 +28,34 @@ import sys
 TAIL = 1500
 
 
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
+    from tdd_state import git_common_dir
+except ImportError:  # standalone use without the hooks dir; mirrors tdd_state.git_common_dir
+    def git_common_dir(cwd):
+        env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+        for flags in (["--path-format=absolute", "--git-common-dir"], ["--git-common-dir"]):
+            try:
+                r = subprocess.run(["git", "rev-parse", *flags], cwd=cwd, capture_output=True,
+                                   text=True, timeout=5, env=env)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            lines = r.stdout.strip().splitlines()
+            if r.returncode != 0 or len(lines) != 1 or not lines[0]:
+                continue
+            p = os.path.normpath(os.path.join(os.path.abspath(cwd), lines[0]))
+            if len(flags) == 2 and not os.path.isabs(lines[0]):
+                continue
+            if os.path.isdir(p):
+                return p
+        return None
+
+
 def evidence_path(cwd="."):
-    # The common git dir is shared by every linked worktree; fall back to the per-worktree dir.
-    for flags in (["--path-format=absolute", "--git-common-dir"], ["--absolute-git-dir"]):
-        r = subprocess.run(["git", "rev-parse", *flags], cwd=cwd, capture_output=True, text=True)
-        if r.returncode == 0 and r.stdout.strip():
-            return os.path.join(r.stdout.strip(), "agent-tdd", "evidence.jsonl")
+    # The common git dir is shared by every linked worktree.
+    common = git_common_dir(cwd)
+    if common:
+        return os.path.join(common, "agent-tdd", "evidence.jsonl")
     return None
 
 
