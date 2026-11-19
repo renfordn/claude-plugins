@@ -55,21 +55,54 @@ def _fallback_ids(value):
     return {markers.normalize_slice_id(n) for n in names if re.fullmatch(markers.ID, n)}
 
 
-def unreviewed_high_risk(feature_dir):
-    """High-risk slice ids lacking a reviewed entry; [] when a Review Fallback is recorded."""
+def read_text(path):
     try:
-        with open(os.path.join(feature_dir, "tasks", "tasks.md"), "r", encoding="utf-8") as fh:
-            ids = high_risk_slices(fh.read())
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
     except OSError:
-        return []
-    fields = sdd_state.parse_state(os.path.join(feature_dir, "workflow-state.md"))
+        return ""
+
+
+def _reviewed_ids(feature_dir):
+    reviewed = sdd_state.read_reviewed(os.path.join(feature_dir, "workflow-state.json"))
+    return {markers.normalize_slice_id(str(k)) for k, v in reviewed.items() if v}
+
+
+def unreviewed(feature_dir, fields=None):
+    """The single review-gate rule. Slice ids still needing review ([] when satisfied):
+    - high-risk-tier slices (tasks.md) with no reviewed entry;
+    - when the feature-level `Risk` is high (first token), every tasks.md slice with no reviewed
+      entry (no tasks.md: ["(feature)"] unless something is reviewed).
+    The Review Fallback in `fields` (default: parsed from workflow-state.md) waives the ids it
+    names; `all` waives everything. complete_guard passes the simulated post-write fields."""
+    if fields is None:
+        fields = sdd_state.parse_state(os.path.join(feature_dir, "workflow-state.md"))
     waived = _fallback_ids(fields.get("review fallback"))
     if waived is None:
         return []
-    ids = [i for i in ids if i not in waived]
-    reviewed = {markers.normalize_slice_id(str(k)) for k, v in
-                sdd_state.read_reviewed(os.path.join(feature_dir, "workflow-state.json")).items() if v}
-    return [i for i in ids if i not in reviewed]
+    tasks = read_text(os.path.join(feature_dir, "tasks", "tasks.md"))
+    reviewed = _reviewed_ids(feature_dir)
+    out = [i for i in high_risk_slices(tasks) if i not in waived and i not in reviewed]
+    risk = (fields.get("risk") or "").strip().lower().split()
+    if risk and risk[0] == "high":
+        ids = []
+        for m in _HEADING.finditer(tasks):
+            sid = markers.normalize_slice_id(m.group(1))
+            if sid not in ids:
+                ids.append(sid)
+        if not ids:
+            extra = [] if reviewed else ["(feature)"]
+        else:
+            extra = [i for i in ids if i not in reviewed and i not in waived]
+        out += [i for i in extra if i not in out]
+    return out
+
+
+def unreviewed_high_risk(feature_dir):
+    """Tier-rule-only view of `unreviewed` (ignores feature-level Risk); used by the checkpoint."""
+    fields = dict(sdd_state.parse_state(os.path.join(feature_dir, "workflow-state.md")))
+    fields.pop("risk", None)
+    return unreviewed(feature_dir, fields)
 
 
 def is_code_reviewer_stop(payload):
@@ -78,14 +111,29 @@ def is_code_reviewer_stop(payload):
     agent = str(payload.get("agent_type") or "")
     if agent.split(":")[-1].lower() != "code-reviewer":
         return False
-    return REPORT_MARKER in (payload.get("last_assistant_message") or "")
+    return REPORT_MARKER in _report_text(payload)
+
+
+def _report_text(payload):
+    """Final subagent message: last_assistant_message, else the tail of agent_transcript_path
+    (mirrors subagent_report.report_text_from_payload; fails open to "")."""
+    # Deliberately differs from subagent_report.report_text_from_payload: never falls back to the
+    # parent session's transcript_path (it could hold another agent's marker and scope).
+    text = payload.get("last_assistant_message")
+    if isinstance(text, str) and text:
+        return text
+    try:
+        from subagent_report import extract_last_assistant_text
+        return extract_last_assistant_text(payload.get("agent_transcript_path") or "")
+    except Exception:
+        return ""
 
 
 def record_from_payload(payload, state_json_path):
     """On a code-reviewer stop whose report carries a REVIEW-SCOPE marker, record that slice."""
     if not is_code_reviewer_stop(payload):
         return None
-    text = payload.get("last_assistant_message") or ""
+    text = _report_text(payload)
     slice_id = markers.parse_review_scope(text)
     if not slice_id:
         return None

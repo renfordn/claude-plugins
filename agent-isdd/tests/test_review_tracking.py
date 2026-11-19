@@ -118,5 +118,74 @@ class ReviewTrackingTests(unittest.TestCase):
                 self.assertTrue(json.load(fh)["reviewed"]["1"])
 
 
+    def test_unreviewed_tier_rule_and_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            make_feature(tmp)
+            self.assertEqual(review_tracking.unreviewed(tmp, {"risk": "low"}), ["1", "3B", "4"])
+            fb = {"review fallback": "Accepted via AskUserQuestion: 1: x"}
+            self.assertEqual(review_tracking.unreviewed(tmp, fb), ["3B", "4"])
+            fb = {"review fallback": "Accepted via AskUserQuestion: all: x", "risk": "high"}
+            self.assertEqual(review_tracking.unreviewed(tmp, fb), [])
+
+    def test_unreviewed_feature_high_covers_every_slice(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            for sid in ("1", "3b", "4"):
+                review_tracking.record_review(js, sid)
+            self.assertEqual(review_tracking.unreviewed(tmp, {"risk": "standard"}), [])
+            self.assertEqual(review_tracking.unreviewed(tmp, {"risk": "High (auth)"}), ["2F2"])
+            fb = {"risk": "high", "review fallback": "Accepted via AskUserQuestion: 2f2: x"}
+            self.assertEqual(review_tracking.unreviewed(tmp, fb), [])
+
+    def test_unreviewed_feature_high_without_tasks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "workflow-state.md"), "w") as fh:
+                fh.write("- Risk: high\n")
+            self.assertEqual(review_tracking.unreviewed(tmp, {"risk": "high"}), ["(feature)"])
+            review_tracking.record_review(os.path.join(tmp, "workflow-state.json"), "1")
+            self.assertEqual(review_tracking.unreviewed(tmp, {"risk": "high"}), [])
+
+    def test_unreviewed_reads_fields_from_state_when_omitted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            make_feature(tmp, fallback="Accepted via AskUserQuestion: all: x")
+            self.assertEqual(review_tracking.unreviewed(tmp), [])
+
+    def test_record_from_payload_uses_agent_transcript_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            tp = os.path.join(tmp, "t.jsonl")
+            msg = "<!--CODE-REVIEWER-REPORT-->\n<!--REVIEW-SCOPE: slice=1-->\ndone"
+            with open(tp, "w") as fh:
+                fh.write(json.dumps({"type": "assistant", "message": {
+                    "role": "assistant", "content": [{"type": "text", "text": msg}]}}) + "\n")
+            review_tracking.record_from_payload(
+                {"agent_type": "code-reviewer:code-reviewer", "agent_transcript_path": tp}, js)
+            with open(js) as fh:
+                self.assertTrue(json.load(fh)["reviewed"]["1"])
+
+    def test_unreviewed_high_risk_stays_tier_only_when_risk_high(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            make_feature(tmp)
+            with open(os.path.join(tmp, "workflow-state.md"), "w") as fh:
+                fh.write("- Risk: high\n- Review Fallback: None\n")
+            self.assertEqual(review_tracking.unreviewed_high_risk(tmp), ["1", "3B", "4"])
+            self.assertEqual(review_tracking.unreviewed(tmp), ["1", "3B", "4", "2F2"])
+
+    def test_parent_transcript_path_is_never_used(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            tp = os.path.join(tmp, "parent.jsonl")
+            msg = "<!--CODE-REVIEWER-REPORT-->\n<!--REVIEW-SCOPE: slice=1-->\ndone"
+            with open(tp, "w") as fh:
+                fh.write(json.dumps({"type": "assistant", "message": {
+                    "role": "assistant", "content": [{"type": "text", "text": msg}]}}) + "\n")
+            review_tracking.record_from_payload(
+                {"agent_type": "code-reviewer:code-reviewer", "transcript_path": tp}, js)
+            self.assertFalse(os.path.exists(js))
+
+    def test_read_text_is_public(self):
+        self.assertEqual(review_tracking.read_text("/nonexistent/x"), "")
+
+
 if __name__ == "__main__":
     unittest.main()

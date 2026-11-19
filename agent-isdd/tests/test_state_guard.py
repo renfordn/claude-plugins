@@ -145,7 +145,7 @@ def _raw(track=None, risk=None):
     (_raw("Standard", "low"), _raw("", "low"), True),              # Track blank
     (_raw("Standard", "low"), _raw("fast", "low"), True),
     (_raw("Standard", "low"), _raw("FAST ", "low"), True),
-    (_raw("Standard", "low"), _raw("Standard (x)", "low"), True),  # annotated
+    (_raw("Standard", "low"), _raw("Standard (x)", "low"), False),  # annotated: first token compared (F1)
     (_raw("Standard (x)", "low"), _raw("Fast", "low"), True),      # old annotated
     (_raw("Standard", "low"), _raw("Standard", "low"), False),
     (_raw("Fast", "low"), _raw("Standard", "low"), False),         # Fast -> Standard legal
@@ -155,7 +155,7 @@ def _raw(track=None, risk=None):
     (_raw("Standard", "high"), _raw("Standard", None), True),      # Risk removed
     (_raw("Standard", "high"), _raw("Standard", ""), True),        # Risk blank
     (_raw("Standard", "high"), _raw("Standard", "medium"), True),  # unknown
-    (_raw("Standard", "low"), _raw("Standard", "low (re-assessed)"), True),
+    (_raw("Standard", "low"), _raw("Standard", "low (re-assessed)"), False),  # annotated, same level (F1)
     (_raw("Standard", "low"), _raw("Standard", "High"), False),
     (_raw("Standard", None), _raw("Standard", "low"), False),      # old Risk unset
 ])
@@ -201,3 +201,27 @@ def test_start_time_fast_and_risk_written_together(state, tool, added, denied):
     state.write_text(_BARE)
     payload = _payload(tool, state, _BARE, _BARE + added, state.parent)
     assert bool(state_guard.evaluate(payload, state_path=str(state))) is denied
+
+
+@pytest.mark.parametrize("tool", TOOLS)
+@pytest.mark.parametrize("before,after,denied", [
+    # annotated old values: an unrelated edit is never denied
+    (dict(track="Standard (escalated from Fast)", risk="high (auth)"),
+     dict(track="Standard (escalated from Fast)", risk="high (auth)", mode="user"), False),
+    (dict(track="Fast", risk="low (one-liner)"),
+     dict(track="Fast", risk="low (one-liner)", mode="user"), False),
+    (dict(track="Standard", risk="elevated (db)"),
+     dict(track="Standard", risk="elevated (db)", mode="user"), False),
+    # annotated new values are compared by first token too
+    (dict(track="Fast", risk="low"), dict(track="Fast (small)", risk="low (tiny)"), False),
+    (dict(track="Fast", risk="low"), dict(track="Standard (grew)", risk="high (auth)"), False),
+    # still denied when the first token says so
+    (dict(track="Standard (x)", risk="low"), dict(track="Fast (y)", risk="low"), True),
+    (dict(track="Standard", risk="high (auth)"), dict(track="Standard", risk="low (oops)"), True),
+    (dict(track="Fast", risk="low"), dict(track="Fast (a)", risk="high (auth)"), True),
+])
+def test_annotated_values(state, tool, before, after, denied):
+    old, new = _text(**before), _text(**after)
+    state.write_text(old)
+    reason = state_guard.evaluate(_payload(tool, state, old, new, state.parent), state_path=str(state))
+    assert bool(reason) is denied

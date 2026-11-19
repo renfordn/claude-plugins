@@ -104,11 +104,9 @@ class CompleteGuardTests(unittest.TestCase):
         sp = feature(self.tmp, risk="high", reviewed=["1", "3", "77"])
         self.assertIn("2", complete_guard.evaluate(edit(sp), state_path=sp))
 
-    def test_feature_unreviewed_function(self):
-        sp = feature(self.tmp, risk="high", reviewed=["1"])
-        fields = complete_guard._fields_from_text(open(sp).read())
-        self.assertEqual(complete_guard.feature_unreviewed(self.tmp, fields), ["2", "3"])
-        self.assertEqual(complete_guard.feature_unreviewed(self.tmp, {"risk": "standard"}), [])
+    def test_annotated_risk_high_is_feature_level(self):
+        sp = feature(self.tmp, risk="high (auth)", reviewed=["1", "3"])
+        self.assertIn("2", complete_guard.evaluate(edit(sp), state_path=sp))
 
     def test_already_complete_not_denied(self):
         sp = feature(self.tmp)

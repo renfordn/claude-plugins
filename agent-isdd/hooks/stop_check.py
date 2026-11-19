@@ -156,11 +156,12 @@ def _stall_reason(title, phase, next_phase):
 
 
 def _backstop_reason(items):
-    lines = ["SDD completion backstop: feature(s) marked Complete have high-risk slice(s) with no "
-             "independent code-reviewer evidence. Run the review, or record `Accepted via "
+    lines = ["SDD completion backstop: feature(s) marked Complete are missing "
+             "independent code-reviewer evidence (high-risk slices, or every slice when Risk is high). Run the review, or record `Accepted via "
              "AskUserQuestion: <slice ids | all>: <reason>` as the Review Fallback, or set "
              "Workflow Status back from Complete."]
-    lines += [f"- '{title}': slice(s) {', '.join(ids)}" for title, ids in items]
+    lines += [f"- '{title}': " + ("this high-risk feature has no review recorded" if ids == ["(feature)"]
+                                  else "Slice " + ", ".join(ids)) for title, ids in items]
     return "\n".join(lines)
 
 
@@ -212,7 +213,7 @@ def main():
         try:
             items = []
             for done in _recent_complete_states(cwd):
-                ids = review_tracking.unreviewed_high_risk(os.path.dirname(done))
+                ids = review_tracking.unreviewed(os.path.dirname(done), parse_state(done))
                 if ids and _once_per_change(cwd, "backstop:" + done, ",".join(sorted(ids))):
                     items.append((parse_state(done).get("title", os.path.basename(os.path.dirname(done))), ids))
             if items:
