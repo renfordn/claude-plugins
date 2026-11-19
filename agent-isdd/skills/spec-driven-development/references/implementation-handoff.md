@@ -99,7 +99,7 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
      or **pause**. Never mark a blocked slice done or reviewed.
    - A report with `<!--AGENT-TDD-OUTCOME: coverage-only-->` (the first-run pass: the test already
      passed and `coverage --mutant` confirmed it pins the behavior, no production change) is a normal
-     slice: it stops at `green_pause` and gets the usual independent review.
+     slice: it stops at `green_pause` and gets the usual independent review. So does `<!--AGENT-TDD-OUTCOME: refactor-->` (a `refactor`/`contract` slice proven by `coverage` then `green`).
 8. **Parallel run.** When agent-TDD returns `slicing_complete` with a wave plan, run
    `agent-tdd:tdd-parallel` on the written tasks.md and act as its lead (see
    `agent-tdd/references/parallel-delivery.md`): spawn, review, verify, merge and commit each wave.

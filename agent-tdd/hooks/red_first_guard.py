@@ -104,11 +104,17 @@ def _decide(payload):
     check = shlex.quote(os.path.join(_PLUGIN, "scripts", "tdd_check.py"))
     pre = "cd %s && python3 %s" % (shlex.quote(worktree), check)
     q = shlex.quote(title)
+    ids = "".join(" " + shlex.quote(a) for a in tdd_check.cli_id_args(start))
+    if start.get("kind") in tdd_check.COVERAGE_KINDS:
+        unlock = ("Run the characterization test, then `<P> coverage --slice %s%s --mutant \"<cmd>\" "
+                  "-- <test cmd>` (a confirmed coverage unlocks this slice)." % (q, ids))
+    else:
+        unlock = "Write the failing test, then `<P> red --slice %s%s -- <test cmd>`." % (q, ids)
     return (
-        "Red-first guard: slice \"%s\" is open and has no confirmed Red yet, so production edits "
-        "are blocked. Write the failing test first, then run: %s red --slice %s -- <test command>. "
-        "If this slice genuinely has no testable behavior, record why: %s bypass --slice %s "
-        "--reason \"<why>\"." % (title, pre, q, pre, q))
+        "Red-first guard: slice \"%s\" is open with no unlock yet, so production edits are blocked. "
+        "Prefix <P> = `%s`. %s No testable behavior: `<P> bypass --slice %s%s --reason \"<why>\"`. "
+        "If no slice should be open here (e.g. the slice stopped early): `<P> done --slice %s%s`."
+        % (title, pre, unlock, q, ids, q, ids))
 
 
 def main():

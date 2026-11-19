@@ -38,7 +38,8 @@ tdd_check.py coverage --slice "<title>" --mutant "<command that changes the beha
 - **Unlocks:** a confirmed `red` logged after the latest `start`; a confirmed `coverage`; a logged `bypass`. An older Red never counts.
 - **Always exempt:** test files, docs, and paths outside the repo; the exact rules are in the docstring of `hooks/path_kinds.py`. Key exceptions: plugin product markdown (`SKILL.md`, `CLAUDE.md`, `AGENTS.md`, any `.md` under `agents/`, `skills/`, `commands/`, `output-styles/`) is production, and non-doc files under `docs/` are production. Manifests, CI and config are production.
 - **Bypass** only when Red cannot come first, and say why: `tdd_check.py bypass --slice "<title>" --reason "<why>"`. Valid reasons: contract stubs, scaffolding, test-author stub blockers (the Red test needs a stub to import), genuine blockers. Never to skip a Red you could write. Copy every `coverage` and `bypass` `TDD-EVIDENCE` line into **Validation Evidence**, the same as red/green; the SubagentStop hook surfaces the bypasses the report carries to the caller.
-- Close the slice at the end (including a BLOCKED report): `tdd_check.py done --slice "<title>"`.
+- Refactor/contract slices: run `coverage` on the characterization test before changing code, then refactor, then `green`; with `start --kind refactor|contract` a confirmed `coverage` stands in for Red (other kinds still need Red), only these kinds unlock the guard with coverage, and the report carries `<!--AGENT-TDD-OUTCOME: refactor-->`, else the stop hook flags the slice unproven.
+- Close the slice at the end, and on every stop that ends it early (BLOCKED, Mid-Slice Research Request, MODEL-ESCALATE, Plan Validity Flag, any escalation pause): `tdd_check.py done --slice "<title>"` (add `--slice-id`/`--base` if `start` had them). The guard's deny text prints this command.
 
 ## 4. UI slices (R11)
 

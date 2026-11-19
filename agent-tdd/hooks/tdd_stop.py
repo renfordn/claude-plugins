@@ -5,7 +5,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tdd_state import read_tdd_progress  # noqa: E402
+from tdd_state import read_tdd_progress, summarize_open_slices  # noqa: E402
 
 
 def main():
@@ -17,17 +17,19 @@ def main():
     cwd = payload.get("cwd") or os.getcwd()
 
     data = read_tdd_progress(cwd)
-    pending = [s for s in data["slices"] if s.get("status") == "green_pending_review"]
-
-    if not pending:
+    pending, blocked = summarize_open_slices(data)
+    if not pending and not blocked:
         sys.exit(0)
 
-    items = "\n".join(f"  - [{s['id']}] {s['description']}" for s in pending)
-    print(json.dumps({"systemMessage": (
-        f"agent-TDD: {len(pending)} slice(s) awaiting review resume at session end:\n"
-        f"{items}\n"
-        "Resume via SendMessage to the agent-TDD instance id, or re-spawn with the same Slice Spec."
-    )}))
+    parts = []
+    if pending:
+        items = "\n".join(pending)
+        parts.append(f"agent-TDD: {len(pending)} slice(s) awaiting review resume at session end:\n"
+                     f"{items}\n"
+                     "Resume via SendMessage to the agent-TDD instance id, or re-spawn with the same Slice Spec.")
+    if blocked:
+        parts.append("agent-TDD: blocked slices:\n" + "\n".join(blocked))
+    print(json.dumps({"systemMessage": "\n".join(parts)}))
     sys.exit(0)
 
 

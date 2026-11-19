@@ -61,7 +61,7 @@ def test_marker_examples_parse():
         assert markers.parse_blocked(b) is not None, b
     assert any(markers.parse_blocked(b) for b in blocked)
     for o in outcome:
-        assert markers.parse_outcome(o) == "coverage-only", o
+        assert markers.parse_outcome(o) in ("coverage-only", "refactor"), o
 
 
 def test_tdd_check_commands_in_slice_discipline_parse():

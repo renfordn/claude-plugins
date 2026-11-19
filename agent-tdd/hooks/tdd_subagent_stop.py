@@ -92,7 +92,9 @@ def _parse_report(text):
     facts_text = _section_text(text, "Handoff Facts")
     has_handoff_facts = bool(facts_text) and facts_text.lower() not in ("", "none", "n/a")
 
+    blocked_reason = parse_blocked(text)
     return {
+        **({"blocked_reason": blocked_reason} if blocked_reason else {}),
         "evidence": {},
         "description": description or "(no description)",
         "status": status,
@@ -129,6 +131,29 @@ def _evidence(text, cwd):
         else:
             out[phase] = "verified"
     return out
+
+
+def _start_info(text, cwd):
+    """(kind, multiple) of the slice's start: the report's start token if it has one, else the latest
+    start in the log for the slice title of the report's other evidence tokens. (None, False) if unknown."""
+    tokens = {m.group("token"): m.group("phase") for m in EVIDENCE_TOKEN_RE.finditer(text)}
+    if not tokens:
+        return None, False
+    log = tdd_check.read_log(cwd)
+    by_token = {e.get("token"): e for e in log}
+    title = None
+    start = None
+    for t in tokens:
+        e = by_token.get(t)
+        if not e:
+            continue
+        if e.get("phase") == "start":
+            start = e
+        title = title or e.get("slice")
+    starts = [e for e in log if e.get("phase") == "start" and e.get("slice") == title] if title else []
+    if start is None and starts:
+        start = starts[-1]
+    return (start.get("kind") if start else None), len(starts) > 1
 
 
 def main():
@@ -184,6 +209,7 @@ def main():
                 match = existing
                 break
         if match is not None:
+            match.pop("blocked_reason", None)
             match.update(entry)
         else:
             ids = [s.get("id") for s in slices if isinstance(s.get("id"), int)]
@@ -204,11 +230,15 @@ def main():
     if "bypass" in ev:
         evidence += f" bypass={ev['bypass']}"
     blocked = parse_blocked(text)
-    coverage_only = parse_outcome(text) == "coverage-only" and ev.get("coverage") == "verified"
-    proven = (ev["red"] == "verified" and ev["green"] == "verified") or coverage_only
+    outcome = parse_outcome(text)
+    coverage_only = outcome == "coverage-only" and ev.get("coverage") == "verified" and ev["green"] == "missing"
+    proven = (ev["green"] == "verified" and (ev["red"] == "verified" or (
+        ev.get("coverage") == "verified" and outcome == "refactor"))) or coverage_only
     warn = "" if proven or blocked is not None else (
         " — ⚠ Red→Green was not verified by scripts/tdd_check.py; treat the TDD claim as unproven "
         "and check the tests yourself before accepting the slice.")
+    kind, multi = _start_info(text, cwd)
+    evidence += f" outcome={outcome or 'none'} kind={kind or 'unknown'}" + (" (multiple starts)" if multi else "")
     print(json.dumps({"systemMessage": (
         f"agent-TDD [{entry['status']}]: {entry['description']} "
         f"| AC: {entry['acceptance_criteria_status']} "
