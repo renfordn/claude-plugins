@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """Review gate: a paused agent-TDD can't be resumed until an independent review has run.
 
-SubagentStop       agent-TDD reporting green_pause opens a gate for its agent_id; any other
-                   agent-TDD report from that agent closes it. A <!--CODE-REVIEWER-REPORT-->
-                   from the code-reviewer agent marks every open gate reviewed.
-PostToolUse(Bash)  the same marker in the output of code-reviewer's review_headless.sh marks
-                   gates reviewed.
+SubagentStop       agent-TDD reporting green_pause opens a gate for its agent_id, recording the
+                   slice id (explicit <!--SLICE-ID: N--> marker, else a line-start "Slice N:"
+                   title; never a prose mention). Any other agent-TDD report from that agent
+                   closes it. A <!--CODE-REVIEWER-REPORT--> from the code-reviewer agent clears
+                   gates via clear_gates, scoped by its <!--REVIEW-SCOPE: slice=N--> marker.
+PostToolUse(Bash)  the same marker in the output of code-reviewer's review_headless.sh clears
+                   gates the same way.
 PreToolUse         SendMessage to an agent whose gate is open and unreviewed is denied, unless
   (SendMessage)    the message carries an explicit label: self-reviewed, review skipped, or
                    reviewed by: <who>. That keeps every bypass on record in the transcript.
+
+Scoping: a scoped review clears only gates of that slice. An unscoped review clears the sole
+open gate (backward compatible; a residual risk if the reviewer meant another slice) and clears
+nothing when several are open, warning via systemMessage. State lives in the main checkout's
+memory dir so worktree subagents and the lead share it.
 
 Fails open: any error here is logged to stderr and the tool call proceeds.
 """
@@ -27,8 +34,8 @@ LABEL_RE = re.compile(r"self-reviewed|review skipped|reviewed by:", re.IGNORECAS
 
 
 def _gate_path(cwd):
-    from tdd_state import tdd_memory_dir
-    return os.path.join(tdd_memory_dir(cwd), "review-gate.json")
+    from tdd_state import state_cwd, tdd_memory_dir
+    return os.path.join(tdd_memory_dir(state_cwd(cwd)), "review-gate.json")
 
 
 def _read(cwd):
@@ -40,26 +47,53 @@ def _read(cwd):
         return {}
 
 
-def _write(cwd, gates):
-    path = _gate_path(cwd)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(gates, fh, indent=2)
-        fh.write("\n")
-
-
-def _mark_reviewed(cwd):
-    gates = _read(cwd)
-    open_gates = [g for g in gates.values() if not g.get("reviewed")]
-    for gate in open_gates:
-        gate["reviewed"] = True
-    if open_gates:
-        _write(cwd, gates)
+def _strict_slice_id(text):
+    """Slice id from an explicit SLICE-ID marker or a line-start 'Slice N:' title, else None."""
+    import markers
+    text = text or ""
+    m = markers._MARKER_RE.search(text)
+    if m:
+        return m.group(1)
+    for line in text.splitlines():
+        m = markers.SLICE_TITLE_RE.match(line)
+        if m:
+            return m.group(1)
+    return None
 
 
 def clear_gates(cwd, scope=None):
-    """Stub: scoping arrives in a later slice; for now clears every open gate."""
-    return _mark_reviewed(cwd)
+    """Mark gates reviewed. scope given: only gates whose slice == scope. scope None: the one
+    open gate if exactly one is open, else none. Returns a systemMessage dict when an unscoped
+    review was ignored, else None."""
+    from tdd_state import update_json
+    result = {}
+
+    def fn(gates):
+        open_gates = [g for g in gates.values()
+                      if isinstance(g, dict) and not g.get("reviewed")]
+        if scope is not None:
+            targets = [g for g in open_gates if g.get("slice") == scope]
+            if open_gates and not targets:
+                listed = ", ".join(str(g.get("slice")) if g.get("slice") is not None
+                                   else "none" for g in open_gates)
+                result["msg"] = (
+                    f"review-gate: review scoped to slice {scope} matched no open gate; "
+                    f"open gates are for slices: {listed}. None was cleared.")
+        elif len(open_gates) == 1:
+            targets = open_gates
+        else:
+            targets = []
+            if open_gates:
+                result["msg"] = (
+                    f"review-gate: the review was unscoped (no <!--REVIEW-SCOPE: slice=N--> "
+                    f"marker) and {len(open_gates)} agent-TDD gates are open, so none was "
+                    "cleared. Re-run the review with a scope marker.")
+        for g in targets:
+            g["reviewed"] = True
+        return gates
+
+    update_json(_gate_path(cwd), fn)
+    return {"systemMessage": result["msg"]} if "msg" in result else None
 
 
 def _subagent_text(payload):
@@ -74,15 +108,24 @@ def on_subagent_stop(payload, cwd):
     text = _subagent_text(payload)
     agent_id = payload.get("agent_id")
     if TDD_MARKER in text and agent_id:
-        gates = _read(cwd)
-        if GREEN_PAUSE in text:
-            gates[agent_id] = {"opened_at": datetime.datetime.now().isoformat(timespec="seconds"),
-                               "reviewed": False}
-        else:
-            gates.pop(agent_id, None)
-        _write(cwd, gates)
+        from tdd_state import update_json
+        opened = GREEN_PAUSE in text
+        slice_id = _strict_slice_id(text)
+
+        def fn(gates):
+            if opened:
+                gates[agent_id] = {
+                    "opened_at": datetime.datetime.now().isoformat(timespec="seconds"),
+                    "reviewed": False, "slice": slice_id}
+            else:
+                gates.pop(agent_id, None)
+            return gates
+
+        update_json(_gate_path(cwd), fn)
     if REVIEW_MARKER in text and str(payload.get("agent_type", "")).endswith("code-reviewer"):
-        _mark_reviewed(cwd)
+        from markers import parse_review_scope
+        return clear_gates(cwd, parse_review_scope(text))
+    return None
 
 
 def on_pre_send_message(payload, cwd):
@@ -108,6 +151,14 @@ def on_pre_send_message(payload, cwd):
     }}
 
 
+def raw_text(payload, raw):
+    """Text of the Bash tool output (scope marker lives there); raw payload as fallback."""
+    resp = payload.get("tool_response")
+    if isinstance(resp, dict):
+        return f"{resp.get('stdout', '')}\n{resp.get('stderr', '')}"
+    return resp if isinstance(resp, str) else raw
+
+
 def main():
     raw = sys.stdin.read()
     try:
@@ -119,11 +170,12 @@ def main():
         return None
     cwd = payload.get("cwd") or os.getcwd()
     if event == "SubagentStop":
-        on_subagent_stop(payload, cwd)
+        return on_subagent_stop(payload, cwd)
     elif (event == "PostToolUse" and payload.get("tool_name") == "Bash"
           and "review_headless.sh" in str((payload.get("tool_input") or {}).get("command", ""))
           and "finding-verifier" not in str((payload.get("tool_input") or {}).get("command", ""))):
-        _mark_reviewed(cwd)
+        from markers import parse_review_scope
+        return clear_gates(cwd, parse_review_scope(raw_text(payload, raw)))
     elif event == "PreToolUse" and payload.get("tool_name") == "SendMessage":
         return on_pre_send_message(payload, cwd)
     return None
