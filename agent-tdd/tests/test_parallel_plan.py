@@ -256,5 +256,28 @@ class VerifyBranchHardeningTests(unittest.TestCase):
             self.assertEqual(pp.verify_branch(base, "feat", ["sub/f.txt (new)"], d), [])
 
 
+class ValidationKindTests(unittest.TestCase):
+    def test_validation_slice_with_no_files_ok_and_runs_alone(self):
+        for files in ("none", "(none)", "(none - runs suite)"):
+            md = (slice_md(1, "a", files="a.py") + slice_md(2, "b", files="b.py")
+                  + slice_md(3, "validate", kind="validation", deps="Slice 1, Slice 2", files=files))
+            sl = pp.parse(md)
+            self.assertEqual(sl[2]["files"], [], files)
+            self.assertEqual(pp.check(sl), [], files)
+            self.assertEqual(pp.waves(sl), [[1, 2], [3]], files)
+
+    def test_validation_slice_runs_alone_even_if_ready_with_others(self):
+        md = (slice_md(1, "a", files="a.py")
+              + slice_md(2, "validate", kind="validation", files="none")
+              + slice_md(3, "b", files="b.py"))
+        self.assertEqual(pp.waves(pp.parse(md)), [[1, 3], [2]])
+
+    def test_other_kinds_with_no_files_still_error(self):
+        for kind in ("feature", "fix", "refactor"):
+            for files in ("", "none", "(none)"):
+                errs = pp.check(pp.parse(slice_md(1, "x", kind=kind, files=files)))
+                self.assertTrue(any("no Files" in e for e in errs), (kind, files))
+
+
 if __name__ == "__main__":
     unittest.main()
