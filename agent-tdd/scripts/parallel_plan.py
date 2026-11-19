@@ -68,7 +68,7 @@ def _split_list(value):
     out = []
     for part in parts:
         part = part.strip()
-        if not part or part.startswith("("):
+        if not part or part.startswith("(") or part.lower() == "none":
             continue
         for item in _expand_braces(part):
             n = _norm_path(item)
@@ -227,7 +227,7 @@ def check(slices):
                 errors.append(f"Slice {n}: depends on itself")
             elif d not in by:
                 errors.append(f"Slice {n}: unknown dependency Slice {d}")
-        if s["kind"] != "contract" and not s["files"]:
+        if s["kind"] not in ("contract", "validation") and not s["files"]:
             errors.append(f"Slice {n}: no Files listed (non-contract slice must own files)")
     cyc = _find_cycle(by)
     if cyc:
@@ -259,7 +259,7 @@ def _conflict(a, b):
 
 
 def _alone(s):
-    return s["kind"] == "contract" or s["risk_tier"] == "high-risk"
+    return s["kind"] in ("contract", "validation") or s["risk_tier"] == "high-risk"
 
 
 def waves(slices, width=4):
