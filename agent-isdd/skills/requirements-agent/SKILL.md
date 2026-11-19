@@ -1,6 +1,7 @@
 ---
 name: requirements-agent
-description: "[Internal — use /isdd instead] Produces EARS-based requirements.md under a hard completion gate: interview, review of an existing ticket/PRD, or Fast Track self-approve."
+user-invocable: false
+description: "Invoked by /isdd. Produces EARS-based requirements.md under the Requirements Gate: interview, review of an existing ticket/PRD, or Fast Track self-approve."
 ---
 
 # Requirements Agent
@@ -60,8 +61,9 @@ draft.
    entries — that stays Design's job).
 3. Rewrite only the weak sections into EARS-based format — never flatten nuanced constraints
    into generic language.
-4. Present the changed draft, pause for user confirmation or edits.
-5. Only after confirmation, treat the requirements as approved input.
+4. Present the changed draft. If Open Gaps remain, ask about them via `AskUserQuestion` and
+   apply the answers; otherwise do not pause.
+5. Once no Open Gaps remain, treat the requirements as approved input (see Auto-Advance).
 
 `spec-reviewer` has no "File Summaries" output of its own, unlike `research-consolidator` —
 this is deliberate, not an oversight. `research-consolidator` researches the codebase and
@@ -75,8 +77,8 @@ since been deprecated project-wide) is still caught by the `after-requirements` 
 
 ## Entry Mode: Fast Track (`Track: Fast`)
 
-Use when `spec-driven-development` has classified the request as `Track: Fast` (see its own
-"Fast Track" section) and hands over a one-line description instead of interviewing material.
+Use when `spec-driven-development` has classified the request as `Track: Fast` (see
+`spec-driven-development/references/fast-track.md`) and hands over a one-line description instead of interviewing material.
 
 1. Draft a minimal EARS requirement satisfying every field in "Required Requirement Fields"
    below directly from the one-line description — no interview loop, no `AskUserQuestion`
@@ -92,8 +94,14 @@ Use when `spec-driven-development` has classified the request as `Track: Fast` (
    be filled in without real interviewing — e.g. non-functional constraints that need
    discussion, or edge cases that fork into multiple designs), stop and say so instead of
    forcing a thin requirement. Report this back to `spec-driven-development` so it can flip
-   `Track` to `Standard` (see its "Fast Track" § Escape hatch) and re-enter Author mode from
+   `Track` to `Standard` (see the Escape hatch in `spec-driven-development/references/fast-track.md`) and re-enter Author mode from
    whatever this draft already captured — never discard it and restart blank.
+
+## Auto-Advance
+
+When the Requirements Gate passes (all required fields present, EARS, no Open Gaps), advance to
+Design without a user confirmation turn, in every entry mode: set `State: Approved` in
+`requirements.md`, then advance to Design. Use `AskUserQuestion` only when Open Gaps remain.
 
 ## Required Requirement Fields (all modes)
 
