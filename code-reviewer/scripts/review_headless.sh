@@ -16,7 +16,7 @@ while [[ "${1:-}" == --* ]]; do
 done
 [[ "$agent_name" =~ ^[a-z-]+$ ]] || { echo "review_headless: bad agent name '$agent_name'" >&2; exit 2; }
 # Same shape as agent-tdd's slice ID marker (copied, not imported): 3, 0a, 12b.
-[[ -z "$scope" || "$scope" =~ ^[0-9]+[A-Za-z]*$ ]] || { echo "review_headless: bad scope '$scope'" >&2; exit 2; }
+[[ -z "$scope" || "$scope" =~ ^[0-9]+[A-Za-z0-9]*$ ]] || { echo "review_headless: bad scope '$scope'" >&2; exit 2; }
 [[ -z "$cwd" || -d "$cwd" ]] || { echo "review_headless: cwd '$cwd' is not a directory" >&2; exit 2; }
 brief="${1:?$usage}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

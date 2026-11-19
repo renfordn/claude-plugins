@@ -12,7 +12,16 @@ import re
 import subprocess
 import sys
 
-ID = r"\d+[A-Za-z]*"  # consistent with hooks/markers.py ID
+try:  # single source of truth: ../hooks/markers.py
+    import importlib.util
+    import os
+    _spec = importlib.util.spec_from_file_location(
+        "_markers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks", "markers.py"))
+    _m = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_m)
+    ID = _m.ID
+except Exception:  # fallback literal; keep in sync with hooks/markers.py ID
+    ID = r"\d+[A-Za-z0-9]*"
 SLICE_RE = re.compile(r"^## Slice (" + ID + r"):\s*(.*?)\s*$")
 SLICE_ANY_RE = re.compile(r"^##\s+Slice\b", re.IGNORECASE)
 FIELD_RE = re.compile(r"^\*\*([A-Za-z ]+):\*\*\s*(.*?)\s*$")

@@ -79,3 +79,9 @@ def test_headless_rejects_bad_scope_and_unknown_flag(tmp_path):
     _headless_prompt(tmp_path, ["--scope", "x y", "b"], expect_rc=2)
     _headless_prompt(tmp_path, ["--scope", "1;rm", "b"], expect_rc=2)
     _headless_prompt(tmp_path, ["--bogus", "b"], expect_rc=2)
+
+
+def test_headless_accepts_alnum_suffix_scope_and_rejects_junk(tmp_path):
+    assert "<!--REVIEW-SCOPE: slice=2F2-->" in _headless_prompt(tmp_path, ["--scope", "2F2", "brief"])
+    for bad in ("x y", "1;rm"):
+        _headless_prompt(tmp_path, ["--scope", bad, "brief"], expect_rc=2)

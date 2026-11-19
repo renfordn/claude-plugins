@@ -281,3 +281,21 @@ class ValidationKindTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SliceIdPatternTests(unittest.TestCase):
+    def test_id_matches_markers_id(self):
+        mspec = importlib.util.spec_from_file_location(
+            "markers", SCRIPT.parent.parent / "hooks" / "markers.py")
+        markers = importlib.util.module_from_spec(mspec)
+        mspec.loader.exec_module(markers)
+        self.assertEqual(pp.ID, markers.ID)
+
+    def test_alnum_suffix_ids_parse(self):
+        md = "# Tasks\n\n" + slice_md("2F1", "a", files="a.py") + slice_md("2F2", "b", deps="Slice 2F1", files="b.py")
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "tasks.md"
+            p.write_text(md)
+            r = subprocess.run([sys.executable, str(SCRIPT), "waves", str(p), "--json"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("2F2", r.stdout)
