@@ -67,7 +67,7 @@ def _plan_board_lines(cwd):
     for slug, path, _doc in stale[:3]:
         lines.append(f"- {slug} ({path})")
     if n > 3:
-        lines.append(f"- …and {n - 3} more (`{cmd} stale`; `/isdd-board-sync` resyncs them all in one batch)")
+        lines.append(f"- …and {n - 3} more (`{cmd} stale`; or ask the user to run `/isdd-board-sync`, which resyncs them all in one batch)")
     return lines + verify
 
 
@@ -81,7 +81,7 @@ def _verify_lines(mem, project):
         return []
     since = "never verified" if when is None else f"last verified {int((now - when).total_seconds() // 3600)}h ago"
     cmd = _script_cmd("plan_board_sync.py")
-    return ["", f"Plan Board verify is due ({since}). Run `/isdd-board-sync`, or: `ArtifactData list` collection "
+    return ["", f"Plan Board verify is due ({since}). Ask the user to run `/isdd-board-sync`, or: `ArtifactData list` collection "
             f"`plans` into a JSON file, then `{cmd} verify --board-json <file> --project {shlex.quote(project)}` "
             f"(it reports missing, mismatched and orphaned records). Never block on this."]
 

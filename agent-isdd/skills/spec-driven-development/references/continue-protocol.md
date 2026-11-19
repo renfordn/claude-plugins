@@ -38,7 +38,8 @@ not recompute the diff by hand.
    - Use the `rollback_pending` item above (also surfaced by the `before_continue` hook): target phase,
      reason and source, from a prior agent-tdd run that found a slicing blocker (task conflict, design
      contradiction, research gap).
-   - Address the issue and rewind using `/isdd-rewind <target>`, then return to continue the workflow.
+   - Address the issue, then ask the user to run `/isdd-rewind <target>` (user-run: the model cannot
+     invoke it); continue the workflow once it has run.
 
 1. Use `workflow-manager` to find the relevant feature folder and resolve state (see its
    Decision Order — `agent-nelly:agent-nelly`'s stored Intent first (when available),
