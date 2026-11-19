@@ -109,7 +109,7 @@ def main():
         state_path = active_state_file(cwd)
         if not state_path:
             no_decision()
-        track = parse_state(state_path).get("track", "standard").strip().lower()
+        track = (parse_state(state_path).get("track") or "standard").strip().lower().split(" ")[0]  # first token, like state_guard
         if track != "fast":
             no_decision()
 
