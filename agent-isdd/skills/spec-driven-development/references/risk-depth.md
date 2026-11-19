@@ -18,7 +18,7 @@ Risk sets depth; the only review mechanisms are the ones below.
 
 | Risk | Behaviour |
 | --- | --- |
-| low | compact path; `Track: Fast` allowed, Slice Spec handoff with `Review handoff mode: skip` (review skipped) |
+| low | compact path; `Track: Fast` allowed, Slice Spec handoff with `Review handoff mode: skip` (review skipped); on `Track: Fast` design-author also skips plan-reviewer (`fast-track.md`) |
 | elevated | full Standard path; no extra review gate (per-phase review by Risk is not implemented) |
 | high | full path; every slice needs a reviewed entry or an `AskUserQuestion` Review Fallback before Complete (R3, `complete_guard`) |
 
