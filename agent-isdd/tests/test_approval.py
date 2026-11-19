@@ -58,6 +58,75 @@ class VerifyTests(unittest.TestCase):
                                          {"approval_hash": "0" * 64}), "mismatch")
 
 
+class PlaceholderHashTests(unittest.TestCase):
+    def test_non_64hex_is_blank(self):
+        for junk in ("None", "<hash>", "abc123", "g" * 64, "0" * 63):
+            self.assertEqual(approval.verify({"approval hash": junk}, "r", "d"), "missing")
+            self.assertEqual(approval.verify({"approval hash": junk, "approval pending": "yes"},
+                                             "r", "d"), "pending")
+            self.assertEqual(approval.verify({}, "r", "d", {"approval_hash": junk}), "legacy")
+
+
+class CliTests(unittest.TestCase):
+    def _run(self, args, env=None):
+        import subprocess
+        e = dict(os.environ)
+        e.pop("CLAUDE_PLUGIN_DATA", None)
+        e.update(env or {})
+        return subprocess.run(["python3", os.path.join(HOOKS_DIR, "approval.py")] + args,
+                              capture_output=True, text=True, env=e, timeout=20)
+
+    def _spec(self, d, hash_line="- Approval Hash: deadbeef"):
+        os.makedirs(os.path.join(d, "requirements"))
+        os.makedirs(os.path.join(d, "design"))
+        with open(os.path.join(d, "requirements", "requirements.md"), "w") as f:
+            f.write("req")
+        with open(os.path.join(d, "design", "design.md"), "w") as f:
+            f.write("design")
+        with open(os.path.join(d, "workflow-state.md"), "w") as f:
+            f.write("# S\n- Implementation Requested: No\n%s\n" % hash_line)
+        with open(os.path.join(d, "workflow-state.json"), "w") as f:
+            json.dump({"approval_hash": "deadbeef"}, f)
+
+    def test_refreeze_replaces_hash_in_md_and_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._spec(d)
+            r = self._run(["refreeze", d], {"CLAUDE_PLUGIN_DATA": d})
+            self.assertEqual(r.returncode, 0, r.stderr)
+            want = approval.approval_hash("req", "design")
+            self.assertEqual(r.stdout.strip(), want)
+            from sdd_state import parse_state
+            self.assertEqual(parse_state(os.path.join(d, "workflow-state.md"))["approval hash"], want)
+            with open(os.path.join(d, "workflow-state.json")) as f:
+                self.assertEqual(json.load(f)["approval_hash"], want)
+
+    def test_approve_sets_requested_and_pending(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._spec(d)
+            r = self._run(["approve", d], {"CLAUDE_PLUGIN_DATA": d})
+            self.assertEqual(r.returncode, 0, r.stderr)
+            from sdd_state import parse_state
+            f = parse_state(os.path.join(d, "workflow-state.md"))
+            self.assertEqual(f["implementation requested"], "Yes")
+            self.assertEqual(f["approval pending"], "yes")
+
+    def test_missing_plugin_data_is_clear_error_not_traceback(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._spec(d)
+            r = self._run(["refreeze", d])
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("CLAUDE_PLUGIN_DATA", r.stderr)
+            self.assertNotIn("Traceback", r.stderr)
+
+    def test_refreeze_with_missing_artifact_fails_cleanly(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._spec(d)
+            os.remove(os.path.join(d, "design", "design.md"))
+            r = self._run(["refreeze", d], {"CLAUDE_PLUGIN_DATA": d})
+            self.assertEqual(r.returncode, 1)
+            self.assertNotIn("Traceback", r.stderr)
+
+
 class _Base(unittest.TestCase):
     def _setup(self, home, repo, state_lines, req="req\r\ntext\r\n", design="design text\n"):
         fdir = feature_spec_dir(home, repo)

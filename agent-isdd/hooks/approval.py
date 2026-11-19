@@ -3,7 +3,10 @@
 `Implementation Requested: Yes` and `Approval Pending: yes` (no hash: design.md is persisted after
 ExitPlanMode). freeze(spec_dir) later records the `Approval Hash` over requirements.md + design.md
 at the first agent-TDD spawn (security-relevant gate input: verify() detects scope edits made
-after approval). No active workflow or any failure: exit 0, no output (fail open).
+after approval). design_spec_gate (PreToolUse) calls freeze() -- a deliberate state write from a
+PreToolUse hook; the CLI below is the recovery path after a mismatch:
+  approval.py refreeze <spec_dir>   clear + re-freeze the hash from current requirements/design
+  approval.py approve <spec_dir>    set Implementation Requested: Yes + Approval Pending: yes No active workflow or any failure: exit 0, no output (fail open).
 
 approval_hash(requirements_text, design_text) -- the parameter slots keep the contract stub's
 positional order; callers pass requirements.md then design.md text.
@@ -22,6 +25,14 @@ except ImportError:
     fcntl = None
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+if __name__ == "__main__" and len(sys.argv) > 1 and not os.environ.get("CLAUDE_PLUGIN_DATA"):
+    # CLI use: the sdd_state import below would traceback without it; fail with the clear message.
+    from path_resolution import PluginDataDirUnavailable, get_plugin_data_dir
+    try:
+        get_plugin_data_dir("agent-isdd")
+    except PluginDataDirUnavailable as _e:
+        print(str(_e), file=sys.stderr)
+        sys.exit(1)
 from sdd_state import active_state_file, match_field, parse_state, update_json  # noqa: E402
 
 
@@ -43,6 +54,16 @@ def _yes(v):
     return str(v).strip().lower() in ("yes", "true")
 
 
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _hash_or_blank(v):
+    """Lowercased value when it is exactly 64 hex chars, else '' (placeholders such as 'None'
+    or template text count as no hash)."""
+    v = str(v or "").strip().lower()
+    return v if _HEX64.match(v) else ""
+
+
 def verify(fields, requirements_text, design_text, json_fields=None):
     """ok | pending | missing | mismatch | legacy.
     legacy: neither the md fields nor the json mirror carry an approval hash and no approval is
@@ -51,8 +72,8 @@ def verify(fields, requirements_text, design_text, json_fields=None):
     a hash the md lost. missing: Approval Hash field present but blank (nothing else recorded)."""
     fields = fields if isinstance(fields, dict) else {}
     jf = json_fields if isinstance(json_fields, dict) else {}
-    md_hash = (fields.get("approval hash") or "").strip().lower()
-    js_hash = str(jf.get("approval_hash") or "").strip().lower()
+    md_hash = _hash_or_blank(fields.get("approval hash"))
+    js_hash = _hash_or_blank(jf.get("approval_hash"))
     if not md_hash and not js_hash:
         if _yes(fields.get("approval pending", "")) or _yes(jf.get("approval_pending", "")):
             return "pending"
@@ -172,7 +193,7 @@ def freeze(spec_dir):
     state_md = _current_state(spec_dir)
     if not os.path.isfile(state_md):
         return None
-    existing = (parse_state(state_md).get("approval hash") or "").strip()
+    existing = _hash_or_blank(parse_state(state_md).get("approval hash"))
     if existing:
         return existing
     req = _read(os.path.join(spec_dir, "requirements", "requirements.md"))
@@ -185,7 +206,62 @@ def freeze(spec_dir):
     return digest
 
 
+def refreeze(spec_dir):
+    """Clear the recorded hash (md + json) and re-freeze from the current artifacts. Returns the
+    new hash, or None (nothing changed) when state or either artifact is missing/empty."""
+    state_md = _current_state(spec_dir)
+    if not os.path.isfile(state_md):
+        return None
+    req = _read(os.path.join(spec_dir, "requirements", "requirements.md"))
+    design = _read(os.path.join(spec_dir, "design", "design.md"))
+    if not req.strip() or not design.strip():
+        return None
+    digest = approval_hash(req, design)
+    _record(state_md, {"approval hash": digest, "approval pending": "no"},
+            {"approval_hash": digest, "approval_pending": "no"})
+    return digest
+
+
+def approve(spec_dir):
+    """Record Implementation Requested: Yes + Approval Pending: yes (plan-mode-unavailable
+    fallback). Returns True, or False when the workflow state file is missing."""
+    state_md = _current_state(spec_dir)
+    if not os.path.isfile(state_md):
+        return False
+    _record(state_md, {"implementation requested": "Yes", "approval pending": "yes"},
+            {"implementation_requested": "Yes", "approval_pending": "yes"})
+    return True
+
+
+def _cli(argv):
+    from path_resolution import PluginDataDirUnavailable, get_plugin_data_dir
+    if len(argv) != 2 or argv[0] not in ("refreeze", "approve"):
+        print("usage: approval.py refreeze|approve <spec_dir>", file=sys.stderr)
+        return 2
+    try:
+        get_plugin_data_dir("agent-isdd")
+    except PluginDataDirUnavailable as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    cmd, spec_dir = argv
+    if cmd == "refreeze":
+        digest = refreeze(spec_dir)
+        if digest is None:
+            print("refreeze failed: workflow-state.md, requirements/requirements.md or "
+                  "design/design.md is missing or empty in %s" % spec_dir, file=sys.stderr)
+            return 1
+        print(digest)
+        return 0
+    if not approve(spec_dir):
+        print("approve failed: no workflow-state.md in %s" % spec_dir, file=sys.stderr)
+        return 1
+    print("Implementation Requested: Yes; Approval Pending: yes")
+    return 0
+
+
 def main():
+    if len(sys.argv) > 1:
+        sys.exit(_cli(sys.argv[1:]))
     try:
         payload = json.load(sys.stdin)
     except (ValueError, OSError):
