@@ -61,6 +61,8 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 - Current Phase: <Requirements | Design | Tasks | Implementation | Complete>
 - Track: <Fast | Standard>
+- Risk: <low | elevated | high>
+- Risk Reason: <one line; Risk only rises, never by diff size>
 - Previous Phase: <None | Requirements | Design | Tasks | Implementation>
 - Workflow Status: <In Progress | Blocked | Awaiting Confirmation | Awaiting Implementation Request | Complete>
 - Pause Reason: <None | blocker | confirmation required | waiting for implementation request>
@@ -77,6 +79,9 @@ Used by `workflow-manager` at start to seed feature `Goal` field and track align
 
 - Current Owner: <User | Spec Driven Development>
 - Implementation Requested: <Yes | No>
+- Implementation Mode: <agent | user>
+- Approval Hash: <hash recorded at ExitPlanMode approval>
+- Review Fallback: <None | reason a high-risk slice shipped without a reviewer run>
 
 ## Last Updated
 

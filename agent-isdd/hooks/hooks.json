@@ -49,6 +49,16 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/commit_audit_gate.py\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_dispatch.py\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -58,6 +68,15 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/post_write_check.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/approval.py\""
           }
         ]
       }
@@ -88,6 +107,17 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/precompact_snapshot.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/resume_context.py\"",
+            "timeout": 5
           }
         ]
       }

@@ -261,5 +261,134 @@ class TestAuthorPendingTests(unittest.TestCase):
             self.assertIsNotNone(pending)
 
 
+class Release2ContractTests(unittest.TestCase):
+    def setUp(self):
+        import sdd_state
+        self.s = sdd_state
+
+    def test_simulate_write_variants(self):
+        s = self.s
+        self.assertEqual(s.simulate_write("Write", {"content": "new"}, "old"), "new")
+        self.assertEqual(s.simulate_write("Edit", {"old_string": "a", "new_string": "b"}, "axx"), "bxx")
+        self.assertEqual(s.simulate_write(
+            "Edit", {"old_string": "a", "new_string": "b", "replace_all": True}, "aaa"), "bbb")
+        self.assertEqual(s.simulate_write("MultiEdit", {"edits": [
+            {"old_string": "a", "new_string": "b"}, {"old_string": "b", "new_string": "c"}]}, "a"), "c")
+
+    def test_reviewed_roundtrip(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "workflow-state.json")
+            self.assertEqual(self.s.read_reviewed(p), {})
+            self.s.write_state_json(p, {"keep": 1})
+            self.s.mark_reviewed(p, "2")
+            self.assertEqual(self.s.read_reviewed(p), {"2": True})
+            self.assertEqual(self.s.parse_state_json(p)["keep"], 1)
+
+    def test_baseline_roundtrip(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "workflow-state.json")
+            self.assertIsNone(self.s.read_baseline(p))
+            self.s.write_baseline(p, "main", "abc", ["a.py"])
+            self.assertEqual(self.s.read_baseline(p),
+                             {"branch": "main", "head": "abc", "dirty_files": ["a.py"]})
+
+    def test_bare_fields_include_release2(self):
+        for f in ("risk", "risk reason", "implementation mode", "approval hash"):
+            self.assertIn(f, self.s.BARE_FIELDS)
+
+    def test_detect_stall(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            for rel, state in (("requirements/requirements.md", "Approved"),
+                               ("design/design.md", "Approved")):
+                os.makedirs(os.path.join(d, os.path.dirname(rel)), exist_ok=True)
+            with open(os.path.join(d, "requirements/requirements.md"), "w") as fh:
+                fh.write("- State: Approved\n")
+            # requirements approved, design.md missing -> stalled
+            self.assertTrue(self.s.detect_stall({"current phase": "Requirements"}, d))
+            with open(os.path.join(d, "design/design.md"), "w") as fh:
+                fh.write("- State: Approved\n")
+            # design approved, no tasks.md -> NOT a stall
+            self.assertFalse(self.s.detect_stall({"current phase": "Design"}, d))
+            self.assertFalse(self.s.detect_stall({"current phase": "Requirements"}, d))
+
+
+class Release2ReviewFixTests(unittest.TestCase):
+    def setUp(self):
+        import sdd_state
+        self.s = sdd_state
+
+    def test_simulate_write_edge_cases(self):
+        s = self.s
+        e = {"old_string": "", "new_string": "hello"}
+        self.assertEqual(s.simulate_write("Edit", e, ""), "hello")
+        self.assertEqual(s.simulate_write("Edit", e, None), "hello")
+        self.assertEqual(s.simulate_write("Edit", {"old_string": "zz", "new_string": "y"}, "abc"), "abc")
+        self.assertEqual(s.simulate_write("Edit", {"old_string": "a", "new_string": "b"}, "aXa"), "aXa")
+        self.assertEqual(s.simulate_write("Bogus", {}, "keep"), "keep")
+        self.assertEqual(s.simulate_write("MultiEdit", {"edits": [
+            {"old_string": "a", "new_string": "b"}, {"old_string": "zz", "new_string": "c"}]}, "a"), "a")
+
+    def test_detect_stall_shape_and_false_cases(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "requirements"))
+            req = os.path.join(d, "requirements/requirements.md")
+            with open(req, "w") as fh:
+                fh.write("- State: Draft\n")
+            self.assertIs(self.s.detect_stall({"current phase": "Requirements"}, d), False)
+            with open(req, "w") as fh:
+                fh.write("- State: Approved\n")
+            self.assertEqual(self.s.detect_stall({"current phase": "Requirements"}, d),
+                             ("Requirements", "Design"))
+            self.assertIs(self.s.detect_stall({"current phase": "Tasks"}, d), False)
+            self.assertIs(self.s.detect_stall({"current phase": "Implementation"}, d), False)
+            self.assertIs(self.s.detect_stall({}, d), False)
+
+    def test_review_fallback_bare_field(self):
+        self.assertIn("review fallback", self.s.BARE_FIELDS)
+
+    def test_update_json_non_dict_and_mode(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.json")
+            with open(p, "w") as fh:
+                fh.write("[1,2]")
+            os.chmod(p, 0o600)
+            out = self.s.update_json(p, lambda x: dict(x, a=1))
+            self.assertEqual(out, {"a": 1})
+            self.assertEqual(os.stat(p).st_mode & 0o777, 0o600)
+            self.assertEqual([f for f in os.listdir(d) if f.startswith(".tmp-")], [])
+
+    def test_update_json_concurrent_processes_lose_nothing(self):
+        import subprocess
+        import tempfile
+        hooks = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks")
+        code = ("import sys; sys.path.insert(0, %r); import sdd_state as s; "
+                "k=sys.argv[2]; s.update_json(sys.argv[1], lambda d: dict(d, **{k: 1}))" % hooks)
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.json")
+            procs = [subprocess.Popen([sys.executable, "-c", code, p, "k%d" % i]) for i in range(12)]
+            for pr in procs:
+                self.assertEqual(pr.wait(timeout=60), 0)
+            self.assertEqual(sorted(self.s.parse_state_json(p)), sorted("k%d" % i for i in range(12)))
+
+    def test_writers_route_through_update_json(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "w.json")
+            for call in (lambda: self.s.mark_reviewed(p, "1"),
+                         lambda: self.s.write_baseline(p, "b", "h", []),
+                         lambda: self.s.write_rollback_pending(p, "t", "r", "s"),
+                         lambda: self.s.write_test_author_pending(p, [], "now"),
+                         lambda: self.s.write_state_json(p, {"x": 1})):
+                with mock.patch.object(self.s, "update_json", wraps=self.s.update_json) as m:
+                    call()
+                    self.assertTrue(m.called)
+
+
 if __name__ == "__main__":
     unittest.main()
