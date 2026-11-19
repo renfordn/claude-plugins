@@ -42,6 +42,21 @@
       "enum": ["pause", "skip"],
       "default": "pause",
       "description": "Optional: defaults to 'pause' (mandatory caller-driven review between Green and Refactor). Set to 'skip' only as a deliberate caller choice, e.g. no reviewer is available this session."
+    },
+    "sliceId": {
+      "type": "string",
+      "pattern": "^\\d+[A-Za-z0-9]*$",
+      "description": "Optional (parallel delivery): the slice id, e.g. '2H'. Pass to tdd_check.py as --slice-id and echo as <!--SLICE-ID: N--> in the report."
+    },
+    "ownedFiles": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Optional (parallel delivery): the only files this slice may edit. The lead checks the branch diff against them (parallel_plan.py verify-branch)."
+    },
+    "baseCommit": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional (parallel delivery): commit the worktree was cut from. Verify it is an ancestor of HEAD; pass to tdd_check.py as --base."
     }
   }
 }

@@ -19,6 +19,7 @@ A token-efficient Design Spec orchestrator + strict Red-Green-Refactor TDD imple
 
 ## What's in this plugin
 
+- **`/tdd-parallel`** — parallel slice delivery: waves of disjoint-file slices fan out to isolated worktrees with scoped review gates (see `references/parallel-delivery.md`).
 - **`/tdd <behavior>`** — the entry point: builds a Slice Spec from the conversation, spawns
   `agent-TDD`, runs an independent review at the Green pause, resumes it, and reports.
 - **`scripts/tdd_check.py`** — runs the slice's test command for Red (must fail) and Green (must
