@@ -70,3 +70,21 @@ def scope_marker(n):
 def parse_review_scope(text):
     m = REVIEW_SCOPE_RE.search(text or "")
     return m.group(1) if m else None
+
+
+# Release 3 contract (R7/R9/R11): evidence phases and report outcome markers.
+EVIDENCE_PHASES = ("red", "green", "integration", "start", "coverage", "bypass", "done")
+OUTCOME_RE = re.compile(r"<!--\s*AGENT-TDD-OUTCOME:\s*([a-z][a-z-]*)\s*-->")
+BLOCKED_RE = re.compile(r'<!--\s*AGENT-TDD-BLOCKED:\s*reason="([^"]*)"\s*-->')
+
+
+def parse_outcome(text):
+    """'coverage-only' etc. from <!--AGENT-TDD-OUTCOME: ...-->, or None."""
+    m = OUTCOME_RE.search(text or "")
+    return m.group(1) if m else None
+
+
+def parse_blocked(text):
+    """The reason from <!--AGENT-TDD-BLOCKED: reason="..."-->, or None."""
+    m = BLOCKED_RE.search(text or "")
+    return m.group(1) if m else None
