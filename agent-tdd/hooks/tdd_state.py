@@ -201,16 +201,44 @@ def update_json(path, fn):
             lock.close()
 
 
+def git_common_dir(cwd):
+    """Absolute path of the shared git dir for cwd, or None.
+
+    Older git echoes the unknown --path-format flag and exits 0, so the first attempt is only
+    accepted when its output is a single line naming an absolute existing directory; otherwise
+    fall back to plain --git-common-dir resolved against cwd.
+    GIT_DIR / GIT_WORK_TREE are stripped from the environment (also for tdd_check.evidence_path,
+    which previously inherited them).
+    """
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
+
+    def _run(*flags):
+        try:
+            proc = subprocess.run(["git", "rev-parse", *flags], cwd=cwd, capture_output=True,
+                                  text=True, timeout=5, env=env)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return proc.stdout if proc.returncode == 0 else None
+
+    out = _run("--path-format=absolute", "--git-common-dir")
+    if out is not None:
+        lines = out.strip().splitlines()
+        if len(lines) == 1 and os.path.isabs(lines[0]) and os.path.isdir(lines[0]):
+            return os.path.normpath(lines[0])
+    out = _run("--git-common-dir")
+    if out is not None:
+        lines = out.strip().splitlines()
+        if len(lines) == 1 and lines[0]:
+            path = os.path.normpath(os.path.join(os.path.abspath(cwd), lines[0]))
+            if os.path.isdir(path):
+                return path
+    return None
+
+
 def state_cwd(cwd):
     """Main worktree toplevel for cwd (so linked worktrees share state); cwd on any failure."""
-    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE")}
-    try:
-        proc = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                              cwd=cwd, capture_output=True, text=True, timeout=5, env=env)
-        common = proc.stdout.strip().rstrip("/")
-        if proc.returncode == 0 and os.path.basename(common) == ".git":
-            return os.path.dirname(common)
-    except (OSError, subprocess.SubprocessError):
-        pass
+    common = git_common_dir(cwd)
+    if common and os.path.basename(common) == ".git":
+        return os.path.dirname(common)
     return cwd
 
