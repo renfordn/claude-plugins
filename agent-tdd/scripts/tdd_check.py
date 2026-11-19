@@ -3,11 +3,13 @@
 
   tdd_check.py red   --slice "<slice title>" -- <test command...>
   tdd_check.py green --slice "<slice title>" -- <test command...>
+  tdd_check.py red|green ... [--slice-id N] [--base <sha>]   (green needs a red with the same base)
+  tdd_check.py integration --wave N --cmd "<suite command>"
   tdd_check.py verify <token>...          (used by hooks/tdd_subagent_stop.py)
 
 `red` expects the command to FAIL (the new test exists and the behavior doesn't yet); `green`
 expects it to PASS and requires an earlier failing `red` for the same slice. Each run appends one
-line to <git dir>/agent-tdd/evidence.jsonl and prints a token such as
+line to <git common dir>/agent-tdd/evidence.jsonl and prints a token such as
 `TDD-EVIDENCE red a1b2c3d4 exit=1 CONFIRMED`. Put those lines in the handoff report: the
 SubagentStop hook looks the tokens up in the log, so the report shows whether Red and Green were
 actually observed rather than asserted.
@@ -27,10 +29,12 @@ TAIL = 1500
 
 
 def evidence_path(cwd="."):
-    r = subprocess.run(["git", "rev-parse", "--absolute-git-dir"], cwd=cwd, capture_output=True, text=True)
-    if r.returncode != 0:
-        return None
-    return os.path.join(r.stdout.strip(), "agent-tdd", "evidence.jsonl")
+    # The common git dir is shared by every linked worktree; fall back to the per-worktree dir.
+    for flags in (["--path-format=absolute", "--git-common-dir"], ["--absolute-git-dir"]):
+        r = subprocess.run(["git", "rev-parse", *flags], cwd=cwd, capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            return os.path.join(r.stdout.strip(), "agent-tdd", "evidence.jsonl")
+    return None
 
 
 def read_log(cwd="."):
@@ -57,28 +61,67 @@ def _append(entry, cwd="."):
     return True
 
 
-def run_phase(phase, slice_title, cmd, cwd="."):
-    """Run cmd, record it, and return (confirmed, token_line)."""
+def _worktree(cwd="."):
+    r = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd, capture_output=True, text=True)
+    return os.path.realpath(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else None
+
+
+def _record(entry, cwd):
+    """Stamp, append and return (token, recorded) for one evidence entry."""
+    entry["token"] = secrets.token_hex(4)
+    entry["at"] = datetime.datetime.now().isoformat(timespec="seconds")
+    wt = _worktree(cwd)
+    if wt:
+        entry["worktree"] = wt
+    return entry["token"], _append(entry, cwd)
+
+
+def _line(phase, token, code, confirmed, note, recorded):
+    status = "CONFIRMED" if confirmed else f"NOT CONFIRMED ({note})"
+    line = f"TDD-EVIDENCE {phase} {token} exit={code} {status}"
+    return line if recorded else line + " [unrecorded: not a git repo]"
+
+
+def run_phase(phase, slice_title, cmd, cwd=".", slice_id=None, base=None):
+    """Run cmd, record it, and return (confirmed, token_line, output)."""
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, shell=len(cmd) == 1)
     output = (r.stdout + r.stderr)[-TAIL:]
     failed = r.returncode != 0
-    prior_red = [e for e in read_log(cwd) if e.get("slice") == slice_title and e.get("phase") == "red"
-                 and e.get("confirmed")]
+    wt = _worktree(cwd)
+
+    def matches(e):
+        if e.get("slice") != slice_title or e.get("phase") != "red" or not e.get("confirmed"):
+            return False
+        if base is not None:
+            return e.get("base") == base
+        return e.get("worktree") is None or e.get("worktree") == wt
+
+    prior_red = [e for e in read_log(cwd) if matches(e)]
     if phase == "red":
         confirmed, note = failed, "" if failed else "test passed before implementation"
     else:
         confirmed = not failed and bool(prior_red)
-        note = "" if confirmed else ("tests still fail" if failed else "no verified red for this slice")
-    token = secrets.token_hex(4)
-    entry = {"token": token, "phase": phase, "slice": slice_title, "cmd": " ".join(cmd),
-             "exit": r.returncode, "confirmed": confirmed, "note": note,
-             "at": datetime.datetime.now().isoformat(timespec="seconds")}
-    recorded = _append(entry, cwd)
-    status = "CONFIRMED" if confirmed else f"NOT CONFIRMED ({note})"
-    line = f"TDD-EVIDENCE {phase} {token} exit={r.returncode} {status}"
-    if not recorded:
-        line += " [unrecorded: not a git repo]"
-    return confirmed, line, output
+        no_red = "no confirmed red with this base" if base is not None else "no verified red for this slice"
+        note = "" if confirmed else ("tests still fail" if failed else no_red)
+    entry = {"phase": phase, "slice": slice_title, "cmd": " ".join(cmd), "exit": r.returncode,
+             "confirmed": confirmed, "note": note}
+    if slice_id is not None:
+        entry["slice_id"] = slice_id
+    if base is not None:
+        entry["base"] = base
+    token, recorded = _record(entry, cwd)
+    return confirmed, _line(phase, token, r.returncode, confirmed, note, recorded), output
+
+
+def run_integration(wave, cmd_str, cwd="."):
+    """Run the wave's integration suite, record it, and return (passed, token_line, output)."""
+    r = subprocess.run(cmd_str, cwd=cwd, capture_output=True, text=True, shell=True)
+    output = (r.stdout + r.stderr)[-TAIL:]
+    passed = r.returncode == 0
+    note = "" if passed else "integration suite failed"
+    token, recorded = _record({"phase": "integration", "wave": wave, "cmd": cmd_str, "exit": r.returncode,
+                               "confirmed": passed, "note": note}, cwd)
+    return passed, _line("integration", token, r.returncode, passed, note, recorded), output
 
 
 def verify(tokens, cwd="."):
@@ -98,6 +141,11 @@ def main(argv=None):
     for name in ("red", "green"):
         p = sub.add_parser(name)
         p.add_argument("--slice", required=True)
+        p.add_argument("--slice-id")
+        p.add_argument("--base")
+    ig = sub.add_parser("integration")
+    ig.add_argument("--wave", type=int, required=True)
+    ig.add_argument("--cmd", dest="suite_cmd", required=True)
     v = sub.add_parser("verify")
     v.add_argument("tokens", nargs="+")
     a = ap.parse_args(argv)
@@ -105,9 +153,21 @@ def main(argv=None):
     if a.phase == "verify":
         print(json.dumps(verify(a.tokens), indent=2))
         return 0
+    if a.phase == "integration":
+        ok, line, output = run_integration(a.wave, a.suite_cmd)
+        print(output.rstrip())
+        print(line)
+        return 0 if ok else 1
+    if a.slice_id is not None:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
+        from markers import SLICE_TITLE_RE
+        m = SLICE_TITLE_RE.match(a.slice)
+        if not m or m.group(1).lower() != a.slice_id.lower():
+            ap.error(f"--slice-id {a.slice_id} does not match slice title {a.slice!r}")
+        a.slice_id = m.group(1)
     if not cmd:
         ap.error("give the test command after --")
-    confirmed, line, output = run_phase(a.phase, a.slice, cmd)
+    confirmed, line, output = run_phase(a.phase, a.slice, cmd, slice_id=a.slice_id, base=a.base)
     print(output.rstrip())
     print(line)
     return 0 if confirmed else 1
