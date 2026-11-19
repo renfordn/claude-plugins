@@ -1,11 +1,11 @@
 # Implementation Handoff (Phase 2+3 revised) — full contract
 
 Once Design is approved and implementation is requested, this skill's job is to hand off to
-`agent-tdd` for implementation — a single, one-directional handoff, not an orchestrated
-multi-stage loop. `Track: Standard` sends a **Design Spec** (steps below); `Track: Fast` sends a
-single **Slice Spec** instead — see "Fast Track: Slice Spec handoff" right after these steps for
-that branch in full. Both are one-directional handoffs with no orchestrated multi-stage loop;
-only the spec shape and `agent-tdd` mode differ.
+`agent-tdd` for implementation. A serial run is a single, one-directional handoff, not an
+orchestrated multi-stage loop. A parallel run means this skill acts as the tdd-parallel lead
+(step 8). `Track: Standard` sends a **Design Spec** with `Parallel: on` (steps below);
+`Track: Fast` sends a single **Slice Spec** instead and stays serial — see "Fast Track: Slice
+Spec handoff" right after these steps for that branch in full.
 
 ## Standard: Design Spec handoff
 
@@ -35,6 +35,8 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - Full `design.md` (approved, with Research Basis)
    - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
    - Pre-fetched file summaries from agent-nelly (if available)
+   - `Parallel: on`, for every Standard-track handoff (slicing happens inside agent-TDD, so the
+     slice count is not known yet; a wave of width 1 is fine under tdd-parallel)
    - `recap.md`, **summarized, not pasted in full** — unlike the other fields above, `recap.md`
      grows unbounded across a long-running feature's phases, and `agent-TDD` only needs enough of
      it to inform implementation, not a full phase-by-phase history. Extract just: the current
@@ -46,6 +48,9 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
    is not installed in this session — install it before requesting implementation") rather than
    attempting the work internally.
+   Then ask the Implementation Mode question (see "Implementation Mode and approval" below) and
+   write `Implementation Mode: <answer>` to `workflow-state.md` before any spawn. For `user`,
+   skip the agent-TDD spawn entirely and route to the `isdd-coach` skill.
 5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool, `model: "sonnet"`; for a
    Fast-track Slice Spec use its Model Tier, which may be `haiku` for a trivial change). If this spawn
    fails at the tool-call layer itself (a `PreToolUse` schema-validation error on the `Agent`
@@ -58,7 +63,7 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    because `Skill` calls aren't subject to this bug), driving its `plan` → per-slice
    `test-author`/`slice`/review/`refactor` → `summary` loop yourself instead of trusting an
    isolated `agent-TDD` spawn to run it unsupervised.
-6. **[Added 2026-09-16] Test-author pause check** — after the spawn returns, check
+6. **[Added 2026-09-16] Test-author pause check (serial runs only)** — after the spawn returns, check
    `workflow-state.json` for `test_author_pending` (written by `hooks/high_risk_reviewer.py`
    when `agent-TDD`'s report is at `slicing_complete` with one or more high-risk slices — see
    its **High-Risk Slices** field, and `agent-tdd/INTEROP.md`'s "Design Spec Mode" section for
@@ -71,25 +76,49 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results.
    - Clear `test_author_pending` from `workflow-state.json` (mirrors `clear_rollback_pending`'s
      existing pattern in `hooks/sdd_state.py`).
-   - This is a scoped exception to step 8 below (the other is Model Escalation, handled by `hooks/subagent_report.py`; see `INTEROP.md`) — resuming here, for this specific
-     reason, is expected. Nothing else about the one-directional handoff changes: this skill
-     still never resumes `agent-TDD` for an ordinary per-slice Green→Refactor review pause, only
-     for this single upfront test-author gate before per-slice implementation begins.
+   - Serial runs only. In a parallel run the tdd-parallel lead runs `agent-tdd:test-author` for
+     each wave's high-risk slices (`agent-tdd/references/parallel-delivery.md`); do not resume
+     agent-TDD to implement serially.
 7. Take its returned handoff report (the resumed one, if step 6 applied; the original one
    otherwise):
    - If report indicates research validation escalation: pause and surface reason (user re-enters
      to address, then agent-isdd continues via before-continue hook)
    - If report indicates slicing blockers: pause with specific blocker
-   - If report indicates implementation started: log handoff in `recap.md`, set
-     `Workflow Status: Complete`
-8. Do not resume, monitor, or drive `agent-TDD` past step 6's test-author pause (or a Model Escalation re-spawn) —
-   anything after that (its own per-slice review pauses, or implementation) is outside this
-   skill's scope, same as before this change.
+   - If report indicates implementation started (serial run): log handoff in `recap.md`, set
+     `Workflow Status: Complete`. For a parallel run, do this only after the lead's
+     `all_slices_complete` (see step 8)
+8. **Parallel run.** When agent-TDD returns `slicing_complete` with a wave plan, run
+   `agent-tdd:tdd-parallel` on the written tasks.md and act as its lead (see
+   `agent-tdd/references/parallel-delivery.md`): spawn, review, verify, merge and commit each wave.
+   Set `Workflow Status: Complete` and forward Handoff Facts only after the lead's
+   `all_slices_complete` (after integration and the coherence review). Setting Complete earlier
+   would turn the gates off for the remaining workers, because `active_state_file` skips Complete
+   features. For a serial run, do not resume or monitor `agent-TDD` past step 6's test-author
+   pause or a Model Escalation re-spawn; its own per-slice review pauses are outside this skill's
+   scope.
 9. If the report's Handoff Facts field is non-empty and `agent_nelly_available` is `true` in
    `workflow-state.json`, call `agent-nelly:agent-nelly` with those facts as a `new facts`
    batch. In the same call, if the report's **File Summaries** field (see
    `agent-tdd/agents/agent-TDD.md`'s section of that name) is also non-empty, pass its items as
    `file summaries` too — one call carries both, no re-fetch of the brief needed.
+
+## Implementation Mode and approval
+
+Before the spawn (step 4), ask via `AskUserQuestion` for `Implementation Mode`: `agent`
+(agent-TDD implements, the default) or `user` (user-led: Claude writes tests on request, never
+production code; see the `isdd-coach` skill). Write `Implementation Mode: <answer>` to
+`workflow-state.md` from the user's answer. `user_led_guard` enforces `user`; never change it
+without the user's say-so.
+
+`design_spec_gate` checks `Implementation Requested` plus the approval hash on every agent-TDD
+spawn, including parallel workers, and records the hash on the first spawn. Editing
+requirements/design mid-wave therefore blocks the remaining spawns until `refreeze`. Its deny
+message prints the exact command with resolved absolute paths; prefer copying that. Runnable form:
+- Run `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/approval.py" approve "<spec_dir>"`
+  only after the user approves via `AskUserQuestion` (plan mode unavailable); it sets
+  `Implementation Requested` and `Approval Pending`.
+- Run `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/approval.py" refreeze "<spec_dir>"`
+  only after the user re-approves a changed scope via `AskUserQuestion`.
 
 ## Fast Track: Slice Spec handoff
 
@@ -133,10 +162,10 @@ mandatory post-Green review pause:
 Read by `spec-driven-development` when starting the Implementation handoff.
 
 Once Design is approved and implementation is requested, this skill's job is to hand off to
-`agent-tdd` for implementation — a single, one-directional handoff, not an orchestrated
-multi-stage loop. `Track: Standard` sends a **Design Spec**; `Track: Fast` sends a single
-**Slice Spec** instead, with `Review handoff mode: skip`. Both are one-directional handoffs with
-no orchestrated multi-stage loop; only the spec shape and `agent-tdd` mode differ. See
+`agent-tdd` for implementation. A serial run is a single, one-directional handoff, not an
+orchestrated multi-stage loop; a parallel run means this skill acts as the tdd-parallel lead.
+`Track: Standard` sends a **Design Spec** with `Parallel: on`; `Track: Fast` sends a single
+**Slice Spec** (serial) with `Review handoff mode: skip`. See
 `references/implementation-handoff.md` for the full contract: Design Spec construction (file
 list extraction, the `agent-nelly` subtract-then-query step, the recap summarization rule),
 Slice Spec construction, the availability check before spawning, the harness-`Agent`-spawn-bug
