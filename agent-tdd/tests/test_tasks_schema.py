@@ -92,5 +92,72 @@ class TestTasksSchemaMatchesContract(unittest.TestCase):
             )
 
 
+class TestSliceContractFields(unittest.TestCase):
+    """Optional fields for parallel-slice delivery: contract kind, test_files, shared_files, wave."""
+
+    def setUp(self):
+        schema_path = os.path.join(
+            os.path.dirname(__file__), "..", "references", "tasks-schema.json"
+        )
+        with open(schema_path) as f:
+            self.schema = json.load(f)
+        self.items = self.schema["properties"]["tasks"]["items"]
+        self.props = self.items["properties"]
+
+    def _slice(self, **extra):
+        base = {
+            "number": 1,
+            "title": "t",
+            "risk_tier": "standard",
+            "files": ["a.py"],
+            "test_intent": "x",
+            "validation_target": "pytest",
+            "ordered_steps": ["s"],
+        }
+        base.update(extra)
+        return {"tasks": [base]}
+
+    def _errors(self, doc):
+        try:
+            import jsonschema
+        except ImportError:
+            self.skipTest("jsonschema not installed")
+        return list(jsonschema.Draft7Validator(self.schema).iter_errors(doc))
+
+    def test_kind_enum_includes_contract(self):
+        self.assertIn("contract", self.props["kind"]["enum"])
+        self.assertEqual(self._errors(self._slice(kind="contract")), [])
+
+    def test_new_fields_declared_optional_and_described(self):
+        for name in ("test_files", "shared_files", "wave"):
+            self.assertIn(name, self.props)
+            self.assertNotIn(name, self.items["required"])
+            self.assertTrue(self.props[name].get("description"))
+        self.assertIs(self.items["additionalProperties"], False)
+
+    def test_new_fields_accepted(self):
+        doc = self._slice(test_files=["t.py"], shared_files=["hooks.json"], wave=0)
+        self.assertEqual(self._errors(doc), [])
+
+    def test_slice_without_new_fields_still_valid(self):
+        self.assertEqual(self._errors(self._slice()), [])
+
+    def test_wave_must_be_non_negative_integer(self):
+        self.assertEqual(self.props["wave"]["type"], "integer")
+        self.assertEqual(self.props["wave"]["minimum"], 0)
+        for bad in ("1", 1.5, -1):
+            self.assertNotEqual(self._errors(self._slice(wave=bad)), [], bad)
+
+
+class TestTasksFormatExtraction(unittest.TestCase):
+    def test_pointer_and_report_fields(self):
+        base = os.path.join(os.path.dirname(__file__), "..")
+        agent = open(os.path.join(base, "agents", "agent-TDD.md")).read()
+        fmt = open(os.path.join(base, "references", "tasks-format.md")).read()
+        self.assertIn("Read `references/tasks-format.md` when writing tasks.md", agent)
+        for needle in ("Readiness Verdict", "Tasks File Path", "Validation Summary", "<!--AGENT-TDD-REPORT-->"):
+            self.assertIn(needle, fmt)
+
+
 if __name__ == "__main__":
     unittest.main()
