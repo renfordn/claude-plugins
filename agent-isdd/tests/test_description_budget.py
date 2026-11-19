@@ -11,10 +11,12 @@ FILES = (
 BASELINE_TOTAL = 5030  # description chars before the weight-reduction feature
 
 
+def frontmatter(path: Path) -> str:
+    return path.read_text().split("---", 2)[1]
+
+
 def description(path: Path) -> str:
-    text = path.read_text()
-    fm = text.split("---", 2)[1]
-    lines = fm.splitlines()
+    lines = frontmatter(path).splitlines()
     for i, ln in enumerate(lines):
         m = re.match(r"description:\s*(.*)$", ln)
         if not m:
@@ -30,6 +32,14 @@ def description(path: Path) -> str:
             return " ".join(out)
         return val.strip('"')
     raise AssertionError(f"no description in {path}")
+
+
+def is_internal(path: Path) -> bool:
+    """Legacy '[Internal' description prefix OR `user-invocable: false` frontmatter."""
+    if description(path).startswith("[Internal"):
+        return True
+    return re.search(r"""^user-invocable:\s*["']?false["']?\s*(#.*)?$""",
+                     frontmatter(path), re.M | re.I) is not None
 
 
 def d(rel: str) -> str:
@@ -48,7 +58,21 @@ def test_skill_descriptions_trimmed():
         assert phrase in pr
     for rel in ("skills/design-author/SKILL.md", "skills/workflow-manager/SKILL.md",
                 "skills/requirements-agent/SKILL.md"):
-        assert d(rel).startswith("[Internal — use /isdd instead]")
+        assert is_internal(ROOT / rel), rel
+
+
+def test_is_internal_accepts_legacy_prefix_or_user_invocable_false(tmp_path):
+    def mk(fm):
+        f = tmp_path / "SKILL.md"
+        f.write_text(f"---\n{fm}\n---\nbody\n")
+        return f
+    assert is_internal(mk("name: x\ndescription: [Internal — use /isdd instead] foo"))
+    assert is_internal(mk("name: x\ndescription: foo\nuser-invocable: false"))
+    assert not is_internal(mk("name: x\ndescription: foo\nuser-invocable: true"))
+    assert not is_internal(mk("name: x\ndescription: foo"))
+    for variant in ("False", '"false"', "'false'", "false  # hidden from menu", "FALSE"):
+        assert is_internal(mk(f"name: x\ndescription: foo\nuser-invocable: {variant}")), variant
+    assert not is_internal(mk("name: x\ndescription: foo\nuser-invocable: falsey"))
 
 
 def test_agent_descriptions_have_no_examples():
