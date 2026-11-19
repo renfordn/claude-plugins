@@ -23,7 +23,9 @@ Read by `spec-driven-development` at Start when SessionStart listed open review 
    external interface, no data migration, no cross-plugin `INTEROP.md` contract change, testable
    in one sentence. This is a judgment call, never a keyword regex. Skip this judgment and honor
    the user's own words directly if they explicitly asked for the full workflow or explicitly
-   asked to fast-track. Set `Track: Fast` or `Track: Standard` in `workflow-state.md`
-   accordingly. When `Track: Fast`, tell the user in one line: "Fast-tracking this as a small
+   asked to fast-track. Classify Risk first per `references/risk-depth.md` (it owns the Fast/Risk rules) and
+   record it as separate `- Risk: low` and `- Risk Reason: <why>` lines in `workflow-state.md`
+   (the value must be exactly `low`, no trailing note), before or together with the Track line.
+   Then set `Track: Fast` or `Track: Standard` accordingly. When `Track: Fast`, tell the user in one line: "Fast-tracking this as a small
    change — say 'full workflow' if you'd rather go through the full Requirements interview and
    task slicing."
