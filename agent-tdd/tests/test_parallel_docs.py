@@ -58,10 +58,13 @@ def test_tasks_format_documents_parallel():
     assert "<!--SLICE-ID" in text and "validation" in text
 
 
-def test_changelog_unreleased_mentions_parallel():
+def test_changelog_mentions_parallel_in_latest_entry():
+    # Unreleased until CUPS moves it under the newest version heading; accept either.
     text = (ROOT / "CHANGELOG.md").read_text()
-    unreleased = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
-    assert "parallel slice delivery" in unreleased.lower()
+    after = text.split("## [Unreleased]", 1)[1]
+    sections = after.split("\n## [")
+    latest = sections[0] + (sections[1] if len(sections) > 1 else "")
+    assert "parallel slice delivery" in latest.lower()
     assert "tdd-parallel" in (ROOT / "README.md").read_text()
 
 

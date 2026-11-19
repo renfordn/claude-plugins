@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-19
+
 - **Feature**: scoped reviews for parallel slices. Briefs may carry `Review scope: slice=<ID>` (the reviewer echoes `<!--REVIEW-SCOPE: slice=<ID>-->` as its first line) and `Review cwd: <path>`; `review_headless.sh` gains `--scope`/`--cwd` (`REVIEW_SCOPE`/`REVIEW_CWD`), documented in INTEROP.md. `review_plan.py plan --base HEAD` (or no commits beyond base) reviews the uncommitted working tree and now includes untracked, non-ignored files (repo-relative paths from any subdirectory, unquoted non-ASCII names, files over 256 KB as placeholders), so uncommitted worker output appears in plans, test-gap checks and caller searches.
 
 ## [0.4.3] - 2026-10-02
