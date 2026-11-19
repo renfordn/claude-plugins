@@ -19,7 +19,7 @@ def load():
 KEY_ASSERTIONS = {
     "low-risk-compact": ["Risk: low", "Risk Reason"],
     "tiny-auth-high-risk": ["Risk: high"],
-    "user-led-coaching": ["AskUserQuestion", "isdd-coach"],
+    "user-led-coaching": ["without an extra AskUserQuestion", "Implementation Mode: user", "only to slice", "isdd-coach"],
     "tier1-sonnet-vs-opus": ["sonnet", "opus"],
 }
 

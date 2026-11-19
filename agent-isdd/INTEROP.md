@@ -15,7 +15,7 @@ At the end of Design, once Design is approved and implementation is requested, `
 **Design Spec** (requirements_md, design_md, research_cache incl. the per-repo line-count ceiling
 `{value, source}`, recap_md; optional file_summaries) and spawns `agent-tdd`. `Track: Standard` always
 sends `Parallel: on` and, on the wave plan, acts as the `agent-tdd:tdd-parallel` lead; `Track: Fast`
-stays serial. Implementation Mode (`agent`/`user`) is asked before the spawn.
+stays serial. Implementation Mode (`agent`/`user`) is asked before the spawn unless the user already stated it.
 
 Full contract (Design Spec field table, Test-Author Gate, Code-Review Gate, Design Spec completeness
 gate and approval hash, availability check, Direct Implementation fallback, Parallel handoff):

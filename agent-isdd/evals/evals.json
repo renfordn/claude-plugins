@@ -35,15 +35,15 @@
       "id": 3,
       "name": "user-led-coaching",
       "prompt": "I want to drive this one myself. Feature: add a --dry-run flag to scripts/export_notes.py. Set it up as user-led, I'll write the code, you coach me through it.",
-      "expected_output": "Within the first response: Claude confirms the implementation mode via AskUserQuestion, writes Implementation Mode: user only after that answer, routes to the isdd-coach skill, and makes no production-code edits and no agent-TDD spawn.",
+      "expected_output": "Within the first response: Claude records Implementation Mode: user from the user's stated preference without an extra AskUserQuestion, routes to the isdd-coach skill, and makes no production-code edits. On Standard, agent-TDD is spawned only to slice (Parallel: on), never to implement.",
       "files": [],
       "assertions": [
-        "Claude asks via AskUserQuestion to confirm the implementation mode before writing it",
-        "workflow-state records 'Implementation Mode: user' only after the AskUserQuestion answer",
+        "Claude records the mode from the user's stated preference without an extra AskUserQuestion (AskUserQuestion is used only if the mode were unstated)",
+        "workflow-state records 'Implementation Mode: user'",
+        "On Standard, agent-TDD is spawned only to slice (Parallel: on) and never to implement",
         "The isdd-coach skill is invoked (coach routing)",
         "No production code file (scripts/export_notes.py) is written or edited",
-        "No test file is written, since the user did not ask for one",
-        "Claude does not spawn agent-TDD to implement the feature"
+        "No test file is written, since the user did not ask for one"
       ]
     },
     {

@@ -35,6 +35,9 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - Full `design.md` (approved, with Research Basis)
    - `research/cache.md` (design_findings, task_findings, file_summaries, git_hashes)
    - Pre-fetched file summaries from agent-nelly (if available)
+   - The tasks.md location, stated explicitly: `<feature spec dir>/tasks/tasks.md`. The hooks read only
+     that path (`high_risk_reviewer` wave detection, `review_tracking`, `complete_guard`), so a
+     tasks.md written anywhere else is invisible to them.
    - `Parallel: on`, for every Standard-track handoff (slicing happens inside agent-TDD, so the
      slice count is not known yet; a wave of width 1 is fine under tdd-parallel)
    - `recap.md`, **summarized, not pasted in full** — unlike the other fields above, `recap.md`
@@ -48,9 +51,9 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    `agent-tdd:agent-TDD`. If absent, pause with a concrete, actionable message (e.g. "agent-tdd
    is not installed in this session — install it before requesting implementation") rather than
    attempting the work internally.
-   Then ask the Implementation Mode question (see "Implementation Mode and approval" below) and
-   write `Implementation Mode: <answer>` to `workflow-state.md` before any spawn. For `user`,
-   skip the agent-TDD spawn entirely and route to the `isdd-coach` skill.
+   Then settle Implementation Mode (see "Implementation Mode and approval" below) and write
+   `Implementation Mode: <answer>` to `workflow-state.md` before any spawn. In `user` mode the spawn
+   still happens (step 5, `Parallel: on`) but agent-TDD only slices: see "User-led slicing" below.
 5. Spawn `agent-tdd:agent-TDD` with the Design Spec (via the `Agent` tool, `model: "sonnet"`; for a
    Fast-track Slice Spec use its Model Tier, which may be `haiku` for a trivial change). If this spawn
    fails at the tool-call layer itself (a `PreToolUse` schema-validation error on the `Agent`
@@ -104,10 +107,11 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
 
 ## Implementation Mode and approval
 
-Before the spawn (step 4), ask via `AskUserQuestion` for `Implementation Mode`: `agent`
-(agent-TDD implements, the default) or `user` (user-led: Claude writes tests on request, never
-production code; see the `isdd-coach` skill). Write `Implementation Mode: <answer>` to
-`workflow-state.md` from the user's answer. `user_led_guard` enforces `user`; never change it
+Before the spawn (step 4) settle `Implementation Mode`: `agent` (agent-TDD implements, the default)
+or `user` (user-led: Claude writes tests on request, never production code; see the `isdd-coach`
+skill). If the user already stated the mode in this conversation (e.g. "I'll write the code, coach
+me"), that is their say-so: record it without asking again. Ask via `AskUserQuestion` only when the
+mode is not stated. Write `Implementation Mode: <answer>` to `workflow-state.md`. `user_led_guard` enforces `user`; never change it
 without the user's say-so.
 
 `design_spec_gate` checks `Implementation Requested` plus the approval hash on every agent-TDD
@@ -119,6 +123,16 @@ message prints the exact command with resolved absolute paths; prefer copying th
   `Implementation Requested` and `Approval Pending`.
 - Run `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/hooks/approval.py" refreeze "<spec_dir>"`
   only after the user re-approves a changed scope via `AskUserQuestion`.
+
+## User-led slicing
+
+In `user` mode agent-isdd still spawns agent-TDD with the Design Spec and `Parallel: on`, so
+agent-TDD only slices: it stops at `slicing_complete`, writes no production code, and writes
+`<feature spec dir>/tasks/tasks.md` with Risk Tiers and waves. The approval hash freezes at that spawn,
+as in agent mode. `user_led_guard` does not block the tasks.md write (the memory dir is allowed).
+The handoff must not resume agent-TDD to implement in user mode, and does not run `tdd-parallel`
+or the test-author pause check. Route to the `isdd-coach` skill, which walks those slices; on the
+Fast track it coaches the single Slice Spec slice (see "Fast Track" below: no spawn in user mode).
 
 ## Fast Track: Slice Spec handoff
 
@@ -148,7 +162,9 @@ mandatory post-Green review pause:
    Interfaces from the Slice Spec, take its returned test file(s) and failure confirmation, and
    fold that into the Slice Spec (telling `agent-TDD` not to write its own test for that
    behavior) before spawning it. For `standard` Risk Tier, skip straight to the next step.
-5. Spawn `agent-tdd:agent-TDD` with the Slice Spec (Slice Spec Mode, single invocation).
+5. Spawn `agent-tdd:agent-TDD` with the Slice Spec (Slice Spec Mode, single invocation). In
+   `Implementation Mode: user`, skip this spawn: Fast never writes tasks.md, so route to `isdd-coach`,
+   which coaches the single Slice Spec slice itself as slice 1, built with the `slice-spec` skill.
 6. Take its returned handoff report: pause and surface a research-gap flag if raised (same as
    Standard step 7's first bullet); otherwise log the handoff in `recap.md` and set
    `Workflow Status: Complete`. No step 6/8 equivalent from the Standard path applies here —

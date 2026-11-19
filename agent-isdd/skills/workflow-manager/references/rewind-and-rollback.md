@@ -13,6 +13,13 @@ equal to the current `Current Phase`. On a valid rewind:
 - Do not clear, reset, or overwrite the `Status`/blocked fields of any later phase — rewinding
   only moves the *current* pointer, never retroactively resolves later-phase state.
 - Log the rewind (from, to, actor, timestamp) in `recap.md` and as a `hook_history` entry.
+- When the rewind (including a user-run `/isdd-rewind <target>`) completes, clear `rollback_pending`
+  only when the rewind target equals, or is earlier than, `rollback_pending.target` (the rewind went
+  at least as far back as the pending rollback asked). Phase order: Requirements < Design < Tasks
+  (`subagent_report` restricts rollback targets to these three). A rewind to a later phase than the
+  pending target leaves it set. Clearing stops `before_continue` and `resume_context` re-surfacing it.
+  Runnable form (`sdd_state.clear_rollback_pending(path)` exists; no-op if the field is absent):
+  `CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 -c "import sys; sys.path.insert(0,'${CLAUDE_PLUGIN_ROOT}/hooks'); import sdd_state; sdd_state.clear_rollback_pending('<feature dir>/workflow-state.json')"`
 - If the target is later than `Current Phase` or doesn't exist, refuse and pause with a concrete
   reason.
 

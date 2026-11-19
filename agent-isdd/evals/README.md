@@ -7,7 +7,7 @@
 |----|------|-----------|
 | 1 | low-risk-compact | doc tweak gets `Risk: low` + `Risk Reason`; also Track: Fast, Slice Spec, review skipped |
 | 2 | tiny-auth-high-risk | small auth change is `Risk: high` (non-size reason), full path, every-slice review stated |
-| 3 | user-led-coaching | mode `user` written after AskUserQuestion, isdd-coach routing, no production edits |
+| 3 | user-led-coaching | mode `user` recorded from the stated preference (no extra AskUserQuestion), agent-TDD only slices, isdd-coach routing, no production edits |
 | 4 | tier1-sonnet-vs-opus | 9 planted false claims; sonnet must match opus. Slice 33 gates on it |
 
 Each skill-creator run is a single prompt, so assertions cover only what is observable in the first
@@ -25,8 +25,8 @@ response and its tool calls (no assertion needs a Complete transition).
 
 Be honest about what discriminates: the baseline already has Track: Fast, Slice Spec and review
 skip, so eval 1 discriminates on `Risk: low` + `Risk Reason`; those are its primary assertions.
-Evals 2 and 3 should pass only with the skill (Risk: high with a non-size reason; AskUserQuestion
-then `Implementation Mode: user` and isdd-coach routing).
+Evals 2 and 3 should pass only with the skill (Risk: high with a non-size reason; a stated mode recorded
+without asking, `Implementation Mode: user` and isdd-coach routing).
 
 ## Eval 4 (tier1 model comparison)
 
