@@ -1,6 +1,7 @@
 ---
 name: design-author
-description: "[Internal — use /isdd instead] Turns approved requirements into a testable design.md, grounded in agent-nelly's brief (if available) and research-consolidator's unified codebase research."
+user-invocable: false
+description: "Invoked by /isdd. Turns approved requirements into a testable design.md, grounded in agent-nelly's brief (if available) and research-consolidator's unified codebase research."
 ---
 
 # Design Author
@@ -98,8 +99,9 @@ Before drafting, delegate to subagents rather than relying only on what's alread
    - Fold `plan-reviewer`'s Blockers into the design before the gate check; fold Resolved
      concerns into `Research Basis` as confirming evidence; surface any Genuinely unresolved item
      to the user rather than silently proceeding.
-   - Skip this step only when the design is a trivial, low-risk change the user has explicitly
-     asked to fast-track — note the skip in `design.md` rather than doing it silently.
+   - Skip this step only when `Track: Fast` is recorded (which implies Risk low; see
+     `spec-driven-development/references/fast-track.md`) — note the skip in `design.md` rather
+     than doing it silently.
 
 ## Design Gate
 
