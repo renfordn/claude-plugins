@@ -124,6 +124,14 @@ class TestSliceContractFields(unittest.TestCase):
             self.skipTest("jsonschema not installed")
         return list(jsonschema.Draft7Validator(self.schema).iter_errors(doc))
 
+    def test_number_accepts_integer_or_alphanumeric_id(self):
+        for n in (3, "0a", "2F1"):
+            self.assertEqual(self._errors(self._slice(number=n)), [], n)
+        self.assertNotEqual(self._errors(self._slice(number="a1")), [])
+
+    def test_number_still_required(self):
+        self.assertIn("number", self.items["required"])
+
     def test_kind_enum_includes_validation(self):
         self.assertIn("validation", self.props["kind"]["enum"])
         self.assertEqual(self._errors(self._slice(kind="validation")), [])

@@ -8,6 +8,17 @@ Harness facts: a worktree-isolated agent runs in `.claude/worktrees/agent-<id>` 
 `worktree-agent-<id>`; its completion notification returns `worktreePath` and `worktreeBranch`.
 Record both per slice.
 
+## 0. Design Spec entry
+
+Run preflight step 1 first (feature branch, clean tree). If the input is a Design Spec rather
+than a tasks.md, spawn `agent-tdd:agent-TDD` (`model: "sonnet"`, main checkout, no isolation)
+with the Design Spec plus `Parallel: on`. Tell it to write tasks.md outside the repo (the SDD
+spec dir or a scratch dir) so the tree stays clean; if it is inside the repo, commit it before
+the clean-tree check. It returns a `slicing_complete` report with the tasks.md path and the wave
+table. If that report names high-risk slices, spawn `agent-tdd:test-author` for each (they run
+alone) and pass its Red tests into that slice's worker Slice Spec. Then continue preflight from
+step 2 on that tasks.md.
+
 ## 1. Preflight
 
 1. Confirm a feature branch (not main) and a clean tree. Otherwise stop and tell the user.
@@ -35,6 +46,8 @@ Merge them before any later wave so workers fork from a HEAD that contains the c
      and stop with a report if it fails;
    - tdd_check usage: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/tdd_check.py" red|green --slice "Slice N: <title>" --slice-id N --base <base> -- <test cmd>`;
    - "do not commit"; and the report must include `<!--SLICE-ID: N-->` plus BASE, WORKTREE, BRANCH.
+   Concurrent worktree creation can race ("failed to read .../worktrees/<x>/commondir"); if a
+   spawn fails that way, retry that one spawn once.
 3. Each worker stops at `green_pause` with its changes uncommitted. For each, the lead:
    - checks the working tree, not commits: `git -C <worktreePath> diff --stat <base>` and
      `git -C <worktreePath> status --porcelain` (untracked files count). Empty on both means the
