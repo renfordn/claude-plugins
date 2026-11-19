@@ -379,9 +379,9 @@ Agent-TDD resumes, adjusts Slice 3 acceptance criteria, continues
 |---|---|---|
 | `<!--AGENT-TDD-BLOCKED: reason="no e2e harness: ..."-->`, no phase marker | UI slice, repo has no E2E harness | Skip slice and dependents; ask: add harness slice, accept without E2E, or pause |
 | `<!--AGENT-TDD-OUTCOME: coverage-only-->` | Test passed first run, mutant-proved; no production change | Review at `green_pause` as usual |
+| `<!--AGENT-TDD-OUTCOME: refactor-->` | `refactor`/`contract` slice proven by `coverage` then `green` (no Red) | Review at `green_pause` as usual |
 ### Agent-TDD Does NOT Silently:
-- ✗ Modify design.md
-- ✗ Change requirements.md
+- ✗ Modify design.md or change requirements.md
 - ✗ Work around blockers
 - ✗ Guess missing research
 - ✗ Create code that contradicts assumptions

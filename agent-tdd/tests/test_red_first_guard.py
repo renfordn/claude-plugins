@@ -109,7 +109,7 @@ def test_unconfirmed_red_does_not_unlock(repo):
 
 
 def test_confirmed_coverage_unlocks(repo):
-    start(repo)
+    assert check(repo, "start", "--slice", TITLE, "--kind", "refactor").returncode == 0
     assert_denied(edit(os.path.join(repo, "src", "app.py"), repo))
     r = check(repo, "coverage", "--slice", TITLE, "--mutant", "exit 1", "--", *PASS)
     assert r.returncode == 0, r.stdout + r.stderr
@@ -261,7 +261,8 @@ def test_deny_commands_survive_space_path_and_quote_title(tmp_path):
     title = 'Slice Q: say "hi"'
     start(root, title)
     reason = assert_denied(edit(os.path.join(root, "a.py"), root))["permissionDecisionReason"]
-    cmd = reason.split("run: ", 1)[1].split(" -- <test command>")[0]
+    prefix = reason.split("<P> = `", 1)[1].split("`", 1)[0]
+    cmd = prefix + reason.split("`<P>", 1)[1].split(" -- <test cmd>")[0]
     argv = shlex.split(cmd)
     assert argv[:2] == ["cd", root] and argv[2] == "&&"
     assert argv[-1] == title and argv[-2] == "--slice"

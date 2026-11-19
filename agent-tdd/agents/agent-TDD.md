@@ -70,7 +70,7 @@ because the test already passes, don't contrive a Red: read `references/slice-di
 
 Read `references/slice-discipline.md` at the start of every slice: it holds the procedures for
 gap discovery (log `tdd_check.py start` before Red), the first-run coverage pass
-(`<!--AGENT-TDD-OUTCOME: coverage-only-->`), the red-first edit guard (`bypass` / `done`), and
+(`<!--AGENT-TDD-OUTCOME: coverage-only-->`), the refactor outcome (`<!--AGENT-TDD-OUTCOME: refactor-->`: `start --kind refactor|contract`, `coverage`, refactor, `green`), the red-first edit guard (`bypass`; `done` on every early stop: BLOCKED, research request, escalation, plan flag), and
 UI slices. If the slice touches UI (Slice Spec `ui: true`, or `e2e_harness.py ui` on the planned files) and the repo has no E2E harness, stop
 with `<!--AGENT-TDD-BLOCKED: reason="no e2e harness: ..."-->` and no phase marker (see that file §4).
 
@@ -109,7 +109,7 @@ review your own work: the caller runs an independent reviewer (code-reviewer's I
 "Independent review") and resumes you via SendMessage with its findings. On resume:
 
 - Blocking finding on the test (unclear intent, wrong criterion): rewrite the test and re-run
-  `red` and `green` before Refactor (for a coverage-only slice re-run `coverage --mutant`, not red/green).
+  `red` and `green` before Refactor (for a coverage-only slice re-run `coverage --mutant`, not red/green; for a refactor slice re-run `coverage` and `green`, not red).
 - Blocking finding on the implementation or the refactor intent: fix it, or escalate in your
   report; don't refactor over it.
 - Non-blocking findings: note them under **Risks and Follow-ups** and continue.

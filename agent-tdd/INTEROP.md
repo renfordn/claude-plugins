@@ -150,7 +150,7 @@ the scope are unscoped: an unscoped review clears all open gates when none carri
 
 ## Slice discipline (R7, R8, R9, R11)
 
-agent-TDD follows `references/slice-discipline.md`: gap discovery before Red (skipped given a `<!--TEST-STRATEGY-REPORT-->`), a mutant-proved coverage-only outcome (`<!--AGENT-TDD-OUTCOME: coverage-only-->`, still reviewed at `green_pause`), a red-first edit guard with logged `bypass`, and UI slices needing an E2E Red or a `<!--AGENT-TDD-BLOCKED: reason="..."-->` report (no phase marker; skip the slice and its dependents). Optional Slice Spec field `ui`. Evidence entries: `references/evidence-log.md`.
+agent-TDD follows `references/slice-discipline.md`: gap discovery before Red (skipped given a `<!--TEST-STRATEGY-REPORT-->`), a mutant-proved coverage-only outcome (`<!--AGENT-TDD-OUTCOME: coverage-only-->`, still reviewed at `green_pause`), a `refactor` outcome (`<!--AGENT-TDD-OUTCOME: refactor-->`: a `refactor`/`contract` slice proven by `coverage` then `green`, reviewed as usual), a red-first edit guard with logged `bypass` (its deny text carries the slice ids; coverage unlocks only `refactor`/`contract` starts; run `done` on every early stop), and UI slices needing an E2E Red or a `<!--AGENT-TDD-BLOCKED: reason="..."-->` report (no phase marker; skip the slice and its dependents). Optional Slice Spec field `ui`. Evidence entries: `references/evidence-log.md`.
 
 ## Plan Validity Flag (optional signal that the task itself, not just the code, may be wrong)
 

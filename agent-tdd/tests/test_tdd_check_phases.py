@@ -241,6 +241,8 @@ class HelperTests(unittest.TestCase):
         self.assertFalse(u())
         self.assertFalse(u(e("red", confirmed=False)))
         self.assertTrue(u(e("red")))
+        self.assertFalse(u(e("coverage")))  # feature start: coverage does not unlock
+        s["kind"] = "refactor"
         self.assertTrue(u(e("coverage")))
         self.assertFalse(u(e("coverage", confirmed=False)))
         self.assertTrue(u(e("bypass")))

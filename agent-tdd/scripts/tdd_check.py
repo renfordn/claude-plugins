@@ -113,6 +113,8 @@ def _worktree(cwd="."):
 
 
 MUTANT_NOT_RUN = (126, 127, 4, 5)  # not runnable / pytest usage error / no tests collected
+COVERAGE_KINDS = ("refactor", "contract")
+MUTANT_NOTE_TAIL = 400
 STALE_AFTER = datetime.timedelta(hours=4)
 
 
@@ -142,17 +144,38 @@ def open_slice(entries, worktree, now=None):
     return None if i is None else entries[i]
 
 
+def _counts_as_red(entry, start_entry, unlock=False):
+    """Does this entry stand in for Red after `start_entry`? A confirmed red always does; a confirmed
+    coverage only when the start's kind is refactor/contract (characterization test); a bypass only
+    when `unlock` (it unlocks the guard but never proves green)."""
+    phase = entry.get("phase")
+    if phase == "bypass":
+        return unlock
+    if not entry.get("confirmed"):
+        return False
+    if phase == "red":
+        return True
+    return phase == "coverage" and (start_entry or {}).get("kind") in COVERAGE_KINDS
+
+
 def unlocked(entries, worktree, now=None):
     """True if a confirmed red, confirmed coverage or bypass follows the open start in this worktree."""
     i = _open_index(entries, worktree, now)
     if i is None:
         return False
-    for e in entries[i + 1:]:
-        if e.get("worktree") != worktree:
-            continue
-        if e.get("phase") == "bypass" or (e.get("phase") in ("red", "coverage") and e.get("confirmed")):
-            return True
-    return False
+    start = entries[i]
+    return any(e.get("worktree") == worktree and _counts_as_red(e, start, unlock=True)
+               for e in entries[i + 1:])
+
+
+def cli_id_args(start_entry):
+    """`--slice-id`/`--base` CLI args for a logged entry's ids (empty when it has none)."""
+    out = []
+    if start_entry.get("slice_id") is not None:
+        out += ["--slice-id", str(start_entry["slice_id"])]
+    if start_entry.get("base") is not None:
+        out += ["--base", str(start_entry["base"])]
+    return out
 
 
 def _record(entry, cwd, wt=None):
@@ -184,15 +207,17 @@ def run_phase(phase, slice_title, cmd, cwd=".", slice_id=None, base=None):
     failed = r.returncode != 0
     wt = _worktree(cwd)
 
+    log = read_log(cwd)
+    oi = _open_index(log, wt)
+    start = log[oi] if oi is not None else None
+
     def matches(e):
-        if e.get("slice") != slice_title or e.get("phase") != "red" or not e.get("confirmed"):
+        if e.get("slice") != slice_title or not _counts_as_red(e, start):
             return False
         if base is not None:
             return e.get("base") == base
         return e.get("worktree") is None or e.get("worktree") == wt
 
-    log = read_log(cwd)
-    oi = _open_index(log, wt)
     if oi is not None:
         # Fresh-Red rule: the red must be appended after the open start, in this worktree.
         prior_red = [e for e in log[oi + 1:] if matches(e) and e.get("worktree") == wt]
@@ -262,6 +287,10 @@ def run_coverage(slice_title, mutant, cmd, cwd=".", slice_id=None, base=None):
         output = (output + "\n" + (m.stdout + m.stderr)[-TAIL:])[-TAIL:]
     else:
         note = ""
+    if r.returncode == 0 and not confirmed:
+        tail = (m.stdout + m.stderr).strip()[-MUTANT_NOTE_TAIL:]
+        if tail:
+            note += ": " + tail
     entry = _ids({"phase": "coverage", "slice": slice_title, "cmd": " ".join(cmd), "mutant": mutant,
                   "exit": r.returncode, "mutant_exit": m.returncode, "confirmed": confirmed, "note": note},
                  slice_id, base)
