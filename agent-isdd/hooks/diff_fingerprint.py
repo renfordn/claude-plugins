@@ -42,8 +42,10 @@ def _interop_paths(repo_root):
     paths = []
     if os.path.isfile(os.path.join(repo_root, "INTEROP.md")):
         paths.append("INTEROP.md")
-    for hit in glob.glob(os.path.join(repo_root, "*/INTEROP.md")):
-        paths.append(os.path.relpath(hit, repo_root))
+    for pattern in ("*/INTEROP.md", "references/interop-*.md", "*/references/interop-*.md"):
+        # references/interop-*.md: INTEROP sections split out to stay under the line ceiling.
+        for hit in glob.glob(os.path.join(repo_root, pattern)):
+            paths.append(os.path.relpath(hit, repo_root))
     return paths
 
 

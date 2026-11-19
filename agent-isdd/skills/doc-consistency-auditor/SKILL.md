@@ -33,7 +33,7 @@ Read every file under `skills/`, `agents/`, `commands/`, `hooks/` (not just file
 current diff — see above), plus every plugin root's `INTEROP.md` (one per plugin, e.g.
 `agent-tdd/INTEROP.md`, `code-reviewer/INTEROP.md` — discover the set with
 `find . -maxdepth 2 -name INTEROP.md`, never a hardcoded list, so a new plugin's `INTEROP.md` is
-picked up automatically). Look for exactly five finding classes:
+picked up automatically) and any split-out `references/interop-*.md` beside it. Look for exactly five finding classes:
 
 1. **Duplicated or contradictory responsibility claims** — two or more files claiming the same
    capability without an explicit "this is a documented shared split" note, or two files stating

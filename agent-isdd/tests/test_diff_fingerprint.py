@@ -86,3 +86,17 @@ class DiffFingerprintTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InteropReferencePathsTests(unittest.TestCase):
+    """Slice 30 review F5: the split INTEROP contract (references/interop-*.md) stays audited."""
+
+    def test_split_interop_refs_are_tracked(self):
+        with tempfile.TemporaryDirectory() as root:
+            for rel in ("INTEROP.md", "references/interop-agent-tdd.md",
+                        "agent-isdd/INTEROP.md", "agent-isdd/references/interop-reviewers.md"):
+                os.makedirs(os.path.join(root, os.path.dirname(rel)) or root, exist_ok=True)
+                open(os.path.join(root, rel), "w").close()
+            got = set(diff_fingerprint._interop_paths(root))
+            self.assertIn("references/interop-agent-tdd.md", got)
+            self.assertIn("agent-isdd/references/interop-reviewers.md", got)
