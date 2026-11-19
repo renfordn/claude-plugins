@@ -25,7 +25,7 @@ class StubSignatureTests(unittest.TestCase):
 
     def test_consumer_signatures(self):
         import approval, baseline, review_tracking
-        self.assertEqual(approval.approval_hash("d", "t"), "")
+        self.assertRegex(approval.approval_hash("d", "t"), r"^[0-9a-f]{64}$")
         self.assertEqual(approval.verify({}, "d", "t"), "legacy")
         self.assertEqual(review_tracking.high_risk_slices("x"), [])
         self.assertEqual(review_tracking.unreviewed_high_risk("/nonexistent"), [])
