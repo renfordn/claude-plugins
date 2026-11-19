@@ -1,6 +1,9 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+### Added
+- Release 3 (in progress): evidence phases `start`, `coverage`, `bypass`, `done`; outcome markers `AGENT-TDD-OUTCOME` and `AGENT-TDD-BLOCKED`; `red_first_guard` PreToolUse hook (contract stub).
+
 ## [0.7.0] - 2026-11-19
 
 - **Feature**: parallel slice delivery (`/agent-tdd:tdd-parallel`, `Parallel: on`). A `contract` slice lands shared interfaces first; `parallel_plan.py` checks disjoint ownership and writes dependency waves; each slice runs in its own worktree via Slice Spec `sliceId` / `ownedFiles` / `baseCommit`; per-slice review gates are scoped by `<!--SLICE-ID: N-->` and code-reviewer echoes `<!--REVIEW-SCOPE: slice=N-->`; TDD evidence is shared across worktrees (keyed by slice id and base) and plugin state is locked; `verify-branch` rejects branches that touch files outside `ownedFiles`; an integration phase merges each wave, reverts newest-first on a red suite and re-queues. An unscoped review clears all open gates only when none carries a slice id, otherwise only a sole open gate; open gates older than 24h are left out of that count but keep blocking their own agent until a scoped review or a bypass label; only reviewed gates are pruned. `tasks-schema.json` `number` accepts alphanumeric slice ids (`0a`, `2F1`). `Parallel: off` is unchanged serial behaviour. `tasks-format.md` adds `Kind: validation`. `test-strategist` and `test-budget` descriptions trimmed to offset the new command's always-loaded text.

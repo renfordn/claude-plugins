@@ -74,17 +74,33 @@ def parse_review_scope(text):
 
 # Release 3 contract (R7/R9/R11): evidence phases and report outcome markers.
 EVIDENCE_PHASES = ("red", "green", "integration", "start", "coverage", "bypass", "done")
-OUTCOME_RE = re.compile(r"<!--\s*AGENT-TDD-OUTCOME:\s*([a-z][a-z-]*)\s*-->")
-BLOCKED_RE = re.compile(r'<!--\s*AGENT-TDD-BLOCKED:\s*reason="([^"]*)"\s*-->')
+OUTCOME_RE = re.compile(r"<!--\s*AGENT-TDD-OUTCOME:\s*([A-Za-z][A-Za-z-]*)\s*-->")
+BLOCKED_RE = re.compile(
+    r"<!--\s*AGENT-TDD-BLOCKED(?:\s*:\s*(?:reason\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>-][^>]*?)))?)?\s*-->")
+# Printed by scripts/tdd_check.py, parsed by hooks/tdd_subagent_stop.py. Phases without a command
+# (start, bypass, done) omit `exit=`.
+EVIDENCE_LINE_RE = re.compile(
+    r"TDD-EVIDENCE (?P<phase>" + "|".join(EVIDENCE_PHASES) + r") (?P<token>[0-9a-f]{8})"
+    r"(?: exit=(?P<exit>-?\d+))? (?P<status>CONFIRMED|NOT CONFIRMED)")
+
+
+def format_evidence_line(phase, token, code, confirmed, note=""):
+    """The single printed evidence format (see references/evidence-log.md)."""
+    status = "CONFIRMED" if confirmed else f"NOT CONFIRMED ({note})"
+    exit_part = "" if code is None else f" exit={code}"
+    return f"TDD-EVIDENCE {phase} {token}{exit_part} {status}"
 
 
 def parse_outcome(text):
-    """'coverage-only' etc. from <!--AGENT-TDD-OUTCOME: ...-->, or None."""
+    """'coverage-only' etc. (lower-cased) from <!--AGENT-TDD-OUTCOME: ...-->, or None."""
     m = OUTCOME_RE.search(text or "")
-    return m.group(1) if m else None
+    return m.group(1).lower() if m else None
 
 
 def parse_blocked(text):
-    """The reason from <!--AGENT-TDD-BLOCKED: reason="..."-->, or None."""
+    """The reason from <!--AGENT-TDD-BLOCKED: reason="..."--> ("" when absent or empty), or None
+    when there is no BLOCKED marker. Callers must test `is not None`."""
     m = BLOCKED_RE.search(text or "")
-    return m.group(1) if m else None
+    if not m:
+        return None
+    return next((g for g in m.groups() if g is not None), "").strip()

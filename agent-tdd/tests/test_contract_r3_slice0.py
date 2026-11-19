@@ -41,3 +41,31 @@ def test_contract_docs_exist():
         assert p in ev
     sd = (ROOT / "references" / "slice-discipline.md").read_text()
     assert "Read by" in sd
+
+
+def test_evidence_line_regex_covers_all_phases():
+    m = markers.EVIDENCE_LINE_RE.search("TDD-EVIDENCE red 0123abcd exit=1 CONFIRMED")
+    assert m.group("phase") == "red" and m.group("token") == "0123abcd" and m.group("exit") == "1"
+    assert m.group("status") == "CONFIRMED"
+    m = markers.EVIDENCE_LINE_RE.search("TDD-EVIDENCE bypass 89abcdef CONFIRMED")
+    assert m.group("phase") == "bypass" and m.group("exit") is None
+    m = markers.EVIDENCE_LINE_RE.search("TDD-EVIDENCE coverage 89abcdef exit=0 NOT CONFIRMED (mutant passed)")
+    assert m.group("status") == "NOT CONFIRMED"
+    assert markers.format_evidence_line("start", "0123abcd", None, True) == "TDD-EVIDENCE start 0123abcd CONFIRMED"
+    assert markers.format_evidence_line("red", "0123abcd", 1, False, "x") == \
+        "TDD-EVIDENCE red 0123abcd exit=1 NOT CONFIRMED (x)"
+
+
+def test_marker_variants():
+    assert markers.parse_outcome("<!--AGENT-TDD-OUTCOME: Coverage-Only-->") == "coverage-only"
+    assert markers.parse_blocked("<!--AGENT-TDD-BLOCKED: reason='no harness'-->") == "no harness"
+    assert markers.parse_blocked("<!--AGENT-TDD-BLOCKED-->") == ""
+    assert markers.parse_blocked('<!--AGENT-TDD-BLOCKED: reason=""-->') == ""
+
+
+def test_evidence_log_contract_is_specific():
+    ev = (ROOT / "references" / "evidence-log.md").read_text()
+    for needle in ("append order", "naive local", "--mutant", "TDD-EVIDENCE <phase> <token>",
+                   "no open `start`", "gaps", "confirmed: true", "no `worktree`"):
+        assert needle in ev, needle
+    assert "### Added" in (ROOT / "CHANGELOG.md").read_text().split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
