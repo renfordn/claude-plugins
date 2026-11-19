@@ -9,14 +9,17 @@ import datetime
 import json
 import os
 import re
+import sys
 import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import markers  # noqa: E402
 
 FILE = "impl-progress.json"
 MAX_EVENTS = 20
 _TDD = "<!--AGENT-TDD-REPORT-->"
 _REVIEW = "<!--CODE-REVIEWER-REPORT-->"
 _PHASE = re.compile(r"<!--AGENT-TDD-PHASE:(\w+)-->")
-_SLICE = re.compile(r"\bSlice\s+(\d+)\b")
 DONE = "refactor_complete"
 
 
@@ -33,13 +36,18 @@ def load(feature_dir):
     return data if isinstance(data, dict) else None
 
 
-def _slice_no(report):
-    """The slice number, preferring the **Plan** section (its first line names this slice) over
-    any earlier mention elsewhere in the report."""
-    plan = re.search(r"\*\*Plan\*\*(.*?)(?:\n\s*\n|\n\*\*|\Z)", report, re.DOTALL)
-    m = _SLICE.search(plan.group(1)) if plan else None
-    m = m or _SLICE.search(report)
-    return m.group(1) if m else None
+_PLAN_LINE = re.compile(r"^[ \t]*\*\*Plan\*\*[ \t]*[\u2014\u2013:-]?[ \t]*(.*)$", re.MULTILINE)
+
+
+def _slice_no(report, review=False):
+    """Strictly keyed slice id (markers contract), normalised; None when not explicit. TDD reports
+    also accept the single '**Plan** <sep> Slice N: ...' heading line, never later prose."""
+    sid = (markers.parse_review_scope(report) if review else None) or markers.parse_slice_id_strict(report)
+    if not sid and not review:
+        m = _PLAN_LINE.search(report)
+        t = markers.SLICE_TITLE_RE.match(m.group(1)) if m else None
+        sid = t.group(1) if t else None
+    return markers.normalize_slice_id(sid) if sid else None
 
 
 def _event(report):
@@ -48,7 +56,7 @@ def _event(report):
         m = _PHASE.search(report)
         return "tdd", m.group(1) if m else None, _slice_no(report)
     if _REVIEW in report:
-        return "review", None, _slice_no(report)
+        return "review", None, _slice_no(report, review=True)
     return None
 
 
@@ -65,6 +73,9 @@ def record(feature_dir, report):
     elif kind == "tdd" and slice_no and phase in ("green_pause", DONE):
         if data["slices"].get(slice_no) != DONE:
             data["slices"][slice_no] = phase
+    if kind == "review" and slice_no:
+        reviewed = data.get("reviewed")
+        data["reviewed"] = dict(reviewed if isinstance(reviewed, dict) else {}, **{slice_no: True})
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     data["events"] = (data.get("events") or [])[-(MAX_EVENTS - 1):] + [
         {"at": now, "kind": kind, "phase": phase, "slice": slice_no}]
