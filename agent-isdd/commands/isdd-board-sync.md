@@ -1,5 +1,6 @@
 ---
 description: Verify the shared Plan Board against every project's SDD state, resync stale or missing records in one batch, prune orphans after confirmation
+disable-model-invocation: true
 ---
 Repair drift between the shared Plan Board and every project's feature state files, from any
 session. Projects come from `sdd-memory/`: each one whose board is the shared `PLAN-BOARD.md` at

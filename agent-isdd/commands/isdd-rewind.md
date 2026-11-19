@@ -1,6 +1,7 @@
 ---
 description: Rewind the active SDD workflow to an earlier phase (Requirements | Design | Tasks)
 argument-hint: "[Requirements | Design | Tasks]"
+disable-model-invocation: true
 ---
 
 Rewind the active spec-driven-development workflow to the target phase named in the argument:
