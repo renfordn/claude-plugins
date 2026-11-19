@@ -81,8 +81,8 @@ the change touches, never by diff size, and can only rise. See
 At the handoff you choose who implements. **Agent** (default): agent-tdd runs the slices; the Standard
 track sends `Parallel: on`, so the tdd-parallel lead fans independent slices out in waves and runs
 `test-author` for high-risk ones. **User-led**: you write the production code and the `isdd-coach` skill
-coaches (tests, reviews, next step); Claude's production edits are blocked by a guard, and switching mode
-is always your call.
+coaches (tests, reviews, next step); user mode still has agent-tdd slice the work, but never implement it.
+Claude's production edits are blocked by a guard, and switching mode is always your call.
 
 ## Approval
 

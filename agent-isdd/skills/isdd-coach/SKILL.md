@@ -12,8 +12,9 @@ writes the production code. You coach.
 ## Before you start
 
 1. Resolve the active workflow. If there is none, route the user to `/isdd`; do not coach.
-2. If `Implementation Mode` is not `user`, ask via `AskUserQuestion` whether to coach user-led.
-3. Write `Implementation Mode: user` to `workflow-state.md` only on the user's answer.
+2. If `Implementation Mode` is not `user`, follow the mode rule in `implementation-handoff.md`: a mode
+   the user already stated is recorded without asking again; ask via `AskUserQuestion` only when the
+   mode is not stated. Write `Implementation Mode: user` only from their statement or answer.
 
 Why: `user_led_guard` and review tracking only work with an active workflow and mode `user`.
 
@@ -26,11 +27,16 @@ Why: `user_led_guard` and review tracking only work with an active workflow and 
   user write it.
 - Never change `Implementation Mode` without the user's say-so. If the user wants agent-led, ask
   via `AskUserQuestion`; they (or you, on their explicit answer) set `Implementation Mode: agent`.
-- Don't spawn agent-TDD while the mode is `user`.
+- Don't spawn agent-TDD to implement while the mode is `user`; its only user-mode job is slicing.
 
 ## Walk the slices
 
-Read `tasks.md` and take slices in dependency order, one at a time. Present each slice with the
+- Standard track: agent-TDD already sliced (it stopped at `slicing_complete` and wrote
+  `<feature spec dir>/tasks/tasks.md`). Read it and take slices in dependency order, one at a time.
+- Fast track: no agent-TDD spawn and no tasks.md. You coach the single Slice Spec slice yourself as
+  slice 1, building it with the `slice-spec` skill.
+
+Present each slice with the
 Slice Spec field names (see `agent-tdd/references/slice-spec.schema.json`):
 
 - `taskDescription`: the behavior to build, in one sentence.

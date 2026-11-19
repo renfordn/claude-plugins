@@ -189,10 +189,12 @@ are all met for *that* attempt.
   (see `agent-tdd/references/parallel-delivery.md`), which spawns workers, runs `agent-tdd:test-author`
   for each wave's high-risk slices, reviews, verifies, merges and commits each wave. Do not resume
   agent-TDD to implement serially and do not rely on `test_author_pending` in a parallel run.
-- **Implementation Mode** is asked via `AskUserQuestion` before the spawn and written from the user's
-  answer: `agent` spawns agent-TDD; `user` skips the spawn and routes to the `isdd-coach` skill.
-  `user_led_guard` enforces `user` (Claude writes tests on request, never production code) and tells
-  Claude to ask the user, never to flip the mode itself.
+- **tasks.md path.** The Design Spec names it explicitly as `<feature spec dir>/tasks/tasks.md`; the
+  hooks read only that path (`high_risk_reviewer` wave detection, `review_tracking`, `complete_guard`).
+- **Implementation Mode**: rule in `implementation-handoff.md`. Both modes spawn agent-TDD with the
+  Design Spec and `Parallel: on`; in `user` mode it only slices (stops at `slicing_complete`) and is
+  the handoff must not resume agent-TDD to implement; `isdd-coach` then walks the slices, with
+  `user_led_guard` blocking production edits. Fast track in `user` mode: no spawn.
 - **Complete.** In a parallel run `Workflow Status: Complete` is set only after the lead's
   `all_slices_complete` (after integration and the coherence review); earlier would switch the gates
   off for the remaining workers.
