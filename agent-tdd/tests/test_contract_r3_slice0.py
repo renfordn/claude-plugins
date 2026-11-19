@@ -68,4 +68,5 @@ def test_evidence_log_contract_is_specific():
     for needle in ("append order", "naive local", "--mutant", "TDD-EVIDENCE <phase> <token>",
                    "no open `start`", "gaps", "confirmed: true", "no `worktree`"):
         assert needle in ev, needle
-    assert "### Added" in (ROOT / "CHANGELOG.md").read_text().split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    after = (ROOT / "CHANGELOG.md").read_text().split("## [Unreleased]", 1)[1].split("\n## [")
+    assert any("### Added" in s for s in after[:2])  # [Unreleased] until CUPS dates it

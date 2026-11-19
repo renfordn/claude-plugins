@@ -1,8 +1,22 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-19
+
 ### Added
-- Release 3 (in progress): evidence phases `start`, `coverage`, `bypass`, `done`; outcome markers `AGENT-TDD-OUTCOME` and `AGENT-TDD-BLOCKED`; `red_first_guard` PreToolUse hook (contract stub).
+- **Red-first guard (R9):** `hooks/red_first_guard.py` (PreToolUse Write|Edit|MultiEdit|NotebookEdit, timeout 5) denies production edits in a worktree with an open slice until a confirmed `red`, a confirmed `coverage` (refactor/contract slices only) or a logged `bypass` appears after that slice's `start`. Tests, docs (`hooks/path_kinds.py` classifier; plugin product markdown counts as prod) and paths outside the repo are exempt; other worktrees are never blocked; stale (>4h) or `done` slices stop guarding; fails open; the deny text prints runnable `red`/`coverage`/`bypass`/`done` commands with the slice's ids.
+- **Evidence phases** in `scripts/tdd_check.py`: `start` (kind and R8 gap counts), `coverage --mutant` (R7: confirmed only when the test passes and a mutant run against a `mktemp -d` copy actually ran and failed), `bypass --reason`, `done`. Contract: `references/evidence-log.md`. `green` needs a red logged after the open `start` (no stale Reds); without a `start` the old rule applies.
+- **Coverage-only outcome (R7):** a test that passes on its first run is mutant-proved and reported as `<!--AGENT-TDD-OUTCOME: coverage-only-->` (still reviewed at `green_pause`) instead of contriving a Red; refactor/contract slices report `<!--AGENT-TDD-OUTCOME: refactor-->` (coverage, then green).
+- **Gap discovery (R8)** before Red: risk by risk, assertions not names, inspected kept apart from run; recorded on `start`; skipped when a test-strategy report was passed in.
+- **UI E2E gate (R11):** `scripts/e2e_harness.py` detects UI paths and the repo's E2E harness (Playwright, Cypress, WebdriverIO, Nightwatch, TestCafe, Detox, Maestro, pytest-playwright, Selenium, Capybara); a UI slice with no harness reports `<!--AGENT-TDD-BLOCKED: reason="..."-->` with no phase marker (no review gate), adds no tooling, and the caller skips it and its dependents. Slice Spec `ui` and tasks `**UI:**`/`**Blocked:**` fields.
+- `references/slice-discipline.md` holds the per-slice procedures; agent-TDD and test-author follow it.
+
+### Changed
+- SubagentStop reports `coverage=`, `bypass=`, `outcome=` and `kind=`; blocked slices are listed at session start and stop (last 72h, at most 5).
+- "Design Spec Mode" moved from `INTEROP.md` to `references/design-spec-mode.md` (INTEROP keeps an index).
+
+### Known limits
+- File writes through Bash bypass the red-first guard; nested repos and submodules are separate worktrees with their own slices.
 
 ## [0.7.0] - 2026-11-19
 

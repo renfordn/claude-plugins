@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-19
+
+### Changed
+- Consumes agent-tdd 0.8.0: the implementation handoff treats a `<!--AGENT-TDD-BLOCKED-->` report (no phase marker) as a skipped slice and asks the user to add a harness slice, accept the slice without E2E (recorded fallback) or pause; `coverage-only` and `refactor` outcomes are normal reviewable slices.
+- `references/interop-agent-tdd.md` documents the outcome and blocked markers, the Slice Spec `ui` field, and the red-first guard; `isdd-coach` wraps each slice in `tdd_check.py start`/`done`, uses the coverage path for first-run passes and refactors, and notes that the red-first guard and `user_led_guard` each deny independently.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added
