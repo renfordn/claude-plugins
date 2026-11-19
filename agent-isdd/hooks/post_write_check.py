@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sdd_state import parse_state, parse_state_json, write_state_json  # noqa: E402
+from sdd_state import parse_state, parse_state_json, update_json, write_state_json  # noqa: E402
 import feature_paths  # noqa: E402
 
 # Entries retained in workflow-state.json's hook_history (oldest dropped first).
@@ -42,48 +42,95 @@ FIELD_MAP = {
     "workflow status": "phase_state",
     "pause reason": "pause_reason",
     "implementation requested": "implementation_requested",
+    "track": "track",
+    "risk": "risk",
+    "risk reason": "risk_reason",
+    "implementation mode": "implementation_mode",
 }
+# approval_hash / approval_pending are deliberately NOT mirrored: approval.py is their sole writer.
 
 
 def _sync_json(file_path):
     """Sync mirrored fields from workflow-state.md into workflow-state.json.
-    Silent on success; no-ops gracefully on any IO or parse failure.
+    Silent on success; no-ops gracefully on any IO or parse failure. Returns True when
+    current_phase newly became Implementation (the caller records the baseline), else False.
     """
     if not os.path.isfile(file_path):
-        return
+        return False
 
     json_path = os.path.join(os.path.dirname(file_path), "workflow-state.json")
     if not os.path.isfile(json_path):
-        return  # no paired .json -- not this hook's job to fabricate one
+        return False  # no paired .json -- not this hook's job to fabricate one
 
     md_fields = parse_state(file_path)
-    json_fields = parse_state_json(json_path)
+    entered = []
+    current = parse_state_json(json_path)
+    if all(md_fields.get(k) is None or current.get(v) == md_fields[k] for k, v in FIELD_MAP.items()):
+        return False  # in sync: skip the rewrite (the locked closure below re-checks)
 
-    updates = {}
-    for md_key, json_key in FIELD_MAP.items():
-        md_val = md_fields.get(md_key)
-        if md_val is None:
-            continue
-        if json_fields.get(json_key) != md_val:
-            updates[json_key] = md_val
+    def apply(data):
+        updates = {}
+        for md_key, json_key in FIELD_MAP.items():
+            md_val = md_fields.get(md_key)
+            if md_val is not None and data.get(json_key) != md_val:
+                updates[json_key] = md_val
+        if not updates:
+            return data  # nothing to sync
+        prev = (data.get("current_phase") or "").strip().lower()
+        new = (updates.get("current_phase") or "").strip().lower()
+        if new == "implementation" and prev != "implementation":
+            entered.append(True)
+        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        data.update(updates)
+        data["last_updated"] = ts
+        history = data.setdefault("hook_history", [])
+        history.append({
+            "hook": "post_write_check/state_sync",
+            "outcome": "Synced",
+            "fields": sorted(updates.keys()),
+            "timestamp": ts,
+        })
+        del history[:-MAX_HOOK_HISTORY]
+        return data
 
-    if not updates:
-        return  # nothing to sync
+    update_json(json_path, apply)
+    return bool(entered)
 
-    for json_key, md_val in updates.items():
-        json_fields[json_key] = md_val
 
-    ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    json_fields["last_updated"] = ts
-    history = json_fields.setdefault("hook_history", [])
-    history.append({
-        "hook": "post_write_check/state_sync",
-        "outcome": "Synced",
-        "fields": sorted(updates.keys()),
-        "timestamp": ts,
-    })
-    del history[:-MAX_HOOK_HISTORY]
-    write_state_json(json_path, json_fields)
+def _record_baseline(cwd, state_md):
+    """Fail-open baseline snapshot; called outside any update_json lock."""
+    try:
+        import baseline
+        baseline.record(cwd, os.path.join(os.path.dirname(state_md), "workflow-state.json"))
+    except Exception:
+        pass
+
+
+def _handle_state_md(state_md, cwd):
+    """Everything a workflow-state.md write triggers: JSON sync, root mirror (before the baseline
+    snapshot, so it is not recorded dirty-then-changed), baseline on entering Implementation,
+    stale-Next-Action warning and Plan Board reminder. Returns the message suffix ('' if none)."""
+    entered = _sync_json(state_md)
+    md_now = parse_state(state_md)
+    _write_root_state(cwd, md_now)
+    if entered and cwd:
+        _record_baseline(cwd, state_md)
+    out = _stale_next_action_warning(md_now)
+    try:
+        out += _plan_board_reminder(state_md, cwd)
+    except Exception:
+        pass  # best-effort: the Plan Board reminder must never break the hook
+    return out
+
+
+def _stale_next_action_warning(md_fields):
+    """Warning text when the workflow is Complete but Next Action is not None, else ''."""
+    status = (md_fields.get("workflow status") or "").strip().lower()
+    nxt = (md_fields.get("next action") or "").strip()
+    if status == "complete" and nxt and nxt.lower() not in ("none", "n/a", "-"):
+        return (f" Warning: Workflow Status is Complete but Next Action is still '{nxt}' (stale). "
+                "Set Next Action: None in workflow-state.md.")
+    return ""
 
 
 def _write_root_state(cwd, md_fields):
@@ -169,12 +216,8 @@ def _bash_main(payload):
     cwd = payload.get("cwd")
     reminders = []
     for state in _bash_state_paths(command, cwd):
-        _sync_json(state)
-        try:
-            reminders.append(_plan_board_reminder(state, cwd))
-        except Exception:
-            pass  # best-effort, as for Edit/Write
-    reminders = [r.strip() for r in reminders if r]
+        reminders.append(_handle_state_md(state, cwd))
+    reminders = [r.strip() for r in reminders if r and r.strip()]
     if reminders:
         print(json.dumps({"systemMessage": " ".join(reminders)}))
     sys.exit(0)
@@ -202,15 +245,14 @@ def main():
     if not feature_paths.is_state_path(norm) or not (legacy or feature_paths.feature_dir_from_path(norm)):
         sys.exit(0)
 
-    if is_state:
-        _sync_json(file_path)
-        _write_root_state(payload.get("cwd"), parse_state(file_path))
-
     reminder = ""
-    try:
-        reminder = _plan_board_reminder(file_path, payload.get("cwd"))
-    except Exception:
-        pass  # best-effort: the Plan Board reminder must never break the hook
+    if is_state:
+        reminder = _handle_state_md(file_path, payload.get("cwd"))
+    else:
+        try:
+            reminder = _plan_board_reminder(file_path, payload.get("cwd"))
+        except Exception:
+            pass  # best-effort: the Plan Board reminder must never break the hook
     if norm.endswith("direct-mode-state.json"):
         # Slice progress only feeds the Plan Board record; it is not a phase transition, so no
         # breadcrumb/checklist reminder.
