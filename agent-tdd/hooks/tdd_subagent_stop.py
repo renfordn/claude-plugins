@@ -17,8 +17,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
-from tdd_state import (read_tdd_progress, write_tdd_progress,  # noqa: E402
+from tdd_state import (update_json, state_cwd, tdd_memory_dir,  # noqa: E402
                        extract_last_assistant_text, TAIL_BYTES)
+from markers import SLICE_TITLE_RE, _MARKER_RE  # noqa: E402
 import tdd_check  # noqa: E402
 
 EVIDENCE_RE = re.compile(r"TDD-EVIDENCE (red|green) ([0-9a-f]{8})")
@@ -41,6 +42,29 @@ def _section_text(report, header):
     if not m:
         return ""
     return m.group(1).strip()
+
+
+FEATURE_RE = re.compile(
+    r"<!--\s*(?:FEATURE|SPEC):\s*([^>]*?)\s*-->|^\s*(?:Feature|Spec)\s*:\s*(.+?)\s*$",
+    re.IGNORECASE | re.MULTILINE)
+
+
+def _strict_slice_id(text):
+    """Slice id only from an explicit <!--SLICE-ID: N--> marker or the first Plan line's
+    "Slice N:" title; a prose mention elsewhere ("reusing Slice 1's helper") is not an id."""
+    m = _MARKER_RE.search(text)
+    if m:
+        return m.group(1)
+    for ln in _section_text(text, "Plan").splitlines():
+        if ln.strip():
+            t = SLICE_TITLE_RE.match(ln)
+            return t.group(1) if t else None
+    return None
+
+
+def _feature(text):
+    m = FEATURE_RE.search(text)
+    return (m.group(1) or m.group(2)).strip() if m else None
 
 
 def _parse_report(text):
@@ -150,21 +174,39 @@ def main():
     entry = _parse_report(text)
     entry["evidence"] = _evidence(text, cwd)
 
-    # Read existing progress; update in-place if same description + green_pending_review
-    data = read_tdd_progress(cwd)
-    slices = data["slices"]
-    updated = False
-    for existing in slices:
-        if (existing.get("description") == entry["description"]
-                and existing.get("status") == "green_pending_review"):
-            existing.update(entry)
-            updated = True
-            break
-    if not updated:
-        entry["id"] = len(slices) + 1
-        slices.append(entry)
+    slice_id = _strict_slice_id(text)
+    feature = _feature(text)
+    if slice_id:
+        entry["slice"] = slice_id
+    if feature:
+        entry["feature"] = feature
 
-    write_tdd_progress(cwd, data)
+    def _upsert(data):
+        slices = data.get("slices")
+        if not isinstance(slices, list):
+            slices = data["slices"] = []
+        match = None
+        for existing in slices:
+            if slice_id:
+                if (existing.get("slice") == slice_id
+                        and existing.get("status") != "refactor_complete"
+                        and existing.get("feature") == feature):
+                    match = existing
+                    break
+            elif (existing.get("description") == entry["description"]
+                    and existing.get("status") == "green_pending_review"):
+                match = existing
+                break
+        if match is not None:
+            match.update(entry)
+        else:
+            ids = [s.get("id") for s in slices if isinstance(s.get("id"), int)]
+            entry["id"] = max(ids, default=0) + 1
+            slices.append(entry)
+        return data
+
+    path = os.path.join(tdd_memory_dir(state_cwd(cwd)), "tdd-progress.json")
+    update_json(path, _upsert)
 
     gap = "yes" if entry["has_research_gap"] else "no"
     plan_flag = "yes" if entry["has_plan_validity_flag"] else "no"
