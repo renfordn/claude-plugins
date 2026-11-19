@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Added
+- Write guards `state_guard` (Track/Risk rules: Fast only when Risk is low, Standard never becomes Fast, Risk only rises; mode switches logged), `complete_guard` (no Complete without high-risk review evidence) and `user_led_guard` (blocks Claude production edits in user-led mode), run through one `pre_write_dispatch` PreToolUse hook that returns the first deny.
+- Approval hash: the plan approval is recorded, the requirements + design hash is frozen at the first agent-TDD spawn and verified afterwards (a changed scope needs re-approval). `hooks/approval.py approve <spec_dir>` and `refreeze <spec_dir>` are the CLI; run them only after an `AskUserQuestion` answer.
+- `baseline` (branch, HEAD and dirty files recorded on entering Implementation) and `resume_context` (UserPromptSubmit) give a change-aware resume; SessionStart shows files changed since the baseline.
+- `research_cache.classify_summaries` labels file summaries still applicable, needs recheck or unknown, within a time budget.
+- `review_tracking`: sole writer of the durable `reviewed` map (via SubagentStop), with the strict Review Fallback `Accepted via AskUserQuestion: <slice ids | all>: <reason>`.
+- `isdd-coach` skill coaches user-led Implementation Mode.
+- `risk-depth.md`: `Risk: low | elevated | high` with `Risk Reason` scales phase depth and review.
+- `evals/`: behavioral fixtures for the low-risk compact path, a tiny auth tweak escalating to high risk, user-led coaching and the tier1 model choice.
+- Implementation handoff sends `Parallel: on` on the Standard track; the tdd-parallel lead runs the waves and `test-author`.
+- Alphanumeric slice ids (`12a`, `3B`) parsed strictly everywhere via `markers.py`.
+
+### Changed
+- Lean SKILL.md files (SDD, workflow-manager); detail moved to references.
+- `user-invocable: false` on design-author, requirements-agent and isdd-coach.
+- Requirements auto-advance past the gate unless Open Gaps remain.
+- INTEROP.md split into `references/interop-agent-tdd.md` and `references/interop-reviewers.md`, with the parallel handoff contract.
+- isdd-pickup runs as a read-only Explore fork and returns the lock actions for the main session.
+- `/isdd-rewind` and `/isdd-board-sync` are user-only (`disable-model-invocation`); the model asks the user to run them.
+- Explicit model and effort on every agent.
+- Description budget test accepts `user-invocable: false`; descriptions have almost no headroom left.
+- `plan-reviewer-tier1` runs on sonnet/medium (was opus). Eval 4 passed: 3 runs per model, sonnet 9/9 on every run (mean 9.0, no false positives), opus mean 8.67.
+- INTEROP.md has a "Moved sections" index, so older citations still resolve.
+- The eval 4 answer key moved out of the prompt the model sees.
+- `stop_check` merges board, stall and review-backstop messages into one block, once per change; `design_spec_gate` now checks Implementation Requested and the approval hash and records the hash.
+
+### Fixed
+- `baseline.diff` reports `incomplete` instead of "no changes" when git fails with a recorded baseline.
+- `high_risk_reviewer` routes a wave-stamped `slicing_complete` to the tdd-parallel lead instead of the test-author resume path.
+- Docs no longer tell the model to run `/isdd-rewind` or `/isdd-board-sync`; they ask the user.
+- The doc audit tracks the split `references/interop-*.md`; stale "Visible Progress" and "Fast Track section" citations retargeted; Start-time `Track: Fast` + `Risk` writes pinned in `state_guard` tests.
+
+### Known limits
+- Bash writes bypass the PreToolUse guards (they only see Write, Edit, MultiEdit and NotebookEdit).
+- Review evidence is agent-writable: the `reviewed` map and Review Fallback are trusted, not authenticated.
+- `tasks.md` Risk Tier downgrades are trusted; only `workflow-state` Risk is guarded against lowering.
+
 ## [0.5.13] - 2026-11-04
 
 ### Changed
