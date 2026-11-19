@@ -244,37 +244,7 @@ contradicts research, slicing is blocked by the design (no acyclic split exists)
 high-risk slice can't be split without a product decision. `references/escalation-paths.md` has
 worked examples.
 
-tasks.md format:
-
-```markdown
-# Tasks
-
-## Slice 1: <One-sentence behavior>
-
-**Kind:** fix | refactor | feature
-**Risk Tier:** standard | high-risk
-**Depends On:** (none | Slice N, Slice M)
-**Files:** src/file1.ts, src/file2.ts
-**Test Level:** unit | extend <existing test> | integration | e2e
-**Parallel Group:** (none | A, B, ...)
-
-### Test Intent
-<Observable behavior to test>
-
-### Validation Target
-<Command to validate, e.g. "npm test -- slice-1">
-
-### Ordered Steps
-1. Step, grounded in research or existing code.
-```
-
-Design Spec reports use the same markers with phase `slicing_complete` (fields: **Research
-Validation**, **Task Slicing**, **Risk Tier Distribution**, **High-Risk Slices** by exact name or
-"none", **Readiness Verdict** `ready for implementation` or `paused` with the reason, **Tasks File
-Path**, **Handoff Facts**, **File Summaries**) or `all_slices_complete` (fields: **Slicing
-Summary**, **Implementation Summary**, **Validation Summary** with every slice's `TDD-EVIDENCE`
-lines, **Review Request**, **Risks and Follow-ups**, **Handoff Facts**). Per-slice reports in
-between use the slice report format.
+Read `references/tasks-format.md` when writing tasks.md or a `slicing_complete`/`all_slices_complete` report.
 
 ## Guardrails
 
