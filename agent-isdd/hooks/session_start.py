@@ -7,6 +7,7 @@ import json
 import os
 import shlex
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sdd_state import find_state_files, parse_state  # noqa: E402
@@ -14,6 +15,7 @@ from sdd_memory import (  # noqa: E402
     SHARED_ROOT, memory_dir, local_state_dir, ensure_shared_root, write_base_pointer,
     pending_nelly_summaries,
 )
+import baseline  # noqa: E402
 import followups  # noqa: E402
 import plan_board  # noqa: E402
 import plan_board_sync  # noqa: E402
@@ -143,6 +145,30 @@ def _interruption_note(cwd):
     return ""
 
 
+def _baseline_note(cwd, json_path, deadline=None):
+    """' Baseline: N files changed since baseline...' suffix for an active workflow, or "" (no
+    baseline, no change, or any failure: SessionStart must never fail over this)."""
+    try:
+        if deadline is not None and time.monotonic() >= deadline:
+            return ""  # overall budget spent: skip silently
+        d = baseline.diff(cwd, json_path) or {}
+        n = len(d.get("files_changed") or [])
+        if not (n or d.get("branch_changed") or d.get("head_moved")):
+            return ""
+        parts = []
+        if n:
+            parts.append(f"{n} file{'' if n == 1 else 's'} changed since baseline")
+        if d.get("branch_changed"):
+            parts.append(f"branch {d['branch_changed'][0]} -> {d['branch_changed'][1]}")
+        if d.get("head_moved"):
+            parts.append("HEAD moved")
+        if d.get("incomplete"):
+            parts.append("committed changes could not be diffed; the count may be low")
+        return " Baseline: " + "; ".join(parts) + "."
+    except Exception:
+        return ""
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -193,6 +219,7 @@ def main():
     if files:
         lines.append("")
         lines.append("Active spec-driven-development workflow(s) in this repo:")
+        baseline_deadline = time.monotonic() + baseline.BUDGET  # one budget for the whole loop
         for path in files[:5]:
             f = parse_state(path)
             title = f.get("title", os.path.basename(os.path.dirname(path)))
@@ -204,6 +231,7 @@ def main():
                 entry += f" Next: {nxt}"
             json_path = os.path.join(os.path.dirname(path), "workflow-state.json")
             entry += " workflow-state.json: present." if os.path.isfile(json_path) else " workflow-state.json: absent."
+            entry += _baseline_note(cwd, json_path, baseline_deadline)
             lines.append(entry)
         lines.append("Run /isdd-status for detail, or /isdd-continue to resume.")
 
