@@ -148,6 +148,10 @@ code-reviewer: the caller tells each slice reviewer `Review cwd: <worktreePath>`
 `<!--REVIEW-SCOPE: slice=N-->` and only that slice's gate clears. Old reviewers that don't echo
 the scope are unscoped: an unscoped review clears all open gates when none carries a slice id, otherwise only a sole open gate; open gates older than 24h are left out of that count but keep blocking their own agent until a scoped review or a bypass label; only reviewed gates are pruned.
 
+## Slice discipline (R7, R8, R9, R11)
+
+agent-TDD follows `references/slice-discipline.md`: gap discovery before Red (skipped given a `<!--TEST-STRATEGY-REPORT-->`), a mutant-proved coverage-only outcome (`<!--AGENT-TDD-OUTCOME: coverage-only-->`, still reviewed at `green_pause`), a red-first edit guard with logged `bypass`, and UI slices needing an E2E Red or a `<!--AGENT-TDD-BLOCKED: reason="..."-->` report (no phase marker; skip the slice and its dependents). Optional Slice Spec field `ui`. Evidence entries: `references/evidence-log.md`.
+
 ## Plan Validity Flag (optional signal that the task itself, not just the code, may be wrong)
 
 `agent-TDD`'s handoff report may include a **Plan Validity Flag** field, marked with a literal

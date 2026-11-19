@@ -43,6 +43,10 @@
       "default": "pause",
       "description": "Optional: defaults to 'pause' (mandatory caller-driven review between Green and Refactor). Set to 'skip' only as a deliberate caller choice, e.g. no reviewer is available this session."
     },
+    "ui": {
+      "type": "boolean",
+      "description": "Optional: true when the slice changes UI. agent-TDD then needs an E2E Red in the repo's harness, or reports AGENT-TDD-BLOCKED (references/slice-discipline.md)."
+    },
     "sliceId": {
       "type": "string",
       "pattern": "^\\d+[A-Za-z0-9]*$",
