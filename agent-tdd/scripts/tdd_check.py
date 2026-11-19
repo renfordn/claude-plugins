@@ -70,6 +70,15 @@ def evidence_path(cwd="."):
     return None
 
 
+def _parse_line(raw):
+    """One evidence-log line (str or bytes) as a dict, or None if blank, corrupt or not an object."""
+    try:
+        obj = json.loads(raw)
+    except ValueError:  # includes UnicodeDecodeError and JSONDecodeError
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
 def read_log(cwd="."):
     path = evidence_path(cwd)
     if not path or not os.path.isfile(path):
@@ -77,11 +86,8 @@ def read_log(cwd="."):
     out = []
     with open(path, encoding="utf-8") as fh:
         for line in fh:
-            try:
-                obj = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(obj, dict):
+            obj = _parse_line(line)
+            if obj is not None:
                 out.append(obj)
     return out
 
