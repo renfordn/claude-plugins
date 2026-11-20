@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-20
+
+### Changed
+- feature-finder: a memory hint marked stale, or with basis inferred or unknown, is a lead only (agent-nelly 0.7.0 evidence fields).
+
 ## [0.6.0] - 2026-11-20
 
 ### Added
