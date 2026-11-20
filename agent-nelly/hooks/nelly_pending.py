@@ -236,6 +236,9 @@ def _resolve(cwd, pid, outcome, evidence):
     if not evidence:
         print("--evidence is required", file=sys.stderr)
         return 3
+    if evidence.startswith("<") and evidence.endswith(">"):
+        print("--evidence is still the placeholder text; say what you actually checked", file=sys.stderr)
+        return 3
     if outcome == "verified" and readiness(cwd, rec) != "ready":
         print("not ready: every path must be committed and unchanged since capture", file=sys.stderr)
         return 3

@@ -80,8 +80,7 @@ def test_changed_file_marked_stale_exact_frontmatter_and_index(repo):
     assert open(path).read() == expected
     rec = records(repo)["fact-a"]
     assert rec["stale"] is True and rec["stale_paths"] == ["src/a.py"]
-    assert any("1 memory entries marked stale" in ln and "fact-a (src/a.py)" in ln
-               and "nelly_evidence.py refresh <slug> --paths" in ln for ln in lines)
+    assert any("1 memory entries marked stale" in ln and "fact-a (src/a.py)" in ln for ln in lines)
     assert "1 memory entries are stale in total." in lines
 
 
@@ -258,3 +257,92 @@ def _hold_lock(mem, ready, release):
     with nelly_store.lock(mem):
         ready.set()
         release.wait(10)
+
+
+def _meta_text(extra):
+    return "---\nname: n\ndescription: d\nmetadata:\n" + extra + "---\n\nBody.\n"
+
+
+def test_mark_text_replaces_block_stale_paths_with_blank_line_without_orphans():
+    old = _meta_text("  type: project\n  stale: true\n  stale_since: 2026-01-01\n"
+                     "  stale_paths:\n    - a\n\n    - b\n  basis: observed\n")
+    new = nelly_freshness._mark_text(old, ["c"], "2026-05-05")
+    assert new == _meta_text("  type: project\n  basis: observed\n  stale: true\n"
+                             "  stale_since: 2026-05-05\n  stale_paths: [c]\n")
+
+
+def test_mark_text_child_indent_skips_leading_comments_and_blanks():
+    old = _meta_text("\n# comment\n      # deeper comment\n    type: project\n")
+    new = nelly_freshness._mark_text(old, ["c"], "2026-05-05")
+    assert new == _meta_text("\n# comment\n      # deeper comment\n    type: project\n"
+                             "    stale: true\n    stale_since: 2026-05-05\n    stale_paths: [c]\n")
+
+
+def test_session_line_command_is_absolute_env_prefixed_and_runs_without_plugin_env(repo, tmp_path):
+    import shlex
+    put_file(repo, "src/a.py", "old")
+    make_entry(repo, "fact-a", {"src/a.py": "old"})
+    put_file(repo, "src/a.py", "new")
+    cmd = _commands(nelly_freshness.scan(str(repo)))[0]
+    argv = shlex.split(cmd)
+    assert argv[0].startswith("CLAUDE_PLUGIN_DATA=") and argv[1] == "python3"
+    assert os.path.isabs(argv[2]) and os.path.isfile(argv[2]) and argv[2].endswith("nelly_evidence.py")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_PLUGIN")}
+    env.update(HOME=str(tmp_path / "home"), CLAUDE_CONFIG_DIR=str(tmp_path / "cfg"))
+    proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env, cwd=str(tmp_path))
+    assert proc.returncode == 0, proc.stderr
+    text = open(nelly_memory.entry_path(str(repo), "fact-a")).read()
+    assert "stale:" not in text and "stale_paths" not in text
+
+
+def _commands(lines):
+    """Every runnable command in the SessionStart lines (a line's text from CLAUDE_PLUGIN_DATA=)."""
+    return [ln[ln.index("CLAUDE_PLUGIN_DATA="):].strip() for ln in lines if "CLAUDE_PLUGIN_DATA=" in ln]
+
+
+def _clean_env(tmp_path):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_PLUGIN")}
+    env.update(HOME=str(tmp_path / "home"), CLAUDE_CONFIG_DIR=str(tmp_path / "cfg"))
+    return env
+
+
+def _g(repo, *args):
+    subprocess.run(["git", "-c", "user.email=t@e.x", "-c", "user.name=t", "-C", str(repo), *args],
+                   check=True, capture_output=True)
+
+
+def test_command_drops_deleted_committed_source_and_runs_end_to_end(repo, tmp_path):
+    put_file(repo, "src/a.py", "old")
+    put_file(repo, "src/b.py", "old")
+    _g(repo, "add", ".")
+    _g(repo, "commit", "-qm", "init")
+    path = make_entry(repo, "fact-a", {"src/a.py": "old", "src/b.py": "old"})
+    _g(repo, "rm", "-q", "src/a.py")
+    put_file(repo, "src/b.py", "new")
+    _g(repo, "commit", "-qam", "change")
+    cmds = _commands(nelly_freshness.scan(str(repo)))
+    assert len(cmds) == 1
+    assert "--drop-paths src/a.py" in cmds[0] and "--paths src/b.py" in cmds[0]
+    proc = subprocess.run(cmds[0], shell=True, capture_output=True, text=True, env=_clean_env(tmp_path),
+                          cwd=str(tmp_path))
+    assert proc.returncode == 0, proc.stderr
+    text = open(path).read()
+    assert "src/a.py" not in text and "stale:" not in text
+
+
+def test_deleted_but_uncommitted_source_stays_under_paths(repo):
+    put_file(repo, "src/a.py", "old")
+    _g(repo, "add", ".")
+    _g(repo, "commit", "-qm", "init")
+    make_entry(repo, "fact-a", {"src/a.py": "old"})
+    os.remove(repo / "src" / "a.py")  # still in HEAD: dropping would be refused
+    cmds = _commands(nelly_freshness.scan(str(repo)))
+    assert "--drop-paths" not in cmds[0] and "--paths src/a.py" in cmds[0]
+
+
+def test_one_runnable_command_per_named_entry_up_to_cap(repo):
+    for i in range(nelly_freshness.NAMED_CAP + 2):
+        put_file(repo, f"src/f{i}.py", "new")
+        make_entry(repo, f"fact-{i}", {f"src/f{i}.py": "old"})
+    cmds = _commands(nelly_freshness.scan(str(repo)))
+    assert len(cmds) == len(set(cmds)) == nelly_freshness.NAMED_CAP

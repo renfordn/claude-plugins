@@ -11,7 +11,6 @@ skips that entry (fail open). Contract: INTEROP.md "Source evidence, staleness, 
 safe writes"."""
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -20,6 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 
 import build_index  # noqa: E402
+import nelly_frontmatter  # noqa: E402
+import nelly_pending  # noqa: E402
 import nelly_store  # noqa: E402
 from nelly_memory import local_state_dir, memory_dir  # noqa: E402
 from research_digest import blob_hash_file  # noqa: E402
@@ -78,75 +79,51 @@ def _stale_paths(repo_root, sources, hashes):
     return stale
 
 
-_META_RE = re.compile(r"^metadata:[ \t]*(#.*)?\r?$")
-_PLAIN_RE = re.compile(r"[A-Za-z0-9_./@+=~-]+")
-
-
-def _q(value):
-    """Plain scalar when safe, else double-quoted (escaping backslash and quote) so build_index's
-    inline-list parser round-trips it."""
-    if _PLAIN_RE.fullmatch(value):
-        return value
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def _indent(line):
-    return len(line) - len(line.lstrip())
-
-
 def _mark_text(text, paths, today):
-    """Add stale keys after the last line of the `metadata:` block. Pre-existing stale keys
-    (whole extent, incl. block-list items) are replaced; every other line stays identical.
-    Returns None when there is no frontmatter `metadata:` block."""
+    """Replace the stale keys (whole extent, incl. block-list items) and add the new ones at the end
+    of the `metadata:` block; every other line stays identical. Returns None when there is no
+    frontmatter `metadata:` block."""
     lines = text.splitlines(keepends=True)
     if not lines or lines[0].strip() != "---":
         return None
     end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
     if end is None:
         return None
-    meta = next((i for i in range(1, end) if _META_RE.match(lines[i].rstrip("\n"))), None)
-    if meta is None:
+    fm_lines = lines[1:end]
+    try:
+        for key in _STALE_KEYS:
+            nelly_frontmatter.set_key(fm_lines, key, None)
+        nelly_frontmatter.set_key(fm_lines, "stale", "true")
+        nelly_frontmatter.set_key(fm_lines, "stale_since", today)
+        nelly_frontmatter.set_key(fm_lines, "stale_paths", nelly_frontmatter.flow_list(paths))
+    except ValueError:
         return None
-    last = meta
-    for i in range(meta + 1, end):
-        if lines[i].strip() and not lines[i][0].isspace():
-            break
-        if lines[i].strip():
-            last = i
-    first = next((i for i in range(meta + 1, last + 1) if lines[i].strip()), None)
-    indent = lines[first][:_indent(lines[first])] if first is not None else "  "
-    ci = len(indent)
+    return "".join([lines[0]] + fm_lines + lines[end:])
 
-    removed = set()
-    i = meta + 1
-    while i <= last:
-        line = lines[i]
-        key, _, rest = line.strip().partition(":")
-        if line.strip() and _indent(line) == ci and key in _STALE_KEYS:
-            removed.add(i)
-            j = i + 1
-            while j <= last and lines[j].strip() and (
-                    _indent(lines[j]) > ci
-                    or (_indent(lines[j]) == ci and lines[j].strip().startswith("-") and not rest.strip())):
-                removed.add(j)
-                j += 1
-            i = j
-        else:
-            i += 1
-    kept_last = max(k for k in range(meta, last + 1)
-                    if k not in removed and (k == meta or lines[k].strip()))
-    nl = "\r\n" if lines[meta].endswith("\r\n") else "\n"
-    if not lines[kept_last].endswith("\n"):
-        lines[kept_last] += nl
-    new = [f"{indent}stale: true{nl}", f"{indent}stale_since: {today}{nl}",
-           f"{indent}stale_paths: [{', '.join(_q(p) for p in paths)}]{nl}"]
-    out = []
-    for k, line in enumerate(lines):
-        if k not in removed:
-            out.append(line)
-        if k == kept_last:
-            out.extend(new)
-    return "".join(out)
+
+def _gone(repo_root, rel):
+    """True when `rel` is missing from the working tree and from HEAD (safe to --drop-paths)."""
+    if os.path.lexists(os.path.join(repo_root, *rel.split("/"))):
+        return False
+    try:
+        proc = subprocess.run(["git", "-C", repo_root, "--literal-pathspecs", "cat-file", "-e",
+                               f"HEAD:{rel}"], capture_output=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode != 0
+
+
+def _refresh_cmd(repo_root, slug, paths):
+    """Runnable `nelly_evidence.py refresh` for one marked entry (absolute path, env prefix):
+    sources gone from the working tree and HEAD go under --drop-paths, the rest under --paths."""
+    drops = [p for p in paths if _gone(repo_root, p)]
+    keep = [p for p in paths if p not in drops]
+    args = ["refresh", "--cwd", repo_root, "--slug", slug]
+    if keep:
+        args += ["--paths", *keep]
+    if drops:
+        args += ["--drop-paths", *drops]
+    return nelly_pending._cmd("scripts/nelly_evidence.py", *args)
 
 
 def _mark_stale(cwd, mem, record, paths, today, timeout):
@@ -213,8 +190,9 @@ def scan(cwd, budget=1.5):
         if len(marked) > NAMED_CAP:
             named.append(f"+{len(marked) - NAMED_CAP} more")
         lines.append(f"{len(marked)} memory entries marked stale (sources changed): "
-                     f"{', '.join(named)}. Recheck the source, then run "
-                     f"scripts/nelly_evidence.py refresh <slug> --paths ...")
+                     f"{', '.join(named)}. Recheck each source, then run its refresh command:")
+        for slug, paths in marked[:NAMED_CAP]:
+            lines.append(f"  {slug}: {_refresh_cmd(repo_root, slug, paths)}")
     total = already_stale + len(marked)
     if total > 0:
         lines.append(f"{total} memory entries are stale in total.")

@@ -85,20 +85,32 @@ def _post_edit_content(tool, tool_input, path):
     return _apply_edits(current, edits)
 
 
-def _bad_path(p):
-    p = str(p)
-    return (p.startswith(("/", "~", "\\")) or os.path.isabs(p) or re.match(r"^[A-Za-z]:[\\/]", p) is not None
-            or ".." in re.split(r"[\\/]+", p))
+_CWD = None  # the payload cwd, set by main(); deny commands use its git toplevel as --cwd
+
+
+def _cmd(sub, slug):
+    """Runnable nelly_evidence.py command for deny text: absolute path, data-dir env prefix, quoted
+    args (CLAUDE_PLUGIN_ROOT/DATA are unset in the model's Bash). Falls back to the plain name."""
+    try:
+        import nelly_pending
+        import shared_slug
+        repo = shared_slug.repo_root(_CWD) if _CWD else "<repo root>"
+        extra = (["--type", "<type>", "--description", "<description>", "--body", "<body>",
+                  "--paths", "<path>", "--basis", "observed"] if sub == "record" else ["--paths", "<path>"])
+        return nelly_pending._cmd("scripts/nelly_evidence.py", sub, "--cwd", repo,
+                                  "--slug", slug, *extra)
+    except Exception:
+        return f"scripts/nelly_evidence.py {sub}"
 
 
 def _stale_fields(bi, block):
-    rec = {}
-    bi._add_evidence(rec, block)
+    rec = bi.parse_evidence(block)
     return tuple((k, rec.get(k)) for k in ("stale", "stale_since", "stale_paths"))
 
 
-def violations(bi, block, stem):
-    """{key: message} of name/confidence/path/evidence-completeness violations in one block."""
+def violations(bi, block, stem, exists=False):
+    """{key: message} of name/confidence/path/evidence-completeness violations in one block.
+    `exists`: the entry file already exists, so `record` (which only creates) is not prescribed."""
     out = {}
     name_m = bi._NAME_RE.search(block)
     if name_m and bi._scalar(name_m.group(1)) != stem:
@@ -108,22 +120,23 @@ def violations(bi, block, stem):
     entry_type = type_m.group(1).strip() if type_m else None
     if entry_type in _NEEDS_CONFIDENCE and not bi._CONFIDENCE_RE.search(block):
         out[("confidence",)] = f"a {entry_type} entry requires metadata.confidence (explicit or inferred)."
-    rec = {}
-    bi._add_evidence(rec, block)
+    rec = bi.parse_evidence(block)
     if "sources" in rec:
         for field, bad in (("revision", not rec.get("revision")),
                            ("verified", not _DATE_RE.match(rec.get("verified") or "")),
                            ("basis", rec.get("basis") not in _BASIS)):
             if bad:
+                fix = (f"Add the missing field(s) in this same edit, or once the sources are verified "
+                       f"run `{_cmd('refresh', stem)}`." if exists
+                       else f"Fill evidence with `{_cmd('record', stem)}`.")
                 out[("missing", field)] = (
                     f"`sources` is present, so {field} must also be set under metadata "
-                    f"(verified: YYYY-MM-DD; basis: observed|inferred|unknown). "
-                    f"Use scripts/nelly_evidence.py record to fill evidence.")
+                    f"(verified: YYYY-MM-DD; basis: observed|inferred|unknown). {fix}")
     paths = [s["path"] for s in rec.get("sources", [])]
     paths += bi._inline_list(block, "files") or []
     paths += rec.get("stale_paths") or []
     for p in paths:
-        if _bad_path(p):
+        if not bi.is_repo_relative(p):
             out[("path", p)] = (f"path '{p}' in sources/files/stale_paths must be repo-relative: no "
                                 f"leading '/', '~', or '..' segments.")
     return out
@@ -131,15 +144,13 @@ def violations(bi, block, stem):
 
 def check(bi, block, stem, old_block):
     """Return a denial reason or None."""
-    new_v = violations(bi, block, stem)
+    new_v = violations(bi, block, stem, exists=old_block is not None)
     if old_block is None:
         if new_v:
             return next(iter(new_v.values()))
     else:
         old_v = violations(bi, old_block, stem)
-        old_rec, new_rec = {}, {}
-        bi._add_evidence(old_rec, old_block)
-        bi._add_evidence(new_rec, block)
+        old_rec, new_rec = bi.parse_evidence(old_block), bi.parse_evidence(block)
         sources_changed = old_rec.get("sources") != new_rec.get("sources")
         for key, msg in new_v.items():
             if key not in old_v or (sources_changed and key[0] == "missing"):
@@ -147,7 +158,7 @@ def check(bi, block, stem, old_block):
     old = _stale_fields(bi, old_block) if old_block is not None else _stale_fields(bi, "")
     if _stale_fields(bi, block) != old:
         return ("stale, stale_since and stale_paths are written only by the freshness hook and "
-                "cleared only by `scripts/nelly_evidence.py refresh`; do not add, change or remove them by hand.")
+                f"cleared only by `{_cmd('refresh', stem)}`; do not add, change or remove them by hand.")
     return None
 
 
@@ -164,6 +175,8 @@ def main():
         if not file_path or not file_path.endswith(".md"):
             no_decision()
         cwd = payload.get("cwd") or os.getcwd()
+        global _CWD
+        _CWD = cwd
         norm = os.path.normpath(file_path if os.path.isabs(file_path) else os.path.join(cwd, file_path))
 
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

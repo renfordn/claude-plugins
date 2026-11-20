@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import build_index  # noqa: E402
 from nelly_memory import memory_dir, parse_index_line_fields, resolve_repo_relative  # noqa: E402
+import shared_slug  # noqa: E402
 import nelly_store  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
 
 _LINE_RE = re.compile(r"^-\s*\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
@@ -124,7 +125,7 @@ def _stale_suffix(entry_text):
     (the authoritative entry, not the index), else "". Parse problems -> ""."""
     try:
         m = build_index._FRONTMATTER_RE.search(entry_text)
-        rec = build_index._parse_frontmatter_block(m.group(1)) if m else {}
+        rec = build_index.parse_evidence(m.group(1)) if m else {}
         if rec.get("stale") is True:
             return f" (stale: recheck {', '.join(rec.get('stale_paths') or [])})"
     except Exception:
@@ -132,10 +133,11 @@ def _stale_suffix(entry_text):
     return ""
 
 
-def _path_matches(cwd, paths, target):
+def _path_matches(root, paths, target):
+    """Index `paths:` are relative to the git toplevel (`root`), never to the payload cwd."""
     for p in paths:
         try:
-            resolved = resolve_repo_relative(cwd, p)
+            resolved = resolve_repo_relative(root, p)
         except ValueError:
             continue
         if resolved == target:
@@ -165,10 +167,15 @@ def main():
     if not index:
         no_decision()  # empty/missing memory store -> silent no-op
 
+    root = None  # git toplevel, computed on the first index line that has paths
     for line in index.splitlines():
         fields = parse_index_line_fields(line)
         paths = fields.get("paths")
-        if not paths or not _path_matches(cwd, paths, target):
+        if not paths:
+            continue
+        if root is None:
+            root = shared_slug.repo_root(cwd)
+        if not _path_matches(root, paths, target):
             continue
 
         m = _LINE_RE.match(line)

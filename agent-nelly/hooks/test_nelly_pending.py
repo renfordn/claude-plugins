@@ -428,3 +428,15 @@ def test_symlinked_cwd_uses_the_lexical_store(repo, tmp_path):
     pid = nelly_pending.add(str(link), "s", ["src/store.py"], [], "uncommitted")
     assert os.path.isfile(os.path.join(nelly_memory.memory_dir(str(link)), "pending-findings", pid + ".json"))
     assert [r["id"] for r in nelly_pending.list_pending(str(link))] == [pid]
+
+
+# --- slice 2D: placeholder evidence is not evidence ---
+
+@pytest.mark.parametrize("outcome", ["verified", "dismissed"])
+def test_resolve_rejects_placeholder_evidence(repo, isolated_base, outcome):
+    pid = _add_dirty(repo)
+    _commit(repo, "src/store.py", V1)
+    r = _cli(isolated_base, "resolve", pid, outcome, "--evidence", "<what you checked>", "--cwd", str(repo))
+    assert r.returncode == 3, (r.stdout, r.stderr)
+    assert "placeholder" in r.stderr
+    assert os.path.isfile(os.path.join(_pdir(repo), pid + ".json"))
