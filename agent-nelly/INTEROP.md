@@ -202,7 +202,9 @@ consumers (code-reviewer feature-finder, agent-isdd) treat it as search hints.
 session). A changed or missing file, or a git/hash failure, marks the entry `stale: true` with
 `stale_since` and `stale_paths`; the index record gains `stale` and `stale_paths`. Nothing is
 deleted. `scripts/nelly_evidence.py refresh <slug> --paths ...` re-hashes only the paths given
-and clears `stale` only when no stale path is left. Briefs and proactive surfacing show stale
+and clears `stale` only when no stale path is left; `--drop-paths <p>...` removes sources whose file
+no longer exists. `sources` and `metadata.files` are relative to the repo root (git toplevel of
+`cwd`), not to `cwd`. Briefs and proactive surfacing show stale
 entries as "(stale: recheck <paths>)".
 
 **Capture (R18).** The Stop hook `hooks/nelly_stop_capture.py` asks at most once per turn for
@@ -213,7 +215,9 @@ recorded. A finding on an uncommitted or untracked file is not prompted: the hoo
 hashes}`, id = SHA-256 of the record, so duplicates collapse). `hooks/nelly_pending.py` lists at
 most 2 ready (committed bytes match) and 2 changed findings at SessionStart; `nelly_pending.py
 resolve <id> verified|dismissed` promotes (only when ready) or dismisses, archiving to
-`resolved-findings/`. `NELLY_CAPTURE=off`, plan mode, or a user prompt saying not to save
+`resolved-findings/`. `nelly_pending.py add --summary TEXT --paths P... [--symbols S...] [--reason R]` queues a finding
+by hand and prints `{"id"}`. Exit codes: 0 ok, 2 usage, 3 refused (verified but not ready, no
+evidence, or invalid add), 4 unknown id, 5 plugin data dir unavailable. `NELLY_CAPTURE=off`, plan mode, or a user prompt saying not to save
 memory disables the prompt.
 
 **Safe writes (R19).** Hook and script writers go through `scripts/nelly_store.py`: an advisory

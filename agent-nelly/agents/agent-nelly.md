@@ -166,6 +166,12 @@ you surface.
   (see "Aside-spinoff context bundle" below) — the calling agent decides
   whether/how to invoke `spawn_task`.
 
+## Evidence rules (R5)
+
+- Brief: mark `stale: true` entries "(stale: recheck <paths>)", never as current; report `basis` and `unknowns` when present.
+- Record code facts via `scripts/nelly_evidence.py record` (committed files only); uncommitted: `hooks/nelly_pending.py add`. Never hand-write evidence.
+- Relay the SessionStart pending-findings hint when relevant.
+
 ## Intent alignment
 
 Compare the stored `Intent` (if any) against the caller's stated task
@@ -539,12 +545,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/nelly-consolidated-memories.md` when read
 
 ## Staleness flagging, consolidation, and the file-move mechanism
 
-Moved to `nelly-maintenance` (staleness/prune → `references/nelly-staleness.md`,
-consolidation → `references/nelly-consolidation.md`) and the shared
-`references/nelly-file-move.md` (used by both `nelly-maintenance` and this agent's own
-supersession/discard write-backs above). None of these run during ordinary brief
-assembly or fact/lesson recording — only `/nelly-memory prune`/`consolidate` trigger
-them, via `nelly-maintenance`, never this agent.
+Moved to `nelly-maintenance` (`references/nelly-staleness.md`, `references/nelly-consolidation.md`)
+and the shared `references/nelly-file-move.md` (also used by this agent's write-backs). Only `/nelly-memory prune`/`consolidate` trigger them, never this agent.
 
 ## Explicit exclusions
 

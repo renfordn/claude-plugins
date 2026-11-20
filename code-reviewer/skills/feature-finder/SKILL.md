@@ -34,7 +34,7 @@ Choose the lowest tier that answers the stated decision; a higher tier includes 
 ## 3. Evidence rules
 
 - Confirm everything against the current checkout. Search for exact forms first (`rg -n -F`), read narrow windows, skip vendor, generated and lock files.
-- Memory can aim searches, never serve as evidence. Memory hints come only from the caller's args; this skill never calls agent-nelly. A hint that the checkout does not confirm is reported as unverified, or as contradicted.
+- Memory can aim searches, never serve as evidence. Memory hints come only from the caller's args; this skill never calls agent-nelly. A hint that the checkout does not confirm is reported as unverified, or as contradicted. A hint marked stale, or with basis inferred or unknown, is a lead only.
 - Tests count as evidence of coverage or intent, not execution. Say a path runs only if you ran it.
 - Static reading cannot show runtime behavior; label configuration, async, persistence and contract boundaries you did not observe as unverified.
 - Tag every material claim: observed (read in the checkout, cited `file:line`), inferred (follows from observed facts, say from which), unverified (not checked; name the smallest check that would settle it).

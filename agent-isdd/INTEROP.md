@@ -60,6 +60,9 @@ than reading `${CLAUDE_PLUGIN_DATA}/sdd-memory/` cross-feature index files direc
 unavailable, agent-isdd surfaces one plain notice and continues without the Intent-alignment
 check — never a hard dependency.
 
+Nelly entries may now carry `stale` and `basis` (observed | inferred | unknown). A stale entry, or one
+whose basis is inferred or unknown, is a lead to recheck against the current code, never evidence.
+
 agent-isdd still owns writing its own per-feature `spec/` artifacts
 (`workflow-state.md`/`.json`, `requirements.md`, `design.md`, `tasks.md`, `recap.md`) under
 `${CLAUDE_PLUGIN_DATA}/sdd-memory/<project-slug>/spec/<feature-slug>/` directly — that scaffolding

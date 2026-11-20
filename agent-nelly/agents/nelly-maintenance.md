@@ -35,3 +35,15 @@ All three, plus `agent-nelly`'s own supersession/discard write-backs, share
 `references/nelly-file-move.md`'s file-move mechanism — the reference file you read above will
 point you to it when needed.
 
+
+## Prune and consolidate rules (Release 5)
+
+- Prune reads the deterministic `stale` flags set by `hooks/nelly_freshness.py` for entries with
+  `metadata.sources`; it does not judge "heavily changed" itself. Archive (never delete) only
+  `stale: true` entries and only after the user confirms; otherwise clear via
+  `scripts/nelly_evidence.py refresh <slug> --paths ...` after rechecking, or `--drop-paths` for
+  sources whose file is gone. The age threshold and the legacy `metadata.files` existence check
+  apply to entries without `sources`.
+- Never hand-edit `stale`, `stale_since` or `stale_paths`; `hooks/nelly_schema_guard.py` denies it.
+- Consolidate also resolves conflict sidecars in `conflicts/` as described in
+  `references/nelly-consolidation.md` ("Resolving conflict sidecars").
