@@ -11,6 +11,8 @@ version. Anything else is a leftover that can shadow or duplicate them:
                          --plugins that is no longer in the repo
     repo-clone           any git clone of this repo under ~/.claude/plugins/ (old harness bootstraps)
     user-skill           ~/.claude/skills/<name>/ byte-identical to a repo plugin's skills/<name>/
+    retired-skill        ~/.claude/skills/<name>/ named in --retired-skills (any content, any repo
+                         plugin or none); ~/.claude/skills/synced/ is never touched
     user-agent           ~/.claude/agents/<name>.md byte-identical to a repo plugin's agents/<name>.md
     marketplace-install  <plugin>@<marketplace> in installed_plugins.json -- reported with the
                          `claude plugin uninstall` command, never edited here
@@ -93,7 +95,7 @@ def _repo_clones(plugins_dir, remote, max_depth=3):
     return found
 
 
-def find_copies(repo, home, plugins=None, remote=None):
+def find_copies(repo, home, plugins=None, remote=None, retired_skills=None):
     """[{"kind", "path", "plugin", "hint"?}] for every non-account copy found."""
     in_repo = set(repo_plugins(repo))
     scope = list(plugins) if plugins else sorted(in_repo)
@@ -140,6 +142,14 @@ def find_copies(repo, home, plugins=None, remote=None):
                     continue
                 copies.append({"kind": kind, "path": dst, "plugin": p})
 
+    for name in retired_skills or ():
+        # Retired/replaced skill: removable whatever its content; "synced" is the account tree.
+        if not name or name == "synced" or os.sep in name or name in (".", ".."):
+            continue
+        dst = os.path.join(home, "skills", name)
+        if os.path.lexists(dst) and not any(c["path"] == dst for c in copies):
+            copies.append({"kind": "retired-skill", "path": dst, "plugin": "*"})
+
     installed_path = os.path.join(plugins_dir, "installed_plugins.json")
     try:
         with open(installed_path) as f:
@@ -160,13 +170,29 @@ def main(argv=None):
                         help="Only these plugins (default: all in the repo). Retired names allowed.")
     parser.add_argument("--home", default=DEFAULT_HOME, help="Claude config dir (default ~/.claude).")
     parser.add_argument("--delete", action="store_true", help="Remove what's found (default: dry run).")
+    parser.add_argument("--retired-skills", default="", metavar="NAME[,NAME...]",
+                        help="Also remove ~/.claude/skills/<name> for skills the repo retired or "
+                             "replaced, even if content differs. Never touches skills/synced.")
+    parser.add_argument("--json", action="store_true", help="Print the copies found as JSON.")
     parser.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
     parser.add_argument("--remote", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
-    copies = find_copies(args.repo, args.home, args.plugins, args.remote)
+    retired = [n.strip() for n in args.retired_skills.split(",") if n.strip()]
+    copies = find_copies(args.repo, args.home, args.plugins, args.remote, retired)
+    reminder = ("Note: the account copy of a retired skill (~/.claude/skills/synced/) is not touched; "
+                "remove it in Settings if it should go too.")
+    if args.json:
+        if args.delete:
+            for c in copies:
+                if c["kind"] != "marketplace-install" and os.path.lexists(c["path"]):
+                    (shutil.rmtree if os.path.isdir(c["path"]) else os.remove)(c["path"])
+        print(json.dumps(copies, indent=2))
+        return 1 if any(c["kind"] == "marketplace-install" or not args.delete for c in copies) else 0
     if not copies:
         print("No non-account plugin copies found.")
+        if retired:
+            print(reminder)
         return 0
     left = 0
     for c in copies:
@@ -183,6 +209,8 @@ def main(argv=None):
             left += 1
     if left and not args.delete:
         print("\nDry run -- re-run with --delete to remove these.")
+    if retired:
+        print("\n" + reminder)
     return 1 if left else 0
 
 
