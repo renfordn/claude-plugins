@@ -130,7 +130,7 @@ def test_contract_amendments_after_slice0_review():
     hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text())["hooks"]
     assert any("pre_push_offer.py" in h["command"] for e in hooks.get("SubagentStop", []) for h in e["hooks"])
     verifier = (ROOT / "agents" / "finding-verifier.md").read_text()
-    assert "Previous evidence:" in verifier and "```json" in verifier.split("Re-check")[1]
+    assert "Previous evidence:" in verifier and "```json" in verifier.split("Re-check", 1)[1]
 
 
 def test_validate_rejects_duplicate_and_trailing_ids():
