@@ -33,6 +33,8 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import build_index  # noqa: E402
 from nelly_memory import memory_dir, parse_index_line_fields, resolve_repo_relative  # noqa: E402
 
 _LINE_RE = re.compile(r"^-\s*\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
@@ -117,6 +119,19 @@ def _real_confidence(entry_text):
     return m.group(1).strip() if m else None
 
 
+def _stale_suffix(entry_text):
+    """` (stale: recheck <paths>)` when the entry file's own frontmatter says stale: true
+    (the authoritative entry, not the index), else "". Parse problems -> ""."""
+    try:
+        m = build_index._FRONTMATTER_RE.search(entry_text)
+        rec = build_index._parse_frontmatter_block(m.group(1)) if m else {}
+        if rec.get("stale") is True:
+            return f" (stale: recheck {', '.join(rec.get('stale_paths') or [])})"
+    except Exception:
+        pass
+    return ""
+
+
 def _path_matches(cwd, paths, target):
     for p in paths:
         try:
@@ -171,9 +186,10 @@ def main():
         if entry_type == "error-prevention":
             if _real_confidence(entry_text) != "explicit":
                 continue  # inferred (or unknown) confidence -> never surface
-            emit_allow(f"{title} — {description} (confidence: explicit)")
+            emit_allow(f"{title} — {description} (confidence: explicit)"
+                       + _stale_suffix(entry_text))
         elif entry_type == "file-relevance":
-            emit_allow(f"{title} — {description}")
+            emit_allow(f"{title} — {description}" + _stale_suffix(entry_text))
         # Any other/unknown type is out of scope for this slice -> keep
         # scanning rather than surfacing or erroring.
 
