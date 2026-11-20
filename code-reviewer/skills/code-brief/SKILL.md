@@ -1,6 +1,6 @@
 ---
 name: code-brief
-description: Explain how existing code works as a visual Artifact — structure and/or timeline diagrams plus a narrative walkthrough — for a person building understanding. Use whenever the user asks to explain, visualize, diagram, or walk through how code, a feature, or a subsystem works. Not a code review — for reviewing a change, use the code-reviewer skill.
+description: Explain how existing code works as a visual Artifact — structure and/or timeline diagrams plus a narrative walkthrough — for a person building understanding. Use when the user asks to visualize, diagram, or walk through how code or a subsystem works. Text "where is / what calls / how does X work" questions go to feature-finder. Not a review (code-reviewer).
 argument-hint: [file, feature, or subsystem to explain]
 ---
 

@@ -31,5 +31,5 @@ can name a checkpoint.
 ## Relationship to other plugins
 
 - Cooperation with **agent-isdd** (its own SDD breadcrumb, `agent-isdd/references/ux-conventions.md`) and
-  **code-reviewer:code-brief** (the specialist for "explain how this code works") is defined in
-  `INTEROP.md`. `visual-brief` covers everything else that's big enough to need a picture.
+  **code-reviewer:code-brief** (the specialist for visual "explain how this code works") is defined in
+  `INTEROP.md`; text answers to "where is / what calls / how does X work" go to `code-reviewer:feature-finder`. `visual-brief` covers everything else that's big enough to need a picture.
