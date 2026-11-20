@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
 ### Added
 - **feature-finder skill (R12)**: `code-reviewer:feature-finder` answers where/how/what-calls questions as text from a forked read-only Explore context. Lanes Locate, Explain, Trace, Impact, Research; tiers 0–4, lowest useful first; every claim tagged observed, inferred or unverified; memory is a search hint only, never evidence; no review findings. Replaces the old user-level feature-finder skill, which is retired.
 - **bug-investigation skill and `bug-investigator` agent (R13)**: read-only investigation of a reported failure with competing H-id hypotheses, observed/inferred/associated/unverified labels, at most 3 check passes, the leading hypothesis challenged by `finding-verifier` (Hypotheses mode), and one next action with an owner and a verification condition. No edits.

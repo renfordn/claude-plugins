@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-20
+
 - **Docs**: text "how does X work" questions route to code-reviewer's `feature-finder`; `code-brief` stays the visual option (visual-brief description, INTEROP.md, README).
 
 ## [0.3.6] - 2026-10-05
