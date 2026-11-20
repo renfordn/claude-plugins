@@ -24,70 +24,45 @@ prune` command surface (Phase 8) with an explicit prune request and a
    entry's `Written` line with `(age threshold)` so it's distinguishable from
    the file-change-aware reasons below.
 
-### File-change-aware staleness (additive, `file-relevance` entries only)
+### Sourced entries: deterministic `stale` flags (any type with `metadata.sources`)
 
-This check only ever applies to entries whose `metadata.type` is
-`file-relevance` — they're the only type with a `metadata.files` list. It is
-additive to the age check above (steps 1-4), never a replacement: a
-`file-relevance` entry is still evaluated against the age threshold exactly
-as before, and every other entry type's staleness behavior is completely
-unchanged by this subsection. Like the age check, this only ever runs under
-`/nelly-memory prune` — it is never autonomous, never runs during a plain
-brief-assembly call, and never scans anything mid-task.
+Entries that carry `metadata.sources` are judged by the `stale` flag, not by you.
+`hooks/nelly_freshness.py` compares each source's recorded blob hash with the current file at every
+SessionStart and writes `stale: true`, `stale_since` and `stale_paths` itself (never deleting; digests
+are skipped). There is no LLM "heavily changed" judgment for these entries, and you never hand-edit
+`stale`, `stale_since` or `stale_paths` (`hooks/nelly_schema_guard.py` denies it). Sources are
+repo-root-relative (git toplevel), the same base the hook uses.
 
-5. For each `file-relevance` entry, resolve every path in its
-   `metadata.files` list against the project's `cwd` using
-   `resolve_repo_relative(cwd, path)`'s documented rule (Phase 2,
-   `hooks/nelly_memory.py`: `os.path.normpath(os.path.join(cwd, path))`,
-   raising on an absolute `path` — per `metadata.files`' own invariant that
-   entries are always plain repo-relative paths, an absolute path here
-   indicates a malformed entry; skip that individual path as unresolvable
-   rather than guessing, and still evaluate the entry's remaining paths).
-   Construct this resolution yourself using the module's documented shape,
-   the same path-resolution pattern `agent-nelly.md` uses for
-   `memory_dir`/`entry_path`/`archive_path` (see its "Path resolution" note) —
-   do not add a new `Bash` invocation for this; check each resolved path's
-   existence with `Glob` (a single-file glob against the resolved path is
-   sufficient) or a direct `Read` attempt. `nelly-maintenance`'s `Bash` usage
-   stays scoped to exactly the uses documented in
-   `references/nelly-file-move.md` and "Import"'s entries/-exists check;
-   this existence check does not grow that surface.
-6. **Three outcomes per referenced file:**
-   - **Deleted** — the resolved path does not exist. Flag stale
-     *regardless* of `metadata.last_referenced` age, even if the entry was
-     referenced today.
-   - **Renamed** — cannot be reliably distinguished from deleted without
-     guaranteed git history, and `nelly-maintenance` does not add
-     `git log --follow` or any other new inspection surface to attempt
-     rename detection (the same narrow-tool-usage discipline as the `Bash`
-     scoping described in step 5 above and in `references/nelly-file-move.md`).
-     Treat a renamed file exactly like a deleted one — this is a known,
-     accepted limitation, not a bug to fix later.
-   - **Heavily changed** — the file still exists, but reading its current
-     content (`Read`) and comparing it against what the entry's body
-     actually claims shows the file no longer matches what the entry
-     describes. This is the same LLM plausibility judgment already used for
-     near-duplicate detection in `references/nelly-consolidation.md`'s
-     "Consolidation write-back" and `agent-nelly.md`'s supersession check —
-     not a diff-percentage or line-count heuristic, no invented threshold.
-7. **Multiple files per entry.** When an entry's `metadata.files` lists more
-   than one path, archive it only when **all** referenced files are
-   deleted/renamed (per step 6). If some referenced files still exist (and
-   aren't heavily changed) while others are gone, do **not** auto-archive —
-   instead add a partial-staleness note to `Written` naming which paths are
-   gone and which remain, e.g.: `"<name>` references 2 files; `path/a.py` no
-   longer exists, `path/b.py` still does — not archived, flagged for
-   review`".
-8. For any `file-relevance` entry that qualifies for archiving under step 6
-   (single file, or every file in a multi-file entry), move it to `archive/`
-   using the exact same `references/nelly-file-move.md` mechanism as the age
-   check above (step 2) — reuse it verbatim, do not invent a second
-   archiving mechanism — then update `MEMORY.md` (step 3 above) exactly the
-   same way.
-9. **Reporting.** Extend the existing per-entry archive report line from
-   step 4 above with a reason tag distinguishing all three cases so a
-   reviewer can tell why an entry was archived at a glance:
-   - `(age threshold)` — the pre-existing age-based reason (step 4).
-   - `(referenced file no longer exists)` — deleted or renamed, per step 6.
-   - `(referenced file heavily changed)` — content mismatch, per step 6.
+5. For each entry with `stale: true`, list it with its `stale_paths`. Then, per entry, one of:
+   - **Archive** (never delete) via `references/nelly-file-move.md` plus the `MEMORY.md` line removal
+     of step 3, only after the user confirms; tag `(stale: sources changed)`.
+   - **Recheck and clear**: read the current `stale_paths`; if the entry still holds, run
+     `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/nelly_evidence.py" refresh <slug> --paths <paths>`
+     (re-hashes only those paths; `stale` clears only when no stale path remains). If the entry no
+     longer holds, fix or archive it instead.
+   - **Drop vanished sources**: for a source whose file no longer exists, `refresh <slug>
+     --drop-paths <paths>` removes it from `sources`. Note: `refresh` refuses paths with
+     uncommitted changes (exit 2).
+6. Never archive a sourced entry that is not `stale: true` for a file-change reason; the age
+   threshold (steps 1-4) still applies to every entry.
 
+### Legacy file-relevance check (entries WITHOUT `sources` only)
+
+Applies only to `file-relevance` entries that have no `metadata.sources`; additive to the age check,
+under `/nelly-memory prune` only, never autonomous.
+
+7. Resolve every path in `metadata.files` against the git toplevel of the project's `cwd`
+   (`resolve_repo_relative(cwd, path)`, `hooks/nelly_memory.py`; an absolute path is a malformed
+   entry: skip that path, still evaluate the rest). Check existence with `Glob` or `Read`; add no new
+   `Bash` use.
+8. A missing path (deleted or renamed; renames are not detected, an accepted limitation) is stale
+   regardless of `last_referenced`. There is no content-change judgment on this path: a file that
+   still exists is left alone (record `sources` via `nelly_evidence.py record` to get deterministic
+   change detection).
+9. Multiple files: archive only when **all** referenced files are gone; if some remain, do not
+   archive, and note in `Written` which paths are gone and which remain.
+10. Archive qualifying entries with the same `references/nelly-file-move.md` mechanism and `MEMORY.md`
+    update as step 3. Reason tags on each `Written` line:
+    - `(age threshold)` - step 4.
+    - `(stale: sources changed)` - step 5, user-confirmed.
+    - `(referenced file no longer exists)` - step 8.

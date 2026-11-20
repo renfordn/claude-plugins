@@ -36,9 +36,9 @@ New metadata fields (optional, type-conditional — only present for their
 matching `type`; entries of other types MUST NOT include them):
 
   - `metadata.files` (type: file-relevance only): a YAML list of one or
-    more paths, relative to the project's `cwd` — NEVER absolute, since a
-    project can be checked out at different absolute paths across
-    machines/worktrees.
+    more paths, relative to the repo root (the git toplevel of the project's
+    `cwd`; `cwd` itself outside a repo) — NEVER absolute, since a project can
+    be checked out at different absolute paths across machines/worktrees.
   - `metadata.files` (type: file-summary only): a YAML list containing
     exactly **one** repo-relative path — one file-summary entry per file,
     unlike `file-relevance`'s multi-file list. `description` is the file's
@@ -127,6 +127,8 @@ metadata:
   verified: <YYYY-MM-DD>
   basis: <observed | inferred | unknown>   # observed = read in source/tests
   unknowns: "<what was not checked or is unresolved>"  # optional
+  #     (sources paths are repo-root-relative, like `files`.) Drop a source whose
+  #     file is gone with `nelly_evidence.py refresh <slug> --drop-paths <path>`.
   # --- staleness (R17), written only by hooks/nelly_freshness.py and
   #     cleared only by `nelly_evidence.py refresh`; never by hand ---
   stale: true
