@@ -10,15 +10,23 @@ To "move" `entries/<name>.md` to `archive/<name>.md`, use `Bash` to run a
 literal, atomic move:
 
 ```
-mkdir -p "<memory_dir>/archive" && mv "<memory_dir>/entries/<name>.md" "<memory_dir>/archive/<name>.md"
+mkdir -p "<memory_dir>/archive" && mv -n "<memory_dir>/entries/<name>.md" "<memory_dir>/archive/<name>.md"
 ```
 
-This, and running `python3 hooks/nelly_memory.py --entries-path [cwd]` to
+`mv -n` never overwrites: if `archive/<name>.md` already exists (an earlier archive of the same
+name) it moves nothing. Check that `entries/<name>.md` is gone afterwards; if it is still there,
+repeat the move to a unique name, e.g. `archive/<name>.<YYYYMMDD>.md`, instead of overwriting the
+older archive (the weekly consolidation script does the same with `<name>.2.md`, `<name>.3.md`).
+
+This, running `python3 hooks/nelly_memory.py --entries-path [cwd]` to
 guarantee `entries/` exists before a new/overwritten entry is written (see
 `agent-nelly.md`'s "Recording a new fact" and
-`references/nelly-import.md`'s "Import"), are the only uses `Bash` is put to
-by either `agent-nelly` or `nelly-maintenance` — a minimal, justified
-addition to the toolset for exactly these two operations. `mv` is
+`references/nelly-import.md`'s "Import"), and the R5 scripts
+`nelly_evidence.py` (`record`, `refresh`, `stale`) and `nelly_pending.py`
+(`add`, `list`, `resolve`), run with the env prefix and absolute script path
+shown in the SessionStart line (`CLAUDE_PLUGIN_ROOT` is unset in Bash), are the
+only uses `Bash` is put to by either `agent-nelly` or `nelly-maintenance`.
+`mv` is
 atomic and content-preserving: the file's full content is never destroyed,
 only relocated to `archive/<name>.md`, where it remains fully readable and
 recoverable (moving it back is the same command in reverse). This is not a

@@ -95,7 +95,7 @@ never edited in place, only moved:
    only entry that stated it.
 2. **Archive the old entry second**, only after step 1's write is verified,
    using `references/nelly-file-move.md`'s mechanism verbatim — the same
-   `mkdir -p "<memory_dir>/archive" && mv
+   `mkdir -p "<memory_dir>/archive" && mv -n
    "<memory_dir>/entries/<old-name>.md" "<memory_dir>/archive/<old-name>.md"`
    command already used by staleness flagging and consolidation (both in
    `nelly-maintenance`). Do not read or edit the old entry's content first,

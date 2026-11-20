@@ -40,9 +40,13 @@ point you to it when needed.
 
 - Prune reads the deterministic `stale` flags set by `hooks/nelly_freshness.py` for entries with
   `metadata.sources`; it does not judge "heavily changed" itself. Archive (never delete) only
-  `stale: true` entries and only after the user confirms; otherwise clear via
-  `scripts/nelly_evidence.py refresh <slug> --paths ...` after rechecking, or `--drop-paths` for
-  sources whose file is gone. The age threshold and the legacy `metadata.files` existence check
+  `stale: true` entries and only after the user confirms; otherwise recheck the source, rewrite the
+  entry (or archive it) if the fact changed, then clear via
+  `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --paths <paths>` (add
+  `--confirm-unchanged` only when it still holds as written), or `--drop-paths <paths>` for
+  sources whose file is gone. Run it with the env prefix and absolute script path shown in the
+  SessionStart line (`CLAUDE_PLUGIN_ROOT` is unset in Bash); refresh re-pins hashes, it never
+  proves the fact. The age threshold and the legacy `metadata.files` existence check
   apply to entries without `sources`.
 - Never hand-edit `stale`, `stale_since` or `stale_paths`; `hooks/nelly_schema_guard.py` denies it.
 - Consolidate also resolves conflict sidecars in `conflicts/` as described in

@@ -49,6 +49,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
+import nelly_frontmatter  # noqa: E402
 import nelly_store  # noqa: E402  (scripts/ is this file's own dir)
 from nelly_memory import (  # noqa: E402
     BASE, memory_dir, global_dir, SUMMARY_SUBDIR, DIGEST_SUBDIR, DIGEST_TYPE,
@@ -67,7 +68,7 @@ _GIT_HASH_RE = re.compile(r"^\s*git_hash:\s*(\S+)", re.M)
 _TOPIC_RE = re.compile(r"^topic:[ \t]*(.+)$", re.M)
 _UPDATED_RE = re.compile(r"^updated:[ \t]*(.+)$", re.M)
 _SOURCES_KEY_RE = re.compile(r"^([ \t]*)sources:[ \t]*$")
-_EVIDENCE_SCALARS = ("revision", "verified", "basis", "unknowns", "stale_since")
+_EVIDENCE_SCALARS = ("revision", "verified", "basis", "unknowns", "stale_since", "stale_digest")
 _EVIDENCE_SCALAR_RES = {k: re.compile(r"^[ \t]*" + k + r":[ \t]*(\S.*)$", re.M) for k in _EVIDENCE_SCALARS}
 _SOURCES_FLOW_RE = re.compile(r"^[ \t]*sources:[ \t]*\[(.*)\][ \t]*$", re.M)
 _STALE_RE = re.compile(r"^[ \t]*stale:[ \t]*(\S+)", re.M)
@@ -98,13 +99,7 @@ def _scalar(value):
     """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar;
     inside double quotes an escaped backslash or quote is unescaped (the inverse of
     nelly_frontmatter.quote)."""
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-        quote = value[0]
-        value = value[1:-1]
-        if quote == '"':
-            value = re.sub(r'\\(["\\])', r"\1", value)
-    return value
+    return nelly_frontmatter.unquote(value)
 
 
 def _split_inline(text):
@@ -223,14 +218,14 @@ def _parse_frontmatter_block(block):
     folder_m = _FOLDER_RE.search(block)
     git_hash_m = _GIT_HASH_RE.search(block)
 
-    description = desc_m.group(1).strip().splitlines()[0] if desc_m else ""
+    description = _scalar(desc_m.group(1).strip().splitlines()[0]) if desc_m else ""
     entry_type = type_m.group(1).strip() if type_m else None
     entry_type = _TYPE_ALIASES.get(entry_type, entry_type)
     tags = _inline_list(block, "tags") or []
     files = _inline_list(block, "files") or []
 
     record = {
-        "slug": name_m.group(1).strip(),
+        "slug": _scalar(name_m.group(1)),
         "type": entry_type,
         "confidence": confidence_m.group(1).strip() if confidence_m else None,
         "description": description,
@@ -268,6 +263,9 @@ def _add_evidence(record, block):
     m = _EVIDENCE_SCALAR_RES["stale_since"].search(block)
     if m and _scalar(m.group(1)):
         record["stale_since"] = _scalar(m.group(1))
+    m = _EVIDENCE_SCALAR_RES["stale_digest"].search(block)
+    if m and _scalar(m.group(1)):
+        record["stale_digest"] = _scalar(m.group(1))
     stale_paths = _inline_list(block, "stale_paths")
     if stale_paths is not None:
         record["stale_paths"] = stale_paths
@@ -393,27 +391,40 @@ def upsert_project_entry(cwd, entry_path):
     `cwd` here is a real project cwd (e.g. a hook payload's `cwd`), never an
     already-resolved memory_dir -- same rule as build_project_index() above.
     """
+    return upsert_project_entries(cwd, [entry_path])
+
+
+def upsert_project_entries(cwd, entry_paths):
+    """upsert_project_entry for several entry files under ONE index lock and write (a scan that
+    marks many entries stale must not rewrite nelly-index.json once per entry)."""
     d = memory_dir(cwd)
-    name = os.path.basename(entry_path)
-    if _is_store_artifact(entry_path, d):
+    drop, parse = set(), []  # conflict copies -> drop their records; entries -> re-parse
+    for entry_path in entry_paths:
+        if _is_store_artifact(entry_path, d):
+            continue
+        relative = os.path.relpath(entry_path, d)
+        if is_conflict_copy(os.path.basename(entry_path)):
+            # An iCloud conflict copy is never an entry of its own: drop any record that points
+            # at it and leave the original's record alone.
+            drop.add(relative)
+        else:
+            parse.append((entry_path, relative))
+    if not drop and not parse:
         return _read_index(os.path.join(d, INDEX_FILENAME))
-    relative = os.path.relpath(entry_path, d)
-    if is_conflict_copy(name):
-        # An iCloud conflict copy is never an entry of its own: drop any record that points
-        # at it and leave the original's record alone.
-        return nelly_store.upsert_index(
-            d, lambda records: [r for r in records if r.get("file_path") != relative])
-    slug = name[:-3] if name.endswith(".md") else name
-    # relpath (not a hardcoded "entries"/name join) so this also works for entries nested one
-    # level deeper, e.g. entries/<SUMMARY_SUBDIR>/name.md for a file-summary/folder-summary entry.
 
     def apply(records):
         # Parsed inside the store lock so a concurrent writer's newer text can't be overwritten
         # by a record parsed from an older read.
-        record = _record_for_entry_file(entry_path, relative)
-        kept = [r for r in records if r.get("slug") != slug]
-        if record:
-            kept.append(record)
+        kept = [r for r in records if r.get("file_path") not in drop]
+        for path, relative in parse:
+            name = os.path.basename(path)
+            # relpath (not a hardcoded "entries"/name join) so this also works for entries nested
+            # one level deeper, e.g. entries/<SUMMARY_SUBDIR>/name.md for a file/folder summary.
+            slug = name[:-3] if name.endswith(".md") else name
+            record = _record_for_entry_file(path, relative)
+            kept = [r for r in kept if r.get("slug") != slug]
+            if record:
+                kept.append(record)
         return kept
 
     return nelly_store.upsert_index(d, apply)

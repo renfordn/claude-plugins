@@ -4,8 +4,10 @@ Operates on a list of lines (with or without line endings; new lines copy the ne
 ending) so every line it does not touch stays byte-identical. Keys are edited only inside the
 `metadata:` block, at the block's child indent: the indent of its first non-blank, non-comment line.
 """
+import hashlib
 import re
 
+_YAML_AMBIGUOUS = {"true", "false", "yes", "no", "on", "off", "y", "n", "null", "~"}
 _META_RE = re.compile(r"^metadata:[ \t]*(#.*)?\r?\n?$")
 _PLAIN_RE = re.compile(r"[A-Za-z0-9_./@+=~-]+")
 _ITEM_RE = re.compile(r"^[ \t]*-(?:[ \t]|\r?\n?$)")
@@ -18,6 +20,54 @@ def quote(value):
     if _PLAIN_RE.fullmatch(value):
         return value
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def unquote(value):
+    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar; inside
+    double quotes an escaped backslash or quote is unescaped (the inverse of quote/quote_always)."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        q = value[0]
+        value = value[1:-1]
+        if q == '"':
+            value = re.sub(r'\\(["\\])', r"\1", value)
+    return value
+
+
+def read_scalar(block, key):
+    """The unquoted first-line value of top-level `key:` in a frontmatter block, or None."""
+    m = re.search(r"^" + re.escape(key) + r":[ \t]*(\S.*)$", block, re.M)
+    return unquote(m.group(1)) if m else None
+
+
+def reject_placeholder(flag, value):
+    """Raise ValueError when `value` is still `<placeholder>` text (callers turn it into their exit)."""
+    v = (value or "").strip()
+    if v.startswith("<") and v.endswith(">"):
+        raise ValueError(f"{flag} is still the placeholder text {v!r}; supply the real value")
+
+
+def quote_always(value):
+    """Always double-quoted (backslash and quote escaped): valid YAML for any one-line text, and
+    build_index._scalar unquotes it."""
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def name_scalar(slug):
+    """A kebab slug as a YAML scalar: plain, unless YAML would read it as a bool, null or number."""
+    s = str(slug)
+    return quote_always(s) if s.lower() in _YAML_AMBIGUOUS or s.replace("-", "").isdigit() else s
+
+
+def content_digest(text):
+    """SHA-1 of an entry's `description:` line and its body (the text after the frontmatter): what
+    a reader has to rewrite when a recorded fact stops being true."""
+    m = re.match(r"^---\r?\n(.*?)\r?\n---[ \t]*\r?\n?(.*)$", text, re.S)
+    if not m:
+        return hashlib.sha1(text.encode("utf-8")).hexdigest()
+    desc = re.search(r"^description:[ \t]*(.*)$", m.group(1), re.M)
+    payload = (desc.group(1).strip() if desc else "") + "\n" + m.group(2).strip()
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
 def flow_list(items):

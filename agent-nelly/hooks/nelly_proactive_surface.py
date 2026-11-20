@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import build_index  # noqa: E402
 from nelly_memory import memory_dir, parse_index_line_fields, resolve_repo_relative  # noqa: E402
 import shared_slug  # noqa: E402
+import nelly_frontmatter  # noqa: E402
 import nelly_store  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
 
 _LINE_RE = re.compile(r"^-\s*\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
@@ -111,8 +112,9 @@ def _read_entry_file(cwd, link):
 
 
 def _description(entry_text):
-    m = _DESCRIPTION_RE.search(entry_text)
-    return m.group(1).strip() if m else ""
+    m = build_index._FRONTMATTER_RE.search(entry_text)
+    block = m.group(1) if m else entry_text
+    return nelly_frontmatter.read_scalar(block, "description") or ""
 
 
 def _real_confidence(entry_text):

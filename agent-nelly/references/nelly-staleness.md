@@ -36,13 +36,19 @@ repo-root-relative (git toplevel), the same base the hook uses.
 5. For each entry with `stale: true`, list it with its `stale_paths`. Then, per entry, one of:
    - **Archive** (never delete) via `references/nelly-file-move.md` plus the `MEMORY.md` line removal
      of step 3, only after the user confirms; tag `(stale: sources changed)`.
-   - **Recheck and clear**: read the current `stale_paths`; if the entry still holds, run
-     `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/nelly_evidence.py" refresh <slug> --paths <paths>`
-     (re-hashes only those paths; `stale` clears only when no stale path remains). If the entry no
-     longer holds, fix or archive it instead.
-   - **Drop vanished sources**: for a source whose file no longer exists, `refresh <slug>
-     --drop-paths <paths>` removes it from `sources`. Note: `refresh` refuses paths with
-     uncommitted changes (exit 2).
+   - **Recheck and clear**: read the current `stale_paths` and compare them with the entry's claim.
+     `refresh` only re-pins hashes; it never proves the fact. If the fact changed, rewrite the entry
+     body/description first (or archive it), then run
+     `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --paths <paths>`
+     (re-hashes only those paths; `stale` clears only when no stale path remains). If the entry still
+     holds exactly as written, add `--confirm-unchanged` to that command (refused with exit 2 for a
+     stale entry that was not rewritten since it was marked). Run it with the env prefix and
+     absolute script path shown in the SessionStart line (`CLAUDE_PLUGIN_ROOT` is unset in Bash);
+     `nelly_evidence.py stale --cwd <repo-root>` lists every stale entry with its command.
+   - **Drop vanished sources**: for a source whose file no longer exists,
+     `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --drop-paths <paths>` removes it from
+     `sources` (and from `metadata.files` and the `MEMORY.md` `paths:` field). Note: `refresh`
+     refuses paths with uncommitted changes (exit 2).
 6. Never archive a sourced entry that is not `stale: true` for a file-change reason; the age
    threshold (steps 1-4) still applies to every entry.
 
@@ -57,7 +63,7 @@ under `/nelly-memory prune` only, never autonomous.
    `Bash` use.
 8. A missing path (deleted or renamed; renames are not detected, an accepted limitation) is stale
    regardless of `last_referenced`. There is no content-change judgment on this path: a file that
-   still exists is left alone (record `sources` via `nelly_evidence.py record` to get deterministic
+   still exists is left alone (record `sources` with the `nelly_evidence.py` `record` command to get deterministic
    change detection).
 9. Multiple files: archive only when **all** referenced files are gone; if some remain, do not
    archive, and note in `Written` which paths are gone and which remain.

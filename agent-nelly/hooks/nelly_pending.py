@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Pending findings queue: findings on uncommitted files, readiness, resolve (R18).
 
-Records live at <memory dir>/pending-findings/<id>.json: {summary, paths, symbols, reason, branch,
+Records live at <local state dir>/pending-findings/<id>.json (machine-local: they describe one
+working tree, so a shared memory root never syncs them; records an older version left under the
+memory dir are moved there on first access): {summary, paths, symbols, reason, branch,
 head, hashes, id, captured}; id = SHA-256 of the record without id/captured, so duplicates
 collapse. A record is "ready" when every path is tracked, its working bytes equal `git show
 HEAD:<path>` and the captured hash; "changed" when a path's bytes differ from the captured hash
@@ -37,6 +39,7 @@ try:
     import nelly_memory  # noqa: E402
 except Exception as _exc:  # CLAUDE_PLUGIN_DATA unset: the CLI reports it cleanly (exit 5)
     nelly_memory, _IMPORT_ERROR = None, _exc
+import nelly_frontmatter  # noqa: E402
 import nelly_store  # noqa: E402
 import shared_slug  # noqa: E402
 
@@ -88,8 +91,40 @@ def _git(cwd, *args, binary=False):
     return r.stdout if binary else r.stdout.decode("utf-8", "replace").strip()
 
 
+def _local_root(cwd):
+    return nelly_memory.local_state_dir(repo_root(cwd))
+
+
+def _migrate_shared(cwd):
+    """Move records a previous version left under the (possibly shared) memory dir into the local
+    state dir. Best effort: an unreadable old record just stays where it is."""
+    local, shared = _local_root(cwd), nelly_memory.memory_dir(repo_root(cwd))
+    if os.path.realpath(local) == os.path.realpath(shared):
+        return
+    for sub in ("pending-findings", "resolved-findings"):
+        old, new = os.path.join(shared, sub), os.path.join(local, sub)
+        if not os.path.isdir(old):
+            continue
+        try:
+            with nelly_store.lock(local):
+                os.makedirs(new, exist_ok=True)
+                for name in os.listdir(old):
+                    src = os.path.join(old, name)
+                    if not os.path.isfile(src):
+                        continue
+                    if os.path.exists(os.path.join(new, name)):
+                        os.unlink(src)  # already present locally
+                    else:
+                        os.replace(src, os.path.join(new, name))
+                os.rmdir(old)
+        except (OSError, nelly_store.StoreLocked):
+            pass
+
+
 def _pending_dir(cwd, sub="pending-findings"):
-    return os.path.join(nelly_memory.memory_dir(repo_root(cwd)), sub)
+    """<local state dir>/<sub>, after migrating older shared-root records (see _migrate_shared)."""
+    _migrate_shared(cwd)
+    return os.path.join(_local_root(cwd), sub)
 
 
 def _read_bytes(cwd, rel):
@@ -108,6 +143,9 @@ def add(cwd, summary, paths, symbols, reason):
     """Queue a finding; returns its id. Raises ValueError on limits/reason/unreadable path."""
     if reason not in REASONS:
         raise ValueError(f"reason must be one of {REASONS}")
+    nelly_frontmatter.reject_placeholder("--summary", summary)
+    for p in paths:
+        nelly_frontmatter.reject_placeholder("--paths", p)
     if not 1 <= len(paths) <= MAX_PATHS:
         raise ValueError(f"paths must have 1..{MAX_PATHS} entries")
     if len(symbols) > MAX_SYMBOLS:
@@ -127,7 +165,7 @@ def add(cwd, summary, paths, symbols, reason):
     if os.path.exists(path):
         return pid
     rec = dict(body, id=pid, captured=datetime.date.today().isoformat())
-    root = nelly_memory.memory_dir(cwd)
+    root = _local_root(cwd)
     nelly_store.write_entry(root, path, json.dumps(rec, indent=2, sort_keys=True) + "\n",
                             nelly_store.MISSING)
     _prune(cwd)
@@ -139,7 +177,7 @@ def _archive(cwd, rec, outcome, evidence=""):
     nelly_store.atomic_write(os.path.join(_pending_dir(cwd, "resolved-findings"), rec["id"] + ".json"),
                              json.dumps(res, indent=2, sort_keys=True) + "\n")
     try:
-        with nelly_store.lock(nelly_memory.memory_dir(repo_root(cwd))):
+        with nelly_store.lock(_local_root(cwd)):
             os.unlink(os.path.join(_pending_dir(cwd), rec["id"] + ".json"))
     except OSError:
         pass
@@ -236,8 +274,10 @@ def _resolve(cwd, pid, outcome, evidence):
     if not evidence:
         print("--evidence is required", file=sys.stderr)
         return 3
-    if evidence.startswith("<") and evidence.endswith(">"):
-        print("--evidence is still the placeholder text; say what you actually checked", file=sys.stderr)
+    try:
+        nelly_frontmatter.reject_placeholder("--evidence", evidence)
+    except ValueError as exc:
+        print(f"{exc} (say what you actually checked)", file=sys.stderr)
         return 3
     if outcome == "verified" and readiness(cwd, rec) != "ready":
         print("not ready: every path must be committed and unchanged since capture", file=sys.stderr)
@@ -255,17 +295,7 @@ def _resolve(cwd, pid, outcome, evidence):
     return 0
 
 
-def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    if nelly_memory is None:
-        print(f"agent-nelly: {_IMPORT_ERROR}", file=sys.stderr)
-        return 5
-    if not argv:  # hook stub: fail-open
-        try:
-            json.load(sys.stdin)
-        except Exception:
-            pass
-        return 0
+def _parser():
     ap = argparse.ArgumentParser(prog="nelly_pending.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("list")
@@ -281,6 +311,21 @@ def main(argv=None):
     p.add_argument("--paths", nargs="+", required=True)
     p.add_argument("--symbols", nargs="*", default=[])
     p.add_argument("--reason", default="uncommitted", choices=REASONS)
+    return ap
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if nelly_memory is None:
+        print(f"agent-nelly: {_IMPORT_ERROR}", file=sys.stderr)
+        return 5
+    if not argv:  # hook stub: fail-open
+        try:
+            json.load(sys.stdin)
+        except Exception:
+            pass
+        return 0
+    ap = _parser()
     args = ap.parse_args(argv)
     if args.cmd == "add":
         try:

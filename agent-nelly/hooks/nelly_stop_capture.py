@@ -237,6 +237,18 @@ def _recorded_paths(records):
     return out
 
 
+def _stale_records(records):
+    """[{slug, paths}] for stale records that carry `sources` (the entry to refresh, not re-record)."""
+    out = []
+    for rec in records or []:
+        if isinstance(rec, dict) and rec.get("stale") is True and isinstance(rec.get("slug"), str):
+            paths = {src["path"] for src in rec.get("sources") or []
+                     if isinstance(src, dict) and isinstance(src.get("path"), str)}
+            if paths:
+                out.append({"slug": rec["slug"], "paths": paths})
+    return sorted(out, key=lambda r: r["slug"])
+
+
 def _dirty_status(repo_root, paths):
     """{path: True (modified/untracked) | False (clean) | None (could not be determined)}. One batched
     `git status`; when that fails, one call per path."""
@@ -294,15 +306,35 @@ def _save_marker(root, state, session, entry):
     nelly_store.atomic_write(_marker_path(root), json.dumps(state))
 
 
-def _reason(root, findings):
-    lines = ["agent-nelly: your answer states a source-linked finding that is not recorded in memory:"]
+def _reason(root, findings, stale=()):
+    only_stale = bool(findings) and all(
+        any(set(f["paths"]) <= r["paths"] for r in stale) for f in findings[:3])
+    lines = ["agent-nelly: your answer states a source-linked finding whose stored memory entry is stale "
+             "(its sources changed):" if only_stale else
+             "agent-nelly: your answer states a source-linked finding that is not recorded in memory:"]
     for f in findings[:3]:
         quote = f["line"] if len(f["line"]) <= 200 else f["line"][:197] + "..."
         lines.append(f"- {', '.join(f['paths'])}: \"{quote}\"")
-    paths = list(dict.fromkeys(p for f in findings[:3] for p in f["paths"]))
-    cmd = nelly_pending.record_cmd(root, paths, "<one-line finding>", "<one-paragraph finding>")
-    lines.append(f"Make ONE brief recording pass: run {cmd} (or use agent-nelly). Keep your original "
-                 "answer unchanged, do not broaden the task, and do not repeat this pass.")
+    refresh, fresh = {}, []  # stale slug -> paths; findings no stale entry covers
+    for f in findings[:3]:
+        cover = next((r for r in stale if set(f["paths"]) <= r["paths"]), None)
+        if cover:
+            refresh.setdefault(cover["slug"], []).extend(p for p in f["paths"] if p not in refresh.get(cover["slug"], []))
+        else:
+            fresh.append(f)
+    asks = []
+    for slug, paths in refresh.items():
+        cmd = nelly_pending._cmd("scripts/nelly_evidence.py", "refresh", "--cwd", root, "--slug", slug,
+                                 "--paths", *paths)
+        asks.append(f"an existing entry '{slug}' covers this and is stale: recheck it against the source; "
+                    f"if its fact changed, rewrite it (or archive it) first, then run {cmd} (add "
+                    "--confirm-unchanged only if it still holds as written)")
+    if fresh:
+        paths = list(dict.fromkeys(p for f in fresh for p in f["paths"]))
+        cmd = nelly_pending.record_cmd(root, paths, "<one-line finding>", "<one-paragraph finding>")
+        asks.append(f"run {cmd} (or use agent-nelly)")
+    lines.append("Make ONE brief pass: " + "; and ".join(asks) + ". Keep your original answer unchanged, "
+                 "do not broaden the task, and do not repeat this pass.")
     return "\n".join(lines)
 
 
@@ -367,7 +399,7 @@ def _run(payload):
     entry["paths"] = list(dict.fromkeys(entry["paths"] + [p for f in clean for p in f["paths"]]))
     entry["blocks"] += 1
     _save_marker(root, marker, session, entry)
-    print(json.dumps({"decision": "block", "reason": _reason(root, clean)}))
+    print(json.dumps({"decision": "block", "reason": _reason(root, clean, _stale_records(records))}))
 
 
 def main():

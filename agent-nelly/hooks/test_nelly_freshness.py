@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import build_index  # noqa: E402
 import nelly_freshness  # noqa: E402
 import nelly_memory  # noqa: E402
+import nelly_frontmatter  # noqa: E402
 import nelly_store  # noqa: E402
 from research_digest import blob_hash  # noqa: E402
 
@@ -76,7 +77,7 @@ def test_changed_file_marked_stale_exact_frontmatter_and_index(repo):
     expected = before.replace(
         "  basis: observed\n",
         "  basis: observed\n  stale: true\n  stale_since: %s\n  stale_paths: [src/a.py]\n"
-        % time.strftime("%Y-%m-%d"))
+        "  stale_digest: %s\n" % (time.strftime("%Y-%m-%d"), nelly_frontmatter.content_digest(before)))
     assert open(path).read() == expected
     rec = records(repo)["fact-a"]
     assert rec["stale"] is True and rec["stale_paths"] == ["src/a.py"]
@@ -108,7 +109,9 @@ def test_already_stale_skipped_but_counted_in_total(repo):
     before = open(path).read()
     lines = nelly_freshness.scan(str(repo))
     assert open(path).read() == before
-    assert lines == ["1 memory entries are stale in total."]
+    assert lines[-1] == "1 memory entries are stale in total."
+    assert [ln for ln in lines if "memory entries marked stale" in ln] == []  # not newly marked
+    assert any("fact-a" in ln and "refresh" in ln for ln in lines)  # but still gets its command
 
 
 def test_non_git_cwd_returns_empty(tmp_path):
@@ -224,13 +227,14 @@ def test_mark_text_flow_stale_inserted_after_last_key():
             "  basis: observed\n---\nB\n")
     out = nelly_freshness._mark_text(text, ["p"], "2026-02-02")
     assert out == ("---\nname: a\nmetadata:\n  type: project\n  basis: observed\n"
-                   "  stale: true\n  stale_since: 2026-02-02\n  stale_paths: [p]\n---\nB\n")
+                   "  stale: true\n  stale_since: 2026-02-02\n  stale_paths: [p]\n"
+                   "  stale_digest: %s\n---\nB\n" % nelly_frontmatter.content_digest(text))
 
 
 def test_mark_text_block_sources_inserted_after_last_nested_item():
     text = ("---\nname: a\nmetadata:\n  type: project\n  sources:\n    - path: x\n      hash: h\n---\nB\n")
     out = nelly_freshness._mark_text(text, ["x"], "2026-02-02")
-    assert out == text.replace("      hash: h\n", "      hash: h\n  stale: true\n  stale_since: 2026-02-02\n  stale_paths: [x]\n")
+    assert out == text.replace("      hash: h\n", "      hash: h\n  stale: true\n  stale_since: 2026-02-02\n  stale_paths: [x]\n  stale_digest: %s\n" % nelly_frontmatter.content_digest(text))
 
 
 def test_held_lock_scan_returns_within_budget(repo):
@@ -268,14 +272,16 @@ def test_mark_text_replaces_block_stale_paths_with_blank_line_without_orphans():
                      "  stale_paths:\n    - a\n\n    - b\n  basis: observed\n")
     new = nelly_freshness._mark_text(old, ["c"], "2026-05-05")
     assert new == _meta_text("  type: project\n  basis: observed\n  stale: true\n"
-                             "  stale_since: 2026-05-05\n  stale_paths: [c]\n")
+                             "  stale_since: 2026-05-05\n  stale_paths: [c]\n  stale_digest: %s\n"
+                             % nelly_frontmatter.content_digest(old))
 
 
 def test_mark_text_child_indent_skips_leading_comments_and_blanks():
     old = _meta_text("\n# comment\n      # deeper comment\n    type: project\n")
     new = nelly_freshness._mark_text(old, ["c"], "2026-05-05")
     assert new == _meta_text("\n# comment\n      # deeper comment\n    type: project\n"
-                             "    stale: true\n    stale_since: 2026-05-05\n    stale_paths: [c]\n")
+                             "    stale: true\n    stale_since: 2026-05-05\n    stale_paths: [c]\n"
+                             "    stale_digest: %s\n" % nelly_frontmatter.content_digest(old))
 
 
 def test_session_line_command_is_absolute_env_prefixed_and_runs_without_plugin_env(repo, tmp_path):
@@ -289,7 +295,8 @@ def test_session_line_command_is_absolute_env_prefixed_and_runs_without_plugin_e
     assert os.path.isabs(argv[2]) and os.path.isfile(argv[2]) and argv[2].endswith("nelly_evidence.py")
     env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_PLUGIN")}
     env.update(HOME=str(tmp_path / "home"), CLAUDE_CONFIG_DIR=str(tmp_path / "cfg"))
-    proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env, cwd=str(tmp_path))
+    proc = subprocess.run(cmd + " --confirm-unchanged", shell=True, capture_output=True, text=True, env=env,
+                          cwd=str(tmp_path))
     assert proc.returncode == 0, proc.stderr
     text = open(nelly_memory.entry_path(str(repo), "fact-a")).read()
     assert "stale:" not in text and "stale_paths" not in text
@@ -323,8 +330,8 @@ def test_command_drops_deleted_committed_source_and_runs_end_to_end(repo, tmp_pa
     cmds = _commands(nelly_freshness.scan(str(repo)))
     assert len(cmds) == 1
     assert "--drop-paths src/a.py" in cmds[0] and "--paths src/b.py" in cmds[0]
-    proc = subprocess.run(cmds[0], shell=True, capture_output=True, text=True, env=_clean_env(tmp_path),
-                          cwd=str(tmp_path))
+    proc = subprocess.run(cmds[0] + " --confirm-unchanged", shell=True, capture_output=True, text=True,
+                          env=_clean_env(tmp_path), cwd=str(tmp_path))
     assert proc.returncode == 0, proc.stderr
     text = open(path).read()
     assert "src/a.py" not in text and "stale:" not in text
@@ -344,5 +351,5 @@ def test_one_runnable_command_per_named_entry_up_to_cap(repo):
     for i in range(nelly_freshness.NAMED_CAP + 2):
         put_file(repo, f"src/f{i}.py", "new")
         make_entry(repo, f"fact-{i}", {f"src/f{i}.py": "old"})
-    cmds = _commands(nelly_freshness.scan(str(repo)))
+    cmds = [c for c in _commands(nelly_freshness.scan(str(repo))) if " refresh " in c]
     assert len(cmds) == len(set(cmds)) == nelly_freshness.NAMED_CAP
