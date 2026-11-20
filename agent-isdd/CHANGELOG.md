@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Hook-local `hooks/markers.py` renamed to `hooks/isdd_markers.py` (importers use `import isdd_markers as markers`) so it no longer shadows agent-tdd's `markers` through `sys.modules` when both plugins' tests run in one pytest process; any collection order now passes. No runtime behavior change.
+
 ## [0.6.3] - 2026-11-20
 
 ### Changed

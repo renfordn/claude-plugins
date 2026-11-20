@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import markers
+import isdd_markers as markers
 import sdd_state
 
 _HEADING = re.compile(r"^#{2,3}\s+(?:Slice|Phase)\s+(" + markers.ID + r")\s*:", re.MULTILINE | re.IGNORECASE)
