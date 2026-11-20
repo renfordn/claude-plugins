@@ -117,3 +117,8 @@ request takes priority.
 - `/isdd-rewind` and `/isdd-board-sync` are user-run commands (`disable-model-invocation: true`); the
   model never invokes them. A rollback request (`rollback_pending`, `SDD-ROLLBACK-REQUEST`) is
   surfaced to the user, who runs `/isdd-rewind`.
+- Release 4 reports (`code-reviewer/INTEROP.md` "Release 4 skills and report markers"): a finding
+  re-check `<!--FINDING-RECHECK-REPORT-->` is not a slice review and is never recorded in the `reviewed` map.
+  A pre-push fix with
+  `resolution: declined` is never a Review Fallback, never `decision: accept`, and never a `deferred-defect` follow-up. The pre-push review (`<!--PRE-PUSH-REVIEW-->`) counts as an unscoped review
+  (it emits `<!--CODE-REVIEWER-REPORT-->` with no `REVIEW-SCOPE`), so it never satisfies a slice.
