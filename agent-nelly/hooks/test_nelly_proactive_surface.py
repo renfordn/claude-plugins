@@ -256,3 +256,19 @@ def test_error_prevention_stale_suffix_from_entry_file_not_index(tmp_path):
     proc = run_hook({"tool_input": {"file_path": os.path.join(cwd, "src/foo.py")}, "cwd": cwd})
     reason = json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
     assert reason == "Ep — lesson (confidence: explicit) (stale: recheck src/foo.py)"
+
+
+def test_index_cache_write_is_atomic(tmp_path, monkeypatch):
+    sys.path.insert(0, os.path.dirname(HOOK))
+    import nelly_proactive_surface as ps
+    store = tmp_path / "mem"
+    store.mkdir()
+    (store / "MEMORY.md").write_text("- [A](entries/a.md) -- hook\n")
+    monkeypatch.setattr(ps, "memory_dir", lambda cwd: str(store))
+    monkeypatch.setattr(ps.tempfile, "gettempdir", lambda: str(tmp_path))
+    calls = []
+    real = ps.nelly_store.atomic_write
+    monkeypatch.setattr(ps.nelly_store, "atomic_write",
+                        lambda path, text: (calls.append(path), real(path, text))[1])
+    assert "entries/a.md" in ps._read_index_cached("/anywhere")
+    assert len(calls) == 1 and os.path.dirname(calls[0]) == str(tmp_path)

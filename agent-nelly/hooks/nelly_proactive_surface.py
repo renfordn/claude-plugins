@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import build_index  # noqa: E402
 from nelly_memory import memory_dir, parse_index_line_fields, resolve_repo_relative  # noqa: E402
+import nelly_store  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
 
 _LINE_RE = re.compile(r"^-\s*\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
 
@@ -73,8 +74,7 @@ def _read_index_cached(cwd):
         return ""
 
     try:
-        with open(cache_path, "w", encoding="utf-8") as fh:
-            fh.write(content)
+        nelly_store.atomic_write(cache_path, content)
     except OSError:
         pass  # cache write failure is non-fatal -- direct read result is still valid
 

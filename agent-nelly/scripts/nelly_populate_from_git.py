@@ -129,8 +129,6 @@ def discover_repos(base, max_depth=_MAX_DEPTH):
 
 
 def _write_entry(repo, slug, commit):
-    nelly_memory.ensure_entries_dir(repo)
-    path = nelly_memory.entry_path(repo, slug)
 
     description = commit["subject"][: commit_extract._MAX_DESCRIPTION_LEN]
     paths = commit["paths"]
@@ -160,11 +158,10 @@ def _write_entry(repo, slug, commit):
         "---\n\n"
         f"{body}"
     )
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    nelly_memory.write_index_line(repo, slug, description, "technique", confidence="inferred")
-    build_index.upsert_project_entry(repo, path)
+    # entry + MEMORY.md line + index record under one lock hold; a conflict keeps the existing entry
+    status = nelly_memory.create_entry(
+        repo, slug, content, description, "technique", confidence="inferred")
+    return status != "conflict"
 
 
 def populate_repo(repo, limit, dry_run):
@@ -186,8 +183,9 @@ def populate_repo(repo, limit, dry_run):
         if _entry_exists(repo, slug):
             skipped += 1
             continue
-        if not dry_run:
-            _write_entry(repo, slug, commit)
+        if not dry_run and not _write_entry(repo, slug, commit):
+            skipped += 1  # an existing different entry was kept; ours is in conflicts/
+            continue
         populated += 1
     return populated, skipped
 

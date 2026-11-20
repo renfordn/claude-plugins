@@ -19,6 +19,17 @@ except ImportError:  # pragma: no cover - non-POSIX
 MISSING = "missing"
 LOCK_NAME = ".nelly.lock"
 
+# The one CONSOLIDATION-LOG.md header, shared by every writer (auto-extract promotions, cleanup,
+# weekly consolidation).
+CONSOLIDATION_LOG_HEADER = (
+    "# Consolidation Log\n\n"
+    "Append-only history of consolidation-related actions taken against this "
+    "project's memory store, including auto-promotions by the auto-extract hooks and "
+    "archives/merges by the scheduled consolidation scripts. Never edit or remove a prior "
+    "entry -- archived/superseded files remain fully readable, not deleted.\n\n"
+    "## Log\n"
+)
+
 
 class StoreLocked(TimeoutError):  # an OSError, so best-effort `except OSError` callers cope
     """The store lock could not be acquired within the timeout."""
@@ -191,15 +202,30 @@ def write_entry(root, path, text, expected_sha):
         return {"status": "conflict", "path": _write_sidecar(root, _sidecar_stem(root, path), text)}
 
 
-def update_entry(root, path, fn):
-    """fn(old_text|None) -> new text, or None for no change. Returns "written"|"unchanged"."""
-    with lock(root):
+def update_entry(root, path, fn, timeout=2.0):
+    """fn(old_text|None) -> new text, or None for no change. Returns "written"|"unchanged".
+    `timeout` is the lock wait; StoreLocked propagates when it expires."""
+    with lock(root, timeout):
         old = _read_text(path)
         new = fn(old)
         if new is None or new == old:
             return "unchanged"
         atomic_write(path, new)
         return "written"
+
+
+def append_log(root, path, block, header=None, timeout=2.0):
+    """Append `block` to an append-only log under the store lock (header first when the file is
+    new). A locked read-modify-write, so it never loses a concurrent append."""
+    def fn(old):
+        base = old if old is not None else (header or "")
+        return base + block
+    return update_entry(root, path, fn, timeout)
+
+
+def park_sidecar(root, stem, text, ext=".md"):
+    """Keep `text` as root/conflicts/<stem>.<ts>.<pid>[-N]<ext>; returns the path."""
+    return _write_sidecar(root, stem, text, ext=ext)
 
 
 def serialize_index(records):

@@ -119,8 +119,6 @@ def _tags_for_paths(paths):
 
 
 def _write_entry(cwd, slug, commit):
-    nelly_memory.ensure_entries_dir(cwd)
-    path = nelly_memory.entry_path(cwd, slug)
 
     description = commit["subject"][:_MAX_DESCRIPTION_LEN]
     paths = commit["paths"]
@@ -152,11 +150,10 @@ def _write_entry(cwd, slug, commit):
         "---\n\n"
         f"{body}"
     )
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    nelly_memory.write_index_line(cwd, slug, description, "technique", confidence="inferred")
-    build_index.upsert_project_entry(cwd, path)
+    # entry + MEMORY.md line + index record under one lock hold; a conflict keeps the existing entry
+    status = nelly_memory.create_entry(
+        cwd, slug, content, description, "technique", confidence="inferred")
+    return status != "conflict"
 
 
 def _run():
@@ -183,8 +180,8 @@ def _run():
             if result and result[1]:
                 print(f"[nelly] promoted to explicit: {slug} (seen {result[0]}x)")
             continue
-        _write_entry(cwd, slug, commit)
-        print(f"[nelly] commit pattern saved: {slug}")
+        if _write_entry(cwd, slug, commit):
+            print(f"[nelly] commit pattern saved: {slug}")
 
 
 def main():
