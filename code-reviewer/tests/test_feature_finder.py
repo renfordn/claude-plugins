@@ -13,8 +13,8 @@ def _fm():
 
 
 def _desc():
-    m = re.search(r"^description:\s*(.*)$", _fm(), re.M)
-    return m.group(1)
+    import yaml
+    return yaml.safe_load(_fm())["description"]
 
 
 def test_frontmatter_routes_and_forks():
