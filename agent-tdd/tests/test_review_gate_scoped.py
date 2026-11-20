@@ -75,6 +75,21 @@ class ScopedGateTest(unittest.TestCase):
         self.assertEqual(self._send(A4), "allow")
         self.assertEqual(self._send(A3), "deny")
 
+    def test_list_scoped_review_clears_each_named_slice(self):
+        self._open_two()
+        self._stop(green(5), "agent5ccccccccccccc")
+        self._reviewer(review("3,4"))
+        self.assertEqual(self._send(A3), "allow")
+        self.assertEqual(self._send(A4), "allow")
+        self.assertEqual(self._send("agent5ccccccccccccc"), "deny")
+
+    def test_list_scope_matching_no_open_gate_clears_none(self):
+        self._open_two()
+        out = self._reviewer(review("7,8"))
+        self.assertEqual(self._send(A3), "deny")
+        self.assertEqual(self._send(A4), "deny")
+        self.assertIn("matched no open gate", json.dumps(out))
+
     def test_unscoped_with_two_open_gates_clears_none_and_warns(self):
         self._open_two()
         out = self._reviewer(review())

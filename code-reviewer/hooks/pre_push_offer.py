@@ -293,8 +293,31 @@ _GATING_RE = re.compile(
 _REVIEW_CWD_RE = re.compile(r"^Review cwd:\s*(.+?)\s*$", re.M)
 
 
+_PROMPT_SCOPE_RE = re.compile(r"^Review scope:[ \t]*slice=\d", re.M | re.I)
+
+
+def _first_user_prompt(path, max_bytes=1048576):
+    """The subagent's first user message (its brief), from the first line of its own transcript
+    (copied on purpose: agent-isdd's review_tracking reads it the same way); "" on any failure."""
+    try:
+        with open(path, "rb") as fh:
+            line = fh.readline(max_bytes)
+        msg = json.loads(line).get("message") or {}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return ""
+    if not isinstance(msg, dict) or msg.get("role") != "user":
+        return ""
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(b.get("text", "") for b in content if isinstance(b, dict))
+    return ""
+
+
 def _unscoped_review_text(payload):
-    """Report text of a finished unscoped code-reviewer run, else None."""
+    """Report text of a finished unscoped code-reviewer run, else None. A run whose brief had a
+    `Review scope: slice=…` line is a scoped (slice) review even if it forgot to echo the marker."""
     if str(payload.get("agent_type") or "").split(":")[-1] != "code-reviewer":
         return None
     text = payload.get("last_assistant_message")
@@ -303,9 +326,12 @@ def _unscoped_review_text(payload):
         if not isinstance(path, str) or not path:
             return None
         text = extract_last_assistant_text(path)
-    if "<!--CODE-REVIEWER-REPORT-->" in text and "<!--REVIEW-SCOPE:" not in text:
-        return text
-    return None
+    if "<!--CODE-REVIEWER-REPORT-->" not in text or "<!--REVIEW-SCOPE:" in text:
+        return None
+    path = payload.get("agent_transcript_path")
+    if isinstance(path, str) and path and _PROMPT_SCOPE_RE.search(_first_user_prompt(path)):
+        return None
+    return text
 
 
 def _is_unscoped_review(payload):

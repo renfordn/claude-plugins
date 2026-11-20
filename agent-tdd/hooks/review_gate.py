@@ -76,7 +76,8 @@ def _open_gates(gates, include_stale=False):
 
 
 def clear_gates(cwd, scope=None):
-    """Mark gates reviewed (rules in the module docstring). Returns a systemMessage dict when
+    """Mark gates reviewed (rules in the module docstring). `scope` is a slice id, a list of slice
+    ids (a review covering several slices), or None (unscoped). Returns a systemMessage dict when
     an unscoped review was ignored or cleared several gates, else None."""
     from tdd_state import update_json
     result = {}
@@ -86,16 +87,17 @@ def clear_gates(cwd, scope=None):
                   if isinstance(g, dict) and g.get("reviewed") and _is_stale(g)]:
             del gates[k]
         fresh = _open_gates(gates)
-        if scope is not None:
+        if scope:
             from markers import normalize_slice_id
-            want = normalize_slice_id(scope)
+            want = {normalize_slice_id(str(s)) for s in (scope if isinstance(scope, (list, tuple, set)) else [scope])}
+            label = ",".join(scope) if isinstance(scope, (list, tuple)) else scope
             targets = [g for g in _open_gates(gates, include_stale=True).values()
-                       if normalize_slice_id(g.get("slice")) == want]
+                       if normalize_slice_id(g.get("slice")) in want]
             if fresh and not targets:
                 listed = ", ".join(str(g.get("slice")) if g.get("slice") is not None
                                    else "none" for g in fresh.values())
                 result["msg"] = (
-                    f"review-gate: review scoped to slice {scope} matched no open gate; "
+                    f"review-gate: review scoped to slice {label} matched no open gate; "
                     f"open gates are for slices: {listed}. None was cleared.")
         elif len(fresh) == 1 or all(g.get("slice") is None for g in fresh.values()):
             targets = list(fresh.values())
@@ -146,8 +148,8 @@ def on_subagent_stop(payload, cwd):
 
         update_json(_gate_path(cwd), fn)
     if REVIEW_MARKER in text and str(payload.get("agent_type", "")).endswith("code-reviewer"):
-        from markers import parse_review_scope
-        return clear_gates(cwd, parse_review_scope(text))
+        from markers import parse_review_scopes
+        return clear_gates(cwd, parse_review_scopes(text) or None)
     return None
 
 
@@ -209,8 +211,8 @@ def main():
     elif (event == "PostToolUse" and payload.get("tool_name") == "Bash"
           and _is_reviewer_run(str((payload.get("tool_input") or {}).get("command", "")))
           and REVIEW_MARKER in raw_text(payload, raw)):
-        from markers import parse_review_scope
-        return clear_gates(cwd, parse_review_scope(raw_text(payload, raw)))
+        from markers import parse_review_scopes
+        return clear_gates(cwd, parse_review_scopes(raw_text(payload, raw)) or None)
     elif event == "PreToolUse" and payload.get("tool_name") == "SendMessage":
         return on_pre_send_message(payload, cwd)
     return None

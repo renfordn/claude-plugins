@@ -391,3 +391,23 @@ def test_auto_mark_uses_review_cwd_line_not_stop_cwd(repo, tmp_path):
 def test_offer_tells_model_to_ask_user_before_skipping(repo):
     reason = _denied(_run("git push origin main", repo))
     assert "Ask the user" in reason
+
+
+def _transcript(path, prompt, report):
+    with open(path, "w") as fh:
+        fh.write(json.dumps({"type": "user", "message": {"role": "user", "content": prompt}}) + "\n")
+        fh.write(json.dumps({"type": "assistant", "message": {
+            "role": "assistant", "content": [{"type": "text", "text": report}]}}) + "\n")
+    return str(path)
+
+
+def test_prompt_scoped_review_without_echoed_marker_is_not_unscoped(tmp_path):
+    report = "<!--CODE-REVIEWER-REPORT-->\nverdict: clear"
+    scoped = _transcript(tmp_path / "s.jsonl", "Gate.\nReview scope: slice=3\nFocus: gate.py", report)
+    payload = {"agent_type": "code-reviewer:code-reviewer", "agent_transcript_path": scoped}
+    assert pre_push_offer._unscoped_review_text(payload) is None
+    payload["last_assistant_message"] = report          # report inline, prompt still in the transcript
+    assert pre_push_offer._unscoped_review_text(payload) is None
+    plain = _transcript(tmp_path / "p.jsonl", "Pre-push review of the outgoing diff.", report)
+    assert pre_push_offer._unscoped_review_text(
+        {"agent_type": "code-reviewer:code-reviewer", "agent_transcript_path": plain}) == report

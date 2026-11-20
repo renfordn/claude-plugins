@@ -41,7 +41,8 @@ _PLAN_LINE = re.compile(r"^[ \t]*\*\*Plan\*\*[ \t]*[\u2014\u2013:-]?[ \t]*(.*)$"
 def _slice_no(report, review=False):
     """Strictly keyed slice id (markers contract), normalised; None when not explicit. TDD reports
     also accept the single '**Plan** <sep> Slice N: ...' heading line, never later prose."""
-    sid = (markers.parse_review_scope(report) if review else None) or markers.parse_slice_id_strict(report)
+    scopes = markers.parse_review_scopes(report) if review else []
+    sid = (scopes[0] if scopes else None) or markers.parse_slice_id_strict(report)
     if not sid and not review:
         m = _PLAN_LINE.search(report)
         t = markers.SLICE_TITLE_RE.match(m.group(1)) if m else None

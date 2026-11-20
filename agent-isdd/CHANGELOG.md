@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-11-20
+
+### Fixed
+- Review capture hardening: the reviewer's brief is read from the transcript's first line in full (no 64 KiB cut-off); `Review scope:` lines must be unindented (quoted diff lines no longer count), tolerate CRLF and never continue a list across lines; pre-push briefs never trigger the unrecorded-review warning; `impl_progress` reads list scopes.
+
 ## [0.6.5] - 2026-11-20
 
 ### Fixed

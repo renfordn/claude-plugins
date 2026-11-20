@@ -6,6 +6,9 @@ SLICE_TITLE_RE = re.compile(r"^[\s#>*-]*Slice\s+(" + ID + r")\s*:", re.IGNORECAS
 SLICE_ID_MARKER_RE = re.compile(r"<!--\s*SLICE-ID:\s*(" + ID + r")\s*-->")
 _PROSE_RE = re.compile(r"\bSlice\s+(" + ID + r")\b")
 REVIEW_SCOPE_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + ID + r")\s*-->")
+_SCOPE_LIST = ID + r"(?:[ \t]*,[ \t]*" + ID + r")*"
+# One review may cover several slices (`slice=2,3`); a report may carry several markers.
+REVIEW_SCOPES_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + _SCOPE_LIST + r")\s*-->")
 
 
 def normalize_slice_id(n):
@@ -70,6 +73,18 @@ def scope_marker(n):
 def parse_review_scope(text):
     m = REVIEW_SCOPE_RE.search(text or "")
     return m.group(1) if m else None
+
+
+def parse_review_scopes(text):
+    """Every slice id named by REVIEW-SCOPE markers (lists and repeated markers), normalized, in order.
+    Mirrors agent-isdd's isdd_markers.parse_review_scopes."""
+    out = []
+    for m in REVIEW_SCOPES_RE.finditer(text or ""):
+        for raw in m.group(1).split(","):
+            sid = normalize_slice_id(raw.strip())
+            if sid and sid not in out:
+                out.append(sid)
+    return out
 
 
 # Release 3 contract (R7/R9/R11): evidence phases and report outcome markers.

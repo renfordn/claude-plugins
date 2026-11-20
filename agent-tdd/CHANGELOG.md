@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.8.3] - 2026-11-20
+
+### Fixed
+- Review gates understand list scopes: a review reporting `<!--REVIEW-SCOPE: slice=2,3-->` (or several scope markers) clears the gate of every named slice, instead of being treated as unscoped (which could clear the wrong gate or none). New `markers.parse_review_scopes`, mirroring agent-isdd's; `parse_review_scope` is unchanged.
+
 ## [0.8.2] - 2026-11-20
 
 ### Changed

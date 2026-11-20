@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-20
+
+### Fixed
+- Pre-push marking no longer counts a slice review as a whole-diff review: a `code-reviewer` run whose brief had a `Review scope: slice=…` line is treated as scoped even if its report forgot the scope marker. The agent and INTEROP docs now allow a comma-separated slice list in `Review scope:`.
+
 ## [0.6.1] - 2026-11-20
 
 ### Changed

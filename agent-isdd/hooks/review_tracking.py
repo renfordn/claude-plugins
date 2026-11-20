@@ -132,30 +132,25 @@ def _report_text(payload):
 PRE_PUSH_MARKER = "<!--PRE-PUSH-REVIEW-->"
 
 
-def _prompt_text(payload, head_bytes=65536):
-    """The subagent's first user message (the caller's review prompt), read from the head of
-    agent_transcript_path only (never the parent transcript); "" when unavailable."""
+def _prompt_text(payload, max_bytes=1048576):
+    """The subagent's brief: the first line of agent_transcript_path (never the parent transcript),
+    read whole up to max_bytes, when it is a user message; "" otherwise."""
     path = (payload or {}).get("agent_transcript_path") or ""
     try:
         with open(path, "rb") as fh:
-            raw = fh.read(head_bytes)
-    except (OSError, TypeError):
+            line = fh.readline(max_bytes)
+        ev = json.loads(line)
+    except (OSError, TypeError, ValueError, UnicodeDecodeError):
         return ""
-    for line in raw.split(b"\n"):
-        try:
-            ev = json.loads(line)
-        except (ValueError, UnicodeDecodeError):
-            continue
-        msg = ev.get("message") if isinstance(ev, dict) else None
-        if not isinstance(msg, dict) or msg.get("role") != "user":
-            continue
-        content = msg.get("content")
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            return "\n".join(b.get("text", "") for b in content
-                             if isinstance(b, dict) and b.get("type") == "text")
+    msg = ev.get("message") if isinstance(ev, dict) else None
+    if not isinstance(msg, dict) or msg.get("role") != "user":
         return ""
+    content = msg.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(b.get("text", "") for b in content
+                         if isinstance(b, dict) and b.get("type") == "text")
     return ""
 
 
@@ -197,8 +192,10 @@ def evaluate(payload):
     feature_dir = os.path.dirname(state_path)
     if record_from_payload(payload, os.path.join(feature_dir, "workflow-state.json")):
         return None
-    if not is_code_reviewer_stop(payload) or PRE_PUSH_MARKER in _report_text(payload):
+    if not is_code_reviewer_stop(payload):
         return None
+    if PRE_PUSH_MARKER in _report_text(payload) or PRE_PUSH_MARKER in _prompt_text(payload):
+        return None  # pre-push reviews are unscoped by design
     return _unrecorded_warning(feature_dir)
 
 

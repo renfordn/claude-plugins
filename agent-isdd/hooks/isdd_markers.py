@@ -8,11 +8,12 @@ SLICE_TITLE_RE = re.compile(r"^[\s#>*-]*Slice\s+(" + ID + r")\s*:", re.IGNORECAS
 SLICE_ID_MARKER_RE = re.compile(r"<!--\s*SLICE-ID:\s*(" + ID + r")\s*-->")
 _PROSE_RE = re.compile(r"\bSlice\s+(" + ID + r")\b")
 REVIEW_SCOPE_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + ID + r")\s*-->")
-_SCOPE_LIST = ID + r"(?:\s*,\s*" + ID + r")*"
+_SCOPE_LIST = ID + r"(?:[ \t]*,[ \t]*" + ID + r")*"   # one line only; mirrors agent-tdd markers
 # One review may cover several slices (`slice=2,3`); a report may carry several markers.
 REVIEW_SCOPES_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + _SCOPE_LIST + r")\s*-->")
 # The caller's own `Review scope: slice=N[,M]` line in the review prompt, on a line of its own.
-PROMPT_SCOPE_RE = re.compile(r"^[ \t]*Review scope:[ \t]*slice=(" + _SCOPE_LIST + r")[ \t]*$",
+# Unindented (an indented copy is quoted text, e.g. a diff context line); CRLF tolerated.
+PROMPT_SCOPE_RE = re.compile(r"^Review scope:[ \t]*slice=(" + _SCOPE_LIST + r")[ \t]*\r?$",
                              re.MULTILINE | re.IGNORECASE)
 
 

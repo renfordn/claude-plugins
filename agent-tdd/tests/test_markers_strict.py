@@ -51,3 +51,10 @@ def test_hooks_use_public_api(name):
     assert "_MARKER_RE" not in src
     assert "def _strict_slice_id" not in src
     assert "parse_slice_id_strict" in src
+
+
+def test_parse_review_scopes_lists_and_repeats():
+    assert markers.parse_review_scopes("<!--REVIEW-SCOPE: slice=2, 3,11b-->") == ["2", "3", "11B"]
+    assert markers.parse_review_scopes("<!--REVIEW-SCOPE: slice=2-->\n<!-- REVIEW-SCOPE: slice=3 -->") == ["2", "3"]
+    assert markers.parse_review_scopes("Slice 3 in prose") == []
+    assert markers.parse_review_scope("<!--REVIEW-SCOPE: slice=2,3-->") is None   # single parser unchanged

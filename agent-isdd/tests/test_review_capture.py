@@ -160,3 +160,63 @@ class Warning(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Hardening(unittest.TestCase):
+    def test_prompt_scope_regex_edges(self):
+        self.assertEqual(markers.parse_prompt_review_scopes("Review scope: slice=3\r\nnext"), ["3"])
+        self.assertEqual(markers.parse_prompt_review_scopes(" Review scope: slice=5"), [])     # diff context line
+        self.assertEqual(markers.parse_prompt_review_scopes("Review scope: slice=3,\n4"), [])   # no list across lines
+        self.assertEqual(markers.parse_review_scopes("<!--REVIEW-SCOPE: slice=3,\n4-->"), [])
+
+    def test_long_first_prompt_line_still_yields_its_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            prompt = "Review scope: slice=2\n" + ("x" * 200000)
+            tp = transcript(tmp, prompt, REPORT)
+            got = review_tracking.record_from_payload({"agent_type": CR, "agent_transcript_path": tp}, js)
+            self.assertEqual(got, ["2"])
+
+    def test_first_line_not_a_user_message_yields_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            tp = os.path.join(tmp, "t.jsonl")
+            with open(tp, "w") as fh:
+                fh.write(json.dumps({"type": "summary", "summary": "Review scope: slice=2"}) + "\n")
+                fh.write(json.dumps({"type": "assistant", "message": {
+                    "role": "assistant", "content": [{"type": "text", "text": REPORT}]}}) + "\n")
+            self.assertEqual(review_tracking.record_from_payload({"agent_type": CR, "agent_transcript_path": tp}, js), [])
+
+    def test_inline_report_with_transcript_prompt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            js = make_feature(tmp)
+            tp = transcript(tmp, "Review scope: slice=3", "ignored")
+            got = review_tracking.record_from_payload(
+                {"agent_type": CR, "last_assistant_message": REPORT, "agent_transcript_path": tp}, js)
+            self.assertEqual(got, ["3"])
+
+    def test_pre_push_brief_is_quiet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            make_feature(tmp)
+            tp = transcript(tmp, "Pre-push review. Start your summary with <!--PRE-PUSH-REVIEW-->.", REPORT)
+            md = os.path.join(tmp, "workflow-state.md")
+            with mock.patch.object(review_tracking.sdd_state, "active_state_file", return_value=md):
+                self.assertIsNone(review_tracking.evaluate({"agent_type": CR, "agent_transcript_path": tp}))
+
+    def test_impl_progress_uses_list_scope(self):
+        import impl_progress
+        self.assertEqual(impl_progress._slice_no("<!--REVIEW-SCOPE: slice=4,5-->\n" + REPORT, review=True), "4")
+
+    def test_main_keeps_checkpoint_after_note_and_when_evaluate_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            make_feature(tmp)
+            md = os.path.join(tmp, "workflow-state.md")
+            payload = {"agent_type": CR, "last_assistant_message": REPORT, "cwd": tmp}
+            with mock.patch.object(review_tracking.sdd_state, "active_state_file", return_value=md), \
+                    mock.patch.object(high_risk_reviewer, "active_state_file", return_value=md):
+                msg = high_risk_reviewer.main(dict(payload))
+                self.assertLess(msg.index("recorded no slice"), msg.index("Pending Review"))
+                with mock.patch.object(review_tracking, "evaluate", side_effect=RuntimeError("boom")):
+                    msg2 = high_risk_reviewer.main(dict(payload))
+            self.assertIn("Pending Review", msg2)
+            self.assertNotIn("recorded no slice", msg2)

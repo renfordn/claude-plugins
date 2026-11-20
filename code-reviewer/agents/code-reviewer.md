@@ -33,9 +33,9 @@ implementer's reasoning is deliberately withheld from you.
 
 ## Return this report
 
-If the spawn prompt has a line `Review scope: slice=<ID>` (ID like `3` or `0a`), the very first
-line of the report is exactly `<!--REVIEW-SCOPE: slice=<ID>-->`, before the report marker; with no
-such line, emit no scope marker. Then, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
+If the spawn prompt has a line `Review scope: slice=<ID>` (ID like `3` or `0a`, or a comma-separated
+list such as `2,3`), the very first line of the report is exactly `<!--REVIEW-SCOPE: slice=<ID>-->`
+with the same id or list, before the report marker; with no such line, emit no scope marker. Then, literally: `<!--CODE-REVIEWER-REPORT-->`. Then:
 
 - **Verdict** — `clear` (no finding with `decision: block` or `workflow_action` of
   `block_commit`/`pause_for_review`) or `blocked` (list the finding ids that block).

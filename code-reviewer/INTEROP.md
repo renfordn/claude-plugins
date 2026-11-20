@@ -60,7 +60,10 @@ these lines to the brief:
 
 - `Review scope: slice=<ID>`: the reviewer reviews only that slice's changes and must begin its
   report with the line `<!--REVIEW-SCOPE: slice=<ID>-->` before `<!--CODE-REVIEWER-REPORT-->`, so
-  the caller can match the report to the slice. `<ID>` matches `\d+[A-Za-z0-9]*`.
+  the caller can match the report to the slice. `<ID>` matches `\d+[A-Za-z0-9]*`; one review may
+  cover several slices as a comma-separated list (`slice=2,3`). A run whose brief carries a
+  `Review scope:` line never counts as the unscoped pre-push review, even if its report forgot the
+  scope marker.
 - `Review cwd: <path>`: the worktree to review in (the reviewer reads and diffs there).
 
 `review_headless.sh` emits both lines for you: `--scope <ID>` / `--cwd <path>` (or env
