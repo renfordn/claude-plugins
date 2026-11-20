@@ -20,7 +20,9 @@ segment counts when it is `[VAR=x ...] git [-C dir | -c k=v | --opt ...] push`. 
 `echo "git push"` is one token and is not a push. Not handled: push hidden in `bash -c '...'`,
 `$(...)`, aliases, or variables. Newlines separate commands like `;`.
 `--dry-run`, `-n`, `--help`, branch deletes (`--delete`, `-d`, `:ref`), `--tags`-only pushes and a push
-with an upstream and nothing ahead of it are allowed silently without consuming the offer.
+with nothing new (HEAD already on its upstream or any remote-tracking ref) are allowed silently
+without consuming the offer. The offer lists open gating findings (block_commit, pause_for_review or
+decision block, resolution open or absent) from `<git dir>/code-review/findings.json`.
 
 Known limit: the SubagentStop auto-mark uses the stop's `cwd`, so a review of another worktree is
 marked only via `mark-reviewed --cwd <dir>`.
@@ -166,6 +168,27 @@ def _base(repo):
     return None
 
 
+_BLOCKING_ACTIONS = ("block_commit", "pause_for_review")
+
+
+def _open_blockers(repo, limit=5):
+    """Open gating findings from <git dir>/code-review/findings.json, as `F1 file:line summary`."""
+    try:
+        git_dir = _git(repo, "rev-parse", "--absolute-git-dir")
+        with open(os.path.join(git_dir, "code-review", "findings.json")) as fh:
+            findings = json.load(fh).get("findings") or []
+    except Exception:
+        return []
+    out = []
+    for f in findings:
+        if not isinstance(f, dict) or f.get("resolution", "open") != "open":
+            continue
+        if f.get("workflow_action") in _BLOCKING_ACTIONS or f.get("decision") == "block":
+            loc = f"{f.get('file', '?')}" + (f":{f['line']}" if f.get("line") else "")
+            out.append(f"{f.get('id', '?')} {loc} {str(f.get('summary', ''))[:120]}")
+    return out[:limit] + ([f"... and {len(out) - limit} more"] if len(out) > limit else [])
+
+
 def _offer_reason(repo):
     plan = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "scripts", "review_plan.py")
@@ -181,7 +204,15 @@ def _offer_reason(repo):
         "then push (the review grants no push permission by itself). To skip the review, re-run the "
         "same push: it will go through and HEAD is recorded as `declined` (not accepted risk). This "
         "offer is made once per HEAD. Set CODE_REVIEWER_PREPUSH=off to disable it."
-    )
+    ) + _blocker_note(repo)
+
+
+def _blocker_note(repo):
+    blockers = _open_blockers(repo)
+    if not blockers:
+        return ""
+    return (" Unresolved blocking findings from the last review (findings.json): "
+            + "; ".join(blockers) + ".")
 
 
 def _mark_reviewed(argv):
@@ -288,6 +319,8 @@ def main(argv=None):
             return 0
         if _upstream(repo) and _git(repo, "rev-list", "@{upstream}..HEAD") == "":
             return 0  # nothing new to push
+        if _git(repo, "rev-list", "-1", "HEAD", "--not", "--remotes") == "":
+            return 0  # HEAD already on a remote-tracking ref: nothing new to review
         path = _state_path(repo)
         status = _load(path).get(head, {}).get("status")
         if status in ("reviewed", "declined"):

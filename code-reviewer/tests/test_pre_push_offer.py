@@ -297,3 +297,41 @@ def test_parent_transcript_path_ignored(repo, tmp_path):
 def test_subagent_stop_fails_open_not_a_repo(tmp_path):
     res = _stop(tmp_path)
     assert res.stdout == "" and res.returncode == 0
+
+
+def _write_findings(repo, findings):
+    d = repo / ".git" / "code-review"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "findings.json").write_text(json.dumps(
+        {"scope": "x", "level": "Standard", "findings": findings, "followups": []}))
+
+
+def test_offer_lists_open_blocking_findings(repo):
+    _write_findings(repo, [
+        {"id": "F1", "file": "a.py", "line": 3, "summary": "drops the lock",
+         "workflow_action": "block_commit", "decision": "block", "resolution": "open"},
+        {"id": "F2", "file": "b.py", "summary": "already fixed",
+         "workflow_action": "block_commit", "decision": "block", "resolution": "resolved"},
+        {"id": "F3", "file": "c.py", "summary": "style nit",
+         "workflow_action": "log_only", "decision": "flag"},
+        {"id": "F4", "file": "d.py", "summary": "no resolution field yet",
+         "workflow_action": "pause_for_review", "decision": "block"},
+    ])
+    reason = _denied(_run("git push origin main", repo))
+    assert "F1" in reason and "a.py:3" in reason and "drops the lock" in reason
+    assert "F4" in reason
+    assert "F2" not in reason and "F3" not in reason
+
+
+def test_offer_without_findings_file_has_no_blocker_list(repo):
+    reason = _denied(_run("git push origin main", repo))
+    assert "Unresolved blocking findings" not in reason
+
+
+def test_no_upstream_but_head_already_on_a_remote_skips_offer(repo, tmp_path):
+    bare = tmp_path / "remote.git"
+    _git(tmp_path, "init", "-q", "--bare", str(bare))
+    _git(repo, "remote", "add", "origin", str(bare))
+    _git(repo, "push", "-q", "origin", "main")  # remote-tracking ref exists, no upstream set
+    res = _run("git push origin main", repo)
+    assert res.stdout == "" and _state(repo) == {}

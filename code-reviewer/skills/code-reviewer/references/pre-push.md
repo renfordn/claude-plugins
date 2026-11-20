@@ -1,6 +1,6 @@
 # Pre-push review (R15)
 
-`hooks/pre_push_offer.py` denies a `git push` once per unreviewed HEAD and offers this review. Follow it when the offer is accepted. Dry runs, `--help`, branch deletes, tags-only pushes and pushes with nothing ahead of the upstream are not offered.
+`hooks/pre_push_offer.py` denies a `git push` once per unreviewed HEAD and offers this review. Follow it when the offer is accepted. Dry runs, `--help`, branch deletes, tags-only pushes and pushes with nothing new (HEAD already on its upstream or any remote-tracking ref) are not offered. The offer lists open gating findings from the last review's findings.json; re-check those first (references/recheck.md).
 
 - **Scope: the whole outgoing diff.** Review `review_plan.py plan --base <base>` (the command is in the offer; base is the upstream, else `origin/HEAD`, `origin/main` or `main`): every commit being pushed, not just the last. Exclude unrelated working-tree changes (uncommitted or untracked files are not being pushed).
 - **Fresh eyes.** Review as if you had not written it: read the diff cold, do not lean on earlier reviews or the author's intent. Run the normal Review Pipeline for the risk level.
