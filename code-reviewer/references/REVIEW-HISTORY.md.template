@@ -13,7 +13,7 @@ Append-only. Add one entry per review pass; never edit or remove prior entries.
 
 ### <YYYY-MM-DDTHH:MM:SSZ>
 
-- Mode: <direct-review | review-improve | pre-commit>
+- Mode: <direct-review | review-improve | pre-commit | recheck | pre-push>
 - Files Touched:
   - <relative/path/to/file>
 - Decision Summary: <short summary of decisions/findings from this pass>
@@ -21,7 +21,7 @@ Append-only. Add one entry per review pass; never edit or remove prior entries.
 
 ### <YYYY-MM-DDTHH:MM:SSZ>
 
-- Mode: <direct-review | review-improve | pre-commit>
+- Mode: <direct-review | review-improve | pre-commit | recheck | pre-push>
 - Files Touched:
   - <relative/path/to/file>
 - Decision Summary: <short summary of decisions/findings from this pass>

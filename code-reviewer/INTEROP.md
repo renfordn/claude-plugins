@@ -229,3 +229,22 @@ full field mapping from the internal review record to the tool schema. Callers b
 own `ReportFindings` payload from Python can use `shared/findings_validator.py`
 (`shared/FINDINGS_VALIDATOR_USAGE.md`), but the skill doesn't depend on it: the model writes the
 tool-call JSON directly and can't run a Python helper from inside it.
+
+## Release 4 skills and report markers
+
+Each new capability has its own report marker so no consumer mistakes it for a review: none of
+these is `<!--CODE-REVIEWER-REPORT-->`, none echoes `<!--REVIEW-SCOPE: slice=N-->`, and no agent
+except `code-reviewer` has a name ending in `code-reviewer`, so agent-tdd's review gate and
+agent-isdd's review tracking never count them as a slice review.
+
+| Capability | Runs as | Marker |
+|---|---|---|
+| `feature-finder` skill: facts, locations, traces and impact, every claim tagged observed / inferred / unverified, memory only aims searches, no review findings | forked read-only Explore context | `<!--FEATURE-FINDER-REPORT-->` |
+| `bug-investigation` skill: bounded hypothesis testing for a defect or error, no edits | `bug-investigator` agent (read-only), then `finding-verifier` challenges the leading hypothesis | `<!--BUG-INVESTIGATION-REPORT-->` |
+| Re-check of one finding after its fix (≤3 passes, `scripts/recheck.py`) | `finding-verifier` in re-check mode | `<!--FINDING-RECHECK-REPORT-->` |
+| Pre-push whole-diff review, offered by `hooks/pre_push_offer.py` when HEAD is unreviewed | the `code-reviewer` skill on the outgoing diff | `<!--PRE-PUSH-REVIEW-->` |
+
+findings.json findings carry a stable `id` and a `resolution` (`open | resolved | declined |
+accepted`). A declined fix is never accepted risk: it is not `decision: accept`, not a
+`deferred-defect` follow-up and not a Review Fallback.
+
