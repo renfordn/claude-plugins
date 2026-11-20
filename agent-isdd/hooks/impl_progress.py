@@ -12,7 +12,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import markers  # noqa: E402
+import isdd_markers as markers  # noqa: E402
 
 FILE = "impl-progress.json"
 MAX_EVENTS = 20

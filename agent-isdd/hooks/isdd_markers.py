@@ -1,4 +1,5 @@
 # Deliberate local copy of agent-tdd/hooks/markers.py (plugins ship independently; keep behavior in sync).
+# Named isdd_markers (not markers) so it never shadows agent-tdd's markers via sys.modules in a combined pytest run.
 """Shared marker/regex contract for slice ids and review scopes."""
 import re
 

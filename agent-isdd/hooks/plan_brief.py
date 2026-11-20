@@ -8,7 +8,7 @@ import json
 import os
 import re
 
-import markers
+import isdd_markers as markers
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _ITEM = re.compile(r"^\s*[-*]\s+(?:\[([ xX])\]\s*)?(\S.*?)\s*$")

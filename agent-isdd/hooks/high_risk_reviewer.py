@@ -28,7 +28,7 @@ except ImportError:
     def write_test_author_pending(path, slices, detected_at):
         pass
 
-import markers
+import isdd_markers as markers
 import review_tracking
 
 try:
