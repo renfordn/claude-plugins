@@ -117,6 +117,21 @@ metadata:
   commit: <git commit hash>                # commit_extract only
   files_changed: <integer>                 # commit_extract (count) or session_end (count)
   paths: [<repo-relative path>, ...]       # commit_extract only
+  # --- source evidence (R16), any type; optional on old entries, but once
+  #     `sources` is present, revision + verified + basis are REQUIRED
+  #     (hooks/nelly_schema_guard.py). Fill them with
+  #     `scripts/nelly_evidence.py record`, never by hand-computing hashes ---
+  sources: [{path: <repo-relative path>, hash: <git blob sha1>}, ...]
+  symbols: [<function/class/const name>, ...]  # optional
+  revision: <git commit sha the claim was verified at | unknown>
+  verified: <YYYY-MM-DD>
+  basis: <observed | inferred | unknown>   # observed = read in source/tests
+  unknowns: "<what was not checked or is unresolved>"  # optional
+  # --- staleness (R17), written only by hooks/nelly_freshness.py and
+  #     cleared only by `nelly_evidence.py refresh`; never by hand ---
+  stale: true
+  stale_since: <YYYY-MM-DD>
+  stale_paths: [<repo-relative path>, ...]
 ---
 
 <The fact or detail this entry captures.

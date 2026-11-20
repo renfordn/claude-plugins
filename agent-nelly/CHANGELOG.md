@@ -1,4 +1,12 @@
 <!-- TDD-SKIP -->
+## [Unreleased]
+
+### Added
+- Release 5 (in progress): source-evidence, staleness, Stop capture and safe-write contract (INTEROP.md "Source evidence, staleness, capture and safe writes"); Stop, schema-guard and delete-guard hooks registered (stubs); every hook has a timeout (SessionStart 10, others 5); SessionStart reports stale/pending/conflict lines.
+
+### Changed
+- Agents declare model and effort: agent-nelly and nelly-maintenance opus/medium, nelly-planning-agent sonnet/low, nelly-research-agent haiku/low; descriptions trimmed (3298 to 2076 characters).
+
 ## [0.6.7] - 2026-11-04
 
 ### Changed

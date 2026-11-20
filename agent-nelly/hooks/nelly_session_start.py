@@ -183,6 +183,31 @@ def _refresh_shared_indexes(cwd):
         pass
 
 
+def _release5_lines(cwd):
+    """Stale marking (nelly_freshness), pending findings (nelly_pending) and the conflict-sidecar
+    count. Each part fails open on its own so SessionStart always prints its brief."""
+    out = []
+    try:
+        import nelly_freshness
+        out.extend(nelly_freshness.scan(cwd, budget=1.5) or [])
+    except Exception:
+        pass
+    try:
+        import nelly_pending
+        out.extend(nelly_pending.session_hint(cwd) or [])
+    except Exception:
+        pass
+    try:
+        d = os.path.join(memory_dir(cwd), "conflicts")
+        n = len([f for f in os.listdir(d) if f.endswith(".md")])
+        if n:
+            out.append(f"{n} memory conflicts in conflicts/ (kept, never overwritten): resolve with "
+                       "/nelly-memory consolidate.")
+    except OSError:
+        pass
+    return out
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -213,6 +238,8 @@ def main():
         entries = list_entries(cwd)
         if entries:
             lines.append(f"Durable entries ({len(entries)}): " + ", ".join(entries))
+
+    lines.extend(_release5_lines(cwd))
 
     hotspots_line = _format_hotspots(_read_hotspots(cwd))
     if hotspots_line:
