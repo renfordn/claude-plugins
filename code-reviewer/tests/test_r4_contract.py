@@ -121,3 +121,39 @@ def test_headless_passes_declared_model(tmp_path):
 def test_first_class_declares_hooks_present():
     data = json.loads((ROOT / ".claude-plugin" / "first-class.json").read_text())
     assert "hooks" not in data.get("declared_absent", [])
+
+
+def test_contract_amendments_after_slice0_review():
+    interop = (ROOT / "INTEROP.md").read_text()
+    for needle in ("pre-push.json", "recheck.json", "unscoped review", "SubagentStop", "H1", "first line"):
+        assert needle in interop, needle
+    hooks = json.loads((ROOT / "hooks" / "hooks.json").read_text())["hooks"]
+    assert any("pre_push_offer.py" in h["command"] for e in hooks.get("SubagentStop", []) for h in e["hooks"])
+    verifier = (ROOT / "agents" / "finding-verifier.md").read_text()
+    assert "Previous evidence:" in verifier and "```json" in verifier.split("Re-check")[1]
+
+
+def test_validate_rejects_duplicate_and_trailing_ids():
+    f = {"file": "a.py", "summary": "x", "failure_scenario": "y", "severity": "low", "decision": "flag",
+         "category": "correctness", "workflow_action": "proceed", "confidence": "high", "evidence_tier": "tier-1"}
+    doc = {"scope": "s", "level": "Standard", "followups": [],
+           "findings": [dict(f, id="F2"), dict(f, id="F2")]}
+    assert any("duplicate" in e for e in review_plan.validate(doc))
+    doc["findings"] = [dict(f, id="F1\n")]
+    assert any(".id" in e for e in review_plan.validate(doc))
+
+
+def test_headless_inherit_adds_no_model(tmp_path):
+    root = tmp_path / "plugin"
+    (root / "agents").mkdir(parents=True)
+    (root / "scripts").mkdir()
+    (root / "scripts" / "review_headless.sh").write_text((ROOT / "scripts" / "review_headless.sh").read_text())
+    (root / "agents" / "x-agent.md").write_text("---\nname: x-agent\nmodel: inherit\n---\nbody\n")
+    fake = tmp_path / "claude"
+    fake.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n')
+    fake.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
+    out = subprocess.run(["bash", str(root / "scripts" / "review_headless.sh"), "--agent", "x-agent", "b"],
+                         capture_output=True, text=True, env=env)
+    assert out.returncode == 0, out.stderr
+    assert "--model" not in out.stdout.splitlines()

@@ -244,6 +244,22 @@ agent-isdd's review tracking never count them as a slice review.
 | Re-check of one finding after its fix (≤3 passes, `scripts/recheck.py`) | `finding-verifier` in re-check mode | `<!--FINDING-RECHECK-REPORT-->` |
 | Pre-push whole-diff review, offered by `hooks/pre_push_offer.py` when HEAD is unreviewed | the `code-reviewer` skill on the outgoing diff | `<!--PRE-PUSH-REVIEW-->` |
 
+Every report marker above is the first line of its report (after a `REVIEW-SCOPE` line only for
+the reviewer). Bug-investigation hypotheses use ids `H1`, `H2`, … and only the leading one goes to
+`finding-verifier`. The pre-push review is a normal unscoped `code-reviewer` run (it emits
+`<!--CODE-REVIEWER-REPORT-->`, so it counts as an unscoped review, e.g. for agent-tdd's sole-open
+gate); `<!--PRE-PUSH-REVIEW-->` heads only the main thread's summary to the user.
+
+State files, both under `<git dir>/code-review/` (beside `findings.json`):
+
+- `recheck.json` (written by `scripts/recheck.py`): `{"F2": {"finding": {...}, "base": "<sha>",
+  "passes": [{"outcome", "evidence", "new_evidence", "at"}], "status": "open|resolved|stopped",
+  "stop_reason": null}}`.
+- `pre-push.json` (written by `hooks/pre_push_offer.py`): `{"<head sha>": {"status":
+  "offered|reviewed|declined", "at": "..."}}`. `reviewed` is recorded by the same hook on
+  SubagentStop when an unscoped `code-reviewer` report (no `REVIEW-SCOPE` line) finishes, keyed
+  by the HEAD of the stop's `cwd`, or explicitly by `pre_push_offer.py mark-reviewed`.
+
 findings.json findings carry a stable `id` and a `resolution` (`open | resolved | declined |
 accepted`). A declined fix is never accepted risk: it is not `decision: accept`, not a
 `deferred-defect` follow-up and not a Review Fallback.

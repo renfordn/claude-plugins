@@ -42,15 +42,21 @@ Every finding id from the brief appears exactly once.
 
 ## Other modes
 
-- **Hypotheses** (from `bug-investigation`): treat each causal hypothesis as a finding. Its
-  `file`/`line` may be absent; test the claimed mechanism, look for counterevidence, and remember
+- **Hypotheses** (from `bug-investigation`): ids are `H1`, `H2`, …; the brief normally carries
+  only the leading hypothesis. Treat each as a finding. Its `file`/`line` may be absent; test the claimed mechanism, look for counterevidence, and remember
   that temporal overlap is not causation. Same outcomes and report as above.
 - **Re-check** (brief says `Re-check: <id>`, from `scripts/recheck.py`): one prior finding plus the
-  implementer's response diff and its direct tests. Never widen the scope. First line, literally:
-  `<!--FINDING-RECHECK-REPORT-->` (never the verifier or reviewer marker), then
-  `{"id": "F2", "outcome": "resolved|still-open|partially-resolved|needs-detailed-review",
-  "evidence": "one line", "new_evidence": true}`. `new_evidence` is false when nothing changed
-  since the last pass.
+  implementer's response diff and its direct tests, plus `Previous evidence:` lines from earlier
+  passes. Never widen the scope. First line, literally: `<!--FINDING-RECHECK-REPORT-->` (never the
+  verifier or reviewer marker), then one fenced block:
+
+  ```json
+  {"id": "F2", "outcome": "still-open", "evidence": "one line", "new_evidence": true}
+  ```
+
+  `outcome` is `resolved`, `still-open`, `partially-resolved` or `needs-detailed-review` (use it
+  for a blocker, a needed return to an earlier phase, or an approval boundary). `new_evidence` is
+  false when nothing differs from the `Previous evidence:` lines.
 
 ## Guardrails
 

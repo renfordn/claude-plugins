@@ -289,12 +289,15 @@ def validate(doc):
         for key, allowed in _ENUMS.items():
             if key in f and f[key] not in allowed:
                 errs.append(f"findings[{i}].{key}: {f[key]!r} not in {sorted(allowed)}")
-        if "id" in f and not _ID_RE.match(str(f["id"])):
+        if "id" in f and not _ID_RE.fullmatch(str(f["id"])):
             errs.append(f"findings[{i}].id: {f['id']!r} must look like F1")
         if "resolution" in f and f["resolution"] not in _RESOLUTIONS:
             errs.append(f"findings[{i}].resolution: {f['resolution']!r} not in {sorted(_RESOLUTIONS)}")
         if "verdict" in f and f["verdict"] not in ("CONFIRMED", "PLAUSIBLE"):
             errs.append(f"findings[{i}].verdict: {f['verdict']!r}")
+    ids = [f.get("id") for f in (doc.get("findings") or []) if isinstance(f, dict) and "id" in f]
+    for dup in sorted({x for x in ids if ids.count(x) > 1}):
+        errs.append(f"findings: duplicate id {dup!r}")
     for i, u in enumerate(doc.get("followups") or []):
         for key in ("kind", "title", "files", "why", "steps"):
             if key not in u:
