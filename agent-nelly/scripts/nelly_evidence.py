@@ -10,12 +10,19 @@
       recovers from a lock timeout). Refuses (exit 2) a path that is modified, staged-but-uncommitted
       or untracked: findings on uncommitted code belong in the pending queue
       (`hooks/nelly_pending.py add`).
+      A file-relevance entry also gets `files:yes paths:<root-relative>` on its MEMORY.md line;
+      paths containing whitespace or ';' are not written to that `paths:` field (index format
+      limit) and so never surface in proactive surfacing. Placeholder values (`<...>`) for
+      --cwd, --slug, --description and --body are rejected (exit 2).
   refresh --cwd DIR --slug S [--paths P...] [--drop-paths P...]
       Under nelly_store.update_entry re-hash only the given paths (each must be in the entry's
-      sources), update their hashes/revision/verified, remove them from stale_paths, and drop
+      sources), update their hashes, remove them from stale_paths, and drop
       stale/stale_since/stale_paths only when no stale path remains. Refuses paths that are
       modified/staged/untracked (exit 2). `--drop-paths` removes sources whose file is gone from
       both the working tree and HEAD (never the last source: archive the entry instead).
+      `revision` and `verified` are stamped (HEAD, today) only when, after the refresh, every
+      remaining source's stored hash equals its committed blob at HEAD (outside a repo: when every
+      remaining source was re-hashed in this refresh); otherwise they are kept unchanged.
 
 Paths are given relative to --cwd and stored relative to the git toplevel (to --cwd outside git).
 Prints JSON. Exit codes: 0 ok, 2 usage/validation error, 3 write conflict (sidecar path in the
@@ -33,6 +40,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.join(_HERE, "..", "hooks"))
 import build_index  # noqa: E402
+import nelly_frontmatter  # noqa: E402
 import nelly_memory  # noqa: E402
 import nelly_store  # noqa: E402
 from research_digest import blob_hash_file  # noqa: E402
@@ -69,7 +77,7 @@ def _base(cwd):
 
 def _resolve(cwd, base, p, must_exist=True):
     """Validate a path given relative to cwd and return it relative to `base`."""
-    if not p or p.startswith(("/", "~", "\\")) or os.path.isabs(p) or ".." in re.split(r"[\\/]+", p):
+    if not p or not build_index.is_repo_relative(p):
         raise EvidenceError(f"path '{p}' must be repo-relative (no leading '/', '~' or '..')")
     full = os.path.normpath(os.path.join(os.path.realpath(cwd), p))
     if must_exist and not os.path.isfile(full):
@@ -100,18 +108,12 @@ def _in_head(base, p):
     return bool(r) and r.returncode == 0
 
 
-def _q(value):
-    """Quote a flow-YAML scalar only when needed (build_index._scalar strips the quotes again)."""
-    value = str(value)
-    return json.dumps(value) if re.search(r"[,:\[\]{}#\"']|^\s|\s$|^$", value) else value
-
-
 def _flow_sources(items):
-    return "[" + ", ".join(f"{{path: {_q(s['path'])}, hash: {s['hash']}}}" for s in items) + "]"
+    return "[" + ", ".join(f"{{path: {nelly_frontmatter.quote(s['path'])}, hash: {s['hash']}}}"
+                           for s in items) + "]"
 
 
-def _flow_list(items):
-    return "[" + ", ".join(_q(i) for i in items) + "]"
+_flow_list = nelly_frontmatter.flow_list
 
 
 def _one_line(text):
@@ -142,7 +144,16 @@ def _build_entry(a, sources, revision):
     return "\n".join(lines)
 
 
+def _reject_placeholders(a):
+    for flag, value in (("--cwd", a.cwd), ("--slug", a.slug), ("--description", a.description),
+                        ("--body", a.body)):
+        v = (value or "").strip()
+        if v.startswith("<") and v.endswith(">"):
+            raise EvidenceError(f"{flag} is still the placeholder text {v!r}; supply the real value")
+
+
 def cmd_record(a):
+    _reject_placeholders(a)
     if a.type == "research-digest":
         raise EvidenceError("research-digest entries are written by scripts/research_digest.py")
     if not _SLUG_RE.match(a.slug or "") or build_index.is_conflict_copy(a.slug + ".md"):
@@ -161,53 +172,33 @@ def cmd_record(a):
     nelly_memory.ensure_entries_dir(cwd, a.type)
     root = nelly_memory.memory_dir(cwd)
     path = nelly_memory.entry_path(cwd, a.slug, a.type)
-    result = nelly_store.write_entry(root, path, text, nelly_store.MISSING)
-    if result["status"] == "conflict":
-        return 3, {"status": "conflict", "slug": a.slug, "path": result["path"], "entry": path}
-    title = a.slug.replace("-", " ").replace("_", " ").title()
-    fields = [f"type:{a.type}"]
-    if a.type in _NEEDS_CONFIDENCE:
-        fields.append(f"confidence:{a.confidence}")
-    nelly_store.append_memory_line(
-        root, f"- [{title}](entries/{a.slug}.md) — {_one_line(a.description)} `[{' '.join(fields)}]`")
-    build_index.upsert_project_entry(cwd, path)
+    with nelly_store.lock(root):  # entry, MEMORY.md line and index record under one hold
+        result = nelly_store.write_entry(root, path, text, nelly_store.MISSING)
+        if result["status"] == "conflict":
+            return 3, {"status": "conflict", "slug": a.slug, "path": result["path"], "entry": path}
+        # `paths:` is a whitespace/`;`-delimited index field: only file-relevance entries carry it
+        indexed = [p for p in paths if not re.search(r"[\s;]", p)] if a.type == "file-relevance" else []
+        nelly_memory.write_index_line(
+            cwd, a.slug, _one_line(a.description), a.type,
+            confidence=a.confidence if a.type in _NEEDS_CONFIDENCE else None,
+            files_present=bool(indexed), paths=indexed or None)
+        build_index.upsert_project_entry(cwd, path)
     return 0, {"status": result["status"], "slug": a.slug, "path": path, "revision": head,
                "sources": sources}
 
 
-# --- refresh: line-level frontmatter surgery (keeps every other line byte-identical) ---
+# --- refresh: line-level frontmatter surgery via nelly_frontmatter (other lines stay byte-identical) ---
 
-def _key_extent(lines, key):
-    """(start, end, indent) of `key` (its block items included), or None."""
-    key_re = re.compile(r"^([ \t]*)" + re.escape(key) + r":")
-    for i, line in enumerate(lines):
-        m = key_re.match(line)
-        if not m:
-            continue
-        indent = len(m.group(1).expandtabs())
-        end = i + 1
-        if not line.split(":", 1)[1].strip():  # block form: following list/indented lines
-            while end < len(lines):
-                nxt = lines[end]
-                nindent = len(nxt) - len(nxt.lstrip())
-                if nxt.strip() and nindent <= indent and not re.match(r"^[ \t]*-(?:[ \t]|$)", nxt):
-                    break
-                end += 1
-        return i, end, m.group(1)
-    return None
-
-
-def _set_key(lines, key, value, anchor=None):
-    """Replace `key` with `key: value` (value None removes it); insert after `anchor` key if absent."""
-    ext = _key_extent(lines, key)
-    if ext:
-        s, e, indent = ext
-        lines[s:e] = [] if value is None else [f"{indent}{key}: {value}"]
-    elif value is not None:
-        a = _key_extent(lines, anchor) if anchor else None
-        if not a:
-            raise EvidenceError(f"entry frontmatter has no '{anchor}' key to anchor '{key}'")
-        lines.insert(a[1], f"{a[2]}{key}: {value}")
+def _all_current(base, head, sources, new_hashes):
+    """True when every remaining source's stored hash is its committed blob at HEAD (outside a
+    repo: every remaining source was re-hashed in this refresh)."""
+    if head == "unknown":
+        return set(new_hashes) >= {s["path"] for s in sources}
+    for s in sources:
+        r = _git(base, "rev-parse", f"HEAD:{s['path']}")
+        if not r or r.returncode != 0 or r.stdout.strip() != s["hash"]:
+            return False
+    return True
 
 
 def _refresh_text(old, a, base, head, paths, drops):
@@ -217,8 +208,7 @@ def _refresh_text(old, a, base, head, paths, drops):
     if not m:
         raise EvidenceError(f"entry '{a.slug}' has no parseable frontmatter")
     block = m.group(1)
-    rec = {}
-    build_index._add_evidence(rec, block)
+    rec = build_index.parse_evidence(block)
     sources = rec.get("sources")
     if not sources:
         raise EvidenceError(f"entry '{a.slug}' has no sources to refresh")
@@ -239,14 +229,18 @@ def _refresh_text(old, a, base, head, paths, drops):
     remaining = [p for p in (rec.get("stale_paths") or []) if p not in gone]
 
     lines = block.split("\n")
-    _set_key(lines, "sources", _flow_sources(sources))
-    _set_key(lines, "revision", head, anchor="sources")
-    _set_key(lines, "verified", date.today().isoformat(), anchor="revision")
-    if remaining:
-        _set_key(lines, "stale_paths", _flow_list(remaining))
-    else:
-        for k in _STALE_KEYS:
-            _set_key(lines, k, None)
+    try:
+        nelly_frontmatter.set_key(lines, "sources", _flow_sources(sources))
+        if _all_current(base, head, sources, new_hashes):
+            nelly_frontmatter.set_key(lines, "revision", head, anchor="sources")
+            nelly_frontmatter.set_key(lines, "verified", date.today().isoformat(), anchor="revision")
+        if remaining:
+            nelly_frontmatter.set_key(lines, "stale_paths", _flow_list(remaining))
+        else:
+            for k in _STALE_KEYS:
+                nelly_frontmatter.set_key(lines, k, None)
+    except ValueError as exc:
+        raise EvidenceError(f"entry '{a.slug}' frontmatter cannot be edited: {exc}")
     return old[:m.start(1)] + "\n".join(lines) + old[m.end(1):]
 
 

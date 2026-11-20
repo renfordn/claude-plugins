@@ -95,20 +95,30 @@ def is_conflict_copy(name):
 
 
 def _scalar(value):
-    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar."""
+    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar;
+    inside double quotes an escaped backslash or quote is unescaped (the inverse of
+    nelly_frontmatter.quote)."""
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        quote = value[0]
         value = value[1:-1]
+        if quote == '"':
+            value = re.sub(r'\\(["\\])', r"\1", value)
     return value
 
 
 def _split_inline(text):
     """Split on top-level commas, honoring quotes and {}/[] nesting; returns stripped parts."""
     parts, buf, quote, depth = [], [], None, 0
+    escaped = False
     for ch in text:
         if quote:
             buf.append(ch)
-            if ch == quote:
+            if escaped:
+                escaped = False
+            elif ch == "\\" and quote == '"':
+                escaped = True
+            elif ch == quote:
                 quote = None
         elif ch in "'\"":
             quote = ch
@@ -261,6 +271,22 @@ def _add_evidence(record, block):
     stale_paths = _inline_list(block, "stale_paths")
     if stale_paths is not None:
         record["stale_paths"] = stale_paths
+
+
+def parse_evidence(block):
+    """Public: the evidence/stale fields of one frontmatter block as a dict (see _add_evidence)."""
+    record = {}
+    _add_evidence(record, block)
+    return record
+
+
+def is_repo_relative(path):
+    """Public: True when `path` is a repo-relative path: not absolute (POSIX, Windows drive or
+    backslash), not starting with `~`, and without a `..` segment."""
+    p = str(path)
+    return not (p.startswith(("/", "~", "\\")) or os.path.isabs(p)
+                or re.match(r"^[A-Za-z]:[\\/]", p) is not None
+                or ".." in re.split(r"[\\/]+", p))
 
 
 def _is_store_artifact(path, d):

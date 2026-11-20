@@ -217,3 +217,61 @@ def test_edit_with_missing_old_string_gives_no_decision(tmp_path):
     payload = {"tool_name": "Edit", "cwd": cwd, "tool_input": {
         "file_path": path, "old_string": "not-in-file", "new_string": "/abs"}}
     assert decision(run_hook(payload))[0] is None
+
+
+# --- slice 2D ---
+
+INCOMPLETE = fm(meta="  sources: [{path: src/a.py, hash: abc}]\n  revision: deadbeef\n  verified: 2026-11-20\n")
+
+
+def test_incomplete_legacy_sources_entry_body_edit_allowed_hash_change_denied(tmp_path):
+    cwd, path = _existing(tmp_path, INCOMPLETE)
+    body = {"tool_name": "Edit", "cwd": cwd, "tool_input": {
+        "file_path": path, "old_string": "body", "new_string": "better body"}}
+    assert decision(run_hook(body))[0] is None
+    rehash = {"tool_name": "Edit", "cwd": cwd, "tool_input": {
+        "file_path": path, "old_string": "hash: abc", "new_string": "hash: def"}}
+    d, reason = decision(run_hook(rehash))
+    assert d == "deny" and "basis" in reason
+
+
+def _command_in(reason):
+    import shlex
+    start = reason.index("CLAUDE_PLUGIN_DATA=")
+    cmd = reason[start:].split("` ")[0].strip("`. ")
+    return cmd, shlex.split(cmd)
+
+
+@pytest.mark.parametrize("payload_meta", [
+    "  sources: [{path: src/a.py, hash: abc}]\n  verified: 2026-11-20\n  basis: observed\n",  # evidence
+    "  stale: true\n",  # stale-fields rule
+])
+def test_deny_reason_commands_are_absolute_env_prefixed_and_parse(tmp_path, payload_meta):
+    d, reason = decision(run_hook(write_payload(tmp_path, fm(meta=payload_meta)),
+                                  env={"CLAUDE_PLUGIN_ROOT": ""}))
+    assert d == "deny"
+    cmd, argv = _command_in(reason)
+    assert argv[0].startswith("CLAUDE_PLUGIN_DATA=") and argv[1] == "python3"
+    assert os.path.isabs(argv[2]) and os.path.isfile(argv[2]) and argv[2].endswith("nelly_evidence.py")
+    assert argv[3] in ("record", "refresh")
+    assert " scripts/nelly_evidence.py" not in reason
+
+
+def test_new_file_deny_prescribes_record_with_real_repo_root(tmp_path):
+    cwd, _ = target(tmp_path)
+    d, reason = decision(run_hook(write_payload(tmp_path, fm(meta="  sources: [{path: src/a.py, hash: abc}]\n"))))
+    assert d == "deny"
+    _, argv = _command_in(reason)
+    assert argv[3] == "record" and argv[argv.index("--cwd") + 1] == cwd
+
+
+def test_existing_entry_deny_never_prescribes_record(tmp_path):
+    cwd, path = _existing(tmp_path, fm(meta=GOOD_EVIDENCE))
+    payload = {"tool_name": "Edit", "cwd": cwd, "tool_input": {
+        "file_path": path, "old_string": "  basis: observed\n", "new_string": ""}}
+    d, reason = decision(run_hook(payload))
+    assert d == "deny" and "basis" in reason
+    assert "same edit" in reason and " record " not in reason
+    _, argv = _command_in(reason)
+    assert argv[3] == "refresh" and argv[argv.index("--cwd") + 1] == cwd
+    assert argv[argv.index("--slug") + 1] == "my-fact"

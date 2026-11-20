@@ -201,3 +201,36 @@ def test_f2_quote_aware_inline_list_and_blank_scalar():
     rec = build_index._parse_frontmatter_block(_fm('  symbols: ["a, b", c]', "  revision:   "))
     assert rec["symbols"] == ["a, b", "c"]
     assert "revision" not in rec
+
+
+# --- slice 2D: public helpers ---
+
+def test_parse_evidence_matches_record_evidence_fields():
+    rec = build_index.parse_evidence(_evidence_block())
+    assert rec["sources"][0] == {"path": "scripts/a.py", "hash": "h1"}
+    assert rec["symbols"] == ["do_thing", "Helper.run"]
+
+
+@pytest.mark.parametrize("path,ok", [
+    ("src/a.py", True), ("a.py", True), ("/abs/a.py", False), ("~/a.py", False), ("..", False),
+    ("a/../b", False), ("C:\\x", False), ("\\x", False), ("a..b/c", True),
+])
+def test_is_repo_relative(path, ok):
+    assert build_index.is_repo_relative(path) is ok
+
+
+def test_quoted_paths_with_quote_and_backslash_round_trip_through_set_key_and_parse_evidence():
+    import nelly_frontmatter as fmod
+    paths = ['src/a"b.py', "src\\c.py", 'x, "y" \\"z']
+    lines = ["metadata:", "  type: t"]
+    fmod.set_key(lines, "stale_paths", fmod.flow_list(paths))
+    src = "{path: %s, hash: h1}" % fmod.quote(paths[0])
+    fmod.set_key(lines, "sources", "[" + src + "]")
+    rec = build_index.parse_evidence("\n".join(["name: n"] + lines))
+    assert rec["stale_paths"] == paths
+    assert rec["sources"] == [{"path": paths[0], "hash": "h1"}]
+
+
+def test_single_quoted_values_are_not_unescaped():
+    assert build_index._scalar("'a\\\\b'") == "a\\\\b"
+    assert build_index._scalar('"a\\\\b"') == "a\\b"

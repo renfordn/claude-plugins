@@ -296,7 +296,9 @@ def write_index_line(cwd, name, hook, type, confidence=None, files_present=False
     emitted at all otherwise. `paths` is a list of repo-relative path
     strings joined with `;` (a single repo-relative path can't contain a
     semicolon but could contain a comma). Old lines with no block remain
-    valid (see parse_index_line_fields()).
+    valid (see parse_index_line_fields()). Paths containing whitespace or ';' cannot be
+    represented in the `paths:` field (index format limit): callers must not pass them, or the
+    line would not parse and its field block would be ignored.
     """
     d = ensure_dir(cwd)
     title = name.replace("-", " ").replace("_", " ").title()

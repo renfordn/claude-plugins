@@ -134,6 +134,7 @@ def refresh(repo, *paths):
 
 def test_refresh_clears_only_checked_paths_and_keeps_stale_while_others_remain(repo):
     path = _stale_entry(repo)
+    old_rev = open(path).read().split("revision: ")[1].split("\n")[0]
     proc = refresh(repo, "src/a.py")
     assert proc.returncode == 0, proc.stderr
     text = open(path).read()
@@ -143,7 +144,7 @@ def test_refresh_clears_only_checked_paths_and_keeps_stale_while_others_remain(r
     assert f"hash: {old_b_hash}" in text  # b untouched
     assert "stale: true" in text and "stale_since: 2026-11-01" in text
     assert "stale_paths: [src/b.py]" in text
-    assert f"revision: {git(repo, 'rev-parse', 'HEAD')}" in text
+    assert f"revision: {old_rev}" in text  # partial refresh: b was not re-hashed, so keep revision
     rec = index(repo)["a-fact"]
     assert rec["stale"] is True and rec["stale_paths"] == ["src/b.py"]
 
@@ -279,3 +280,179 @@ def test_refresh_drop_paths_refuses_last_source_and_unknown_path(repo):
     nope = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/zzz.py")
     assert nope.returncode == 2
     assert open(entry_file(repo)).read() == before
+
+
+def _rev_verified(path):
+    text = open(path).read()
+    return (text.split("revision: ")[1].split("\n")[0], text.split("verified: ")[1].split("\n")[0])
+
+
+def _age_verified(path):
+    text = open(path).read()
+    old = text.split("verified: ")[1].split("\n")[0]
+    with open(path, "w") as fh:
+        fh.write(text.replace(f"verified: {old}", "verified: 2000-01-01"))
+
+
+def test_refresh_drop_only_keeps_revision_and_verified(repo):
+    path = _stale_entry(repo)
+    _age_verified(path)
+    before = _rev_verified(path)
+    git(repo, "rm", "-q", "src/b.py")
+    git(repo, "commit", "-qm", "rm b")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    assert proc.returncode == 0, proc.stderr
+    assert _rev_verified(path) == before == (before[0], "2000-01-01")
+
+
+def test_refresh_partial_keeps_revision_and_verified_and_full_updates_them(repo):
+    path = _stale_entry(repo)
+    _age_verified(path)
+    before = _rev_verified(path)
+    assert refresh(repo, "src/a.py").returncode == 0
+    assert _rev_verified(path) == before
+    assert refresh(repo, "src/a.py", "src/b.py").returncode == 0
+    assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
+
+
+def test_refresh_drop_plus_rehash_of_all_remaining_updates_revision(repo):
+    path = _stale_entry(repo)
+    _age_verified(path)
+    git(repo, "rm", "-q", "src/b.py")
+    git(repo, "commit", "-qm", "rm b")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--paths", "src/a.py", "--drop-paths", "src/b.py")
+    assert proc.returncode == 0, proc.stderr
+    assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
+
+
+def test_refresh_drop_paths_refuses_path_deleted_locally_but_still_in_head(repo):
+    path = _stale_entry(repo)
+    os.remove(repo / "src" / "b.py")  # deleted in the working tree only
+    before = open(path).read()
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    assert proc.returncode == 2 and "HEAD" in proc.stderr
+    assert open(path).read() == before
+
+
+def test_refresh_handles_blank_line_inside_block_stale_paths(repo):
+    path = _stale_entry(repo)
+    text = open(path).read().replace(
+        "stale_paths: [src/a.py, src/b.py]\n", "stale_paths:\n    - src/a.py\n\n    - src/b.py\n")
+    with open(path, "w") as fh:
+        fh.write(text)
+    assert refresh(repo, "src/a.py", "src/b.py").returncode == 0
+    fm = open(path).read().split("---")[1]
+    assert "stale" not in fm and "    - src/b.py" not in fm
+
+
+def test_record_file_relevance_from_subdir_surfaces_for_edits_from_root_and_subdir(repo):
+    proc = cli("record", "--cwd", repo / "src", "--slug", "a-notes", "--type", "file-relevance",
+               "--description", "notes on a", "--body", "Why: x", "--paths", "a.py", "--basis", "observed")
+    assert proc.returncode == 0, proc.stderr
+    line = next(ln for ln in open(os.path.join(nelly_memory.memory_dir(str(repo)), "MEMORY.md"))
+                if "a-notes" in ln)
+    assert "files:yes" in line and "paths:src/a.py" in line
+    hook = os.path.join(HOOKS, "nelly_proactive_surface.py")
+    for cwd in (repo, repo / "src"):
+        payload = {"tool_name": "Edit", "tool_input": {"file_path": str(repo / "src" / "a.py")},
+                   "cwd": str(cwd)}
+        out = subprocess.run([sys.executable, hook], input=json.dumps(payload), capture_output=True,
+                             text=True)
+        assert out.returncode == 0, out.stderr
+        reason = json.loads(out.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "notes on a" in reason, (cwd, out.stdout)
+
+
+# --- review fixes F2 / F7 / cleanups ---
+
+def _mark_stale_text(path, stale):
+    text = open(path).read().replace(
+        "---\n\n", f"  stale: true\n  stale_since: 2026-11-01\n  stale_paths: [{stale}]\n---\n\n", 1)
+    with open(path, "w") as fh:
+        fh.write(text)
+
+
+def test_partial_refresh_advances_revision_when_untouched_sources_are_current_at_head(repo):
+    assert record(repo, paths=("src/a.py", "src/b.py")).returncode == 0
+    path = entry_file(repo)
+    _age_verified(path)
+    (repo / "src" / "a.py").write_text("print('a2')\n")  # only a changed; b matches its stored hash
+    git(repo, "commit", "-aqm", "change a")
+    _mark_stale_text(path, "src/a.py")
+    assert refresh(repo, "src/a.py").returncode == 0
+    assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
+    assert "stale" not in open(path).read().split("---")[1]
+
+
+def test_drop_only_refresh_advances_when_remaining_sources_are_current_at_head(repo):
+    assert record(repo, paths=("src/a.py", "src/b.py")).returncode == 0
+    path = entry_file(repo)
+    _age_verified(path)
+    git(repo, "rm", "-q", "src/b.py")
+    git(repo, "commit", "-qm", "rm b")
+    _mark_stale_text(path, "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    assert proc.returncode == 0, proc.stderr
+    assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
+
+
+def test_partial_refresh_keeps_revision_when_an_untouched_source_differs_at_head(repo):
+    assert record(repo, paths=("src/a.py", "src/b.py")).returncode == 0
+    path = entry_file(repo)
+    _age_verified(path)
+    before = _rev_verified(path)
+    (repo / "src" / "a.py").write_text("print('a2')\n")
+    (repo / "src" / "b.py").write_text("print('b2')\n")
+    git(repo, "commit", "-aqm", "change both")
+    _mark_stale_text(path, "src/a.py, src/b.py")
+    assert refresh(repo, "src/a.py").returncode == 0
+    assert _rev_verified(path) == before
+
+
+def _hold(root, ready, release):
+    import nelly_store
+    with nelly_store.lock(root):
+        ready.set()
+        release.wait(15)
+
+
+def test_record_with_store_lock_held_elsewhere_exits_75_and_writes_nothing(repo):
+    import multiprocessing
+    root = nelly_memory.memory_dir(str(repo))
+    ready, release = multiprocessing.Event(), multiprocessing.Event()
+    holder = multiprocessing.Process(target=_hold, args=(root, ready, release))
+    holder.start()
+    try:
+        assert ready.wait(10)
+        proc = record(repo)
+        assert proc.returncode == 75, (proc.stdout, proc.stderr)
+    finally:
+        release.set()
+        holder.join(10)
+    assert not os.path.exists(entry_file(repo))
+    memory_md = os.path.join(root, "MEMORY.md")
+    assert not os.path.exists(memory_md) or "a-fact" not in open(memory_md).read()
+
+
+def test_file_relevance_paths_with_whitespace_are_not_indexed_in_memory_md(repo):
+    (repo / "src" / "a b.py").write_text("x\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "space")
+    proc = cli("record", "--cwd", repo, "--slug", "ab-notes", "--type", "file-relevance",
+               "--description", "notes", "--body", "Why: x", "--paths", "src/a b.py", "src/a.py",
+               "--basis", "observed")
+    assert proc.returncode == 0, proc.stderr
+    line = next(ln for ln in open(os.path.join(nelly_memory.memory_dir(str(repo)), "MEMORY.md"))
+                if "ab-notes" in ln)
+    assert "files:yes" in line and "paths:src/a.py]" in line and "a b.py" not in line
+
+
+@pytest.mark.parametrize("flag,value", [("--description", "<desc>"), ("--body", "<body>"),
+                                        ("--slug", "<kebab-slug>"), ("--cwd", "<repo root>")])
+def test_record_rejects_placeholder_values(repo, flag, value):
+    args = {"--cwd": str(repo), "--slug": "a-fact", "--type": "reference", "--description": "d",
+            "--body": "b", "--paths": "src/a.py", "--basis": "observed"}
+    args[flag] = value
+    proc = cli("record", *[x for kv in args.items() for x in kv])
+    assert proc.returncode == 2 and "placeholder" in proc.stderr
+    assert not os.path.exists(entry_file(repo))
