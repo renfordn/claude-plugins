@@ -14,6 +14,7 @@ DATA = os.environ["CLAUDE_PLUGIN_DATA"]
 STORE = os.path.join(DATA, "agent-nelly-memory")
 OUTSIDE = os.path.join(os.path.dirname(DATA), "elsewhere")
 ANC = os.path.dirname(DATA)
+_DN = os.path.basename(DATA)  # data dir name differs when another plugin's conftest set it first
 
 
 def run_hook(command, cwd=None, env=None, raw=None):
@@ -198,10 +199,10 @@ def test_bad_payload_fails_open(raw):
 
 ENV_DENY = [
     # F10: $HOME / ${HOME} with HOME an ancestor of the store
-    ("rm -rf $HOME/agent-nelly/agent-nelly-memory/x.md", None, {"HOME": os.path.dirname(DATA)}),
-    ("rm ${HOME}/agent-nelly/agent-nelly-memory/x.md", None, {"HOME": os.path.dirname(DATA)}),
+    (f"rm -rf $HOME/{_DN}/agent-nelly-memory/x.md", None, {"HOME": os.path.dirname(DATA)}),
+    (f"rm ${{HOME}}/{_DN}/agent-nelly-memory/x.md", None, {"HOME": os.path.dirname(DATA)}),
     # F9: bare cd goes home
-    ("cd && rm -rf agent-nelly/agent-nelly-memory", None, {"HOME": os.path.dirname(DATA)}),
+    (f"cd && rm -rf {_DN}/agent-nelly-memory", None, {"HOME": os.path.dirname(DATA)}),
 ]
 
 
