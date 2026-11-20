@@ -202,8 +202,6 @@ def _tags_for_files(edited_files):
 
 
 def _write_entry(cwd, slug, description, edited_files, commit_subjects, test_run_count, reason):
-    nelly_memory.ensure_entries_dir(cwd)
-    path = nelly_memory.entry_path(cwd, slug)
 
     description = description[:_MAX_DESCRIPTION_LEN]
     tags = _tags_for_files(edited_files)
@@ -230,11 +228,10 @@ def _write_entry(cwd, slug, description, edited_files, commit_subjects, test_run
         "---\n\n"
         f"{body}"
     )
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    nelly_memory.write_index_line(cwd, slug, description, "technique", confidence="inferred")
-    build_index.upsert_project_entry(cwd, path)
+    # entry + MEMORY.md line + index record under one lock hold; a conflict keeps the existing entry
+    status = nelly_memory.create_entry(
+        cwd, slug, content, description, "technique", confidence="inferred")
+    return status != "conflict"
 
 
 def _run():
@@ -260,8 +257,8 @@ def _run():
     if _entry_exists(cwd, slug):
         return
 
-    _write_entry(cwd, slug, description, edited_files, commit_subjects, summary["test_run_count"], reason)
-    print(f"[nelly] session handoff saved: {slug}")
+    if _write_entry(cwd, slug, description, edited_files, commit_subjects, summary["test_run_count"], reason):
+        print(f"[nelly] session handoff saved: {slug}")
 
 
 def main():

@@ -48,6 +48,7 @@ from nelly_memory import BASE, global_dir  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_index import iter_project_dirs, build_all  # noqa: E402
 import nelly_cleanup  # noqa: E402
+import nelly_store  # noqa: E402
 
 STALE_INFERRED_THRESHOLD_DAYS = 90
 # Near-duplicate heuristic (report only): word-set overlap on slug + description, not character
@@ -63,15 +64,7 @@ _STOPWORDS = frozenset(
 )
 REPORT_DIR = os.path.join(BASE, "consolidation-reports")
 
-CONSOLIDATION_LOG_HEADER = (
-    "# Consolidation Log\n\n"
-    "Append-only history of consolidation-related actions taken against this "
-    "project's memory store, including archives performed by the scheduled "
-    "weekly consolidation script (scripts/nelly_weekly_consolidate.py). Never "
-    "edit or remove a prior entry -- archived files remain fully readable "
-    "under archive/, not deleted.\n\n"
-    "## Log\n"
-)
+CONSOLIDATION_LOG_HEADER = nelly_store.CONSOLIDATION_LOG_HEADER
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.S)
 _NAME_RE = re.compile(r"^name:\s*(.+)$", re.M)
@@ -222,25 +215,22 @@ def _archive_entry(project_dir, record):
 
 def _remove_index_line(project_dir, slug):
     memory_md = os.path.join(project_dir, "MEMORY.md")
-    try:
-        with open(memory_md, "r", encoding="utf-8") as fh:
-            lines = fh.readlines()
-    except OSError:
-        return
     pattern = re.compile(r"\]\(entries/" + re.escape(slug) + r"\.md\)")
-    new_lines = [ln for ln in lines if not pattern.search(ln)]
-    if new_lines != lines:
-        with open(memory_md, "w", encoding="utf-8") as fh:
-            fh.writelines(new_lines)
+    with nelly_store.lock(project_dir):  # read-modify-write under the store lock
+        try:
+            with open(memory_md, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+        except OSError:
+            return
+        new_lines = [ln for ln in lines if not pattern.search(ln)]
+        if new_lines != lines:
+            nelly_store.atomic_write(memory_md, "".join(new_lines))
 
 
 def _append_consolidation_log(project_dir, archived):
     if not archived:
         return
     log_path = os.path.join(project_dir, "CONSOLIDATION-LOG.md")
-    if not os.path.exists(log_path):
-        with open(log_path, "w", encoding="utf-8") as fh:
-            fh.write(CONSOLIDATION_LOG_HEADER)
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     blocks = []
     for record, age in archived:
@@ -253,8 +243,7 @@ def _append_consolidation_log(project_dir, archived):
             f"- Trigger: scheduled weekly consolidation "
             f"(scripts/nelly_weekly_consolidate.py)\n"
         )
-    with open(log_path, "a", encoding="utf-8") as fh:
-        fh.write("".join(blocks))
+    nelly_store.append_log(project_dir, log_path, "".join(blocks), CONSOLIDATION_LOG_HEADER)
 
 
 def _scan_project(project_dir, today, threshold_days, dry_run, errors):

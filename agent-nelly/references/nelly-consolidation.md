@@ -50,3 +50,13 @@ This log file is shared with `agent-nelly.md`'s "Supersession write-back", which
 alongside these `Action: consolidated` blocks — both append-only, never
 editing or removing the other's prior entries.
 
+## Resolving conflict sidecars
+
+A sidecar in `<store>/conflicts/` is content a writer would have overwritten (or could not write while the store lock was held). It is never deleted automatically. Two formats exist:
+
+- `entries--<slug>.<UTC ts>.<pid>.md`: a compare-and-swap write found `entries/<slug>.md` already present with different content (or the lock was unavailable). The sidecar holds the hook's text.
+- `<subdir>--<name sans .md>--<label>.md`: a worktree-store merge found two differing copies of a cached entry (`file-folder-summary` or `research-digest`). The newest copy kept the canonical name; the sidecar holds the older one.
+
+- `hotspots.<ts>.<pid>.json` and `nelly-index.<ts>.<pid>.json`: a corrupt derived file was kept before being rebuilt. Both are regenerated from the live store, so after a glance they are safe to archive.
+
+To resolve one: diff it against the canonical `entries/<subdir/>name.md`, decide which content is right, write the winner through the store (`nelly_store.write_entry` with the canonical file's current sha, or `update_entry`), then move the sidecar to `archive/` (never delete it). A sidecar left in `conflicts/` is reported by SessionStart as a pending conflict.

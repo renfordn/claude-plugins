@@ -3,6 +3,7 @@
 
 ### Added
 - Release 5 (in progress): source-evidence, staleness, Stop capture and safe-write contract (INTEROP.md "Source evidence, staleness, capture and safe writes"); Stop, schema-guard and delete-guard hooks registered (stubs); every hook has a timeout (SessionStart 10, others 5); SessionStart reports stale/pending/conflict lines.
+- Release 5 slice 1D: every hook and script writer goes through `nelly_store`. New entries are compare-and-swap (`create_entry` holds one lock across the entry, its MEMORY.md line and index record; an existing different entry is kept and the new text lands in `conflicts/`); `seen_count`/promotion bumps, `hotspots.json` updates, MEMORY.md rewrites and every append-only log or history (`append_log`) are locked read-modify-writes; the MEMORY.md header is created once under the lock. Worktree cache merges keep newest-wins but park the older differing copy in `conflicts/` as `<subdir>--<name>--<label>.md`. Hooks fail open when the store is locked (text parked, exit 0, no unlocked write). See "Resolving conflict sidecars" in `references/nelly-consolidation.md`.
 
 ### Changed
 - Agents declare model and effort: agent-nelly and nelly-maintenance opus/medium, nelly-planning-agent sonnet/low, nelly-research-agent haiku/low; descriptions trimmed (3298 to 2076 characters).

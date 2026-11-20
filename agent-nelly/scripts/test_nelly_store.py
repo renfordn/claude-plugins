@@ -622,3 +622,9 @@ def test_f6_scaffold_appends_missing_gitignore_lines_idempotently(root):
     # Only patterns added after the first scaffold are appended (F16): a shipped line the
     # user removed (here hotspots.json) stays removed; each added line appears exactly once.
     assert _read(gi).splitlines() == ["mine", "nelly-index.json", ".nelly.lock", ".*.tmp"]
+
+
+def test_update_entry_and_append_log_accept_a_lock_timeout(tmp_path):
+    import inspect
+    assert inspect.signature(nelly_store.update_entry).parameters["timeout"].default == 2.0
+    assert inspect.signature(nelly_store.append_log).parameters["timeout"].default == 2.0

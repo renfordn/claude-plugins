@@ -38,7 +38,10 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
-from nelly_memory import BASE, DIGEST_SUBDIR, SUMMARY_SUBDIR  # noqa: E402
+from nelly_memory import BASE, DIGEST_SUBDIR, SUMMARY_SUBDIR, _write_index_header  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import nelly_store  # noqa: E402
 from shared_slug import get_project_slug  # noqa: E402
 
 WORKTREE_MARKER = "-claude-worktrees-"
@@ -52,14 +55,9 @@ SESSION_HISTORY_HEADER = (
     "One line per past session, rolled up from `session-handoff-*` entries by the weekly "
     "consolidation (scripts/nelly_cleanup.py). Append-only.\n\n"
 )
-CONSOLIDATION_LOG_HEADER = (
-    "# Consolidation Log\n\n"
-    "Append-only history of consolidation-related actions taken against this "
-    "project's memory store.\n\n"
-    "## Log\n"
-)
+CONSOLIDATION_LOG_HEADER = nelly_store.CONSOLIDATION_LOG_HEADER
 # Derived or machine-local -- never carried from a worktree store into its parent.
-_DROP_ON_MERGE = {"nelly-index.json", "hotspots.json"}
+_DROP_ON_MERGE = {"nelly-index.json", "hotspots.json", nelly_store.LOCK_NAME}
 # Path-keyed caches under entries/, merged per file by newest-mtime-wins (see _merge_cache_subdir).
 _CACHE_SUBDIRS = (SUMMARY_SUBDIR, DIGEST_SUBDIR)
 
@@ -82,11 +80,7 @@ def _read(path):
 
 
 def _append(path, text, header=""):
-    new = not os.path.exists(path)
-    with open(path, "a", encoding="utf-8") as fh:
-        if new and header:
-            fh.write(header)
-        fh.write(text)
+    nelly_store.append_log(os.path.dirname(path), path, text, header)
 
 
 def _log_action(project_dir, action, lines):
@@ -124,13 +118,13 @@ def _index_lines(text):
 
 
 def _remove_index_lines_for(memory_md, filenames):
-    text = _read(memory_md)
-    if not text:
-        return
     pats = [f"](entries/{name})" for name in filenames]
-    kept = [ln for ln in text.splitlines(keepends=True) if not any(p in ln for p in pats)]
-    with open(memory_md, "w", encoding="utf-8") as fh:
-        fh.writelines(kept)
+    with nelly_store.lock(os.path.dirname(memory_md)):  # read-modify-write under the store lock
+        text = _read(memory_md)
+        if not text:
+            return
+        kept = [ln for ln in text.splitlines(keepends=True) if not any(p in ln for p in pats)]
+        nelly_store.atomic_write(memory_md, "".join(kept))
 
 
 def _handoff_line(entry_path, date, hhmm, suffix=""):
@@ -240,19 +234,34 @@ def find_orphaned_worktree_stores(base, today, idle_days=WORKTREE_IDLE_DAYS):
     return out
 
 
-def _merge_cache_subdir(src_dir, dest_dir):
+def _merge_cache_subdir(src_dir, dest_dir, store_root=None, label="merged"):
     """Fold a worktree store's entries/<SUMMARY_SUBDIR>/ or entries/<DIGEST_SUBDIR>/ cache into
     the parent's. Both are path-keyed caches (one entry per file/folder or per digest key, always
-    the latest), so a filename clash keeps the newer-mtime copy and drops the other -- never the
-    `_unique_dest` rename used for other entries, which would leave two "current" copies.
+    the latest), so a filename clash keeps the newer-mtime copy at the canonical name -- never the
+    `_unique_dest` rename used for other entries, which would leave two "current" copies. The
+    older differing copy is not discarded: it is kept in <store_root>/conflicts/ as
+    `<subdir>--<name sans .md>--<label>.md` (unique via -2, -3), outside the cache subdir so
+    build_index never indexes it as a duplicate record. Identical copies leave no sidecar.
     Churn files (`_is_churn`, e.g. orphaned atomic-write temps) are left behind.
 
-    Returns the names moved across (a dropped/superseded clash isn't "moved").
+    Returns the names moved across (a superseded clash isn't "moved").
     """
     moved = []
     if not os.path.isdir(src_dir):
         return moved
     os.makedirs(dest_dir, exist_ok=True)
+    if store_root is None:  # <store>/entries/<subdir>
+        store_root = os.path.dirname(os.path.dirname(dest_dir))
+    subdir = os.path.basename(dest_dir)
+    conflicts = os.path.join(store_root, "conflicts")
+
+    def keep_loser(loser, name):
+        os.makedirs(conflicts, exist_ok=True)
+        stem = f"{subdir}--{name[:-3] if name.endswith('.md') else name}"
+        ext = ".md" if name.endswith(".md") else ""
+        keep = _unique_dest(conflicts, stem + ext, label)
+        shutil.move(loser, os.path.join(conflicts, keep))
+
     for name in sorted(os.listdir(src_dir)):
         if _is_churn(name):
             continue  # removed with the worktree store below
@@ -261,10 +270,14 @@ def _merge_cache_subdir(src_dir, dest_dir):
         if not os.path.exists(dest):
             shutil.move(src, dest)
             moved.append(name)
+        elif filecmp.cmp(src, dest, shallow=False):
+            continue  # identical: rmtree(store) below drops the duplicate
         elif os.path.getmtime(src) > os.path.getmtime(dest):
-            os.replace(src, dest)  # newer worktree copy wins; older parent copy is discarded
+            keep_loser(dest, name)  # older parent copy kept in conflicts/
+            shutil.move(src, dest)  # newer worktree copy wins the canonical name
             moved.append(name)
-        # else: the parent's copy is newer or equal; rmtree(store) below drops the stale copy.
+        else:
+            keep_loser(src, name)  # parent's copy is newer or equal; keep the worktree copy
     return moved
 
 
@@ -281,16 +294,15 @@ def _unique_dest(dest_dir, name, label):
 def _ensure_parent_store(parent_dir, worktree_path):
     os.makedirs(os.path.join(parent_dir, "entries"), exist_ok=True)
     index = os.path.join(parent_dir, "MEMORY.md")
-    if not os.path.exists(index):
+    if not os.path.exists(index):  # _write_index_header re-checks under the store lock
         project = "unknown"
         if worktree_path and "/.claude/worktrees/" in worktree_path:
             repo, rest = worktree_path.split("/.claude/worktrees/", 1)
             project = repo + ("/" + rest.split("/", 1)[1] if "/" in rest else "")
-        with open(index, "w", encoding="utf-8") as fh:
-            fh.write(
-                f"# Agent Nelly Memory Index\n\nProject: {project}\n\n"
-                f"One line per memory entry: `- [Title](file.md) — hook`\n\n"
-            )
+        _write_index_header(
+            index,
+            f"# Agent Nelly Memory Index\n\nProject: {project}\n\n"
+            f"One line per memory entry: `- [Title](file.md) — hook`\n\n")
 
 
 def merge_worktree_store(store, parent_slug, label, base=None):
@@ -309,7 +321,7 @@ def merge_worktree_store(store, parent_slug, label, base=None):
         if name in _CACHE_SUBDIRS and os.path.isdir(src):
             # Path-keyed cache subdir: newest-mtime-wins per file (see _merge_cache_subdir).
             dest_dir = os.path.join(parent_dir, "entries", name)
-            moved.extend(os.path.join(name, n) for n in _merge_cache_subdir(src, dest_dir))
+            moved.extend(os.path.join(name, n) for n in _merge_cache_subdir(src, dest_dir, parent_dir, label))
             continue
         m = _HANDOFF_RE.match(name)
         if m:
@@ -345,8 +357,8 @@ def merge_worktree_store(store, parent_slug, label, base=None):
         if ln not in have:
             add.append(ln)
             have.add(ln)
-    if add:
-        _append(parent_index, "\n".join(add) + "\n")
+    for ln in add:
+        nelly_store.append_memory_line(parent_dir, ln)  # locked, atomic, no duplicate lines
 
     # archive/: move across, renaming on clash.
     archive = os.path.join(store, "archive")
@@ -364,7 +376,14 @@ def merge_worktree_store(store, parent_slug, label, base=None):
         if name in ("MEMORY.md", "entries", "archive") or name in _DROP_ON_MERGE:
             continue
         dest = os.path.join(parent_dir, name)
-        if os.path.isdir(src):
+        if name == "conflicts" and os.path.isdir(src):  # keep conflict sidecars together
+            dest_c = os.path.join(parent_dir, "conflicts")
+            os.makedirs(dest_c, exist_ok=True)
+            for cname in sorted(os.listdir(src)):
+                cdest = cname if not os.path.exists(os.path.join(dest_c, cname)) \
+                    else _unique_dest(dest_c, cname, label)
+                shutil.move(os.path.join(src, cname), os.path.join(dest_c, cdest))
+        elif os.path.isdir(src):
             if not os.path.exists(dest):
                 shutil.move(src, dest)
             else:

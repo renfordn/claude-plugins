@@ -65,6 +65,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
 import nelly_memory  # noqa: E402
 import build_index  # noqa: E402
+import nelly_store  # noqa: E402
 
 _MAX_SLUG_WORDS = 8
 _MAX_SLUG_LEN = 60
@@ -77,16 +78,7 @@ _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.S)
 _CONFIDENCE_LINE_RE = re.compile(r"^(?P<indent>[ \t]*)confidence:\s*(?P<value>\S+)\s*$", re.M)
 _SEEN_COUNT_LINE_RE = re.compile(r"^(?P<indent>[ \t]*)seen_count:\s*(?P<value>\d+)\s*$", re.M)
 
-_CONSOLIDATION_LOG_HEADER = (
-    "# Consolidation Log\n\n"
-    "Append-only history of consolidation-related actions taken against this "
-    "project's memory store, including auto-promotions performed by the "
-    "auto-extract hooks (hooks/nelly_auto_extract.py, "
-    "hooks/nelly_commit_extract.py) when an inferred entry recurs across "
-    "sessions. Never edit or remove a prior entry -- archived/superseded "
-    "files remain fully readable, not deleted.\n\n"
-    "## Log\n"
-)
+_CONSOLIDATION_LOG_HEADER = nelly_store.CONSOLIDATION_LOG_HEADER
 
 # --- pytest -----------------------------------------------------------------
 _PYTEST_FAILED_RE = re.compile(r"^FAILED\s+(\S+)", re.M)
@@ -236,8 +228,6 @@ def _entry_exists(cwd, slug):
 
 
 def _write_entry(cwd, slug, description, kind, command, excerpt):
-    nelly_memory.ensure_entries_dir(cwd)
-    path = nelly_memory.entry_path(cwd, slug)
 
     cmd_excerpt = (command or "").strip()[:_MAX_EXCERPT_LEN]
     why_excerpt = (excerpt or "").strip()[:_MAX_EXCERPT_LEN]
@@ -263,11 +253,10 @@ def _write_entry(cwd, slug, description, kind, command, excerpt):
         "---\n\n"
         f"{body}"
     )
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    nelly_memory.write_index_line(cwd, slug, description, "error-prevention", confidence="inferred")
-    build_index.upsert_project_entry(cwd, path)
+    # entry + MEMORY.md line + index record under one lock hold; a conflict keeps the existing entry
+    status = nelly_memory.create_entry(
+        cwd, slug, content, description, "error-prevention", confidence="inferred")
+    return status != "conflict"
 
 
 def _session_state_path(payload):
@@ -325,8 +314,6 @@ def _tags_from_test_paths(command, stdout):
 
 
 def _write_recovery_entry(cwd, slug, family, count, tags, command):
-    nelly_memory.ensure_entries_dir(cwd)
-    path = nelly_memory.entry_path(cwd, slug)
 
     description = f"Test suite recovered — {count} passing"[:_MAX_DESCRIPTION_LEN]
     cmd_excerpt = (command or "").strip()[:_MAX_EXCERPT_LEN]
@@ -354,19 +341,15 @@ def _write_recovery_entry(cwd, slug, family, count, tags, command):
         "---\n\n"
         f"{body}"
     )
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(content)
-
-    nelly_memory.write_index_line(cwd, slug, description, "technique", confidence="inferred")
-    build_index.upsert_project_entry(cwd, path)
+    # entry + MEMORY.md line + index record under one lock hold; a conflict keeps the existing entry
+    status = nelly_memory.create_entry(
+        cwd, slug, content, description, "technique", confidence="inferred")
+    return status != "conflict"
 
 
 def _append_promotion_log(cwd, slug, seen_count):
     d = nelly_memory.memory_dir(cwd)
     log_path = os.path.join(d, "CONSOLIDATION-LOG.md")
-    if not os.path.exists(log_path):
-        with open(log_path, "w", encoding="utf-8") as fh:
-            fh.write(_CONSOLIDATION_LOG_HEADER)
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     block = (
         f"\n### {timestamp}\n"
@@ -377,8 +360,7 @@ def _append_promotion_log(cwd, slug, seen_count):
         f"- Trigger: auto-confirmation threshold ({PROMOTION_THRESHOLD}+ occurrences, "
         f"hooks/nelly_auto_extract.py)\n"
     )
-    with open(log_path, "a", encoding="utf-8") as fh:
-        fh.write(block)
+    nelly_store.append_log(d, log_path, block, _CONSOLIDATION_LOG_HEADER)
 
 
 def _bump_seen_count_and_maybe_promote(cwd, slug):
@@ -398,44 +380,50 @@ def _bump_seen_count_and_maybe_promote(cwd, slug):
     None as a silent no-op, same convention as detect_signal().
     """
     path = nelly_memory.entry_path(cwd, slug)
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            text = fh.read()
-    except OSError:
-        return None
+    outcome = []
 
-    fm_match = _FRONTMATTER_RE.search(text)
-    if not fm_match:
-        return None
-    block = fm_match.group(1)
+    def _bump(text):
+        if text is None:
+            return None
+        fm_match = _FRONTMATTER_RE.search(text)
+        if not fm_match:
+            return None
+        block = fm_match.group(1)
 
-    seen_m = _SEEN_COUNT_LINE_RE.search(block)
-    current = int(seen_m.group("value")) if seen_m else 1
-    new_count = current + 1
+        seen_m = _SEEN_COUNT_LINE_RE.search(block)
+        current = int(seen_m.group("value")) if seen_m else 1
+        new_count = current + 1
 
-    if seen_m:
-        new_block = _SEEN_COUNT_LINE_RE.sub(
-            lambda m: f"{m.group('indent')}seen_count: {new_count}", block, count=1
-        )
-    else:
-        conf_m = _CONFIDENCE_LINE_RE.search(block)
-        if conf_m:
-            indent = conf_m.group("indent")
-            new_block = block[: conf_m.end()] + f"\n{indent}seen_count: {new_count}" + block[conf_m.end():]
+        if seen_m:
+            new_block = _SEEN_COUNT_LINE_RE.sub(
+                lambda m: f"{m.group('indent')}seen_count: {new_count}", block, count=1
+            )
         else:
-            new_block = block + f"\n  seen_count: {new_count}"
+            conf_m = _CONFIDENCE_LINE_RE.search(block)
+            if conf_m:
+                indent = conf_m.group("indent")
+                new_block = block[: conf_m.end()] + f"\n{indent}seen_count: {new_count}" + block[conf_m.end():]
+            else:
+                new_block = block + f"\n  seen_count: {new_count}"
 
-    confidence_m = _CONFIDENCE_LINE_RE.search(new_block)
-    confidence = confidence_m.group("value") if confidence_m else None
-    promoted = confidence == "inferred" and new_count >= PROMOTION_THRESHOLD
-    if promoted:
-        new_block = _CONFIDENCE_LINE_RE.sub(
-            lambda m: f"{m.group('indent')}confidence: explicit", new_block, count=1
-        )
+        confidence_m = _CONFIDENCE_LINE_RE.search(new_block)
+        confidence = confidence_m.group("value") if confidence_m else None
+        promoted = confidence == "inferred" and new_count >= PROMOTION_THRESHOLD
+        if promoted:
+            new_block = _CONFIDENCE_LINE_RE.sub(
+                lambda m: f"{m.group('indent')}confidence: explicit", new_block, count=1
+            )
+        outcome.append((new_count, promoted))
+        return text[: fm_match.start(1)] + new_block + text[fm_match.end(1):]
 
-    new_text = text[: fm_match.start(1)] + new_block + text[fm_match.end(1):]
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(new_text)
+    # The read-modify-write runs under the store lock, so concurrent bumps are all counted.
+    try:
+        nelly_store.update_entry(nelly_memory.memory_dir(cwd), path, _bump)
+    except nelly_store.StoreLocked:
+        return None  # another writer holds the store: skip this bump, never write unlocked
+    if not outcome:
+        return None
+    new_count, promoted = outcome[0]
 
     build_index.upsert_project_entry(cwd, path)
     if promoted:
@@ -473,8 +461,8 @@ def _run():
                     print(f"[nelly] promoted to explicit: {slug} (seen {result[0]}x)")
             else:
                 tags = _tags_from_test_paths(command, stdout)
-                _write_recovery_entry(cwd, slug, family, count, tags, command)
-                print(f"[nelly] technique saved: {slug} (test suite recovered)")
+                if _write_recovery_entry(cwd, slug, family, count, tags, command):
+                    print(f"[nelly] technique saved: {slug} (test suite recovered)")
             _clear_session_test_failure(state_path)
             return
 
@@ -493,8 +481,8 @@ def _run():
             print(f"[nelly] promoted to explicit: {slug} (seen {result[0]}x)")
         return
 
-    _write_entry(cwd, slug, description, kind, command, slug_basis)
-    print(f"[nelly] inferred lesson saved: {slug}")
+    if _write_entry(cwd, slug, description, kind, command, slug_basis):
+        print(f"[nelly] inferred lesson saved: {slug}")
 
 
 def main():

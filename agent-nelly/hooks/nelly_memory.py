@@ -81,9 +81,25 @@ def ensure_shared_root():
 
 
 def _write_index_header(index_path, lines):
-    if not os.path.exists(index_path):
-        with open(index_path, "w", encoding="utf-8") as fh:
-            fh.write(lines)
+    """Create the index with its header exactly once. Existence is re-checked under the store
+    lock (an lstat, not a read or os.path.exists) and the file is created atomically, so a
+    cold-start race can never replace a file another writer has already appended a line to."""
+    import nelly_store
+
+    def present():  # existence, not readability: an unreadable index must never be replaced
+        try:
+            os.lstat(index_path)
+            return True
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True
+
+    if present():
+        return
+    with nelly_store.lock(os.path.dirname(index_path)):
+        if not present():
+            nelly_store.atomic_write(index_path, lines)
 
 
 def ensure_dir(cwd):
@@ -293,10 +309,39 @@ def write_index_line(cwd, name, hook, type, confidence=None, files_present=False
         fields.append(f"paths:{';'.join(paths)}")
     line = f"- [{title}](entries/{name}.md) — {hook} `[{' '.join(fields)}]`"
 
-    index = os.path.join(d, "MEMORY.md")
-    with open(index, "a", encoding="utf-8") as fh:
-        fh.write(line + "\n")
+    import nelly_store
+    nelly_store.append_memory_line(d, line)  # locked, atomic, skips an identical existing line
     return line
+
+
+def create_entry(cwd, slug, content, hook, type, confidence=None, files_present=False, paths=None):
+    """Create entries/<slug>.md (compare-and-swap, expected "missing"), its MEMORY.md line and
+    its nelly-index.json record, all under ONE hold of the store lock (reentrant).
+
+    Returns "written" | "unchanged" | "conflict". "unchanged" (identical content already on disk)
+    still ensures the MEMORY.md line and index record exist. "conflict" (a different entry is
+    already there) keeps the existing entry, parks our text in conflicts/, and writes no index
+    line or record for it. If the store lock can't be taken, the text is parked the same way and
+    "conflict" is returned: nothing is ever written unlocked.
+    """
+    import nelly_store
+    import build_index
+    root = memory_dir(cwd)
+    try:
+        with nelly_store.lock(root):
+            ensure_entries_dir(cwd)
+            path = entry_path(cwd, slug)
+            status = nelly_store.write_entry(root, path, content, nelly_store.MISSING)["status"]
+            if status == "conflict":
+                return status
+            write_index_line(cwd, slug, hook, type, confidence=confidence,
+                             files_present=files_present, paths=paths)
+            build_index.upsert_project_entry(cwd, path)
+            return status
+    except nelly_store.StoreLocked:
+        # Lock never acquired, nothing written: park the text (never lose it, never write unlocked).
+        nelly_store.park_sidecar(root, f"entries--{_sanitize_name(slug)}", content)
+        return "conflict"
 
 
 _INDEX_LINE_FIELD_BLOCK_RE = re.compile(

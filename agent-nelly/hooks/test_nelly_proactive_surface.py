@@ -212,3 +212,19 @@ def test_two_matching_entries_emit_exactly_one_reason(tmp_path):
     assert len(stdout_lines) == 1
     out = json.loads(stdout_lines[0])
     assert out["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_index_cache_write_is_atomic(tmp_path, monkeypatch):
+    sys.path.insert(0, os.path.dirname(HOOK))
+    import nelly_proactive_surface as ps
+    store = tmp_path / "mem"
+    store.mkdir()
+    (store / "MEMORY.md").write_text("- [A](entries/a.md) -- hook\n")
+    monkeypatch.setattr(ps, "memory_dir", lambda cwd: str(store))
+    monkeypatch.setattr(ps.tempfile, "gettempdir", lambda: str(tmp_path))
+    calls = []
+    real = ps.nelly_store.atomic_write
+    monkeypatch.setattr(ps.nelly_store, "atomic_write",
+                        lambda path, text: (calls.append(path), real(path, text))[1])
+    assert "entries/a.md" in ps._read_index_cached("/anywhere")
+    assert len(calls) == 1 and os.path.dirname(calls[0]) == str(tmp_path)

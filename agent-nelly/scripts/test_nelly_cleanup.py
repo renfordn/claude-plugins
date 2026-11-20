@@ -146,6 +146,9 @@ def test_worktree_store_merges_summary_subdir_moved_and_newest_wins(tmp_path):
     assert sorted(os.listdir(summary_dir)) == ["file-summary-a.md", "file-summary-b.md"]
     assert "only in wt" in open(os.path.join(summary_dir, "file-summary-a.md")).read()
     assert "wt: fresher" in open(os.path.join(summary_dir, "file-summary-b.md")).read()
+    # the older parent copy is kept in conflicts/ (not in the cache subdir, so never indexed)
+    kept = os.path.join(parent, "conflicts", f"{nelly_cleanup.SUMMARY_SUBDIR}--file-summary-b--wt1.md")
+    assert "parent: stale" in open(kept).read()
 
 
 def test_worktree_store_summary_subdir_keeps_newer_parent_copy_on_clash(tmp_path):
@@ -172,6 +175,9 @@ def test_worktree_store_summary_subdir_keeps_newer_parent_copy_on_clash(tmp_path
     assert not os.path.exists(wt)
     assert os.listdir(summary_dir) == ["file-summary-b.md"]
     assert "parent: fresher" in open(os.path.join(summary_dir, "file-summary-b.md")).read()
+    # the older worktree copy is kept in conflicts/ (not in the cache subdir, so never indexed)
+    kept = os.path.join(parent, "conflicts", f"{nelly_cleanup.SUMMARY_SUBDIR}--file-summary-b--wt1.md")
+    assert "wt: stale" in open(kept).read()
     assert not os.path.exists(os.path.join(parent, "hotspots.json"))
     assert "merged-worktree-store" in open(os.path.join(parent, "CONSOLIDATION-LOG.md")).read()
 
