@@ -1,9 +1,10 @@
 ---
 name: feature-finder
-description: Text answer on where code lives and how it works, read-only, claims tagged observed/inferred/unverified. For "where is X implemented", "how does X work", "what calls Y", "impact of changing Z". Not "why is this broken" or "any bugs?". Visual walkthroughs: code-brief.
+description: >-
+  Text answer on where code lives and how it works, read-only, claims tagged observed/inferred/unverified. For "where is X implemented", "how does X work", "what calls Y", "impact of changing Z". Not "why is this broken" or "any bugs?". Visual walkthroughs: code-brief.
 context: fork
 agent: Explore
-argument-hint: [question about existing code, optional memory hints]
+argument-hint: "[question about existing code, optional memory hints]"
 ---
 
 # Feature Finder
