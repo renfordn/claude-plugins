@@ -1,6 +1,20 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
+### Added
+- **feature-finder skill (R12)**: `code-reviewer:feature-finder` answers where/how/what-calls questions as text from a forked read-only Explore context. Lanes Locate, Explain, Trace, Impact, Research; tiers 0–4, lowest useful first; every claim tagged observed, inferred or unverified; memory is a search hint only, never evidence; no review findings. Replaces the old user-level feature-finder skill, which is retired.
+- **bug-investigation skill and `bug-investigator` agent (R13)**: read-only investigation of a reported failure with competing H-id hypotheses, observed/inferred/associated/unverified labels, at most 3 check passes, the leading hypothesis challenged by `finding-verifier` (Hypotheses mode), and one next action with an owner and a verification condition. No edits.
+- **Per-finding re-check (R14)**: `scripts/recheck.py start|run|status` snapshots one finding by stable id into `<git dir>/code-review/recheck.json`, runs `finding-verifier` in Re-check mode on that finding's diff and direct tests only, and stops at resolved, escalation, no new evidence, a 3-pass limit, a blocked pass or a stale id. A re-check is never a review. `REVIEW_RECHECK_CMD`/`REVIEW_RECHECK_TIMEOUT`.
+- **Pre-push review offer (R15)**: `hooks/pre_push_offer.py` (PreToolUse Bash + SubagentStop, timeout 5) denies the first `git push` of an unreviewed HEAD once with an offer to review the whole outgoing diff, listing open gating findings from findings.json and telling the model to ask the user. The unchanged re-push goes through and is recorded `declined` (never accepted risk). Skips dry runs, deletes, tags-only pushes and HEADs already on a remote; a commit chained before the push is offered once with a request to split it. An unscoped code-reviewer report with no open gating findings marks HEAD (or its `Review cwd:` worktree) reviewed. `CODE_REVIEWER_PREPUSH=off` disables it.
+- findings.json findings carry a stable `id` (`F<n>`, unique, reused across passes) and a `resolution` (`open|resolved|declined|accepted`); a re-check never overwrites a human `declined`/`accepted`.
+- Report markers `FEATURE-FINDER-REPORT`, `BUG-INVESTIGATION-REPORT`, `FINDING-RECHECK-REPORT`, `PRE-PUSH-REVIEW` (INTEROP.md).
+
+### Changed
+- Agents declare models: code-reviewer opus/high, finding-verifier opus/medium, bug-investigator opus/medium; `review_headless.sh` passes the declared model through. Descriptions trimmed under a 2450-character total cap.
+- `code-brief` is visual-only and routes text code questions to feature-finder.
+
 ## [0.5.0] - 2026-11-19
 
 - **Feature**: scoped reviews for parallel slices. Briefs may carry `Review scope: slice=<ID>` (the reviewer echoes `<!--REVIEW-SCOPE: slice=<ID>-->` as its first line) and `Review cwd: <path>`; `review_headless.sh` gains `--scope`/`--cwd` (`REVIEW_SCOPE`/`REVIEW_CWD`), documented in INTEROP.md. `review_plan.py plan --base HEAD` (or no commits beyond base) reviews the uncommitted working tree and now includes untracked, non-ignored files (repo-relative paths from any subdirectory, unquoted non-ASCII names, files over 256 KB as placeholders), so uncommitted worker output appears in plans, test-gap checks and caller searches.

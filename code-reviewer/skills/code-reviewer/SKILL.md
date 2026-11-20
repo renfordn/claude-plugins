@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: >-
-  Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however phrased: "look over this", "any bugs?", "is this safe to ship/merge?", "sanity-check my change", or "review this file/diff/PR/branch/function", or yes/no "can this go out?". For a PR or branch, use it rather than reviewing directly: it also finds callers, untested behavior changes, and cleanups. Also at pre-commit/TDD review gates. Not for explaining code; use code-brief.
+  Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however phrased: "look over this", "any bugs?", "is this safe to ship/merge?", "sanity-check my change", or "review this file/diff/PR/branch/function", or yes/no "can this go out?". For a PR or branch, use it rather than reviewing directly: it also finds callers, untested behavior changes, and cleanups. Also at pre-commit/pre-push/TDD review gates. Not for explaining code (code-brief), finding code (feature-finder) or diagnosing a reported failure (bug-investigation).
 ---
 
 # Code Reviewer
@@ -96,7 +96,8 @@ committed). Overwrite it each pass, then check it with `review_plan.py validate 
  "findings": [{"id": "F1", "file": "app/reports.py", "line": 7, "title": "Caller not updated",
    "summary": "…", "failure_scenario": "…", "category": "correctness", "severity": "high",
    "evidence_tier": "tier-1", "decision": "block", "workflow_action": "block_commit",
-   "confidence": "high", "verdict": "CONFIRMED", "evidence": "read users.py:1 and reports.py:7"}],
+   "confidence": "high", "verdict": "CONFIRMED", "resolution": "open",
+   "evidence": "read users.py:1 and reports.py:7"}],
  "followups": [{"kind": "consolidation", "title": "Use validation.normalize_email everywhere",
    "files": ["app/invites.py", "app/newsletter.py"], "why": "…",
    "steps": ["Replace _clean_email with normalize_email", "Delete sanitize_address"]}]}
@@ -105,6 +106,12 @@ committed). Overwrite it each pass, then check it with `review_plan.py validate 
 `kind` is `refactor`, `consolidation`, or `deferred-defect` (a real defect deliberately left out
 of this PR). No 32-finding cap here: `ReportFindings` gets the top 32, the file keeps everything.
 No git repo and no review-state directory, or no `Write` tool: skip the file and say so in one line.
+Ids are stable across passes (reuse an earlier finding's id for the same issue). `resolution` is
+`open`, `resolved`, `declined` or `accepted`; a declined fix is never `accepted` risk, never
+`decision: accept` and never a `deferred-defect` follow-up.
+
+Re-checking one finding after its fix: `references/recheck.md`. Review before an authorized push:
+`references/pre-push.md`.
 
 ## Parameters
 

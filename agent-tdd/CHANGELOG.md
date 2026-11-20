@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-20
+
+### Fixed
+- `hooks/review_gate.py`: the Bash path clears review gates only for a `review_headless.sh` run with no `--agent` or `--agent code-reviewer` whose output carries `<!--CODE-REVIEWER-REPORT-->`, so a finding-verifier re-check or a failed run no longer clears a gate.
+
 ## [0.8.0] - 2026-11-19
 
 ### Added

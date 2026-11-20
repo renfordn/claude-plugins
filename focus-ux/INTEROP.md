@@ -29,7 +29,7 @@ Focus decides *how* they're shown.
 Any plugin that ends in a large human-facing result (research summary, review findings, plan,
 memory view) can say "present with `focus-ux:visual-brief`" instead of defining its own rendering.
 The skill picks the shape (timeline, flow, map, matrix, chart) and where it goes (inline in chat,
-plus a Brief Board entry when the result earns a page) itself. `code-reviewer:code-brief` stays the specialist for explaining code.
+plus a Brief Board entry when the result earns a page) itself. `code-reviewer:code-brief` stays the specialist for explaining code visually; text answers to "where is / what calls / how does X work" go to `code-reviewer:feature-finder`.
 
 ## Checkpoint-push notifications (opt-in, Dispatch children)
 

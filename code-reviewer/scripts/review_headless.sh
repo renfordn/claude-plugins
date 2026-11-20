@@ -24,6 +24,8 @@ agent_file="$root/agents/$agent_name.md"
 [[ -f "$agent_file" ]] || { echo "review_headless: no agent $agent_file" >&2; exit 2; }
 command -v claude >/dev/null || { echo "review_headless: claude CLI not on PATH" >&2; exit 127; }
 
+model="$(awk '/^---$/ { n++; next } n == 1 && /^model:/ { print $2; exit }' "$agent_file")"
+[[ "$model" != inherit ]] || model=""
 agent="$(awk 'n >= 2; /^---$/ { n++ }' "$agent_file")"
 agent="${agent//'${CLAUDE_PLUGIN_ROOT}'/$root}"
 
@@ -43,4 +45,5 @@ Tests cannot be run, so evidence that would need execution caps at tier-2.$extra
 ## Brief
 $brief" \
   --allowedTools Read Grep Glob "Bash(git grep:*)" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" "Bash(git status:*)" \
-  --disallowedTools Edit Write NotebookEdit Agent
+  --disallowedTools Edit Write NotebookEdit Agent \
+  ${model:+--model "$model"}

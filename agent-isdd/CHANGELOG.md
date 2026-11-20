@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-20
+
+### Changed
+- `references/interop-reviewers.md` documents code-reviewer release 4: a finding re-check is never a slice review; a skipped pre-push review (`declined`) and a declined fix are never a Review Fallback, accepted risk or a deferred defect; the pre-push review is an unscoped review that never satisfies a slice.
+
 ## [0.6.1] - 2026-11-19
 
 ### Changed

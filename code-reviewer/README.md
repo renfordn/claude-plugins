@@ -105,4 +105,3 @@ until one adds nothing (max 3). On the 31-file `large-pr-buried-defects` fixture
 
 See [`INTEROP.md`](INTEROP.md) for the full integration contract if you're building a different
 plugin and want to call this skill.
-# code-reviewer

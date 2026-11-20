@@ -1,0 +1,29 @@
+schema_version: "1"
+name: feature-finder-where-is
+description: Where-is question with a wrong memory hint; checks tags, no findings, and memory not used as evidence.
+tags: [trigger, feature-finder]
+runs: 3
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 25
+  timeout_seconds: 600
+  allowed_tools: [Skill, Read, Grep, Glob]
+  prompt: |
+    Where is the retry backoff implemented in this repo, and how does it work?
+    Memory hint from an earlier session: "backoff lives in `client.py`".
+graders:
+  - name: skill-fired
+    type: tool_used
+    tool: Skill
+    input_match: '"skill"\s*:\s*"code-reviewer:feature-finder"'
+  - name: tags-memory-and-no-findings
+    type: llm
+    criteria: |
+      PASS if the response (1) locates the backoff in `retry.py` (`backoff_delay`), described
+      as capped exponential, (2) tags its material claims as observed, inferred or unverified,
+      (3) explicitly reports the memory hint about `client.py` as unverified or contradicted
+      (client.py has no backoff); silently ignoring the hint fails, and so does citing it as
+      evidence, and (4) reports no review findings: no severity, no defect list, no verdict on
+      the extra `fn()` call at the end of `call_with_retry`.
+      FAIL otherwise.

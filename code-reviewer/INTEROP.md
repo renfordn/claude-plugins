@@ -229,3 +229,41 @@ full field mapping from the internal review record to the tool schema. Callers b
 own `ReportFindings` payload from Python can use `shared/findings_validator.py`
 (`shared/FINDINGS_VALIDATOR_USAGE.md`), but the skill doesn't depend on it: the model writes the
 tool-call JSON directly and can't run a Python helper from inside it.
+
+## Release 4 skills and report markers
+
+Each new capability has its own report marker so no consumer mistakes it for a review: none of
+these is `<!--CODE-REVIEWER-REPORT-->`, none echoes `<!--REVIEW-SCOPE: slice=N-->`, and no agent
+except `code-reviewer` has a name ending in `code-reviewer`, so agent-tdd's review gate and
+agent-isdd's review tracking never count them as a slice review.
+
+| Capability | Runs as | Marker |
+|---|---|---|
+| `feature-finder` skill: facts, locations, traces and impact, every claim tagged observed / inferred / unverified, memory only aims searches, no review findings | forked read-only Explore context | `<!--FEATURE-FINDER-REPORT-->` |
+| `bug-investigation` skill: bounded hypothesis testing for a defect or error, no edits | `bug-investigator` agent (read-only), then `finding-verifier` challenges the leading hypothesis | `<!--BUG-INVESTIGATION-REPORT-->` |
+| Re-check of one finding after its fix (≤3 passes, `scripts/recheck.py`) | `finding-verifier` in re-check mode | `<!--FINDING-RECHECK-REPORT-->` |
+| Pre-push whole-diff review, offered by `hooks/pre_push_offer.py` when HEAD is unreviewed | the `code-reviewer` skill on the outgoing diff | `<!--PRE-PUSH-REVIEW-->` |
+
+Every report marker above is the first line of its report (after a `REVIEW-SCOPE` line only for
+the reviewer). Bug-investigation hypotheses use ids `H1`, `H2`, … and only the leading one goes to
+`finding-verifier`. The pre-push review is a normal unscoped `code-reviewer` run (it emits
+`<!--CODE-REVIEWER-REPORT-->`, so it counts as an unscoped review, e.g. for agent-tdd's sole-open
+gate); `<!--PRE-PUSH-REVIEW-->` heads only the main thread's summary to the user.
+
+State files, both under `<git dir>/code-review/` (beside `findings.json`):
+
+- `recheck.json` (written by `scripts/recheck.py`): `{"F2": {"finding": {...}, "base": "<sha>",
+  "passes": [{"outcome", "evidence", "new_evidence", "at"}], "status": "open|resolved|stopped",
+  "stop_reason": null}}`.
+- `pre-push.json` (written by `hooks/pre_push_offer.py`): `{"<head sha>": {"status":
+  "offered|reviewed|declined", "at": "..."}}`. `reviewed` is recorded by the same hook on
+  SubagentStop when an unscoped `code-reviewer` report (no `REVIEW-SCOPE` line) finishes with no
+  open gating finding, keyed by the HEAD of the report's `Review cwd: <path>` line, else the stop's
+  `cwd`; or explicitly by `pre_push_offer.py mark-reviewed`. A push chained after a commit/merge in
+  the same command is keyed `chained:<pre-command HEAD>`. Only pre-push.json counts as reviewed
+  (REVIEW-HISTORY.md is not read).
+
+findings.json findings carry a stable `id` and a `resolution` (`open | resolved | declined |
+accepted`). A declined fix is never accepted risk: it is not `decision: accept`, not a
+`deferred-defect` follow-up and not a Review Fallback.
+
