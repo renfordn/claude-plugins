@@ -182,6 +182,18 @@ def raw_text(payload, raw):
     return resp if isinstance(resp, str) else raw
 
 
+AGENT_FLAG_RE = re.compile(r"--agent(?:=|\s+)(\S+)")
+
+
+def _is_reviewer_run(command):
+    """review_headless.sh with no --agent flag or --agent code-reviewer (other agents never
+    produce a slice review, even if their output happens to carry the marker)."""
+    if "review_headless.sh" not in command:
+        return False
+    agents = [a.strip("'\"") for a in AGENT_FLAG_RE.findall(command)]
+    return all(a == "code-reviewer" for a in agents)
+
+
 def main():
     raw = sys.stdin.read()
     try:
@@ -195,8 +207,8 @@ def main():
     if event == "SubagentStop":
         return on_subagent_stop(payload, cwd)
     elif (event == "PostToolUse" and payload.get("tool_name") == "Bash"
-          and "review_headless.sh" in str((payload.get("tool_input") or {}).get("command", ""))
-          and "finding-verifier" not in str((payload.get("tool_input") or {}).get("command", ""))):
+          and _is_reviewer_run(str((payload.get("tool_input") or {}).get("command", "")))
+          and REVIEW_MARKER in raw_text(payload, raw)):
         from markers import parse_review_scope
         return clear_gates(cwd, parse_review_scope(raw_text(payload, raw)))
     elif event == "PreToolUse" and payload.get("tool_name") == "SendMessage":
