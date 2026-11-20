@@ -14,19 +14,26 @@
       paths containing whitespace or ';' are not written to that `paths:` field (index format
       limit) and so never surface in proactive surfacing. Placeholder values (`<...>`) for
       --cwd, --slug, --description and --body are rejected (exit 2).
-  refresh --cwd DIR --slug S [--paths P...] [--drop-paths P...]
+  stale   --cwd DIR
+      Lists the stale entries (oldest stale_since first) as JSON, each with its runnable refresh command.
+  refresh --cwd DIR --slug S [--paths P...] [--drop-paths P...] [--confirm-unchanged]
       Under nelly_store.update_entry re-hash only the given paths (each must be in the entry's
       sources), update their hashes, remove them from stale_paths, and drop
       stale/stale_since/stale_paths only when no stale path remains. Refuses paths that are
       modified/staged/untracked (exit 2). `--drop-paths` removes sources whose file is gone from
       both the working tree and HEAD (never the last source: archive the entry instead).
+      A stale entry that was not rewritten since it was marked (its description and body still hash
+      to `stale_digest`, or the mark has none) is refused (exit 2) unless `--confirm-unchanged` says
+      the recheck found the fact still true: refresh re-pins hashes, it never proves a fact. A
+      dropped path is also removed from `metadata.files` and the MEMORY.md `paths:` field.
       `revision` and `verified` are stamped (HEAD, today) only when, after the refresh, every
       remaining source's stored hash equals its committed blob at HEAD (outside a repo: when every
       remaining source was re-hashed in this refresh); otherwise they are kept unchanged.
 
 Paths are given relative to --cwd and stored relative to the git toplevel (to --cwd outside git).
-Prints JSON. Exit codes: 0 ok, 2 usage/validation error, 3 write conflict (sidecar path in the
-JSON `path`), 75 store lock timeout.
+Run it with the env prefix and absolute script path shown in the SessionStart line (CLAUDE_PLUGIN_ROOT
+is unset in Bash). Prints JSON. Exit codes: 0 ok, 2 usage/validation error, 3 write conflict (sidecar
+path in the JSON `path`), 5 plugin data dir unavailable, 75 store lock timeout.
 """
 import argparse
 import json
@@ -39,14 +46,22 @@ from datetime import date
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.join(_HERE, "..", "hooks"))
-import build_index  # noqa: E402
-import nelly_frontmatter  # noqa: E402
-import nelly_memory  # noqa: E402
-import nelly_store  # noqa: E402
-from research_digest import blob_hash_file  # noqa: E402
+try:
+    import build_index  # noqa: E402
+    import nelly_freshness  # noqa: E402
+    import nelly_frontmatter  # noqa: E402
+    import nelly_memory  # noqa: E402
+    import nelly_pending  # noqa: E402
+    import nelly_store  # noqa: E402
+    import shared_slug  # noqa: E402
+    from research_digest import blob_hash_file  # noqa: E402
+except Exception as _exc:  # CLAUDE_PLUGIN_DATA unset: main reports it cleanly (exit 5)
+    _IMPORT_ERROR = _exc
+else:
+    _IMPORT_ERROR = None
 
 _FM_RE = re.compile(r"^---\n(.*?)\n---", re.S)
-_STALE_KEYS = ("stale", "stale_since", "stale_paths")
+_STALE_KEYS = ("stale", "stale_since", "stale_paths", "stale_digest")
 _NEEDS_CONFIDENCE = ("error-prevention", "technique")
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -69,20 +84,21 @@ def _head(base):
 
 
 def _base(cwd):
-    """Directory sources are relative to: the git toplevel, else cwd (both realpath'd)."""
-    r = _git(cwd, "rev-parse", "--show-toplevel")
-    top = r.stdout.strip() if r and r.returncode == 0 else ""
-    return os.path.realpath(top or cwd)
+    """Directory sources are relative to: the git toplevel, else cwd, in cwd's own lexical spelling
+    (shared_slug.repo_root), so printed --cwd values and the slug match the rest of the plugin."""
+    return shared_slug.repo_root(os.path.abspath(cwd))
 
 
 def _resolve(cwd, base, p, must_exist=True):
     """Validate a path given relative to cwd and return it relative to `base`."""
     if not p or not build_index.is_repo_relative(p):
         raise EvidenceError(f"path '{p}' must be repo-relative (no leading '/', '~' or '..')")
-    full = os.path.normpath(os.path.join(os.path.realpath(cwd), p))
+    full = os.path.normpath(os.path.join(os.path.abspath(cwd), p))
     if must_exist and not os.path.isfile(full):
         raise EvidenceError(f"path '{p}' does not exist under {cwd}")
     rel = os.path.relpath(full, base)
+    if rel.startswith(".."):  # cwd reached through a symlink from outside the repo
+        rel = os.path.relpath(os.path.realpath(full), os.path.realpath(base))
     if rel.startswith(".."):
         raise EvidenceError(f"path '{p}' is outside the repository root {base}")
     return rel.replace(os.sep, "/")
@@ -98,9 +114,11 @@ def _check_committed(base, head, paths):
         if not tracked or tracked.returncode != 0 or not status or status.stdout.strip():
             bad.append(p)
     if bad:
+        queue = nelly_pending._cmd("hooks/nelly_pending.py", "add", "--cwd", base, "--summary",
+                                   "<one-line finding>", "--paths", *bad)
         raise EvidenceError(
             "uncommitted/untracked/modified: " + ", ".join(bad) + ". Evidence is recorded only against "
-            "committed bytes; queue this finding with `hooks/nelly_pending.py add` instead.")
+            f"committed bytes; queue this finding instead (replace the summary): `{queue}`")
 
 
 def _in_head(base, p):
@@ -113,7 +131,8 @@ def _flow_sources(items):
                            for s in items) + "]"
 
 
-_flow_list = nelly_frontmatter.flow_list
+def _flow_list(items):
+    return nelly_frontmatter.flow_list(items)
 
 
 def _one_line(text):
@@ -128,7 +147,8 @@ def _build_entry(a, sources, revision):
         raise EvidenceError(f"--confidence explicit|inferred is required for type {a.type}")
     a.confidence = confidence
     body = a.body if a.body is not None else open(a.body_file, encoding="utf-8").read()
-    lines = ["---", f"name: {a.slug}", f"description: {_one_line(a.description)}", "metadata:",
+    lines = ["---", f"name: {nelly_frontmatter.name_scalar(a.slug)}",
+             f"description: {nelly_frontmatter.quote_always(_one_line(a.description))}", "metadata:",
              f"  type: {a.type}", f"  last_referenced: {date.today().isoformat()}"]
     if a.type in _NEEDS_CONFIDENCE:
         lines.append(f"  confidence: {confidence}")
@@ -145,17 +165,19 @@ def _build_entry(a, sources, revision):
 
 
 def _reject_placeholders(a):
-    for flag, value in (("--cwd", a.cwd), ("--slug", a.slug), ("--description", a.description),
-                        ("--body", a.body)):
-        v = (value or "").strip()
-        if v.startswith("<") and v.endswith(">"):
-            raise EvidenceError(f"{flag} is still the placeholder text {v!r}; supply the real value")
+    try:
+        for flag, value in (("--cwd", a.cwd), ("--slug", a.slug), ("--description", a.description),
+                            ("--body", a.body)):
+            nelly_frontmatter.reject_placeholder(flag, value)
+    except ValueError as exc:
+        raise EvidenceError(str(exc))
 
 
 def cmd_record(a):
     _reject_placeholders(a)
-    if a.type == "research-digest":
-        raise EvidenceError("research-digest entries are written by scripts/research_digest.py")
+    if a.type in (*nelly_memory.SUMMARY_TYPES, nelly_memory.DIGEST_TYPE):
+        raise EvidenceError(f"--type {a.type} has its own writer (file/folder summaries: agent-nelly's "
+                            "summary cache; research-digest: scripts/research_digest.py)")
     if not _SLUG_RE.match(a.slug or "") or build_index.is_conflict_copy(a.slug + ".md"):
         raise EvidenceError(f"invalid slug '{a.slug}': use a kebab-case slug (a-z, 0-9, '-')")
     if a.basis not in ("observed", "inferred", "unknown"):
@@ -212,6 +234,20 @@ def _refresh_text(old, a, base, head, paths, drops):
     sources = rec.get("sources")
     if not sources:
         raise EvidenceError(f"entry '{a.slug}' has no sources to refresh")
+    if (rec.get("stale") is True and not a.confirm_unchanged
+            and rec.get("stale_digest") in (None, nelly_frontmatter.content_digest(old))):
+        stale_on = ', '.join(rec.get('stale_paths') or [])
+        if rec.get("stale_digest") is None:
+            raise EvidenceError(
+                f"entry '{a.slug}' was marked stale before rewrite tracking, so refresh cannot tell "
+                f"whether it was rewritten; if you already rewrote it, or it is still true after "
+                f"rechecking {stale_on}, rerun with --confirm-unchanged (otherwise rewrite or archive it).")
+        raise EvidenceError(
+            f"entry '{a.slug}' is stale and has not been rewritten since it was marked: refresh only "
+            f"re-pins hashes, it does not prove the fact. Recheck {stale_on}"
+            " against the source: if the fact changed, rewrite the entry's body/description first (or "
+            "archive it), then run refresh; if it still holds exactly as written, re-run with "
+            "--confirm-unchanged.")
     known = {s["path"] for s in sources}
     unknown = [p for p in paths + drops if p not in known]
     if unknown:
@@ -231,6 +267,9 @@ def _refresh_text(old, a, base, head, paths, drops):
     lines = block.split("\n")
     try:
         nelly_frontmatter.set_key(lines, "sources", _flow_sources(sources))
+        files = build_index._inline_list(block, "files") if drops else None
+        if files and any(f in drops for f in files):
+            nelly_frontmatter.set_key(lines, "files", _flow_list([f for f in files if f not in drops]))
         if _all_current(base, head, sources, new_hashes):
             nelly_frontmatter.set_key(lines, "revision", head, anchor="sources")
             nelly_frontmatter.set_key(lines, "verified", date.today().isoformat(), anchor="revision")
@@ -265,10 +304,48 @@ def cmd_refresh(a):
     _check_committed(base, head, paths)
     root = nelly_memory.memory_dir(cwd)
     path = _find_entry(cwd, a.slug)
-    status = nelly_store.update_entry(root, path, lambda old: _refresh_text(old, a, base, head, paths, drops))
-    build_index.upsert_project_entry(cwd, path)
+    with nelly_store.lock(root):  # entry, MEMORY.md line and index record under one hold
+        status = nelly_store.update_entry(root, path,
+                                          lambda old: _refresh_text(old, a, base, head, paths, drops))
+        if drops:
+            _drop_memory_paths(root, a.slug, drops)
+        build_index.upsert_project_entry(cwd, path)
     return 0, {"status": status, "slug": a.slug, "path": path, "revision": head,
                "paths": paths, "dropped": drops}
+
+
+_PATHS_FIELD_RE = re.compile(r"( paths:)([^\s\]]*)")
+
+
+def _drop_memory_paths(root, slug, drops):
+    """Remove dropped paths from the entry's MEMORY.md `paths:` field (the `files:yes paths:` pair
+    goes when none is left). Caller holds the store lock."""
+    mem = os.path.join(root, "MEMORY.md")
+    try:
+        with open(mem, encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return
+    marker = f"](entries/{slug}.md)"
+    out = []
+    for ln in lines:
+        m = _PATHS_FIELD_RE.search(ln) if marker in ln else None
+        if m:
+            kept = [p for p in m.group(2).split(";") if p and p not in drops]
+            if kept:
+                ln = ln[:m.start()] + m.group(1) + ";".join(kept) + ln[m.end():]
+            else:
+                ln = (ln[:m.start()] + ln[m.end():]).replace(" files:yes", "")
+        out.append(ln)
+    if out != lines:
+        nelly_store.atomic_write(mem, "".join(out))
+
+
+def cmd_stale(a):
+    base = _base(os.path.abspath(a.cwd))
+    records = build_index._read_index(os.path.join(nelly_memory.memory_dir(base), build_index.INDEX_FILENAME))
+    return 0, nelly_freshness.stale_listing(
+        base, [r for r in records if isinstance(r, dict) and r.get("slug")])
 
 
 def _parser():
@@ -292,13 +369,20 @@ def _parser():
     f.add_argument("--slug", required=True)
     f.add_argument("--paths", nargs="*", default=[])
     f.add_argument("--drop-paths", nargs="*", default=[], help="remove sources whose file is gone")
+    f.add_argument("--confirm-unchanged", action="store_true",
+                   help="the recheck found a stale entry's fact still true (required unless it was rewritten)")
+    t = sub.add_parser("stale")
+    t.add_argument("--cwd", required=True)
     return ap
 
 
 def main(argv=None):
+    if _IMPORT_ERROR is not None:
+        print(f"nelly_evidence: {_IMPORT_ERROR}", file=sys.stderr)
+        return 5
     args = _parser().parse_args(argv)
     try:
-        code, out = (cmd_record if args.cmd == "record" else cmd_refresh)(args)
+        code, out = {"record": cmd_record, "refresh": cmd_refresh, "stale": cmd_stale}[args.cmd](args)
     except EvidenceError as exc:
         print(f"nelly_evidence: {exc}", file=sys.stderr)
         return 2

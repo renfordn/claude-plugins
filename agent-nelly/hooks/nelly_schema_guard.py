@@ -105,7 +105,7 @@ def _cmd(sub, slug):
 
 def _stale_fields(bi, block):
     rec = bi.parse_evidence(block)
-    return tuple((k, rec.get(k)) for k in ("stale", "stale_since", "stale_paths"))
+    return tuple((k, rec.get(k)) for k in ("stale", "stale_since", "stale_paths", "stale_digest"))
 
 
 def violations(bi, block, stem, exists=False):
@@ -157,7 +157,7 @@ def check(bi, block, stem, old_block):
                 return msg
     old = _stale_fields(bi, old_block) if old_block is not None else _stale_fields(bi, "")
     if _stale_fields(bi, block) != old:
-        return ("stale, stale_since and stale_paths are written only by the freshness hook and "
+        return ("stale, stale_since, stale_paths and stale_digest are written only by the freshness hook and "
                 f"cleared only by `{_cmd('refresh', stem)}`; do not add, change or remove them by hand.")
     return None
 

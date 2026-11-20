@@ -129,7 +129,7 @@ def _stale_entry(repo):
 
 
 def refresh(repo, *paths):
-    return cli("refresh", "--cwd", repo, "--slug", "a-fact", "--paths", *paths)
+    return cli("refresh", "--cwd", repo, "--slug", "a-fact", "--paths", *paths, "--confirm-unchanged")
 
 
 def test_refresh_clears_only_checked_paths_and_keeps_stale_while_others_remain(repo):
@@ -208,7 +208,7 @@ def test_refresh_from_subdir_matches_root_relative_sources(repo):
     assert record(sub, paths=("x.py",)).returncode == 0
     (sub / "x.py").write_text("y\n")
     git(repo, "commit", "-aqm", "chg")
-    proc = cli("refresh", "--cwd", sub, "--slug", "a-fact", "--paths", "x.py")
+    proc = cli("refresh", "--cwd", sub, "--slug", "a-fact", "--paths", "x.py", "--confirm-unchanged")
     assert proc.returncode == 0, proc.stderr
     assert git(repo, "hash-object", "sub/x.py") in open(entry_file(sub)).read()
 
@@ -256,11 +256,11 @@ def test_record_unchanged_still_restores_memory_line(repo):
 
 def test_refresh_drop_paths(repo):
     path = _stale_entry(repo)
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 2  # source still exists
     git(repo, "rm", "-q", "src/b.py")
     git(repo, "commit", "-qm", "rm b")
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 0, proc.stderr
     text = open(path).read()
     assert "src/b.py" not in text
@@ -275,9 +275,9 @@ def test_refresh_drop_paths_refuses_last_source_and_unknown_path(repo):
     git(repo, "rm", "-q", "src/a.py")
     git(repo, "commit", "-qm", "rm a")
     before = open(entry_file(repo)).read()
-    last = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/a.py")
+    last = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/a.py", "--confirm-unchanged")
     assert last.returncode == 2 and "archive" in last.stderr
-    nope = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/zzz.py")
+    nope = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/zzz.py", "--confirm-unchanged")
     assert nope.returncode == 2
     assert open(entry_file(repo)).read() == before
 
@@ -300,7 +300,7 @@ def test_refresh_drop_only_keeps_revision_and_verified(repo):
     before = _rev_verified(path)
     git(repo, "rm", "-q", "src/b.py")
     git(repo, "commit", "-qm", "rm b")
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 0, proc.stderr
     assert _rev_verified(path) == before == (before[0], "2000-01-01")
 
@@ -320,7 +320,7 @@ def test_refresh_drop_plus_rehash_of_all_remaining_updates_revision(repo):
     _age_verified(path)
     git(repo, "rm", "-q", "src/b.py")
     git(repo, "commit", "-qm", "rm b")
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--paths", "src/a.py", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--paths", "src/a.py", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 0, proc.stderr
     assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
 
@@ -329,7 +329,7 @@ def test_refresh_drop_paths_refuses_path_deleted_locally_but_still_in_head(repo)
     path = _stale_entry(repo)
     os.remove(repo / "src" / "b.py")  # deleted in the working tree only
     before = open(path).read()
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 2 and "HEAD" in proc.stderr
     assert open(path).read() == before
 
@@ -391,7 +391,7 @@ def test_drop_only_refresh_advances_when_remaining_sources_are_current_at_head(r
     git(repo, "rm", "-q", "src/b.py")
     git(repo, "commit", "-qm", "rm b")
     _mark_stale_text(path, "src/b.py")
-    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py")
+    proc = cli("refresh", "--cwd", repo, "--slug", "a-fact", "--drop-paths", "src/b.py", "--confirm-unchanged")
     assert proc.returncode == 0, proc.stderr
     assert _rev_verified(path) == (git(repo, "rev-parse", "HEAD"), date.today().isoformat())
 

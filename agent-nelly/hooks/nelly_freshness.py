@@ -6,7 +6,9 @@ Conservative: only entries that carry `sources` and are not already stale are ch
 state dir) so a time budget never starves the later entries. A changed or missing source file
 (or any hash error) is a stale path. Marking only adds `stale`, `stale_since`, `stale_paths`
 inside `metadata:` and refreshes that entry's index record; nothing is deleted or moved, and
-only `nelly_evidence.py refresh` clears the flag. Any per-entry error, including StoreLocked,
+only `nelly_evidence.py refresh` clears the flag. Marking also stores `stale_digest` (hash of
+the entry's description and body at that moment): refresh uses it to tell whether the entry was
+rewritten since. The index is updated once per scan. Any per-entry error, including StoreLocked,
 skips that entry (fail open). Contract: INTEROP.md "Source evidence, staleness, capture and
 safe writes"."""
 import json
@@ -22,22 +24,22 @@ import build_index  # noqa: E402
 import nelly_frontmatter  # noqa: E402
 import nelly_pending  # noqa: E402
 import nelly_store  # noqa: E402
+import shared_slug  # noqa: E402
 from nelly_memory import local_state_dir, memory_dir  # noqa: E402
 from research_digest import blob_hash_file  # noqa: E402
 
 CURSOR_FILE = "freshness-cursor.json"
 NAMED_CAP = 5
-_STALE_KEYS = ("stale", "stale_since", "stale_paths")
+_STALE_KEYS = ("stale", "stale_since", "stale_paths", "stale_digest")
 
 
 def _repo_root(cwd):
+    """The repo root in cwd's own lexical spelling (so printed --cwd values and the memory-dir
+    slug match what the model's `--cwd` resolves to), or None outside a repo."""
     try:
-        proc = subprocess.run(["git", "-C", cwd, "rev-parse", "--show-toplevel"],
-                              capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.SubprocessError):
+        return shared_slug.repo_root(cwd, require_git=True)
+    except Exception:
         return None
-    root = proc.stdout.strip()
-    return root if proc.returncode == 0 and root else None
 
 
 def _load_cursor(path):
@@ -96,6 +98,7 @@ def _mark_text(text, paths, today):
         nelly_frontmatter.set_key(fm_lines, "stale", "true")
         nelly_frontmatter.set_key(fm_lines, "stale_since", today)
         nelly_frontmatter.set_key(fm_lines, "stale_paths", nelly_frontmatter.flow_list(paths))
+        nelly_frontmatter.set_key(fm_lines, "stale_digest", nelly_frontmatter.content_digest(text))
     except ValueError:
         return None
     return "".join([lines[0]] + fm_lines + lines[end:])
@@ -126,15 +129,32 @@ def _refresh_cmd(repo_root, slug, paths):
     return nelly_pending._cmd("scripts/nelly_evidence.py", *args)
 
 
-def _mark_stale(cwd, mem, record, paths, today, timeout):
-    """Mark one entry under the store lock (bounded wait). Returns update_entry's status."""
+def _mark_stale(mem, record, paths, today, timeout):
+    """Mark one entry under the store lock (bounded wait). Returns (update_entry status, entry path)."""
     path = os.path.join(mem, record["file_path"])
     with nelly_store.lock(mem, timeout=timeout):
         status = nelly_store.update_entry(
             mem, path, lambda old: _mark_text(old, paths, today) if old else None)
-        if status == "written":
-            build_index.upsert_project_entry(cwd, path)
-    return status
+    return status, path
+
+
+def stale_cmd(repo_root):
+    """Runnable `nelly_evidence.py stale` (lists every stale entry with its refresh command)."""
+    return nelly_pending._cmd("scripts/nelly_evidence.py", "stale", "--cwd", repo_root)
+
+
+def _record_paths(record):
+    return list(record.get("stale_paths") or [x.get("path") for x in record["sources"] if x.get("path")])
+
+
+def stale_listing(repo_root, records):
+    """[{slug, stale_since, stale_paths, command}] for stale sourced entries, oldest stale_since first."""
+    stale = [r for r in records if r.get("sources") and r.get("stale") is True
+             and r.get("type") != "research-digest"]
+    stale.sort(key=lambda r: (str(r.get("stale_since") or ""), str(r["slug"])))
+    return [{"slug": r["slug"], "stale_since": r.get("stale_since") or "",
+             "stale_paths": list(r.get("stale_paths") or []),
+             "command": _refresh_cmd(repo_root, r["slug"], _record_paths(r))} for r in stale]
 
 
 def scan(cwd, budget=1.5):
@@ -150,8 +170,9 @@ def scan(cwd, budget=1.5):
     except Exception:
         return []
 
-    already_stale = sum(1 for r in records if r.get("sources") and r.get("stale") is True
-                        and r.get("type") != "research-digest")
+    already = [r for r in records if r.get("sources") and r.get("stale") is True
+               and r.get("type") != "research-digest"]
+    already_stale = len(already)
     candidates = sorted((r for r in records if r.get("sources") and r.get("stale") is not True
                                   and r.get("type") != "research-digest"),
                         key=_key)
@@ -163,7 +184,7 @@ def scan(cwd, budget=1.5):
 
     today = time.strftime("%Y-%m-%d")
     hashes = {}
-    marked = []
+    marked, marked_paths = [], []
     last_key = None
     finished = True
     for record in candidates:
@@ -175,8 +196,10 @@ def scan(cwd, budget=1.5):
             paths = _stale_paths(repo_root, record["sources"], hashes)
             if paths:
                 wait = max(0.05, budget - (time.monotonic() - start))
-                if _mark_stale(cwd, mem, record, paths, today, wait) == "written":
+                status, epath = _mark_stale(mem, record, paths, today, wait)
+                if status == "written":
                     marked.append((record["slug"], paths))
+                    marked_paths.append(epath)
         except Exception:  # StoreLocked included: skip this entry, fail open
             continue
     if finished:
@@ -184,15 +207,30 @@ def scan(cwd, budget=1.5):
     elif last_key:
         _save_cursor(cursor_path, last_key)
 
+    if marked_paths:
+        try:
+            build_index.upsert_project_entries(cwd, marked_paths)  # one index write for the scan
+        except Exception:  # StoreLocked included: the next index rebuild picks the marks up
+            pass
+
     lines = []
     if marked:
         named = [f"{slug} ({', '.join(paths)})" for slug, paths in marked[:NAMED_CAP]]
         if len(marked) > NAMED_CAP:
             named.append(f"+{len(marked) - NAMED_CAP} more")
-        lines.append(f"{len(marked)} memory entries marked stale (sources changed): "
-                     f"{', '.join(named)}. Recheck each source, then run its refresh command:")
-        for slug, paths in marked[:NAMED_CAP]:
+        lines.append(f"{len(marked)} memory entries marked stale (sources changed): {', '.join(named)}.")
+    if marked or already:
+        todo = [(r["slug"], str(r.get("stale_since") or ""), _record_paths(r)) for r in already]
+        todo += [(slug, today, paths) for slug, paths in marked]
+        todo.sort(key=lambda t: (t[1], t[0]))
+        lines.append("Stale entries, oldest first. Recheck each source: if the fact changed, rewrite the "
+                     "entry (body/description) or archive it first, then run its refresh command; if it "
+                     "still holds as written, add --confirm-unchanged to the command:")
+        for slug, _since, paths in todo[:NAMED_CAP]:
             lines.append(f"  {slug}: {_refresh_cmd(repo_root, slug, paths)}")
+        if len(todo) > NAMED_CAP:
+            lines.append(f"  +{len(todo) - NAMED_CAP} more stale entries: list them with "
+                         f"{stale_cmd(repo_root)}")
     total = already_stale + len(marked)
     if total > 0:
         lines.append(f"{total} memory entries are stale in total.")

@@ -24,6 +24,8 @@ from nelly_memory import (  # noqa: E402
     list_entries, ensure_shared_root,
 )
 
+from nelly_frontmatter import read_scalar  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
+
 INDEX_FILENAME = "nelly-index.json"
 HOTSPOTS_FILENAME = "hotspots.json"
 _BRIEF_CAP = 5
@@ -58,10 +60,9 @@ def _read_global_memory():
         return ""
     lines = []
     for block in re.findall(r"^---\n(.*?)\n---", idx, re.M | re.S):
-        name_m = re.search(r"^name:\s*(.+)$", block, re.M)
-        desc_m = re.search(r"^description:\s*(.+)$", block, re.M)
-        if name_m and desc_m:
-            lines.append(f"- {name_m.group(1).strip()}: {desc_m.group(1).strip()}")
+        name, desc = read_scalar(block, "name"), read_scalar(block, "description")
+        if name and desc:
+            lines.append(f"- {name}: {desc}")
     return "\n".join(lines)
 
 

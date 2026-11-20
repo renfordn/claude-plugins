@@ -35,3 +35,72 @@ def test_interop_and_template():
     t = _read("references", "nelly-entry.template.md")
     assert "--drop-paths" in t and "git toplevel" in t
     assert "relative to the project's `cwd`" not in t
+
+
+# --- slice 2E: every documented script invocation is complete and parses ---
+
+import re  # noqa: E402
+import shlex  # noqa: E402
+import sys  # noqa: E402
+
+sys.path.insert(0, os.path.join(ROOT, "hooks"))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+import nelly_evidence  # noqa: E402
+import nelly_pending  # noqa: E402
+
+_DOCS = [("INTEROP.md",), ("references", "nelly-staleness.md"), ("references", "nelly-entry.template.md"),
+         ("agents", "nelly-maintenance.md"), ("agents", "agent-nelly.md")]
+_SUBS = r"(?:record|refresh|stale|add|list|resolve)"
+_INVOKE = re.compile(r"(nelly_evidence|nelly_pending)\.py\"?\s+(" + _SUBS + r"\b[^`\n]*)")
+
+
+def _invocations(text):
+    out = []
+    for m in _INVOKE.finditer(text):
+        tail = m.group(2).rstrip(" .,;:)")
+        out.append((m.group(1), shlex.split(tail)))
+    return out
+
+
+def test_every_documented_invocation_parses_with_cwd_and_slug():
+    seen = 0
+    for parts in _DOCS:
+        text = _read(*parts)
+        calls = _invocations(text)
+        if calls:
+            assert "env prefix" in text, f"{parts}: invocations must say to use the SessionStart env prefix"
+        for script, argv in calls:
+            parser = (nelly_evidence._parser() if script == "nelly_evidence" else nelly_pending._parser())
+            try:
+                ns = parser.parse_args(argv)
+            except SystemExit:
+                raise AssertionError(f"{parts}: does not parse: {script}.py {' '.join(argv)}")
+            if argv[0] in ("record", "refresh", "add", "resolve", "list", "stale"):
+                assert "--cwd" in argv, f"{parts}: missing --cwd: {argv}"
+            if argv[0] in ("record", "refresh"):
+                assert "--slug" in argv, f"{parts}: missing --slug: {argv}"
+            seen += 1
+    assert seen >= 8
+
+
+def test_staleness_docs_say_recheck_rewrite_then_refresh():
+    for parts in (("references", "nelly-staleness.md"), ("agents", "nelly-maintenance.md"), ("INTEROP.md",)):
+        t = _read(*parts)
+        assert "--confirm-unchanged" in t, parts
+
+
+def test_file_move_lists_r5_bash_uses_and_never_overwrites():
+    t = _read("references", "nelly-file-move.md")
+    assert "nelly_evidence.py" in t and "nelly_pending.py" in t and "mv -n" in t
+
+
+def test_agent_nelly_new_fact_uses_record_and_pending_for_code_facts():
+    t = _read("agents", "agent-nelly.md").split("### Recording a new fact", 1)[1].split("### Recording new facts", 1)[0]
+    for k in ("nelly_evidence.py", "nelly_pending.py", "file-relevance", "project"):
+        assert k in t, k
+
+
+def test_new_fact_step_2_does_not_rely_on_the_sessionstart_line():
+    t = _read("agents", "agent-nelly.md").split("### Recording a new fact", 1)[1].split("### Recording new facts", 1)[0]
+    assert 'CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/nelly_evidence.py" record' in t
+    assert "Stop hook" in t

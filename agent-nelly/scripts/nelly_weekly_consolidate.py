@@ -208,8 +208,13 @@ def _find_superseded_not_archived(entries):
 def _archive_entry(project_dir, record):
     archive_dir = os.path.join(project_dir, "archive")
     os.makedirs(archive_dir, exist_ok=True)
-    dest = os.path.join(archive_dir, os.path.basename(record["path"]))
-    os.rename(record["path"], dest)
+    stem, ext = os.path.splitext(os.path.basename(record["path"]))
+    with nelly_store.lock(project_dir):  # check-then-rename must not race another archiver
+        dest, n = os.path.join(archive_dir, stem + ext), 1
+        while os.path.lexists(dest):  # never overwrite an earlier archive of the same name
+            n += 1
+            dest = os.path.join(archive_dir, f"{stem}.{n}{ext}")
+        os.rename(record["path"], dest)
     return dest
 
 

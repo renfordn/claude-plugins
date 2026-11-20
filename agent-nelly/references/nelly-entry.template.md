@@ -120,7 +120,9 @@ metadata:
   # --- source evidence (R16), any type; optional on old entries, but once
   #     `sources` is present, revision + verified + basis are REQUIRED
   #     (hooks/nelly_schema_guard.py). Fill them with
-  #     `scripts/nelly_evidence.py record`, never by hand-computing hashes ---
+  #     `nelly_evidence.py record --cwd <repo-root> --slug <slug> --type <type> --description <text> --body <text> --paths <paths> --basis observed`
+  #     (run with the env prefix and absolute script path shown in the SessionStart line),
+  #     never by hand-computing hashes ---
   sources: [{path: <repo-relative path>, hash: <git blob sha1>}, ...]
   symbols: [<function/class/const name>, ...]  # optional
   revision: <git commit sha the claim was verified at | unknown>
@@ -128,12 +130,15 @@ metadata:
   basis: <observed | inferred | unknown>   # observed = read in source/tests
   unknowns: "<what was not checked or is unresolved>"  # optional
   #     (sources paths are repo-root-relative, like `files`.) Drop a source whose
-  #     file is gone with `nelly_evidence.py refresh <slug> --drop-paths <path>`.
+  #     file is gone with `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --drop-paths <path>`.
   # --- staleness (R17), written only by hooks/nelly_freshness.py and
-  #     cleared only by `nelly_evidence.py refresh`; never by hand ---
+  #     cleared only by `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --paths <paths>`
+  #     (recheck the source first; rewrite or archive the entry if the fact changed; add
+  #     `--confirm-unchanged` only when it still holds as written); never by hand ---
   stale: true
   stale_since: <YYYY-MM-DD>
   stale_paths: [<repo-relative path>, ...]
+  stale_digest: <hash of description + body when marked>   # written with the mark
 ---
 
 <The fact or detail this entry captures.
