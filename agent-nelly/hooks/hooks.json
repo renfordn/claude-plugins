@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_session_start.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_session_start.py\"",
+            "timeout": 10
           }
         ]
       }
@@ -15,7 +16,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_session_end.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_session_end.py\"",
+            "timeout": 5
           }
         ]
       }
@@ -26,23 +28,43 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_slug_guard.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_schema_guard.py\"",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_summary_guard.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_slug_guard.py\"",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_digest_guard.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_summary_guard.py\"",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory_permission.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_digest_guard.py\"",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_proactive_surface.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_memory_permission.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_proactive_surface.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_delete_guard.py\"",
+            "timeout": 5
           }
         ]
       }
@@ -53,7 +75,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_index_update.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_index_update.py\"",
+            "timeout": 5
           }
         ]
       },
@@ -62,7 +85,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_hotspot_tracker.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_hotspot_tracker.py\"",
+            "timeout": 5
           }
         ]
       },
@@ -71,11 +95,24 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_auto_extract.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_auto_extract.py\"",
+            "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_commit_extract.py\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_commit_extract.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/nelly_stop_capture.py\"",
+            "timeout": 5
           }
         ]
       }

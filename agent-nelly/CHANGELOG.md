@@ -1,4 +1,25 @@
 <!-- TDD-SKIP -->
+## [Unreleased]
+
+## [0.7.0] - 2026-11-20
+
+Release 5 of the Jane-guided upgrade (ported from Jane's repo-atlas): memory entries about code carry source evidence, go stale when the code changes, get captured at the end of a turn, and are never lost to concurrent writes. Contract: INTEROP.md "Source evidence, staleness, capture and safe writes".
+
+### Added
+- **Source evidence (R16).** Entries may carry `sources` (`[{path, hash}]`, repo-root-relative paths and git blob hashes), `symbols`, `revision`, `verified`, `basis` (observed | inferred | unknown) and `unknowns`. `scripts/nelly_evidence.py record` computes them, writes the entry, its MEMORY.md line (`files:yes paths:` for file-relevance) and index record under one lock, and refuses uncommitted paths (queue those with `hooks/nelly_pending.py add`). `hooks/nelly_schema_guard.py` (PreToolUse Write/Edit) denies incomplete evidence, absolute or `..` paths, `name` != file stem, missing `confidence`, and any hand edit of stale fields; it only flags violations an edit introduces on older entries.
+- **Staleness (R17).** At SessionStart `hooks/nelly_freshness.py` compares recorded hashes with the current files (1.5 s budget, oldest verified first, rotation cursor, one index write per scan) and marks changed or missing sources `stale: true` / `stale_since` / `stale_paths`; nothing is deleted and research digests are skipped. SessionStart lists stale entries, oldest first, each with a runnable refresh command; `nelly_evidence.py stale --cwd DIR` lists them all. `refresh --paths` re-hashes only the paths given and advances `revision`/`verified` only when every source matches HEAD; `--drop-paths` removes sources that no longer exist; a stale entry refreshes only after its fact is rewritten or with `--confirm-unchanged`, so a now-false fact is never silently marked fresh. Proactive surfacing marks stale entries "(stale: recheck <paths>)".
+- **Capture at Stop (R18).** `hooks/nelly_stop_capture.py` asks at most once per path and twice per session for one brief recording pass when the final answer states a clear source-linked finding (behaviour verb plus a real path or indexed symbol, no hedge, question or edit summary) that memory does not already cover, or asks for a refresh when the covering entry is stale. Skipped in plan mode, with `NELLY_CAPTURE=off`, or when the user said not to save memory. Findings on uncommitted files go to a machine-local pending queue (`hooks/nelly_pending.py add|list|resolve`, cap 50, exit codes 0/2/3/4/5) that SessionStart surfaces once the code is committed.
+- **Safe concurrent writes (R19).** `scripts/nelly_store.py`: advisory lock on `<memory dir>/.nelly.lock` (reentrant per thread, short timeout), compare-and-swap entry writes that keep a conflicting write as a sidecar in `conflicts/` instead of overwriting, locked atomic index/MEMORY.md/log/hotspot updates. Every hook and script writer goes through it; worktree cache merges keep the older copy in `conflicts/`; SessionStart reports the conflict count; `references/nelly-consolidation.md` explains how to resolve sidecars. The weekly archive never overwrites an existing archive file.
+- `hooks/nelly_delete_guard.py` (PreToolUse Bash) denies hard deletes (`rm`, `unlink`, `rmdir`, `shred`, `git rm`, `find -delete`/`-exec rm`) of the memory store or a folder above it, through a quote-aware shell parser; `.tmp`/`.lock` files and archive moves are allowed. `NELLY_GATE=off` disables the guards.
+- `scripts/nelly_frontmatter.py`: one frontmatter editor (key extent, quoting, flow lists) used by freshness and evidence.
+
+### Changed
+- Prune (`references/nelly-staleness.md`, nelly-maintenance) reads the deterministic stale flags for entries with `sources` instead of an LLM "heavily changed" judgment; the age rule and legacy `files` check stay for older entries.
+- agent-nelly records code facts through `nelly_evidence.py record` (file-relevance for facts about specific files, project for project-wide facts) and reports `basis`/`unknowns` and stale marks in briefs.
+- Agents declare model and effort: agent-nelly and nelly-maintenance opus/medium, nelly-planning-agent sonnet/low, nelly-research-agent haiku/low; descriptions trimmed (3298 to about 2100 characters). Every hook has a timeout (SessionStart 10 s, others 5 s).
+- Printed commands are absolute, carry the `CLAUDE_PLUGIN_DATA` prefix and are shell-quoted, so they run from the model's Bash.
+- The shared memory root's `.gitignore` gains `.nelly.lock` and `.*.tmp` (appended to existing files once; lines you removed stay removed).
+
 ## [0.6.7] - 2026-11-04
 
 ### Changed

@@ -28,6 +28,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nelly_memory  # noqa: E402
+import nelly_store  # noqa: E402
 
 MAX_FILES = 50
 _TRACKED_TOOLS = ("Write", "Edit", "MultiEdit", "Read")
@@ -44,20 +45,18 @@ def _relative_path(cwd, file_path):
         return abspath  # different drive on Windows -- fall back to absolute
 
 
-def _load(path):
+def _parse(root, text):
+    """Parse hotspots.json text; a corrupt file is kept as a conflicts/ sidecar, not reset."""
+    if text is None:
+        return {"files": {}, "updated_at": None}
     try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
+        data = json.loads(text)
         if isinstance(data, dict) and isinstance(data.get("files"), dict):
             return data
-    except (OSError, ValueError):
+    except ValueError:
         pass
+    nelly_store.park_sidecar(root, "hotspots", text, ext=".json")
     return {"files": {}, "updated_at": None}
-
-
-def _save(path, data):
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, sort_keys=True)
 
 
 def _touch(data, rel_path, now):
@@ -99,9 +98,15 @@ def _run():
     hotspots_path = os.path.join(d, "hotspots.json")
 
     now = datetime.datetime.now().replace(microsecond=0).isoformat()
-    data = _load(hotspots_path)
-    _touch(data, rel, now)
-    _save(hotspots_path, data)
+
+    def update(text):  # runs under the store lock: concurrent touches are all counted
+        data = _parse(d, text)
+        _touch(data, rel, now)
+        return json.dumps(data, indent=2, sort_keys=True)
+
+    # Fires on every tool call: wait at most 0.25s for the lock, then skip this count (StoreLocked
+    # is swallowed by main()'s fail-open handler) rather than slow the tool call.
+    nelly_store.update_entry(d, hotspots_path, update, timeout=0.25)
 
 
 def main():

@@ -1,6 +1,11 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-20
+
+### Changed
+- Shared memory root: the scaffolded `.gitignore` gains `.nelly.lock` and `.*.tmp`, and an existing `.gitignore` gets only those new lines appended once (lines you removed stay removed; non-UTF-8 files tolerated). Mirrored `path_resolution.py` block, shared with agent-isdd and agent-nelly.
+
 ## [0.8.1] - 2026-11-20
 
 ### Fixed

@@ -70,7 +70,9 @@ def test_worktree_store_merges_digest_subdir_moved_and_newest_wins(tmp_path):
     assert sorted(os.listdir(digest_dir)) == ["research-digest-a.md", "research-digest-b.md"]
     assert "only in wt" in open(os.path.join(digest_dir, "research-digest-a.md")).read()
     assert "wt: fresher" in open(os.path.join(digest_dir, "research-digest-b.md")).read()
-    assert _no_rename_copies(parent) == []
+    assert _no_rename_copies(os.path.join(parent, "entries")) == []
+    kept = os.path.join(parent, "conflicts", f"{DIGEST}--research-digest-b--wt1.md")
+    assert "parent: stale" in open(kept).read()  # older parent copy kept, outside the cache subdir
     assert result["merged"][0]["moved"] == [
         "research-digest/research-digest-a.md", "research-digest/research-digest-b.md"]
 
@@ -97,7 +99,9 @@ def test_worktree_store_digest_subdir_keeps_newer_parent_copy_on_clash(tmp_path)
     assert not os.path.exists(wt)
     assert os.listdir(digest_dir) == ["research-digest-b.md"]
     assert "parent: fresher" in open(os.path.join(digest_dir, "research-digest-b.md")).read()
-    assert _no_rename_copies(parent) == []
+    assert _no_rename_copies(os.path.join(parent, "entries")) == []
+    kept = os.path.join(parent, "conflicts", f"{DIGEST}--research-digest-b--wt1.md")
+    assert "wt: stale" in open(kept).read()  # older worktree copy kept, outside the cache subdir
     assert "merged-worktree-store" in open(os.path.join(parent, "CONSOLIDATION-LOG.md")).read()
 
 

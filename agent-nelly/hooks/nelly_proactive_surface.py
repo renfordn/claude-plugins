@@ -33,7 +33,12 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+import build_index  # noqa: E402
 from nelly_memory import memory_dir, parse_index_line_fields, resolve_repo_relative  # noqa: E402
+import shared_slug  # noqa: E402
+import nelly_frontmatter  # noqa: E402
+import nelly_store  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
 
 _LINE_RE = re.compile(r"^-\s*\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
 
@@ -71,8 +76,7 @@ def _read_index_cached(cwd):
         return ""
 
     try:
-        with open(cache_path, "w", encoding="utf-8") as fh:
-            fh.write(content)
+        nelly_store.atomic_write(cache_path, content)
     except OSError:
         pass  # cache write failure is non-fatal -- direct read result is still valid
 
@@ -108,8 +112,9 @@ def _read_entry_file(cwd, link):
 
 
 def _description(entry_text):
-    m = _DESCRIPTION_RE.search(entry_text)
-    return m.group(1).strip() if m else ""
+    m = build_index._FRONTMATTER_RE.search(entry_text)
+    block = m.group(1) if m else entry_text
+    return nelly_frontmatter.read_scalar(block, "description") or ""
 
 
 def _real_confidence(entry_text):
@@ -117,10 +122,24 @@ def _real_confidence(entry_text):
     return m.group(1).strip() if m else None
 
 
-def _path_matches(cwd, paths, target):
+def _stale_suffix(entry_text):
+    """` (stale: recheck <paths>)` when the entry file's own frontmatter says stale: true
+    (the authoritative entry, not the index), else "". Parse problems -> ""."""
+    try:
+        m = build_index._FRONTMATTER_RE.search(entry_text)
+        rec = build_index.parse_evidence(m.group(1)) if m else {}
+        if rec.get("stale") is True:
+            return f" (stale: recheck {', '.join(rec.get('stale_paths') or [])})"
+    except Exception:
+        pass
+    return ""
+
+
+def _path_matches(root, paths, target):
+    """Index `paths:` are relative to the git toplevel (`root`), never to the payload cwd."""
     for p in paths:
         try:
-            resolved = resolve_repo_relative(cwd, p)
+            resolved = resolve_repo_relative(root, p)
         except ValueError:
             continue
         if resolved == target:
@@ -150,10 +169,15 @@ def main():
     if not index:
         no_decision()  # empty/missing memory store -> silent no-op
 
+    root = None  # git toplevel, computed on the first index line that has paths
     for line in index.splitlines():
         fields = parse_index_line_fields(line)
         paths = fields.get("paths")
-        if not paths or not _path_matches(cwd, paths, target):
+        if not paths:
+            continue
+        if root is None:
+            root = shared_slug.repo_root(cwd)
+        if not _path_matches(root, paths, target):
             continue
 
         m = _LINE_RE.match(line)
@@ -171,9 +195,10 @@ def main():
         if entry_type == "error-prevention":
             if _real_confidence(entry_text) != "explicit":
                 continue  # inferred (or unknown) confidence -> never surface
-            emit_allow(f"{title} — {description} (confidence: explicit)")
+            emit_allow(f"{title} — {description} (confidence: explicit)"
+                       + _stale_suffix(entry_text))
         elif entry_type == "file-relevance":
-            emit_allow(f"{title} — {description}")
+            emit_allow(f"{title} — {description}" + _stale_suffix(entry_text))
         # Any other/unknown type is out of scope for this slice -> keep
         # scanning rather than surfacing or erroring.
 

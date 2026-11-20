@@ -36,9 +36,9 @@ New metadata fields (optional, type-conditional — only present for their
 matching `type`; entries of other types MUST NOT include them):
 
   - `metadata.files` (type: file-relevance only): a YAML list of one or
-    more paths, relative to the project's `cwd` — NEVER absolute, since a
-    project can be checked out at different absolute paths across
-    machines/worktrees.
+    more paths, relative to the repo root (the git toplevel of the project's
+    `cwd`; `cwd` itself outside a repo) — NEVER absolute, since a project can
+    be checked out at different absolute paths across machines/worktrees.
   - `metadata.files` (type: file-summary only): a YAML list containing
     exactly **one** repo-relative path — one file-summary entry per file,
     unlike `file-relevance`'s multi-file list. `description` is the file's
@@ -117,6 +117,28 @@ metadata:
   commit: <git commit hash>                # commit_extract only
   files_changed: <integer>                 # commit_extract (count) or session_end (count)
   paths: [<repo-relative path>, ...]       # commit_extract only
+  # --- source evidence (R16), any type; optional on old entries, but once
+  #     `sources` is present, revision + verified + basis are REQUIRED
+  #     (hooks/nelly_schema_guard.py). Fill them with
+  #     `nelly_evidence.py record --cwd <repo-root> --slug <slug> --type <type> --description <text> --body <text> --paths <paths> --basis observed`
+  #     (run with the env prefix and absolute script path shown in the SessionStart line),
+  #     never by hand-computing hashes ---
+  sources: [{path: <repo-relative path>, hash: <git blob sha1>}, ...]
+  symbols: [<function/class/const name>, ...]  # optional
+  revision: <git commit sha the claim was verified at | unknown>
+  verified: <YYYY-MM-DD>
+  basis: <observed | inferred | unknown>   # observed = read in source/tests
+  unknowns: "<what was not checked or is unresolved>"  # optional
+  #     (sources paths are repo-root-relative, like `files`.) Drop a source whose
+  #     file is gone with `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --drop-paths <path>`.
+  # --- staleness (R17), written only by hooks/nelly_freshness.py and
+  #     cleared only by `nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --paths <paths>`
+  #     (recheck the source first; rewrite or archive the entry if the fact changed; add
+  #     `--confirm-unchanged` only when it still holds as written); never by hand ---
+  stale: true
+  stale_since: <YYYY-MM-DD>
+  stale_paths: [<repo-relative path>, ...]
+  stale_digest: <hash of description + body when marked>   # written with the mark
 ---
 
 <The fact or detail this entry captures.

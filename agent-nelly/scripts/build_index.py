@@ -49,6 +49,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks"))
+import nelly_frontmatter  # noqa: E402
+import nelly_store  # noqa: E402  (scripts/ is this file's own dir)
 from nelly_memory import (  # noqa: E402
     BASE, memory_dir, global_dir, SUMMARY_SUBDIR, DIGEST_SUBDIR, DIGEST_TYPE,
 )
@@ -60,14 +62,17 @@ _NAME_RE = re.compile(r"^name:\s*(.+)$", re.M)
 _DESCRIPTION_RE = re.compile(r"^description:\s*(.+)$", re.M)
 _TYPE_RE = re.compile(r"^\s*type:\s*(\S+)", re.M)
 _CONFIDENCE_RE = re.compile(r"^\s*confidence:\s*(\S+)", re.M)
-_TAGS_RE = re.compile(r"^\s*tags:\s*\[(.*?)\]\s*$", re.M)
 _SEEN_COUNT_RE = re.compile(r"^\s*seen_count:\s*(\d+)", re.M)
-_FILES_RE = re.compile(r"^\s*files:\s*\[(.*?)\]\s*$", re.M)
 _FOLDER_RE = re.compile(r"^\s*folder:\s*(\S+)", re.M)
 _GIT_HASH_RE = re.compile(r"^\s*git_hash:\s*(\S+)", re.M)
 _TOPIC_RE = re.compile(r"^topic:[ \t]*(.+)$", re.M)
 _UPDATED_RE = re.compile(r"^updated:[ \t]*(.+)$", re.M)
-_SOURCES_KEY_RE = re.compile(r"^sources:[ \t]*$")
+_SOURCES_KEY_RE = re.compile(r"^([ \t]*)sources:[ \t]*$")
+_EVIDENCE_SCALARS = ("revision", "verified", "basis", "unknowns", "stale_since", "stale_digest")
+_EVIDENCE_SCALAR_RES = {k: re.compile(r"^[ \t]*" + k + r":[ \t]*(\S.*)$", re.M) for k in _EVIDENCE_SCALARS}
+_SOURCES_FLOW_RE = re.compile(r"^[ \t]*sources:[ \t]*\[(.*)\][ \t]*$", re.M)
+_STALE_RE = re.compile(r"^[ \t]*stale:[ \t]*(\S+)", re.M)
+_SOURCES_PRESENT_RE = re.compile(r"^[ \t]*sources:", re.M)
 _LIST_ITEM_RE = re.compile(r"^[ \t]*-(?:[ \t]|$)")
 _SOURCE_FIELD_RE = re.compile(r"^[ \t]*(?:-[ \t]*)?(path|hash):[ \t]*(.*?)[ \t]*$")
 
@@ -91,11 +96,81 @@ def is_conflict_copy(name):
 
 
 def _scalar(value):
-    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar."""
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-        value = value[1:-1]
-    return value
+    """Strip whitespace and one pair of matching surrounding quotes from a frontmatter scalar;
+    inside double quotes an escaped backslash or quote is unescaped (the inverse of
+    nelly_frontmatter.quote)."""
+    return nelly_frontmatter.unquote(value)
+
+
+def _split_inline(text):
+    """Split on top-level commas, honoring quotes and {}/[] nesting; returns stripped parts."""
+    parts, buf, quote, depth = [], [], None, 0
+    escaped = False
+    for ch in text:
+        if quote:
+            buf.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\" and quote == '"':
+                escaped = True
+            elif ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+            buf.append(ch)
+        elif ch in "{[":
+            depth += 1
+            buf.append(ch)
+        elif ch in "}]":
+            depth -= 1
+            buf.append(ch)
+        elif ch == "," and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _inline_list(block, key):
+    """Value of list key `key` as [str, ...], or None when the key is absent. Handles the
+    flow form `key: [a, "b, c"]` and the block form (`key:` then `- item` lines)."""
+    lines = block.splitlines()
+    key_re = re.compile(r"^([ \t]*)" + re.escape(key) + r":[ \t]*(.*?)[ \t]*$")
+    for i, line in enumerate(lines):
+        m = key_re.match(line)
+        if not m:
+            continue
+        rest = m.group(2)
+        if rest.startswith("[") and rest.endswith("]"):
+            return [_scalar(t) for t in _split_inline(rest[1:-1])]
+        if rest:
+            return None
+        indent = len(m.group(1).expandtabs())
+        items = []
+        for nxt in lines[i + 1:]:
+            if not nxt.strip():
+                continue
+            nindent = len(nxt) - len(nxt.lstrip())
+            if not _LIST_ITEM_RE.match(nxt) or nindent < indent:
+                break
+            items.append(_scalar(nxt.strip()[1:]))
+        return [x for x in items if x]
+    return None
+
+
+def _parse_flow_sources(inner):
+    items = []
+    for part in _split_inline(inner):
+        if part.startswith("{") and part.endswith("}"):
+            item = {"path": None, "hash": None}
+            for kv in _split_inline(part[1:-1]):
+                k, _, v = kv.partition(":")
+                if k.strip() in item:
+                    item[k.strip()] = _scalar(v) or None
+            items.append(item)
+    return [i for i in items if i["path"]]
 
 
 def _parse_sources(block):
@@ -104,14 +179,19 @@ def _parse_sources(block):
     lines and `- ` items (zero-indent allowed) belong to it. Every `- ` line starts a new item;
     `path:`/`hash:` may come in either order. Items without a path are dropped; a path with no
     hash gets `hash: None`."""
+    flow_m = _SOURCES_FLOW_RE.search(block)
+    if flow_m:
+        return _parse_flow_sources(flow_m.group(1))
     lines = block.splitlines()
     start = next((i for i, ln in enumerate(lines) if _SOURCES_KEY_RE.match(ln)), None)
     if start is None:
         return []
+    key_indent = len(_SOURCES_KEY_RE.match(lines[start]).group(1).expandtabs())
     items = []
     for line in lines[start + 1:]:
-        if line.strip() and not line[0].isspace() and not _LIST_ITEM_RE.match(line):
-            break  # next top-level key
+        indent = len(line) - len(line.lstrip())
+        if line.strip() and indent <= key_indent and not _LIST_ITEM_RE.match(line):
+            break  # next sibling key
         if _LIST_ITEM_RE.match(line):
             items.append({"path": None, "hash": None})
         field_m = _SOURCE_FIELD_RE.match(line)
@@ -134,24 +214,18 @@ def _parse_frontmatter_block(block):
     desc_m = _DESCRIPTION_RE.search(block)
     type_m = _TYPE_RE.search(block)
     confidence_m = _CONFIDENCE_RE.search(block)
-    tags_m = _TAGS_RE.search(block)
     seen_count_m = _SEEN_COUNT_RE.search(block)
-    files_m = _FILES_RE.search(block)
     folder_m = _FOLDER_RE.search(block)
     git_hash_m = _GIT_HASH_RE.search(block)
 
-    description = desc_m.group(1).strip().splitlines()[0] if desc_m else ""
+    description = _scalar(desc_m.group(1).strip().splitlines()[0]) if desc_m else ""
     entry_type = type_m.group(1).strip() if type_m else None
     entry_type = _TYPE_ALIASES.get(entry_type, entry_type)
-    tags = []
-    if tags_m:
-        tags = [t.strip().strip("'\"") for t in tags_m.group(1).split(",") if t.strip()]
-    files = []
-    if files_m:
-        files = [f.strip().strip("'\"") for f in files_m.group(1).split(",") if f.strip()]
+    tags = _inline_list(block, "tags") or []
+    files = _inline_list(block, "files") or []
 
     record = {
-        "slug": name_m.group(1).strip(),
+        "slug": _scalar(name_m.group(1)),
         "type": entry_type,
         "confidence": confidence_m.group(1).strip() if confidence_m else None,
         "description": description,
@@ -168,7 +242,55 @@ def _parse_frontmatter_block(block):
         record["topic"] = _scalar(topic_m.group(1)) if topic_m else None
         record["sources"] = _parse_sources(block)
         record["updated"] = _scalar(updated_m.group(1)) if updated_m else None
+    _add_evidence(record, block)
     return record
+
+
+def _add_evidence(record, block):
+    """Add evidence/stale keys to `record`, each only when present in the frontmatter."""
+    if "sources" not in record and _SOURCES_PRESENT_RE.search(block):
+        record["sources"] = _parse_sources(block)
+    symbols = _inline_list(block, "symbols")
+    if symbols is not None:
+        record["symbols"] = symbols
+    for key in ("revision", "verified", "basis", "unknowns"):
+        m = _EVIDENCE_SCALAR_RES[key].search(block)
+        if m and _scalar(m.group(1)):
+            record[key] = _scalar(m.group(1))
+    m = _STALE_RE.search(block)
+    if m:
+        record["stale"] = _scalar(m.group(1)).lower() == "true"
+    m = _EVIDENCE_SCALAR_RES["stale_since"].search(block)
+    if m and _scalar(m.group(1)):
+        record["stale_since"] = _scalar(m.group(1))
+    m = _EVIDENCE_SCALAR_RES["stale_digest"].search(block)
+    if m and _scalar(m.group(1)):
+        record["stale_digest"] = _scalar(m.group(1))
+    stale_paths = _inline_list(block, "stale_paths")
+    if stale_paths is not None:
+        record["stale_paths"] = stale_paths
+
+
+def parse_evidence(block):
+    """Public: the evidence/stale fields of one frontmatter block as a dict (see _add_evidence)."""
+    record = {}
+    _add_evidence(record, block)
+    return record
+
+
+def is_repo_relative(path):
+    """Public: True when `path` is a repo-relative path: not absolute (POSIX, Windows drive or
+    backslash), not starting with `~`, and without a `..` segment."""
+    p = str(path)
+    return not (p.startswith(("/", "~", "\\")) or os.path.isabs(p)
+                or re.match(r"^[A-Za-z]:[\\/]", p) is not None
+                or ".." in re.split(r"[\\/]+", p))
+
+
+def _is_store_artifact(path, d):
+    """conflicts/ sidecars and the .nelly.lock file are never index records."""
+    rel = os.path.relpath(path, d)
+    return os.path.basename(path) == ".nelly.lock" or "conflicts" in rel.split(os.sep)[:-1]
 
 
 def _read_index(index_path):
@@ -180,10 +302,7 @@ def _read_index(index_path):
 
 
 def _write_index(index_path, records):
-    records = sorted(records, key=lambda r: r["slug"])
-    with open(index_path, "w", encoding="utf-8") as fh:
-        json.dump(records, fh, indent=2)
-        fh.write("\n")
+    nelly_store.atomic_write(index_path, nelly_store.serialize_index(records))
 
 
 def _build_index_for_memory_dir(d):
@@ -199,6 +318,11 @@ def _build_index_for_memory_dir(d):
     under entries/ (see nelly_memory.SUMMARY_SUBDIR/DIGEST_SUBDIR) -- but no deeper than that: any other subdirectory under entries/ is not a recognized entry
     kind and is skipped, same as a non-.md file at the top level.
     """
+    with nelly_store.lock(d):
+        return _scan_and_write(d)
+
+
+def _scan_and_write(d):
     entries_dir = os.path.join(d, "entries")
     records = []
     if os.path.isdir(entries_dir):
@@ -267,32 +391,43 @@ def upsert_project_entry(cwd, entry_path):
     `cwd` here is a real project cwd (e.g. a hook payload's `cwd`), never an
     already-resolved memory_dir -- same rule as build_project_index() above.
     """
+    return upsert_project_entries(cwd, [entry_path])
+
+
+def upsert_project_entries(cwd, entry_paths):
+    """upsert_project_entry for several entry files under ONE index lock and write (a scan that
+    marks many entries stale must not rewrite nelly-index.json once per entry)."""
     d = memory_dir(cwd)
-    index_path = os.path.join(d, INDEX_FILENAME)
-    records = _read_index(index_path)
-
-    name = os.path.basename(entry_path)
-    if is_conflict_copy(name):
-        # An iCloud conflict copy is never an entry of its own: drop any record that points
-        # at it and leave the original's record alone.
+    drop, parse = set(), []  # conflict copies -> drop their records; entries -> re-parse
+    for entry_path in entry_paths:
+        if _is_store_artifact(entry_path, d):
+            continue
         relative = os.path.relpath(entry_path, d)
-        kept = [r for r in records if r.get("file_path") != relative]
-        if len(kept) != len(records):
-            os.makedirs(d, exist_ok=True)
-            _write_index(index_path, kept)
+        if is_conflict_copy(os.path.basename(entry_path)):
+            # An iCloud conflict copy is never an entry of its own: drop any record that points
+            # at it and leave the original's record alone.
+            drop.add(relative)
+        else:
+            parse.append((entry_path, relative))
+    if not drop and not parse:
+        return _read_index(os.path.join(d, INDEX_FILENAME))
+
+    def apply(records):
+        # Parsed inside the store lock so a concurrent writer's newer text can't be overwritten
+        # by a record parsed from an older read.
+        kept = [r for r in records if r.get("file_path") not in drop]
+        for path, relative in parse:
+            name = os.path.basename(path)
+            # relpath (not a hardcoded "entries"/name join) so this also works for entries nested
+            # one level deeper, e.g. entries/<SUMMARY_SUBDIR>/name.md for a file/folder summary.
+            slug = name[:-3] if name.endswith(".md") else name
+            record = _record_for_entry_file(path, relative)
+            kept = [r for r in kept if r.get("slug") != slug]
+            if record:
+                kept.append(record)
         return kept
-    slug = name[:-3] if name.endswith(".md") else name
-    records = [r for r in records if r.get("slug") != slug]
 
-    # relpath (not a hardcoded "entries"/name join) so this also works for entries nested one
-    # level deeper, e.g. entries/<SUMMARY_SUBDIR>/name.md for a file-summary/folder-summary entry.
-    record = _record_for_entry_file(entry_path, os.path.relpath(entry_path, d))
-    if record:
-        records.append(record)
-
-    os.makedirs(d, exist_ok=True)
-    _write_index(index_path, records)
-    return records
+    return nelly_store.upsert_index(d, apply)
 
 
 def lookup_by_path(cwd, path):

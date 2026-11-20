@@ -14,8 +14,9 @@ import subprocess
 from typing import Optional
 
 
-def _repo_root(cwd):
-    """The git toplevel containing cwd, or cwd itself outside a repo (or if git is missing).
+def repo_root(cwd, require_git=False):
+    """The git toplevel containing cwd, or cwd itself outside a repo (or if git is missing); with
+    require_git=True, None outside a repo (or if git is missing).
 
     git reports the toplevel as a realpath, so prefer the lexical ancestor of cwd that resolves
     to it: that keeps cwd's spelling (e.g. /tmp vs /private/tmp on macOS) and so the slug. When
@@ -28,10 +29,10 @@ def _repo_root(cwd):
         proc = subprocess.run(["git", "-C", absp, "rev-parse", "--show-toplevel"],
                               capture_output=True, text=True, timeout=5, env=env)
     except (OSError, subprocess.SubprocessError):
-        return absp
+        return None if require_git else absp
     top = proc.stdout.strip()
     if proc.returncode != 0 or not top:
-        return absp
+        return None if require_git else absp
     real_top = os.path.realpath(top)
     d = absp
     while True:
@@ -41,6 +42,9 @@ def _repo_root(cwd):
         if parent == d:
             return top
         d = parent
+
+
+_repo_root = repo_root  # backward-compatible alias
 
 
 def get_project_slug(cwd: Optional[str] = None) -> str:
@@ -61,6 +65,6 @@ def get_project_slug(cwd: Optional[str] = None) -> str:
     if cwd is None:
         cwd = os.getcwd()
 
-    absp = _repo_root(cwd)
+    absp = repo_root(cwd)
     slug = re.sub(r"[^A-Za-z0-9]+", "-", absp).strip("-").lower()
     return slug or "root"

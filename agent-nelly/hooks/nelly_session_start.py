@@ -24,6 +24,8 @@ from nelly_memory import (  # noqa: E402
     list_entries, ensure_shared_root,
 )
 
+from nelly_frontmatter import read_scalar  # noqa: E402  (nelly_memory puts scripts/ on sys.path)
+
 INDEX_FILENAME = "nelly-index.json"
 HOTSPOTS_FILENAME = "hotspots.json"
 _BRIEF_CAP = 5
@@ -58,10 +60,9 @@ def _read_global_memory():
         return ""
     lines = []
     for block in re.findall(r"^---\n(.*?)\n---", idx, re.M | re.S):
-        name_m = re.search(r"^name:\s*(.+)$", block, re.M)
-        desc_m = re.search(r"^description:\s*(.+)$", block, re.M)
-        if name_m and desc_m:
-            lines.append(f"- {name_m.group(1).strip()}: {desc_m.group(1).strip()}")
+        name, desc = read_scalar(block, "name"), read_scalar(block, "description")
+        if name and desc:
+            lines.append(f"- {name}: {desc}")
     return "\n".join(lines)
 
 
@@ -183,6 +184,31 @@ def _refresh_shared_indexes(cwd):
         pass
 
 
+def _release5_lines(cwd):
+    """Stale marking (nelly_freshness), pending findings (nelly_pending) and the conflict-sidecar
+    count. Each part fails open on its own so SessionStart always prints its brief."""
+    out = []
+    try:
+        import nelly_freshness
+        out.extend(nelly_freshness.scan(cwd, budget=1.5) or [])
+    except Exception:
+        pass
+    try:
+        import nelly_pending
+        out.extend(nelly_pending.session_hint(cwd) or [])
+    except Exception:
+        pass
+    try:
+        d = os.path.join(memory_dir(cwd), "conflicts")
+        n = len([f for f in os.listdir(d) if f.endswith(".md")])
+        if n:
+            out.append(f"{n} memory conflicts in conflicts/ (kept, never overwritten): resolve with "
+                       "/nelly-memory consolidate.")
+    except OSError:
+        pass
+    return out
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -213,6 +239,8 @@ def main():
         entries = list_entries(cwd)
         if entries:
             lines.append(f"Durable entries ({len(entries)}): " + ", ".join(entries))
+
+    lines.extend(_release5_lines(cwd))
 
     hotspots_line = _format_hotspots(_read_hotspots(cwd))
     if hotspots_line:

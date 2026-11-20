@@ -184,6 +184,70 @@ A request with an absolute or `..` path, more than 30 paths, an empty topic or s
 source file that doesn't exist is rejected and nothing is stored. As with every other field, a
 failed or unavailable call is never a reason to block your own work.
 
+## Source evidence, staleness, capture and safe writes
+
+Release 5 (0.7.0). Ported from Jane's repo-atlas; every rule below is enforced by a hook or
+script, not prose.
+
+**Source evidence (R16).** Any entry type may carry, under `metadata:`, `sources`
+(`[{path, hash}]`, repo-relative path plus git blob SHA-1), `symbols`, `revision` (commit SHA or
+`unknown`), `verified` (date), `basis` (observed | inferred | unknown) and `unknowns`. Once
+`sources` is present, `revision`, `verified` and `basis` are required (`hooks/nelly_schema_guard.py`
+denies the write otherwise; `NELLY_GATE=off` disables it). The `record` command (below) fills
+hashes, revision and date; it refuses types that have their own writer (file-summary,
+folder-summary, research-digest) with exit 2. Memory is a navigation aid, never authority over current code:
+consumers (code-reviewer feature-finder, agent-isdd) treat it as search hints.
+
+**Running the scripts.** `CLAUDE_PLUGIN_ROOT` is unset in the model's Bash, so run every
+`nelly_evidence.py` / `nelly_pending.py` command with the env prefix and absolute script path the
+SessionStart line prints (`CLAUDE_PLUGIN_DATA=... python3 /abs/path/scripts/nelly_evidence.py ...`).
+Complete forms (always `--cwd` = the repo root; `--slug` for entry commands):
+`nelly_evidence.py record --cwd <repo-root> --slug <slug> --type <type> --description <text> --body <text> --paths <paths> --basis observed`,
+`nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --paths <paths>`,
+`nelly_evidence.py stale --cwd <repo-root>`,
+`nelly_pending.py add --cwd <repo-root> --summary <text> --paths <paths>`.
+
+**Staleness (R17).** At SessionStart `hooks/nelly_freshness.py` compares each entry's recorded
+`sources` hashes with the current files (1.5 s budget, oldest `verified` first; the rest next
+session). A changed or missing file, or a git/hash failure, marks the entry `stale: true` with
+`stale_since` and `stale_paths`; the index record gains `stale` and `stale_paths`. Nothing is
+deleted. SessionStart prints a runnable refresh command for every stale entry (oldest `stale_since`
+first, capped, with "+N more"); `nelly_evidence.py stale --cwd <repo-root>` lists them all with their
+commands. `refresh` re-hashes only the paths given and clears `stale` only when no stale path is
+left; it re-pins hashes, it does not prove the fact. Recheck the source first: if the fact changed,
+rewrite the entry body/description (or archive it), then refresh. Marking stores `stale_digest`
+(hash of the description and body at that moment); a stale entry whose description and body still
+match it, or that has none, is refused (exit 2) unless the command adds `--confirm-unchanged`.
+`nelly_evidence.py refresh --cwd <repo-root> --slug <slug> --drop-paths <paths>` removes sources whose
+file no longer exists (and the path from `metadata.files` and the MEMORY.md `paths:` field).
+`nelly_evidence.py` exits 5 when the plugin data dir is unavailable. `sources` and `metadata.files` are relative to the repo root (git toplevel of
+`cwd`), not to `cwd`. Briefs and proactive surfacing show stale
+entries as "(stale: recheck <paths>)".
+
+**Capture (R18).** The Stop hook `hooks/nelly_stop_capture.py` asks at most once per turn for
+one brief recording pass when the final answer states a clear source-linked finding (a behaviour
+verb plus an existing repo path or indexed symbol, no hedge, no question) that is not already
+recorded. A finding on an uncommitted or untracked file is not prompted: the hook writes it to
+`pending-findings/<id>.json` in the machine-local state dir (`${CLAUDE_PLUGIN_DATA}`, never the
+shared memory root: they describe one working tree; records an older version left in the memory dir
+move there on first access) (`{summary, paths, symbols, reason: uncommitted, branch, head,
+hashes}`, id = SHA-256 of the record, so duplicates collapse). `hooks/nelly_pending.py` lists at
+most 2 ready (committed bytes match) and 2 changed findings at SessionStart; `nelly_pending.py
+resolve <id> verified --evidence <text> --cwd <repo-root>` promotes (only when ready); with
+`dismissed` instead it dismisses; both archive to `resolved-findings/` (local too). `nelly_pending.py add --cwd <repo-root> --summary <text> --paths <paths>`
+queues a finding by hand and prints `{"id"}`. When every path of a finding is already covered by a
+STALE entry, the Stop hook asks for a `refresh` of that entry instead of a new `record`. Exit codes: 0 ok, 2 usage, 3 refused (verified but not ready, no
+evidence, or invalid add), 4 unknown id, 5 plugin data dir unavailable. `NELLY_CAPTURE=off`, plan mode, or a user prompt saying not to save
+memory disables the prompt.
+
+**Safe writes (R19).** Hook and script writers go through `scripts/nelly_store.py`: an advisory
+lock on `<memory dir>/.nelly.lock`, compare-and-swap entry writes (`write_entry(root, path, text,
+expected_sha)`), locked index upserts and MEMORY.md appends, atomic temp-file replaces. A
+compare-and-swap mismatch never overwrites: the new text is kept as a sidecar in `conflicts/`,
+SessionStart reports the count, and `/nelly-memory consolidate` resolves them. Agent Write/Edit
+relies on Claude Code's modified-since-read check. `hooks/nelly_delete_guard.py` denies hard
+deletes under the store; archive moves are allowed.
+
 ## Spinoff context bundles
 
 Pass `aside task description` when you believe part of the current work is an "aside" worth

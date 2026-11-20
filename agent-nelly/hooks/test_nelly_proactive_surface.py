@@ -212,3 +212,63 @@ def test_two_matching_entries_emit_exactly_one_reason(tmp_path):
     assert len(stdout_lines) == 1
     out = json.loads(stdout_lines[0])
     assert out["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_stale_entry_line_gets_stale_suffix(tmp_path):
+    import build_index
+    cwd = str(tmp_path / "project")
+    path = make_entry(cwd, "foo-notes", "file-relevance", description="notes about foo.py")
+    add_index_line(cwd, "foo-notes", "Foo Notes", "file-relevance", paths=["src/foo.py"])
+    text = open(path).read().replace(
+        "  type: file-relevance\n",
+        "  type: file-relevance\n  stale: true\n  stale_since: 2026-02-02\n"
+        "  stale_paths: [src/foo.py, src/b.py]\n")
+    with open(path, "w") as fh:
+        fh.write(text)
+    build_index.upsert_project_entry(cwd, path)
+
+    proc = run_hook({"tool_input": {"file_path": os.path.join(cwd, "src/foo.py")}, "cwd": cwd})
+
+    reason = json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert reason.startswith("Foo Notes")
+    assert reason.endswith(" (stale: recheck src/foo.py, src/b.py)")
+
+
+def test_non_stale_output_unchanged_with_index_record(tmp_path):
+    import build_index
+    cwd = str(tmp_path / "project")
+    path = make_entry(cwd, "foo-notes", "file-relevance", description="notes about foo.py")
+    add_index_line(cwd, "foo-notes", "Foo Notes", "file-relevance", paths=["src/foo.py"])
+    build_index.upsert_project_entry(cwd, path)
+    proc = run_hook({"tool_input": {"file_path": os.path.join(cwd, "src/foo.py")}, "cwd": cwd})
+    assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecisionReason"] == "Foo Notes — notes about foo.py"
+
+
+def test_error_prevention_stale_suffix_from_entry_file_not_index(tmp_path):
+    cwd = str(tmp_path / "project")
+    path = make_entry(cwd, "ep", "error-prevention", confidence="explicit", description="lesson")
+    add_index_line(cwd, "ep", "EP", "error-prevention", paths=["src/foo.py"])
+    text = open(path).read().replace(
+        "  confidence: explicit\n",
+        "  confidence: explicit\n  stale: true\n  stale_paths: [src/foo.py]\n")
+    with open(path, "w") as fh:
+        fh.write(text)  # no index upsert: the entry file is authoritative
+    proc = run_hook({"tool_input": {"file_path": os.path.join(cwd, "src/foo.py")}, "cwd": cwd})
+    reason = json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert reason == "Ep — lesson (confidence: explicit) (stale: recheck src/foo.py)"
+
+
+def test_index_cache_write_is_atomic(tmp_path, monkeypatch):
+    sys.path.insert(0, os.path.dirname(HOOK))
+    import nelly_proactive_surface as ps
+    store = tmp_path / "mem"
+    store.mkdir()
+    (store / "MEMORY.md").write_text("- [A](entries/a.md) -- hook\n")
+    monkeypatch.setattr(ps, "memory_dir", lambda cwd: str(store))
+    monkeypatch.setattr(ps.tempfile, "gettempdir", lambda: str(tmp_path))
+    calls = []
+    real = ps.nelly_store.atomic_write
+    monkeypatch.setattr(ps.nelly_store, "atomic_write",
+                        lambda path, text: (calls.append(path), real(path, text))[1])
+    assert "entries/a.md" in ps._read_index_cached("/anywhere")
+    assert len(calls) == 1 and os.path.dirname(calls[0]) == str(tmp_path)
