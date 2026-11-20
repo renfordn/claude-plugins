@@ -9,7 +9,10 @@ def test_recheck_is_not_a_slice_review():
 
 
 def test_declined_prepush_fix_is_not_a_fallback_or_followup():
-    assert "`resolution: declined` is never a Review Fallback, never `decision: accept`, and never a `deferred-defect` follow-up" in DOC
+    flat = " ".join(DOC.split())
+    assert "(`pre-push.json` status `declined`)" in flat and "`resolution: declined`" in flat
+    assert ("neither is ever a Review Fallback, `decision: accept` or a `deferred-defect` "
+            "follow-up") in flat
 
 
 def test_prepush_counts_as_unscoped_review():

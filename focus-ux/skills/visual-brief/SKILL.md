@@ -1,7 +1,7 @@
 ---
 name: visual-brief
 description: >-
-  Present status, progress, findings, or plans visually (progress map, timeline, flow, matrix, chart) with a short headline, so a visual thinker with ADHD sees where things stand at a glance. Use for "where are we", "what's done and what's left", or "I'm lost" about the work (not the code), plus research or audit results, outage timelines, roadmaps, option comparisons, and multi-phase recaps. Use even unasked if a reply would run past about 15 lines. For how code works, use code-brief.
+  Present status, progress, findings, or plans visually (progress map, timeline, flow, matrix, chart) with a short headline, so a visual thinker with ADHD sees where things stand at a glance. Use for "where are we", "what's done and what's left", or "I'm lost" about the work (not the code), plus research or audit results, outage timelines, roadmaps, option comparisons, and multi-phase recaps. Use even unasked if a reply would run past about 15 lines. For how code works, use code-brief (visual) or feature-finder (text).
 ---
 
 # Visual Brief

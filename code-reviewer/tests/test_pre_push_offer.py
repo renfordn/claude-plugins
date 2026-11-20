@@ -335,3 +335,59 @@ def test_no_upstream_but_head_already_on_a_remote_skips_offer(repo, tmp_path):
     _git(repo, "push", "-q", "origin", "main")  # remote-tracking ref exists, no upstream set
     res = _run("git push origin main", repo)
     assert res.stdout == "" and _state(repo) == {}
+
+
+def _on_upstream(repo, tmp_path):
+    bare = tmp_path / "up.git"
+    _git(tmp_path, "init", "-q", "--bare", str(bare))
+    _git(repo, "remote", "add", "origin", str(bare))
+    _git(repo, "push", "-q", "-u", "origin", "main")
+
+
+@pytest.mark.parametrize("cmd", [
+    "git commit -qm b && git push",
+    "git add . && git commit -m b; git push origin main",
+    "git merge feature && git push",
+])
+def test_commit_chained_before_push_is_offered_even_when_head_is_on_upstream(repo, tmp_path, cmd):
+    _on_upstream(repo, tmp_path)
+    reason = _denied(_run(cmd, repo))
+    assert "separate" in reason
+    res = _run(cmd, repo)  # never deny twice: the re-run goes through, recorded declined
+    assert res.stdout == ""
+    assert "declined" in json.dumps(_state(repo))
+
+
+def test_commit_chained_before_push_ignores_reviewed_pre_commit_head(repo, tmp_path):
+    _on_upstream(repo, tmp_path)
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "local")
+    subprocess.run([sys.executable, str(_HOOK), "mark-reviewed", "--cwd", str(repo)],
+                   capture_output=True, text=True, env=_env(), check=True)
+    _denied(_run("git commit -qm b && git push", repo))
+
+
+def test_auto_mark_skipped_when_report_has_open_blockers(repo):
+    head = _git(repo, "rev-parse", "HEAD")
+    text = ('<!--CODE-REVIEWER-REPORT-->\n```json\n{"findings": [{"id": "F1", '
+            '"workflow_action": "block_commit", "decision": "block"}]}\n```')
+    _stop(repo, text=text)
+    assert head not in _state(repo)
+
+
+def test_auto_mark_uses_review_cwd_line_not_stop_cwd(repo, tmp_path):
+    other = tmp_path / "wt"
+    other.mkdir()
+    _git(other, "init", "-q", "-b", "main")
+    (other / "x").write_text("x")
+    _git(other, "add", ".")
+    _git(other, "commit", "-qm", "x")
+    other_head = _git(other, "rev-parse", "HEAD")
+    _stop(repo, text=f"<!--CODE-REVIEWER-REPORT-->\nok\nReview cwd: {other}")
+    assert _state(repo) == {}
+    state = json.loads((other / ".git" / "code-review" / "pre-push.json").read_text())
+    assert state[other_head]["status"] == "reviewed"
+
+
+def test_offer_tells_model_to_ask_user_before_skipping(repo):
+    reason = _denied(_run("git push origin main", repo))
+    assert "Ask the user" in reason

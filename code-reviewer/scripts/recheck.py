@@ -48,8 +48,19 @@ DEFAULT_TIMEOUT = 900
 _TEST_RE = re.compile(r"(^|/)(tests?/|test_[^/]*$|[^/]*_test\.[^/]*$|[^/]*\.(test|spec)\.[^/]*$)")
 
 
+def _toplevel():
+    return (review_plan._git("rev-parse", "--show-toplevel") or "").strip() or None
+
+
 def _git(*args):
-    return review_plan._git(*args) or ""
+    """git from the repo top level, so repo-relative finding paths work from any subdirectory."""
+    return review_plan._git(*args, cwd=_toplevel()) or ""
+
+
+def _repo_rel(p):
+    """A user-given path (relative to the process cwd) as a repo-relative path."""
+    top = _toplevel()
+    return os.path.relpath(os.path.abspath(p), top) if top else p
 
 
 def recheck_path(findings):
@@ -129,12 +140,14 @@ def decide(report, pass_count):
 
 def scope_material(entry, paths, base):
     """Diff (tracked changes + untracked files, limited to the response scope) and direct tests."""
+    paths = [_repo_rel(p) for p in paths]
+    top = _toplevel() or "."
     scope = [entry["finding"].get("file", "."), *paths]
     diff = _git("diff", base, "--", *scope)
     untracked = _git("ls-files", "--others", "--exclude-standard", "--", *scope).split()
     for u in untracked:
         try:
-            with open(u, errors="replace") as fh:
+            with open(os.path.join(top, u), errors="replace") as fh:
                 diff += f"\nUntracked file {u} (full content):\n{fh.read()}\n"
         except OSError:
             pass
@@ -263,7 +276,10 @@ def cmd_run(a):
             entry["status"], entry["stop_reason"] = "stopped", "stale finding id"
         else:
             entry["status"], entry["stop_reason"] = decide(report, len(real_passes(entry)))
-            current["resolution"] = "resolved" if entry["status"] == "resolved" else "open"
+            if entry["status"] == "resolved":
+                current["resolution"] = "resolved"
+            elif current.get("resolution", "open") == "open":
+                current["resolution"] = "open"  # a human declined/accepted decision is kept
             errs = review_plan.validate(doc)
             if errs:
                 raise SystemExit("recheck: findings.json would be invalid: " + "; ".join(errs))

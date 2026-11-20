@@ -26,7 +26,8 @@ implementer's reasoning is deliberately withheld from you.
    read them, read the candidate tests, and decide each test gap. No plan in the brief? Run
    `review_plan.py plan` yourself, or read the diff for the same facts.
 4. If the prompt has a line `Review cwd: <path>`, run every git command and review script from
-   that path (it is a worktree; do not review the caller's checkout).
+   that path (it is a worktree; do not review the caller's checkout), and end the report with
+   the same line `Review cwd: <path>` so the pre-push hook marks that worktree's HEAD.
 5. Review the scope. `git diff`, `git log`, `git show` and running the existing tests are fine
    for tier-1 evidence. Never edit, write, stage, commit, or run anything that changes files.
 

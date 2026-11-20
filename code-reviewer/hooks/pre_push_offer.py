@@ -24,8 +24,10 @@ with nothing new (HEAD already on its upstream or any remote-tracking ref) are a
 without consuming the offer. The offer lists open gating findings (block_commit, pause_for_review or
 decision block, resolution open or absent) from `<git dir>/code-review/findings.json`.
 
-Known limit: the SubagentStop auto-mark uses the stop's `cwd`, so a review of another worktree is
-marked only via `mark-reviewed --cwd <dir>`.
+A push chained after a HEAD-moving git command (`git commit -m x && git push`) is offered once,
+keyed `chained:<pre-command HEAD>`, asking for separate commands; the unchanged re-run is `declined`.
+The SubagentStop auto-mark skips reports with open gating findings (block_commit, pause_for_review,
+decision block) and marks the repo on a report line `Review cwd: <path>`, else the stop's `cwd`.
 """
 import datetime
 try:
@@ -34,6 +36,7 @@ except ImportError:  # pragma: no cover
     fcntl = None
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -43,9 +46,19 @@ _GIT_TIMEOUT = 3
 _OPS_CHARS = set(";&|()\n")
 
 
+_HEAD_CHANGING = {"commit", "merge", "rebase", "cherry-pick", "am", "pull", "revert", "reset"}
+
+
 def find_push(command):
     """Return None if `command` has no `git push`, else (dir, args): the directory `-C`/`cd` points
     at ('' = none) and the tokens after `push`."""
+    found = find_push_info(command)
+    return None if found is None else found[:2]
+
+
+def find_push_info(command):
+    """Like find_push, plus a third item: True when an earlier segment runs a git command that moves
+    HEAD (commit, merge, rebase, ...), so HEAD now is not the HEAD that will be pushed."""
     if "push" not in command or "git" not in command:  # cheap fast path
         return None
     try:
@@ -63,7 +76,7 @@ def find_push(command):
         else:
             cur.append(t)
     segments.append(cur)
-    cd_dir = ""
+    cd_dir, head_moves = "", False
     for seg in segments:
         i = 0
         while i < len(seg) and "=" in seg[i] and not seg[i].startswith(("-", "=")):
@@ -88,7 +101,9 @@ def find_push(command):
                 break
         if j < len(seg) and seg[j] == "push":
             d = os.path.join(cd_dir, c_dir) if cd_dir and c_dir else (c_dir or cd_dir)
-            return d, seg[j + 1:]
+            return d, seg[j + 1:], head_moves
+        if j < len(seg) and seg[j] in _HEAD_CHANGING:
+            head_moves = True
     return None
 
 
@@ -201,8 +216,9 @@ def _offer_reason(repo):
         f"run `{plan_cmd}` and review that diff with the "
         "code-reviewer skill (references/pre-push.md), starting the summary with "
         f"<!--PRE-PUSH-REVIEW-->. When the review is done, run `{mark_cmd}` to mark HEAD reviewed, "
-        "then push (the review grants no push permission by itself). To skip the review, re-run the "
-        "same push: it will go through and HEAD is recorded as `declined` (not accepted risk). This "
+        "then push (the review grants no push permission by itself). Ask the user whether to review "
+        "or skip; do not decide for them, even when the push itself was pre-authorized. To skip, "
+        "re-run the same push: it will go through and HEAD is recorded as `declined` (not accepted risk). This "
         "offer is made once per HEAD. Set CODE_REVIEWER_PREPUSH=off to disable it."
     ) + _blocker_note(repo)
 
@@ -272,26 +288,62 @@ def extract_last_assistant_text(transcript_path, tail_bytes=16384):
     return blocks[-1].strip() if blocks else ""
 
 
-def _is_unscoped_review(payload):
-    """True for a finished unscoped code-reviewer run (not a scoped slice review or a verifier)."""
+_GATING_RE = re.compile(
+    r'"(?:workflow_action"\s*:\s*"(?:block_commit|pause_for_review)|decision"\s*:\s*"block)"')
+_REVIEW_CWD_RE = re.compile(r"^Review cwd:\s*(.+?)\s*$", re.M)
+
+
+def _unscoped_review_text(payload):
+    """Report text of a finished unscoped code-reviewer run, else None."""
     if str(payload.get("agent_type") or "").split(":")[-1] != "code-reviewer":
-        return False
+        return None
     text = payload.get("last_assistant_message")
     if not isinstance(text, str) or not text:
         path = payload.get("agent_transcript_path")  # never the parent transcript_path
         if not isinstance(path, str) or not path:
-            return False
+            return None
         text = extract_last_assistant_text(path)
-    return "<!--CODE-REVIEWER-REPORT-->" in text and "<!--REVIEW-SCOPE:" not in text
+    if "<!--CODE-REVIEWER-REPORT-->" in text and "<!--REVIEW-SCOPE:" not in text:
+        return text
+    return None
+
+
+def _is_unscoped_review(payload):
+    return _unscoped_review_text(payload) is not None
 
 
 def _on_subagent_stop(payload):
-    if not _is_unscoped_review(payload):
-        return
-    repo = payload.get("cwd") or os.getcwd()
+    text = _unscoped_review_text(payload)
+    if text is None or _GATING_RE.search(text):
+        return  # a review with open gating findings does not clear the push offer
+    m = _REVIEW_CWD_RE.search(text)
+    repo = os.path.expanduser(m.group(1)) if m else (payload.get("cwd") or os.getcwd())
     head = _git(repo, "rev-parse", "HEAD")
     if head:
         _record(_state_path(repo), head, "reviewed")
+
+
+def _deny(reason):
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny",
+        "permissionDecisionReason": reason}}))
+
+
+def _chained_offer(path, key):
+    """A push chained after a commit/merge/...: the HEAD to be pushed doesn't exist yet."""
+    status = _load(path).get(key, {}).get("status")
+    if status == "offered":
+        _record(path, key, "declined")
+        return 0
+    if status:
+        return 0
+    _record(path, key, "offered")
+    _deny("Pre-push review offer: this command moves HEAD (commit/merge/rebase/...) and pushes in "
+          "one step, so the commit being pushed can't be checked for a review yet. Run the commit "
+          "and the push as separate commands; the push then gets the normal pre-push check. Ask the "
+          "user before re-running the combined command unchanged: that skips the check and is "
+          "recorded as `declined` (not accepted risk). Set CODE_REVIEWER_PREPUSH=off to disable.")
+    return 0
 
 
 def main(argv=None):
@@ -306,10 +358,10 @@ def main(argv=None):
             _on_subagent_stop(payload)
             return 0
         command = payload["tool_input"]["command"]
-        found = find_push(command)
+        found = find_push_info(command)
         if found is None:
             return 0
-        target, push_args = found
+        target, push_args, head_moves = found
         if _skips_offer(push_args):
             return 0
         base_cwd = payload.get("cwd") or os.getcwd()
@@ -317,6 +369,8 @@ def main(argv=None):
         head = _git(repo, "rev-parse", "HEAD")
         if not head:
             return 0
+        if head_moves:
+            return _chained_offer(_state_path(repo), "chained:" + head)
         if _upstream(repo) and _git(repo, "rev-list", "@{upstream}..HEAD") == "":
             return 0  # nothing new to push
         if _git(repo, "rev-list", "-1", "HEAD", "--not", "--remotes") == "":

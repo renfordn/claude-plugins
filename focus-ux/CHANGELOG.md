@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+- **Docs**: text "how does X work" questions route to code-reviewer's `feature-finder`; `code-brief` stays the visual option (visual-brief description, INTEROP.md, README).
+
 ## [0.3.6] - 2026-10-05
 
 - **Fix**: the Focus output style's "Big" rule now tells the model to invoke `visual-brief` first when handed results or data to interpret, asked to compare options, or asked for a recap, status or plan. In 48 end-to-end runs on 8 data-bearing prompts, `visual-brief` fired 8/16 with the new rule against 0/16 with the old rule or no style; on 12 small-question runs it fired 0/12 (no over-triggering).

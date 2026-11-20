@@ -346,3 +346,28 @@ def test_timeout_is_blocked_pass(env, monkeypatch, tmp_path):
     s = env.snap()
     assert s["status"] == "stopped" and s["stop_reason"] == "blocked"
     assert "timed out" in s["passes"][0]["evidence"]
+
+
+@pytest.mark.parametrize("prior", ["declined", "accepted"])
+def test_unresolved_recheck_keeps_human_resolution(env, prior):
+    doc = json.loads((env.state / "findings.json").read_text())
+    doc["findings"][1]["resolution"] = prior
+    (env.state / "findings.json").write_text(json.dumps(doc))
+    env.cli("start", "F2", "--findings", env.findings)
+    env.reports(_rep("still-open"))
+    env.run()
+    assert env.res() == prior
+
+
+def test_run_from_subdirectory_uses_repo_relative_scope(env, monkeypatch):
+    env.cli("start", "F2", "--findings", env.findings, "--base", env.base)
+    sub = env.repo / "pkg"
+    sub.mkdir()
+    (sub / "test_b.py").write_text("def test_b(): assert 2\n")
+    (env.repo / "a.py").write_text("x = 4\n")
+    monkeypatch.chdir(sub)
+    env.reports(_rep("still-open"))
+    env.cli("run", "F2", "--findings", env.findings, "--paths", "test_b.py")
+    brief = (env.sd / "brief1").read_text()
+    assert "+x = 4" in brief
+    assert "def test_b(): assert 2" in brief

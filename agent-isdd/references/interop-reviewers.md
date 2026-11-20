@@ -119,6 +119,7 @@ request takes priority.
   surfaced to the user, who runs `/isdd-rewind`.
 - Release 4 reports (`code-reviewer/INTEROP.md` "Release 4 skills and report markers"): a finding
   re-check `<!--FINDING-RECHECK-REPORT-->` is not a slice review and is never recorded in the `reviewed` map.
-  A pre-push fix with
-  `resolution: declined` is never a Review Fallback, never `decision: accept`, and never a `deferred-defect` follow-up. The pre-push review (`<!--PRE-PUSH-REVIEW-->`) counts as an unscoped review
+  A skipped pre-push review (`pre-push.json` status `declined`) and a finding with
+  `resolution: declined` (a fix the user turned down) are separate records; neither is ever a
+  Review Fallback, `decision: accept` or a `deferred-defect` follow-up. The pre-push review (`<!--PRE-PUSH-REVIEW-->`) counts as an unscoped review
   (it emits `<!--CODE-REVIEWER-REPORT-->` with no `REVIEW-SCOPE`), so it never satisfies a slice.

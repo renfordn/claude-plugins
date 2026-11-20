@@ -257,8 +257,11 @@ State files, both under `<git dir>/code-review/` (beside `findings.json`):
   "stop_reason": null}}`.
 - `pre-push.json` (written by `hooks/pre_push_offer.py`): `{"<head sha>": {"status":
   "offered|reviewed|declined", "at": "..."}}`. `reviewed` is recorded by the same hook on
-  SubagentStop when an unscoped `code-reviewer` report (no `REVIEW-SCOPE` line) finishes, keyed
-  by the HEAD of the stop's `cwd`, or explicitly by `pre_push_offer.py mark-reviewed`.
+  SubagentStop when an unscoped `code-reviewer` report (no `REVIEW-SCOPE` line) finishes with no
+  open gating finding, keyed by the HEAD of the report's `Review cwd: <path>` line, else the stop's
+  `cwd`; or explicitly by `pre_push_offer.py mark-reviewed`. A push chained after a commit/merge in
+  the same command is keyed `chained:<pre-command HEAD>`. Only pre-push.json counts as reviewed
+  (REVIEW-HISTORY.md is not read).
 
 findings.json findings carry a stable `id` and a `resolution` (`open | resolved | declined |
 accepted`). A declined fix is never accepted risk: it is not `decision: accept`, not a
