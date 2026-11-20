@@ -235,11 +235,19 @@ def main(payload=None):
         except (json.JSONDecodeError, ValueError):
             payload = {}
 
-    # review_tracking is the sole writer of the `reviewed` map; fail open.
+    # review_tracking is the sole writer of the `reviewed` map; fail open. Its note (a
+    # code-reviewer report that recorded no slice) is surfaced ahead of anything else below.
+    note = None
     try:
-        review_tracking.evaluate(payload)
+        note = review_tracking.evaluate(payload)
     except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"[high_risk_reviewer] review_tracking failed: {exc}\n")
+    rest = _after_review(payload)
+    return "\n\n".join(m for m in (note, rest) if m) or None
+
+
+def _after_review(payload):
+    """The reminder/checkpoint part of main(), unchanged."""
 
     # The passive reminder/checkpoint only applies to agent-TDD and code-reviewer stops.
     # (A payload with no agent_type, e.g. a legacy standalone invocation, is not filtered.)

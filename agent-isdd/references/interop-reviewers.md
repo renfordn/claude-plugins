@@ -107,9 +107,12 @@ request takes priority.
 
 - `review_tracking` is the sole writer of the `reviewed` map in `workflow-state.json`
   (SubagentStop via `subagent_dispatch` -> `high_risk_reviewer.main` -> `review_tracking.evaluate`).
-  A review counts for slice N only when the `code-reviewer` stop's report carries both
-  `<!--CODE-REVIEWER-REPORT-->` and `<!--REVIEW-SCOPE: slice=N-->`; code-reviewer emits them when its
-  prompt contains `Review scope: slice=N`.
+  A review counts for slice N only when the `code-reviewer` stop's report carries
+  `<!--CODE-REVIEWER-REPORT-->` and names N: in `<!--REVIEW-SCOPE: slice=N-->` (code-reviewer emits it
+  when its prompt contains `Review scope: slice=N`; lists such as `slice=2,3` are allowed), or, when
+  the report has no scope marker, in the prompt's own `Review scope:` line. Prose never counts. A
+  code-reviewer report that records nothing while high-risk slices remain unreviewed returns a
+  warning naming them (pre-push reviews excepted).
 - `complete_guard` blocks `Workflow Status: Complete` while high-risk slices lack a review; with feature-level `Risk: high`
   every slice needs a review (or the fallback `all`). The only
   fallback is the exact form `Accepted via AskUserQuestion: <slice ids | all>: <reason>`, which clears

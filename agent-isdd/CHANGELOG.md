@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-11-20
+
+### Fixed
+- Review tracking no longer drops reviews silently. A `code-reviewer` stop now records every slice in a list scope (`<!--REVIEW-SCOPE: slice=2,3,11-->`, or several markers), falls back to the caller's literal `Review scope: slice=N[,M]` prompt line when the reviewer did not echo a marker, and, when it still records nothing while high-risk slices are unreviewed, returns a warning (via `high_risk_reviewer`) naming them. Prose slice names never count; pre-push reviews stay unscoped and quiet.
+
 ## [0.6.4] - 2026-11-20
 
 ### Fixed

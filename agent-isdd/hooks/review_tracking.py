@@ -129,24 +129,77 @@ def _report_text(payload):
         return ""
 
 
+PRE_PUSH_MARKER = "<!--PRE-PUSH-REVIEW-->"
+
+
+def _prompt_text(payload, head_bytes=65536):
+    """The subagent's first user message (the caller's review prompt), read from the head of
+    agent_transcript_path only (never the parent transcript); "" when unavailable."""
+    path = (payload or {}).get("agent_transcript_path") or ""
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read(head_bytes)
+    except (OSError, TypeError):
+        return ""
+    for line in raw.split(b"\n"):
+        try:
+            ev = json.loads(line)
+        except (ValueError, UnicodeDecodeError):
+            continue
+        msg = ev.get("message") if isinstance(ev, dict) else None
+        if not isinstance(msg, dict) or msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "\n".join(b.get("text", "") for b in content
+                             if isinstance(b, dict) and b.get("type") == "text")
+        return ""
+    return ""
+
+
 def record_from_payload(payload, state_json_path):
-    """On a code-reviewer stop whose report carries a REVIEW-SCOPE marker, record that slice."""
+    """On a code-reviewer stop, record every slice its scope names and return them (normalized).
+
+    Scope comes from the report's REVIEW-SCOPE marker(s) (lists allowed); when the report has
+    none, from the caller's literal `Review scope: slice=N[,M]` line in the review prompt (the
+    reviewer failed to echo it). Prose slice names never count. Returns [] when nothing recorded."""
     if not is_code_reviewer_stop(payload):
+        return []
+    ids = markers.parse_review_scopes(_report_text(payload))
+    if not ids:
+        ids = markers.parse_prompt_review_scopes(_prompt_text(payload))
+    for sid in ids:
+        record_review(state_json_path, sid)
+    return ids
+
+
+def _unrecorded_warning(feature_dir):
+    """The note for a code-reviewer report that recorded no slice while high-risk slices remain."""
+    missing = unreviewed_high_risk(feature_dir)
+    if not missing:
         return None
-    text = _report_text(payload)
-    slice_id = markers.parse_review_scope(text)
-    if not slice_id:
-        return None
-    record_review(state_json_path, slice_id)
-    return markers.normalize_slice_id(slice_id)
+    return ("code-reviewer finished but recorded no slice review: neither its report "
+            "(<!--REVIEW-SCOPE: slice=N-->) nor its prompt (a line `Review scope: slice=N`) named a "
+            "slice. Unreviewed high-risk slice(s): " + ", ".join(missing) + ". Re-run the review "
+            "with the line `Review scope: slice=<ids>` in the prompt (several ids may be "
+            "comma-separated), or record the user-approved Review Fallback.")
 
 
 def evaluate(payload):
+    """Record the review (if any) and return a warning when a code-reviewer report recorded no
+    slice while high-risk slices remain unreviewed; None otherwise. Pre-push reviews are unscoped
+    by design and never warn."""
     state_path = sdd_state.active_state_file(payload.get("cwd") or os.getcwd())
     if not state_path:
         return None
-    record_from_payload(payload, os.path.join(os.path.dirname(state_path), "workflow-state.json"))
-    return None
+    feature_dir = os.path.dirname(state_path)
+    if record_from_payload(payload, os.path.join(feature_dir, "workflow-state.json")):
+        return None
+    if not is_code_reviewer_stop(payload) or PRE_PUSH_MARKER in _report_text(payload):
+        return None
+    return _unrecorded_warning(feature_dir)
 
 
 def main():

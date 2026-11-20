@@ -8,6 +8,12 @@ SLICE_TITLE_RE = re.compile(r"^[\s#>*-]*Slice\s+(" + ID + r")\s*:", re.IGNORECAS
 SLICE_ID_MARKER_RE = re.compile(r"<!--\s*SLICE-ID:\s*(" + ID + r")\s*-->")
 _PROSE_RE = re.compile(r"\bSlice\s+(" + ID + r")\b")
 REVIEW_SCOPE_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + ID + r")\s*-->")
+_SCOPE_LIST = ID + r"(?:\s*,\s*" + ID + r")*"
+# One review may cover several slices (`slice=2,3`); a report may carry several markers.
+REVIEW_SCOPES_RE = re.compile(r"<!--\s*REVIEW-SCOPE:\s*slice=(" + _SCOPE_LIST + r")\s*-->")
+# The caller's own `Review scope: slice=N[,M]` line in the review prompt, on a line of its own.
+PROMPT_SCOPE_RE = re.compile(r"^[ \t]*Review scope:[ \t]*slice=(" + _SCOPE_LIST + r")[ \t]*$",
+                             re.MULTILINE | re.IGNORECASE)
 
 
 def normalize_slice_id(n):
@@ -72,3 +78,23 @@ def scope_marker(n):
 def parse_review_scope(text):
     m = REVIEW_SCOPE_RE.search(text or "")
     return m.group(1) if m else None
+
+
+def _scope_ids(matches):
+    out = []
+    for group in matches:
+        for raw in group.split(","):
+            sid = normalize_slice_id(raw.strip())
+            if sid and sid not in out:
+                out.append(sid)
+    return out
+
+
+def parse_review_scopes(text):
+    """Every slice id named by REVIEW-SCOPE markers (lists and repeated markers), normalized, in order."""
+    return _scope_ids(m.group(1) for m in REVIEW_SCOPES_RE.finditer(text or ""))
+
+
+def parse_prompt_review_scopes(text):
+    """Slice ids from the caller's literal `Review scope: slice=N[,M]` prompt lines (never prose)."""
+    return _scope_ids(m.group(1) for m in PROMPT_SCOPE_RE.finditer(text or ""))
