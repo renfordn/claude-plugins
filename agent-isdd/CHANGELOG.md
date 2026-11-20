@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-20
+
+### Fixed
+- `hooks/markers.py` is renamed `hooks/isdd_markers.py` (importers and tests updated). It shared a bare module name with agent-tdd's `hooks/markers.py`, so pytest runs that collected both plugins failed depending on order; they now pass in any order. No runtime behavior change.
+
 ### Fixed
 - Hook-local `hooks/markers.py` renamed to `hooks/isdd_markers.py` (importers use `import isdd_markers as markers`) so it no longer shadows agent-tdd's `markers` through `sys.modules` when both plugins' tests run in one pytest process; any collection order now passes. No runtime behavior change.
 
