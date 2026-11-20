@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""Record / refresh source evidence on Agent Nelly memory entries (R16, R17).
+
+  record  --cwd DIR --slug S --type T --description D (--body TEXT | --body-file F)
+          --paths P... [--symbols ...] --basis observed|inferred|unknown [--unknowns TEXT]
+          [--confidence explicit|inferred]
+      Hash each path (git blob SHA-1), stamp revision (HEAD or `unknown`) and today's date, write
+      the entry via nelly_store.write_entry (expected "missing"), then upsert the index and
+      MEMORY.md (the MEMORY.md line is idempotent and also appended on "unchanged", so re-running
+      recovers from a lock timeout). Refuses (exit 2) a path that is modified, staged-but-uncommitted
+      or untracked: findings on uncommitted code belong in the pending queue
+      (`hooks/nelly_pending.py add`).
+  refresh --cwd DIR --slug S [--paths P...] [--drop-paths P...]
+      Under nelly_store.update_entry re-hash only the given paths (each must be in the entry's
+      sources), update their hashes/revision/verified, remove them from stale_paths, and drop
+      stale/stale_since/stale_paths only when no stale path remains. Refuses paths that are
+      modified/staged/untracked (exit 2). `--drop-paths` removes sources whose file is gone from
+      both the working tree and HEAD (never the last source: archive the entry instead).
+
+Paths are given relative to --cwd and stored relative to the git toplevel (to --cwd outside git).
+Prints JSON. Exit codes: 0 ok, 2 usage/validation error, 3 write conflict (sidecar path in the
+JSON `path`), 75 store lock timeout.
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from datetime import date
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.join(_HERE, "..", "hooks"))
+import build_index  # noqa: E402
+import nelly_memory  # noqa: E402
+import nelly_store  # noqa: E402
+from research_digest import blob_hash_file  # noqa: E402
+
+_FM_RE = re.compile(r"^---\n(.*?)\n---", re.S)
+_STALE_KEYS = ("stale", "stale_since", "stale_paths")
+_NEEDS_CONFIDENCE = ("error-prevention", "technique")
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+class EvidenceError(Exception):
+    """Validation failure; message goes to stderr, exit 2."""
+
+
+def _git(cwd, *args):
+    try:
+        return subprocess.run(["git", "--literal-pathspecs", "-C", cwd, *args],
+                              capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _head(base):
+    r = _git(base, "rev-parse", "HEAD")
+    return r.stdout.strip() if r and r.returncode == 0 and r.stdout.strip() else "unknown"
+
+
+def _base(cwd):
+    """Directory sources are relative to: the git toplevel, else cwd (both realpath'd)."""
+    r = _git(cwd, "rev-parse", "--show-toplevel")
+    top = r.stdout.strip() if r and r.returncode == 0 else ""
+    return os.path.realpath(top or cwd)
+
+
+def _resolve(cwd, base, p, must_exist=True):
+    """Validate a path given relative to cwd and return it relative to `base`."""
+    if not p or p.startswith(("/", "~", "\\")) or os.path.isabs(p) or ".." in re.split(r"[\\/]+", p):
+        raise EvidenceError(f"path '{p}' must be repo-relative (no leading '/', '~' or '..')")
+    full = os.path.normpath(os.path.join(os.path.realpath(cwd), p))
+    if must_exist and not os.path.isfile(full):
+        raise EvidenceError(f"path '{p}' does not exist under {cwd}")
+    rel = os.path.relpath(full, base)
+    if rel.startswith(".."):
+        raise EvidenceError(f"path '{p}' is outside the repository root {base}")
+    return rel.replace(os.sep, "/")
+
+
+def _check_committed(base, head, paths):
+    if head == "unknown":
+        return  # no git history to compare against
+    bad = []
+    for p in paths:
+        tracked = _git(base, "ls-files", "--error-unmatch", "--", p)
+        status = _git(base, "status", "--porcelain", "--", p)
+        if not tracked or tracked.returncode != 0 or not status or status.stdout.strip():
+            bad.append(p)
+    if bad:
+        raise EvidenceError(
+            "uncommitted/untracked/modified: " + ", ".join(bad) + ". Evidence is recorded only against "
+            "committed bytes; queue this finding with `hooks/nelly_pending.py add` instead.")
+
+
+def _in_head(base, p):
+    r = _git(base, "cat-file", "-e", f"HEAD:{p}")
+    return bool(r) and r.returncode == 0
+
+
+def _q(value):
+    """Quote a flow-YAML scalar only when needed (build_index._scalar strips the quotes again)."""
+    value = str(value)
+    return json.dumps(value) if re.search(r"[,:\[\]{}#\"']|^\s|\s$|^$", value) else value
+
+
+def _flow_sources(items):
+    return "[" + ", ".join(f"{{path: {_q(s['path'])}, hash: {s['hash']}}}" for s in items) + "]"
+
+
+def _flow_list(items):
+    return "[" + ", ".join(_q(i) for i in items) + "]"
+
+
+def _one_line(text):
+    return " ".join(str(text).split())
+
+
+def _build_entry(a, sources, revision):
+    confidence = a.confidence
+    if a.type == "technique" and not confidence:
+        confidence = "inferred"
+    if a.type in _NEEDS_CONFIDENCE and confidence not in ("explicit", "inferred"):
+        raise EvidenceError(f"--confidence explicit|inferred is required for type {a.type}")
+    a.confidence = confidence
+    body = a.body if a.body is not None else open(a.body_file, encoding="utf-8").read()
+    lines = ["---", f"name: {a.slug}", f"description: {_one_line(a.description)}", "metadata:",
+             f"  type: {a.type}", f"  last_referenced: {date.today().isoformat()}"]
+    if a.type in _NEEDS_CONFIDENCE:
+        lines.append(f"  confidence: {confidence}")
+    if a.type == "file-relevance":
+        lines.append(f"  files: {_flow_list(a.paths)}")
+    lines.append(f"  sources: {_flow_sources(sources)}")
+    if a.symbols:
+        lines.append(f"  symbols: {_flow_list(a.symbols)}")
+    lines += [f"  revision: {revision}", f"  verified: {date.today().isoformat()}", f"  basis: {a.basis}"]
+    if a.unknowns:
+        lines.append(f"  unknowns: {json.dumps(_one_line(a.unknowns))}")
+    lines += ["---", "", body.strip(), ""]
+    return "\n".join(lines)
+
+
+def cmd_record(a):
+    if a.type == "research-digest":
+        raise EvidenceError("research-digest entries are written by scripts/research_digest.py")
+    if not _SLUG_RE.match(a.slug or "") or build_index.is_conflict_copy(a.slug + ".md"):
+        raise EvidenceError(f"invalid slug '{a.slug}': use a kebab-case slug (a-z, 0-9, '-')")
+    if a.basis not in ("observed", "inferred", "unknown"):
+        raise EvidenceError("--basis must be observed, inferred or unknown")
+    cwd = os.path.abspath(a.cwd)
+    base = _base(cwd)
+    paths = list(dict.fromkeys(_resolve(cwd, base, p) for p in a.paths))
+    head = _head(base)
+    _check_committed(base, head, paths)
+    sources = [{"path": p, "hash": blob_hash_file(os.path.join(base, p))} for p in paths]
+    a.paths = paths  # file-relevance `files` use the same root-relative paths
+    text = _build_entry(a, sources, head)
+
+    nelly_memory.ensure_entries_dir(cwd, a.type)
+    root = nelly_memory.memory_dir(cwd)
+    path = nelly_memory.entry_path(cwd, a.slug, a.type)
+    result = nelly_store.write_entry(root, path, text, nelly_store.MISSING)
+    if result["status"] == "conflict":
+        return 3, {"status": "conflict", "slug": a.slug, "path": result["path"], "entry": path}
+    title = a.slug.replace("-", " ").replace("_", " ").title()
+    fields = [f"type:{a.type}"]
+    if a.type in _NEEDS_CONFIDENCE:
+        fields.append(f"confidence:{a.confidence}")
+    nelly_store.append_memory_line(
+        root, f"- [{title}](entries/{a.slug}.md) — {_one_line(a.description)} `[{' '.join(fields)}]`")
+    build_index.upsert_project_entry(cwd, path)
+    return 0, {"status": result["status"], "slug": a.slug, "path": path, "revision": head,
+               "sources": sources}
+
+
+# --- refresh: line-level frontmatter surgery (keeps every other line byte-identical) ---
+
+def _key_extent(lines, key):
+    """(start, end, indent) of `key` (its block items included), or None."""
+    key_re = re.compile(r"^([ \t]*)" + re.escape(key) + r":")
+    for i, line in enumerate(lines):
+        m = key_re.match(line)
+        if not m:
+            continue
+        indent = len(m.group(1).expandtabs())
+        end = i + 1
+        if not line.split(":", 1)[1].strip():  # block form: following list/indented lines
+            while end < len(lines):
+                nxt = lines[end]
+                nindent = len(nxt) - len(nxt.lstrip())
+                if nxt.strip() and nindent <= indent and not re.match(r"^[ \t]*-(?:[ \t]|$)", nxt):
+                    break
+                end += 1
+        return i, end, m.group(1)
+    return None
+
+
+def _set_key(lines, key, value, anchor=None):
+    """Replace `key` with `key: value` (value None removes it); insert after `anchor` key if absent."""
+    ext = _key_extent(lines, key)
+    if ext:
+        s, e, indent = ext
+        lines[s:e] = [] if value is None else [f"{indent}{key}: {value}"]
+    elif value is not None:
+        a = _key_extent(lines, anchor) if anchor else None
+        if not a:
+            raise EvidenceError(f"entry frontmatter has no '{anchor}' key to anchor '{key}'")
+        lines.insert(a[1], f"{a[2]}{key}: {value}")
+
+
+def _refresh_text(old, a, base, head, paths, drops):
+    if old is None:
+        raise EvidenceError(f"no entry '{a.slug}' to refresh")
+    m = _FM_RE.match(old)
+    if not m:
+        raise EvidenceError(f"entry '{a.slug}' has no parseable frontmatter")
+    block = m.group(1)
+    rec = {}
+    build_index._add_evidence(rec, block)
+    sources = rec.get("sources")
+    if not sources:
+        raise EvidenceError(f"entry '{a.slug}' has no sources to refresh")
+    known = {s["path"] for s in sources}
+    unknown = [p for p in paths + drops if p not in known]
+    if unknown:
+        raise EvidenceError("path(s) not in the entry's sources: " + ", ".join(unknown))
+    for p in drops:
+        if os.path.lexists(os.path.join(base, p)) or (head != "unknown" and _in_head(base, p)):
+            raise EvidenceError(f"cannot drop '{p}': it still exists in the working tree or HEAD "
+                                f"(use --paths to re-hash it)")
+    new_hashes = {p: blob_hash_file(os.path.join(base, p)) for p in paths}
+    sources = [dict(s, hash=new_hashes.get(s["path"], s["hash"])) for s in sources
+               if s["path"] not in drops]
+    if not sources:
+        raise EvidenceError("cannot drop the last source; archive the entry instead")
+    gone = set(paths) | set(drops)
+    remaining = [p for p in (rec.get("stale_paths") or []) if p not in gone]
+
+    lines = block.split("\n")
+    _set_key(lines, "sources", _flow_sources(sources))
+    _set_key(lines, "revision", head, anchor="sources")
+    _set_key(lines, "verified", date.today().isoformat(), anchor="revision")
+    if remaining:
+        _set_key(lines, "stale_paths", _flow_list(remaining))
+    else:
+        for k in _STALE_KEYS:
+            _set_key(lines, k, None)
+    return old[:m.start(1)] + "\n".join(lines) + old[m.end(1):]
+
+
+def _find_entry(cwd, slug):
+    for t in (None, "file-summary"):
+        p = nelly_memory.entry_path(cwd, slug, t)
+        if os.path.isfile(p):
+            return p
+    return nelly_memory.entry_path(cwd, slug)  # missing: update_entry hands fn(None), which errors
+
+
+def cmd_refresh(a):
+    if not a.paths and not a.drop_paths:
+        raise EvidenceError("refresh needs --paths and/or --drop-paths")
+    cwd = os.path.abspath(a.cwd)
+    base = _base(cwd)
+    paths = list(dict.fromkeys(_resolve(cwd, base, p) for p in a.paths))
+    drops = list(dict.fromkeys(_resolve(cwd, base, p, must_exist=False) for p in a.drop_paths))
+    if set(paths) & set(drops):
+        raise EvidenceError("a path cannot be both refreshed and dropped")
+    head = _head(base)
+    _check_committed(base, head, paths)
+    root = nelly_memory.memory_dir(cwd)
+    path = _find_entry(cwd, a.slug)
+    status = nelly_store.update_entry(root, path, lambda old: _refresh_text(old, a, base, head, paths, drops))
+    build_index.upsert_project_entry(cwd, path)
+    return 0, {"status": status, "slug": a.slug, "path": path, "revision": head,
+               "paths": paths, "dropped": drops}
+
+
+def _parser():
+    ap = argparse.ArgumentParser(prog="nelly_evidence.py", description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    r = sub.add_parser("record")
+    r.add_argument("--cwd", required=True)
+    r.add_argument("--slug", required=True)
+    r.add_argument("--type", required=True)
+    r.add_argument("--description", required=True)
+    g = r.add_mutually_exclusive_group(required=True)
+    g.add_argument("--body")
+    g.add_argument("--body-file")
+    r.add_argument("--paths", nargs="+", required=True)
+    r.add_argument("--symbols", nargs="*", default=[])
+    r.add_argument("--basis", required=True)
+    r.add_argument("--unknowns")
+    r.add_argument("--confidence", choices=("explicit", "inferred"))
+    f = sub.add_parser("refresh")
+    f.add_argument("--cwd", required=True)
+    f.add_argument("--slug", required=True)
+    f.add_argument("--paths", nargs="*", default=[])
+    f.add_argument("--drop-paths", nargs="*", default=[], help="remove sources whose file is gone")
+    return ap
+
+
+def main(argv=None):
+    args = _parser().parse_args(argv)
+    try:
+        code, out = (cmd_record if args.cmd == "record" else cmd_refresh)(args)
+    except EvidenceError as exc:
+        print(f"nelly_evidence: {exc}", file=sys.stderr)
+        return 2
+    except nelly_store.StoreLocked as exc:
+        print(f"nelly_evidence: memory store is locked, retry shortly ({exc})", file=sys.stderr)
+        return 75
+    except OSError as exc:
+        print(f"nelly_evidence: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(out))
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
