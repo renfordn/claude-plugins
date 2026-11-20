@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
 description: >-
-  Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however phrased: "look over this", "any bugs?", "is this safe to ship/merge?", "sanity-check my change", or "review this file/diff/PR/branch/function", or yes/no "can this go out?". For a PR or branch, use it rather than reviewing directly: it also finds callers, untested behavior changes, and cleanups. Also at pre-commit/TDD review gates. Not for explaining code; use code-brief.
+  Review code for bugs and risks before it's merged, shipped, or committed. Use whenever the user wants code checked, however phrased: "look over this", "any bugs?", "is this safe to ship/merge?", "sanity-check my change", or "review this file/diff/PR/branch/function", or yes/no "can this go out?". For a PR or branch, use it rather than reviewing directly: it also finds callers, untested behavior changes, and cleanups. Also at pre-commit/pre-push/TDD review gates. Not for explaining code (code-brief), finding code (feature-finder) or diagnosing a reported failure (bug-investigation).
 ---
 
 # Code Reviewer

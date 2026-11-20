@@ -157,3 +157,15 @@ def test_headless_inherit_adds_no_model(tmp_path):
                          capture_output=True, text=True, env=env)
     assert out.returncode == 0, out.stderr
     assert "--model" not in out.stdout.splitlines()
+
+
+def test_all_frontmatter_is_valid_yaml():
+    import yaml
+    for path in _items():
+        data = yaml.safe_load(_fm(path))
+        assert isinstance(data, dict) and data.get("name") and data.get("description"), path
+
+
+def test_code_reviewer_routes_defects_and_research_away():
+    d = _desc(ROOT / "skills" / "code-reviewer" / "SKILL.md")
+    assert "bug-investigation" in d and "feature-finder" in d
