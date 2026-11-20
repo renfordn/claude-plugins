@@ -96,6 +96,8 @@ SHARED_ROOT_GITIGNORE = (
     "snapshots/\n"
     ".DS_Store\n"
     "*.conflict-*\n"
+    ".nelly.lock\n"
+    ".*.tmp\n"
 )
 SHARED_ROOT_GITATTRIBUTES = (
     "# Append-only files: keep both machines' lines on a git merge instead of conflicting.\n"
@@ -173,6 +175,10 @@ def get_memory_root(plugin_name: str) -> str:
     return get_shared_memory_root() or get_plugin_data_dir(plugin_name)
 
 
+# Patterns introduced after the first scaffold; appended to an existing .gitignore once.
+SHARED_ROOT_GITIGNORE_ADDED = (".nelly.lock", ".*.tmp")
+
+
 def ensure_shared_root_scaffold(root: str) -> None:
     """Create `root` plus its .gitignore/.gitattributes if missing. Never overwrites either."""
     os.makedirs(root, exist_ok=True)
@@ -182,5 +188,16 @@ def ensure_shared_root_scaffold(root: str) -> None:
         if not os.path.exists(path):
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write(content)
+        elif name == ".gitignore":
+            # Existing file: keep the user's lines and append only patterns added after the
+            # first scaffold, so a shipped line the user removed on purpose stays removed.
+            with open(path, "rb") as fh:
+                existing = fh.read()
+            have = set(existing.decode("utf-8", errors="replace").splitlines())
+            missing = [ln for ln in SHARED_ROOT_GITIGNORE_ADDED if ln not in have]
+            if missing:
+                with open(path, "ab") as fh:
+                    fh.write((b"" if existing.endswith(b"\n") or not existing else b"\n")
+                             + ("\n".join(missing) + "\n").encode("utf-8"))
 
 # --- end shared memory root ---

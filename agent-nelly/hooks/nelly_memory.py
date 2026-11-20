@@ -26,7 +26,6 @@ got created.
 """
 import os
 import re
-import tempfile
 import sys
 
 # Import shared utilities
@@ -209,33 +208,11 @@ def ensure_entries_dir(cwd, entry_type=None):
     return d
 
 
-def atomic_write(path, text):
-    """Write `text` (utf-8) to `path` via a temp file in the same directory + os.replace, so a
-    reader (or iCloud sync) sees either the old file or the complete new one, never a partial
-    write. The temp name is dot-prefixed with a `.tmp` suffix, which the index scan (non-.md)
-    and nelly_cleanup's activity scan already ignore. On failure the temp file is removed and
-    the original, if any, is left untouched.
-    """
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        try:  # mkstemp creates 0600; keep an existing file's mode, else the umask default
-            mode = os.stat(path).st_mode & 0o7777
-        except OSError:
-            umask = os.umask(0)
-            os.umask(umask)
-            mode = 0o666 & ~umask
-        os.chmod(tmp, mode)
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+# One implementation of the atomic write lives in scripts/nelly_store.py.
+_scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts")
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
+from nelly_store import atomic_write  # noqa: E402,F401
 
 
 def archive_path(cwd, name):

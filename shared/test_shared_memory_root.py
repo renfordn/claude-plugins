@@ -124,7 +124,37 @@ class SharedMemoryRootTests(unittest.TestCase):
                 fh.write("mine\n")
             ensure_shared_root_scaffold(root)
             with open(os.path.join(root, ".gitignore")) as fh:
-                self.assertEqual(fh.read(), "mine\n")
+                text = fh.read()
+            self.assertTrue(text.startswith("mine\n"))  # user lines kept; missing ones appended
+            self.assertIn(".nelly.lock", text.splitlines())
+            ensure_shared_root_scaffold(root)
+            with open(os.path.join(root, ".gitignore")) as fh:
+                self.assertEqual(fh.read(), text)  # idempotent
+
+    def test_scaffold_appends_only_lines_added_after_the_first_scaffold(self):
+        # A pattern the user removed on purpose (e.g. to sync hotspots.json) is never re-added;
+        # only patterns introduced later (.nelly.lock, .*.tmp) are appended to an existing file.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "shared")
+            os.makedirs(root)
+            with open(os.path.join(root, ".gitignore"), "w") as fh:
+                fh.write("mine\n")
+            ensure_shared_root_scaffold(root)
+            with open(os.path.join(root, ".gitignore")) as fh:
+                lines = fh.read().splitlines()
+            self.assertEqual(lines, ["mine", ".nelly.lock", ".*.tmp"])
+
+    def test_scaffold_tolerates_non_utf8_gitignore(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "shared")
+            os.makedirs(root)
+            with open(os.path.join(root, ".gitignore"), "wb") as fh:
+                fh.write(b"caf\xe9.txt\n")
+            ensure_shared_root_scaffold(root)  # must not raise UnicodeDecodeError
+            with open(os.path.join(root, ".gitignore"), "rb") as fh:
+                data = fh.read()
+            self.assertTrue(data.startswith(b"caf\xe9.txt\n"))
+            self.assertIn(b".nelly.lock\n", data)
 
     def test_shared_root_block_identical_in_every_copy(self):
         blocks = {}
