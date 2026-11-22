@@ -170,11 +170,30 @@ def _strip_heredocs(command):
     """Drop heredoc bodies (data such as commit messages, not commands), keeping the line that
     opened each one. A heredoc fed to a shell (`bash <<EOF`) is its commands, so it stays."""
     def repl(m):
-        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
-        if any(os.path.basename(w) in SHELLS for w in re.split(r"[\s;&|()]+", line)):
+        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()] + " " + m.group(4)
+        if SHELLS & set(_command_words(line)):
             return m.group(0)
         return "<<%s%s" % (m.group(3), m.group(4))
     return HEREDOC.sub(repl, command)
+
+
+def _command_words(line):
+    """Basenames of the words in command position on one line (quoted text dropped, so a
+    title like "fix bash hook" does not count), skipping NAME=value and wrapper prefixes."""
+    line = re.sub(r"\"[^\"]*\"|'[^']*'", " ", line)
+    words = []
+    for seg in re.split(r"[;&|()`]+|\$\(", line):
+        wrapper = None
+        for w in seg.split():
+            name = os.path.basename(w)
+            if ASSIGN.match(w) or (wrapper and (w.startswith("-") or DURATION.match(w))):
+                continue
+            if name in WRAPPERS:
+                wrapper = name
+                continue
+            words.append(name)
+            break
+    return words
 
 
 def self_matching(command):

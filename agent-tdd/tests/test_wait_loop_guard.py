@@ -154,9 +154,17 @@ def test_commit_message_via_cat_heredoc_allowed(platform):
     assert g.self_matching(cmd) is None
 
 
+def test_shell_word_in_quoted_title_keeps_body_as_data(platform):
+    cmd = ("gh pr create --title \"fix bash hook\" --body \"$(cat <<'EOF'\n"
+           "while pgrep -f xyz; do sleep 1; done\nEOF\n)\"")
+    assert g.self_matching(cmd) is None
+
+
 @pytest.mark.parametrize("cmd", [
     "bash <<'EOF'\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
     "sh <<EOF\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
+    "cat <<'EOF' | sh\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
+    "FOO=1 sudo -n /bin/bash -s <<EOF\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
 ])
 def test_heredoc_fed_to_a_shell_is_scanned(cmd, platform):
     assert g.self_matching(cmd) is not None
