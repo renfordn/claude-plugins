@@ -62,7 +62,10 @@ run means no behavior change.
 auto-resumes a paused agent-TDD. In a **serial run** agent-TDD's mandatory Green pause (see
 `agent-tdd/INTEROP.md`, "The mandatory review pause") is driven manually: run an independent review
 (`code-reviewer/INTEROP.md`, "Independent review (reviewer ≠ author)"), then resume the live agent-TDD
-via `SendMessage` in the same session. In a **parallel run** the agent-isdd thread, as the tdd-parallel
+via `SendMessage` in the same session, asking for the next report as its final plain-text response
+(a hand-back tool refuses a second report), and checking for stalls with
+`agent-tdd/scripts/agent_stall.py` instead of waiting silently (`agent-tdd/INTEROP.md`, "Resumed
+reports and stalled agents"). In a **parallel run** the agent-isdd thread, as the tdd-parallel
 lead, spawns `code-reviewer` per slice with `Review scope: slice=<ID>` in the prompt;
 `review_tracking` records it (see `interop-reviewers.md`). Passive tracking is described in
 `skills/spec-driven-development/references/code-reviewer-checkpoint.md`.

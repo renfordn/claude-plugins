@@ -52,6 +52,9 @@ with the same id or list, before the report marker; with no such line, emit no s
 - **Clarifying question** — only if a finding is `pause_for_review`: the single question the
   caller should put to the user, per the skill's Resume Contract.
 
+If resumed (via `SendMessage`) after a hand-back, return the new report as your final plain-text
+response, same markers: a hand-back tool accepts one report per result and refuses a second.
+
 ## Guardrails
 
 - Read-only. If the fix is obvious, describe it in the finding; don't apply it.

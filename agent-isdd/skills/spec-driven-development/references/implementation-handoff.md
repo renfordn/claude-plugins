@@ -76,7 +76,12 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
      `agent-tdd/INTEROP.md`'s existing test-author field-subset rule — Task description, Test
      Intent, Data Contracts And Interfaces only).
    - Bundle every returned test into one resume message.
-   - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results.
+   - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results,
+     asking for its report as its final plain-text response (a second hand-back is refused).
+     While it runs, check it for stalls with `agent-tdd/scripts/agent_stall.py`; on a stall,
+     resume it with a status check or tell the user, never wait silently; if its report is lost,
+     rebuild state from the worktree, `git log` and test logs (`agent-tdd/INTEROP.md`,
+     "Resumed reports and stalled agents").
    - Clear `test_author_pending` from `workflow-state.json` (mirrors `clear_rollback_pending`'s
      existing pattern in `hooks/sdd_state.py`).
    - Serial runs only. In a parallel run the tdd-parallel lead runs `agent-tdd:test-author` for

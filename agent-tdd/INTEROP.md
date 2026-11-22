@@ -123,6 +123,31 @@ The denial message tells the caller what to do. State lives in `review-gate.json
 `tdd-progress.json`. The gate covers the Green pause only, not the coherence review, and it
 fails open if the hook itself errors.
 
+## Resumed reports and stalled agents
+
+- **Ask for plain-text reports on resume.** A hand-back tool (e.g. `SubagentHandback`) accepts
+  one report per result, so a resumed agent's second hand-back is refused. When you resume
+  `agent-TDD`, `test-author` or `code-reviewer` via `SendMessage`, add "return your report as
+  your final plain-text response". If a hand-back was refused anyway, or no report arrives,
+  rebuild the state from the worktree (`git status`, `git diff`), `git log`, the slice's
+  `tdd_check.py` evidence log and test logs, never from memory of earlier reports.
+- **Detect stalls; don't wait silently.** A background subagent can stop "waiting on background
+  work" and sit idle for hours. While one runs, check it every ~20 minutes:
+
+  ```
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/agent_stall.py" --agent-id <agent id> --idle-minutes 20
+  ```
+
+  It compares the transcript's last timestamp with now and lists the agent's background Bash
+  commands still running (flagging self-matching `pgrep -f` waits). Exit 3 (`stalled`): resume the
+  agent with a status-check message ("report what you are waiting on; rerun it in the
+  foreground"), killing any listed self-matching wait loop, or tell the user. Exit 4 (`idle`, no
+  background work): it has probably finished; read its report or fall back as above. Exit 0:
+  still active. Without the script, do the same by hand: compare the transcript's last
+  `timestamp` with now, and check `ps` for its background commands.
+- `hooks/wait_loop_guard.py` (PreToolUse Bash) denies any `pgrep -f` / `pkill -f` whose pattern
+  matches the command itself, the cause of the multi-hour stalls.
+
 ## Keeping spawn prompts token-efficient
 
 Both agents run in an isolated context and pay for every token you put in their spawn prompt —

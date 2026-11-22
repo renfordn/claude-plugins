@@ -1,6 +1,14 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+### Added
+- `hooks/wait_loop_guard.py` (PreToolUse Bash, timeout 5): denies any `pgrep -f` / `pkill -f` whose pattern matches the command itself. Such a pattern matches the waiting shell's own command line, so `while pgrep -f "git commit"; do sleep 15; done` never exits; an agent-TDD run sat idle about 12 hours on one, twice. Fails open.
+- `scripts/agent_stall.py --agent-id <id> | --transcript <path> [--idle-minutes 20]`: compares a subagent transcript's last timestamp with now and lists its still-running background Bash commands, flagging self-matching waits. Exits 0 active, 3 stalled, 4 idle, 2 not found.
+
+### Changed
+- agent-TDD and test-author run commits and test runs in the foreground with a long timeout (or poll an exit-code file), never wait with `pgrep -f`, and never end a turn waiting on background work.
+- Report Contract: when resumed after a hand-back, agent-TDD and test-author return later reports as their final plain-text response (a hand-back tool accepts one report per result). INTEROP.md gains "Resumed reports and stalled agents": request plain-text reports on resume, rebuild state from the worktree, git log and test logs when a hand-back was refused, and check running subagents for stalls.
+
 ## [0.8.3] - 2026-11-20
 
 ### Fixed

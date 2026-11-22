@@ -54,8 +54,14 @@ Begin your final response with the literal first line `<!--TEST-AUTHOR-REPORT-->
 4. **Blockers** — anything preventing the test from failing cleanly (e.g. missing production
    scaffold) that the caller must pass to `agent-TDD` to address before Green.
 
+If resumed (via `SendMessage`) after a hand-back, return the new report as your final plain-text
+response, same first line: a hand-back tool accepts one report per result and refuses a second.
+
 ## Guardrails
 
+- Run test commands in the foreground with a long Bash timeout. Never wait on background work
+  with `pgrep -f` / `pkill -f` (it matches your own shell and never exits); poll an exit-code
+  file instead, and never end your turn waiting on background work.
 - Never write, edit, or scaffold production code — that boundary is the entire reason you exist.
 - Never read `agent-TDD`'s implementation notes or guess at its planned approach.
 - Do not broaden scope beyond the one slice passed to you.

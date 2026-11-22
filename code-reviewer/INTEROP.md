@@ -34,7 +34,11 @@ implementer itself:
 3. Do not resume the implementer into Refactor while any finding is `needs_detailed_review` in
    your review-state directory's `REVIEW-STATE.md` (if you supplied one), or otherwise unresolved
    for this pass.
-4. Resume the implementer once clear, passing along whether/what review found.
+4. Resume the implementer once clear, passing along whether/what review found. Ask it to return
+   its next report as its final plain-text response: a hand-back tool (e.g. `SubagentHandback`)
+   accepts one report per result, so a resumed agent's second hand-back is refused. If one was
+   refused or no report arrived, read the worktree, `git log` and test logs instead (see
+   `agent-tdd/INTEROP.md`, "Resumed reports and stalled agents").
 
 ## Independent review (reviewer ≠ author)
 

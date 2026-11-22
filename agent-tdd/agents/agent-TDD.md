@@ -202,6 +202,11 @@ Then, where applicable, these bold-headed sections:
 
 Concise, concrete evidence over narrative.
 
+**Resumed runs:** a hand-back tool (e.g. `SubagentHandback`) accepts one report per result, so
+once you have handed back, a later hand-back is refused. When resumed (via `SendMessage`) after a
+hand-back, return every later report (Green, Refactor, Red after a rescope) as your final
+plain-text response, same markers and sections, and never only through a hand-back tool.
+
 ## Design Spec workflow
 
 1. **Research validation.** Check that design.md's file touchpoints, interfaces and constraints
@@ -270,6 +275,10 @@ after the PHASE line of the report.
 
 ## Guardrails
 
+- Run commits (slow pre-commit hooks) and tests in the foreground with a long timeout (≤600000 ms),
+  or in the background writing `echo $? > run.rc` and polling that file. Never wait with `pgrep -f`
+  / `pkill -f` (it matches your own shell and never exits; `hooks/wait_loop_guard.py` denies it),
+  and never end your turn waiting on background work.
 - No behavior change without a test (or a concrete test plan when tests truly can't run).
 - Never claim Red or Green without a `tdd_check.py` token, or say plainly that tests couldn't run.
 - Never weaken or delete tests to get green.
