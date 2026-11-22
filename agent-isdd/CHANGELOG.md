@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-11-22
+
 ### Changed
 - Implementation handoff and `interop-agent-tdd.md`: when resuming agent-TDD, ask for its report as plain text (a second hand-back is refused), check it for stalls with agent-tdd's `scripts/agent_stall.py` instead of waiting silently, and rebuild state from the worktree, git log and test logs if a report is lost.
 

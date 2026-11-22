@@ -1,6 +1,8 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-22
+
 ### Changed
 - code-reviewer returns its report as its final plain-text response when resumed after a hand-back (a hand-back tool accepts one report per result). INTEROP.md's implementer-pairing steps tell the caller to request plain-text reports on resume and to fall back to the worktree, git log and test logs when a hand-back was refused.
 
