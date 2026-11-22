@@ -183,3 +183,31 @@ def test_for_loop_inside_while_keeps_while_scope(monkeypatch):
 ])
 def test_heredoc_edge_cases_do_not_hide_loops(cmd, platform):
     assert g.self_matching(cmd) is not None
+
+
+WAIT_BODY = "while pgrep -f xyz; do sleep 1; done"
+
+
+@pytest.mark.parametrize("opening", [
+    "sudo -u root bash <<'EOF'",
+    "timeout -s KILL 60 bash <<'EOF'",
+    "timeout -k 5 60 env FOO=1 bash <<'EOF'",
+    "if true; then bash <<'EOF'",
+    "{ bash; } <<'EOF'",
+    "( sh ) <<'EOF'",
+    "cat <<'EOF' 2>&1 | sh",
+])
+def test_shell_behind_wrapper_values_or_keywords_feeds_heredoc(opening, platform):
+    tail = "\nfi" if opening.startswith("if ") else ""
+    assert g.self_matching("%s\n%s\nEOF%s" % (opening, WAIT_BODY, tail)) is not None
+
+
+@pytest.mark.parametrize("opening", [
+    "git commit -F - <<'MSG' && bash run.sh",
+    "git commit -F - <<'MSG'; bash run.sh",
+    "git commit -F - <<'MSG' || sh fallback.sh",
+    "bash setup.sh && git commit -F - <<'MSG'",
+    "{ bash a.sh; } && cat <<'MSG' > notes.txt",
+])
+def test_shell_in_another_list_element_keeps_body_as_data(opening, platform):
+    assert g.self_matching("%s\n%s\nMSG" % (opening, WAIT_BODY)) is None

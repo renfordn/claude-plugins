@@ -101,21 +101,13 @@ def _matches(pattern, command):
         return pattern in command
 
 
-def _scan(segment, command, in_loop):
-    """First self-matching (tool, pattern) in `segment`. A pgrep/pkill counts only in command
-    position (after a separator, keyword, NAME=value or a wrapper's options); `in_loop` is true
-    between a `while`/`until` and its `done`."""
-    try:
-        toks = _tokens(segment)
-    except ValueError:
-        return None
-    loops, expect, wrapper, skip = [], True, None, False  # stack of open loop keywords
+def _walk(toks):
+    """Yield (index, kind, word) for each token in command position: kind "keyword" for shell
+    keywords and "command" for the command word (its basename). Command position starts after a
+    separator or keyword and skips NAME=value words and wrappers with their options (and those
+    options' values, plus `timeout`'s duration). Shared by `_scan` and `_strip_heredocs`."""
+    expect, wrapper, skip = True, None, False
     for i, tok in enumerate(toks):
-        loop = in_loop or "while" in loops or "until" in loops
-        for body in _substitutions(tok):
-            hit = _scan(body, command, loop)
-            if hit:
-                return hit
         if tok in SEPARATORS:
             expect, wrapper, skip = True, None, False
             continue
@@ -126,27 +118,47 @@ def _scan(segment, command, in_loop):
             continue
         if wrapper is not None:
             if tok.startswith("-"):
-                skip = tok[-1:] in WRAPPERS[wrapper] and len(tok) == 2
+                skip = len(tok) == 2 and tok[1] in WRAPPERS[wrapper]
                 continue
-            if ASSIGN.match(tok) or (wrapper == "timeout" and DURATION.match(tok)):
+            if wrapper == "timeout" and DURATION.match(tok):
                 continue
         if ASSIGN.match(tok):
             continue
-        if tok in ("while", "until", "for", "select"):
-            loops.append(tok)
-        if tok in KEYWORDS:
-            continue
-        if tok in ("for", "select", "done"):  # `for x in ...` words are not commands
-            if tok == "done" and loops:
-                loops.pop()
-            expect = False
+        if tok in KEYWORDS or tok in ("for", "select", "done"):
+            yield i, "keyword", tok
+            expect = tok in KEYWORDS  # `for x in ...` words are not commands
             continue
         name = os.path.basename(tok)
         if name in WRAPPERS:
             wrapper = name
             continue
         expect, wrapper = False, None
-        if name not in TOOLS:
+        yield i, "command", name
+
+
+def _scan(segment, command, in_loop):
+    """First self-matching (tool, pattern) in `segment`. A pgrep/pkill counts only in command
+    position (see `_walk`); `in_loop` is true between a `while`/`until` and its `done`."""
+    try:
+        toks = _tokens(segment)
+    except ValueError:
+        return None
+    events = {i: (kind, word) for i, kind, word in _walk(toks)}
+    loops = []  # stack of open loop keywords
+    for i, tok in enumerate(toks):
+        loop = in_loop or "while" in loops or "until" in loops
+        for body in _substitutions(tok):
+            hit = _scan(body, command, loop)
+            if hit:
+                return hit
+        kind, word = events.get(i, (None, None))
+        if kind == "keyword":
+            if word in ("while", "until", "for", "select"):
+                loops.append(word)
+            elif word == "done" and loops:
+                loops.pop()
+            continue
+        if kind != "command" or word not in TOOLS:
             continue
         args = []
         for t in toks[i + 1:]:
@@ -155,7 +167,7 @@ def _scan(segment, command, in_loop):
             args.append(t)
         full, ancestors, pattern = _parse(args)
         if full and pattern and (ancestors or loop) and _matches(pattern, command):
-            return name, pattern
+            return word, pattern
     return None
 
 
@@ -166,34 +178,57 @@ HEREDOC = re.compile(r"(?<!<)<<(?!<)(-)?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 
 
+LINE_TOKEN = re.compile(r"&&|\|\||\$\(|[;&|()`]|[^\s;&|()`]+")
+LIST_SEPARATORS = {";", "&&", "||", "&", "`"}
+HERE = "\0"  # stands for the heredoc operator on its opening line
+
+
+def _feeds_shell(before, after):
+    """Whether the heredoc at the end of `before` (text from the start of its line) feeds a
+    shell: a shell in command position in the same list element, i.e. the pipeline holding the
+    `<<` (and any `{ }`/`( )` group it redirects), not one after `;`, `&&`, `||` or `&`.
+    Quoted text is dropped, so a title like "fix bash hook" does not count."""
+    line = re.sub(r"\"[^\"]*\"|'[^']*'", " ", "%s %s %s" % (before, HERE, after))
+    line = re.sub(r"[<>]&|&>", ">", line.replace('"', " ").replace("'", " "))
+    toks = ["(" if t == "$(" else t for t in LINE_TOKEN.findall(line)]
+    at = toks.index(HERE)
+    start, depth = at, 0
+    while start > 0:
+        t = toks[start - 1]
+        if t in (")", "}"):
+            depth += 1
+        elif t in ("(", "{"):
+            if not depth:
+                break
+            depth -= 1
+        elif not depth and t in LIST_SEPARATORS:
+            break
+        start -= 1
+    end, depth = at + 1, 0
+    while end < len(toks):
+        t = toks[end]
+        if t in ("(", "{"):
+            depth += 1
+        elif t in (")", "}"):
+            if not depth:
+                break
+            depth -= 1
+        elif not depth and t in LIST_SEPARATORS:
+            break
+        end += 1
+    element = [t for t in toks[start:end] if t != HERE]
+    return any(kind == "command" and word in SHELLS for _, kind, word in _walk(element))
+
+
 def _strip_heredocs(command):
     """Drop heredoc bodies (data such as commit messages, not commands), keeping the line that
     opened each one. A heredoc fed to a shell (`bash <<EOF`) is its commands, so it stays."""
     def repl(m):
-        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()] + " " + m.group(4)
-        if SHELLS & set(_command_words(line)):
+        before = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
+        if _feeds_shell(before, m.group(4)):
             return m.group(0)
         return "<<%s%s" % (m.group(3), m.group(4))
     return HEREDOC.sub(repl, command)
-
-
-def _command_words(line):
-    """Basenames of the words in command position on one line (quoted text dropped, so a
-    title like "fix bash hook" does not count), skipping NAME=value and wrapper prefixes."""
-    line = re.sub(r"\"[^\"]*\"|'[^']*'", " ", line)
-    words = []
-    for seg in re.split(r"[;&|()`]+|\$\(", line):
-        wrapper = None
-        for w in seg.split():
-            name = os.path.basename(w)
-            if ASSIGN.match(w) or (wrapper and (w.startswith("-") or DURATION.match(w))):
-                continue
-            if name in WRAPPERS:
-                wrapper = name
-                continue
-            words.append(name)
-            break
-    return words
 
 
 def self_matching(command):
