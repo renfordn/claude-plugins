@@ -135,8 +135,11 @@ fails open if the hook itself errors.
   work" and sit idle for hours. While one runs, check it every ~20 minutes:
 
   ```
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/agent_stall.py" --agent-id <agent id> --idle-minutes 20
+  python3 <agent-tdd>/scripts/agent_stall.py --agent-id <agent id> --idle-minutes 20
   ```
+
+  (`<agent-tdd>` is the agent-tdd plugin root: `${CLAUDE_PLUGIN_ROOT}` only inside agent-tdd;
+  from another plugin, search for `agent-tdd/scripts/agent_stall.py`.)
 
   It compares the transcript's last timestamp with now and lists the agent's background Bash
   commands still running (flagging self-matching `pgrep -f` waits). Exit 3 (`stalled`): resume the
@@ -145,8 +148,9 @@ fails open if the hook itself errors.
   background work): it has probably finished; read its report or fall back as above. Exit 0:
   still active. Without the script, do the same by hand: compare the transcript's last
   `timestamp` with now, and check `ps` for its background commands.
-- `hooks/wait_loop_guard.py` (PreToolUse Bash) denies any `pgrep -f` / `pkill -f` whose pattern
-  matches the command itself, the cause of the multi-hour stalls.
+- `hooks/wait_loop_guard.py` (PreToolUse Bash) denies a `pgrep -f` / `pkill -f` whose pattern
+  matches its own shell: any self-matching wait loop (`while`/`until`; on macOS concurrent loops
+  match each other's shell), and on Linux, or with `-a` on macOS, any self-matching call.
 
 ## Keeping spawn prompts token-efficient
 

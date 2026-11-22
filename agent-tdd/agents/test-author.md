@@ -60,7 +60,7 @@ response, same first line: a hand-back tool accepts one report per result and re
 ## Guardrails
 
 - Run test commands in the foreground with a long Bash timeout. Never wait on background work
-  with `pgrep -f` / `pkill -f` (it matches your own shell and never exits); poll an exit-code
+  with `pgrep -f` / `pkill -f` (it can match a waiting shell, yours or another loop's, and never exit); poll an exit-code
   file instead, and never end your turn waiting on background work.
 - Never write, edit, or scaffold production code — that boundary is the entire reason you exist.
 - Never read `agent-TDD`'s implementation notes or guess at its planned approach.

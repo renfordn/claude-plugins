@@ -78,7 +78,7 @@ design.md, research/cache.md, pre-fetched file summaries, recap.md).
    - Bundle every returned test into one resume message.
    - Resume the same `agent-tdd:agent-TDD` instance via `SendMessage` with the bundled results,
      asking for its report as its final plain-text response (a second hand-back is refused).
-     While it runs, check it for stalls with `agent-tdd/scripts/agent_stall.py`; on a stall,
+     While it runs, check it for stalls with agent-tdd's `scripts/agent_stall.py` (search for `agent-tdd/scripts/agent_stall.py`); on a stall,
      resume it with a status check or tell the user, never wait silently; if its report is lost,
      rebuild state from the worktree, `git log` and test logs (`agent-tdd/INTEROP.md`,
      "Resumed reports and stalled agents").

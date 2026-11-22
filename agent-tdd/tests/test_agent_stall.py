@@ -73,3 +73,22 @@ def test_cli_finds_transcript_by_agent_id_and_exit_codes(tmp_path, monkeypatch):
     r = subprocess.run([sys.executable, SCRIPT, "--agent-id", "nope"], capture_output=True,
                        text=True, env=env, timeout=20)
     assert r.returncode == 2
+
+
+def test_wrapped_command_with_quotes_matches_ps_row(tmp_path):
+    cmd = "until ! pgrep -f 'local_ci.py test'; do sleep 5; done"
+    wrapped = "/bin/zsh -c source /tmp/snap.sh && eval '%s' < /dev/null" % cmd.replace("'", "'\"'\"'")
+    r = s.assess(write(tmp_path, 60, "Committing.", [cmd]), 20, NOW, [(99, wrapped)])
+    assert r["background_commands"][0]["live_pids"] == [99]
+    assert r["status"] == "stalled"
+
+
+def test_finished_report_mentioning_background_is_idle(tmp_path):
+    r = s.assess(write(tmp_path, 60, "Ran the suite in the background; all green."), 20, NOW, [])
+    assert r["status"] == "idle"
+
+
+def test_naive_timestamp_treated_as_utc(tmp_path):
+    p = tmp_path / "t.jsonl"
+    p.write_text(_line("2026-11-22T11:00:00", [{"type": "text", "text": "ok"}]) + "\n")
+    assert s.assess(str(p), 20, NOW, [])["idle_minutes"] == 60

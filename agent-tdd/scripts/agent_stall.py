@@ -27,7 +27,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hooks"))
 import wait_loop_guard  # noqa: E402
 
-WAITING = re.compile(r"\b(waiting|wait for|background)\b", re.I)
+WAITING = re.compile(r"\bwait(ing)? (on|for)\b|\bbackground (work|task|job|process|command)s?\b",
+                     re.I)
 
 
 def find_transcript(agent_id):
@@ -39,9 +40,10 @@ def find_transcript(agent_id):
 
 def _ts(value):
     try:
-        return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        ts = datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+    return ts if ts.tzinfo else ts.replace(tzinfo=datetime.timezone.utc)
 
 
 def read_transcript(path):
@@ -85,6 +87,16 @@ def live_processes():
     return rows
 
 
+def running_pids(cmd, procs, me=None):
+    """PIDs whose command line contains `cmd`'s start, raw or as the Bash tool's shell wrapper
+    shows it (`eval '...'`, where each ' is written '"'"')."""
+    raw = cmd.strip()[:80]
+    if not raw:
+        return []
+    keys = {raw, cmd.strip().replace("'", "'\"'\"'")[:80]}
+    return [p for p, c in procs if p != me and any(k in c for k in keys)]
+
+
 def assess(path, idle_minutes, now=None, processes=None):
     last, text, background = read_transcript(path)
     now = now or datetime.datetime.now(datetime.timezone.utc)
@@ -92,8 +104,7 @@ def assess(path, idle_minutes, now=None, processes=None):
     me = os.getpid()
     commands = []
     for cmd in background:
-        key = cmd.strip()[:80]
-        pids = [p for p, c in procs if key and key in c and p != me]
+        pids = running_pids(cmd, procs, me)
         hit = wait_loop_guard.self_matching(cmd)
         commands.append({"command": cmd[:200], "live_pids": pids,
                          "self_matching_wait": "%s -f %s" % hit if hit else None})

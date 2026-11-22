@@ -277,8 +277,8 @@ after the PHASE line of the report.
 
 - Run commits (slow pre-commit hooks) and tests in the foreground with a long timeout (≤600000 ms),
   or in the background writing `echo $? > run.rc` and polling that file. Never wait with `pgrep -f`
-  / `pkill -f` (it matches your own shell and never exits; `hooks/wait_loop_guard.py` denies it),
-  and never end your turn waiting on background work.
+  / `pkill -f`: it can match a waiting shell, yours or another loop's, and never exit
+  (`hooks/wait_loop_guard.py` denies it). Never end your turn waiting on background work.
 - No behavior change without a test (or a concrete test plan when tests truly can't run).
 - Never claim Red or Green without a `tdd_check.py` token, or say plainly that tests couldn't run.
 - Never weaken or delete tests to get green.
