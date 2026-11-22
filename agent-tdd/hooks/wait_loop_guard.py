@@ -109,9 +109,9 @@ def _scan(segment, command, in_loop):
         toks = _tokens(segment)
     except ValueError:
         return None
-    depth, expect, wrapper, skip = 0, True, None, False
+    loops, expect, wrapper, skip = [], True, None, False  # stack of open loop keywords
     for i, tok in enumerate(toks):
-        loop = in_loop or depth > 0
+        loop = in_loop or "while" in loops or "until" in loops
         for body in _substitutions(tok):
             hit = _scan(body, command, loop)
             if hit:
@@ -132,12 +132,13 @@ def _scan(segment, command, in_loop):
                 continue
         if ASSIGN.match(tok):
             continue
-        if tok in ("while", "until"):
-            depth += 1
+        if tok in ("while", "until", "for", "select"):
+            loops.append(tok)
         if tok in KEYWORDS:
             continue
-        if tok == "done":
-            depth = max(0, depth - 1)
+        if tok in ("for", "select", "done"):  # `for x in ...` words are not commands
+            if tok == "done" and loops:
+                loops.pop()
             expect = False
             continue
         name = os.path.basename(tok)
@@ -158,14 +159,22 @@ def _scan(segment, command, in_loop):
     return None
 
 
-HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n.*?\n[ \t]*\2[ \t]*(?=\n|$)",
-                     re.S)
+# Groups: 1 `-` of <<-, 2 quote, 3 delimiter, 4 rest of the opening line. The body may be empty;
+# the closing delimiter may be tab-indented only for <<-. `<<<` here-strings are not heredocs.
+HEREDOC = re.compile(r"(?<!<)<<(?!<)(-)?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2([^\n]*)\n"
+                     r"(?:.*?\n)??(?(1)\t*)\3(?=\n|$)", re.S)
+SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 
 
 def _strip_heredocs(command):
     """Drop heredoc bodies (data such as commit messages, not commands), keeping the line that
-    opened each one."""
-    return HEREDOC.sub(lambda m: "<<%s%s" % (m.group(2), m.group(3)), command)
+    opened each one. A heredoc fed to a shell (`bash <<EOF`) is its commands, so it stays."""
+    def repl(m):
+        line = command[command.rfind("\n", 0, m.start()) + 1:m.start()]
+        if any(os.path.basename(w) in SHELLS for w in re.split(r"[\s;&|()]+", line)):
+            return m.group(0)
+        return "<<%s%s" % (m.group(3), m.group(4))
+    return HEREDOC.sub(repl, command)
 
 
 def self_matching(command):

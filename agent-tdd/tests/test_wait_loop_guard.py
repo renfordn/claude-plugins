@@ -147,3 +147,31 @@ def test_heredoc_body_is_data_not_commands(platform):
 
 def test_command_after_heredoc_still_scanned(platform):
     assert g.self_matching(HEREDOC_MSG + "\nwhile pgrep -f vite; do sleep 1; done") is not None
+
+
+def test_commit_message_via_cat_heredoc_allowed(platform):
+    cmd = "git commit -m \"$(cat <<'EOF'\nwhile pgrep -f y; do :; done\nEOF\n)\""
+    assert g.self_matching(cmd) is None
+
+
+@pytest.mark.parametrize("cmd", [
+    "bash <<'EOF'\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
+    "sh <<EOF\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
+])
+def test_heredoc_fed_to_a_shell_is_scanned(cmd, platform):
+    assert g.self_matching(cmd) is not None
+
+
+def test_for_loop_inside_while_keeps_while_scope(monkeypatch):
+    monkeypatch.setattr(g, "BSD", True)
+    cmd = "while true; do for i in 1 2; do :; done; pgrep -f xyz || break; sleep 1; done"
+    assert g.self_matching(cmd) is not None
+    assert g.self_matching("for i in 1 2; do :; done; pgrep -f xyz") is None
+
+
+@pytest.mark.parametrize("cmd", [
+    "cat <<EOF > a\nEOF\nwhile pgrep -f xyz; do sleep 1; done\ncat <<EOF > b\ntext\nEOF",
+    'grep x <<< "done"\nwhile pgrep -f xyz; do sleep 1; done',
+])
+def test_heredoc_edge_cases_do_not_hide_loops(cmd, platform):
+    assert g.self_matching(cmd) is not None
