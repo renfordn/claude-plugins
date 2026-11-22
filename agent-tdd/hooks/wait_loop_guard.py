@@ -189,9 +189,24 @@ def _feeds_shell(before, after):
     `<<` (and any `{ }`/`( )` group it redirects), not one after `;`, `&&`, `||` or `&`.
     Quoted text is dropped, so a title like "fix bash hook" does not count."""
     line = re.sub(r"\"[^\"]*\"|'[^']*'", " ", "%s %s %s" % (before, HERE, after))
+    line = line.replace("|&", "|")
     line = re.sub(r"[<>]&|&>", ">", line.replace('"', " ").replace("'", " "))
     toks = ["(" if t == "$(" else t for t in LINE_TOKEN.findall(line)]
+    if HERE not in toks:  # the marker was inside quoted text: keep and scan the body
+        return True
     at = toks.index(HERE)
+    while True:  # this element, then each enclosing one (`bash -c "$(cat <<EOF ...)"`)
+        start, end = _element(toks, at)
+        element = [t for t in toks[start:end] if t != HERE]
+        if any(kind == "command" and word in SHELLS for _, kind, word in _walk(element)):
+            return True
+        if start == 0 or toks[start - 1] != "(":
+            return False
+        at = start - 1
+
+
+def _element(toks, at):
+    """(start, end) of the list element around toks[at], stopping at an unmatched bracket."""
     start, depth = at, 0
     while start > 0:
         t = toks[start - 1]
@@ -216,8 +231,7 @@ def _feeds_shell(before, after):
         elif not depth and t in LIST_SEPARATORS:
             break
         end += 1
-    element = [t for t in toks[start:end] if t != HERE]
-    return any(kind == "command" and word in SHELLS for _, kind, word in _walk(element))
+    return start, end
 
 
 def _strip_heredocs(command):

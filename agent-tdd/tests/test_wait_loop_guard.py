@@ -211,3 +211,12 @@ def test_shell_behind_wrapper_values_or_keywords_feeds_heredoc(opening, platform
 ])
 def test_shell_in_another_list_element_keeps_body_as_data(opening, platform):
     assert g.self_matching("%s\n%s\nMSG" % (opening, WAIT_BODY)) is None
+
+
+@pytest.mark.parametrize("cmd", [
+    'X="a <<EOF b"\nline\nEOF\nwhile pgrep -f xyz; do sleep 1; done',  # marker inside quotes
+    "bash -c \"$(cat <<'EOF'\nwhile pgrep -f xyz; do sleep 1; done\nEOF\n)\"",
+    "cat <<'EOF' |& sh\nwhile pgrep -f xyz; do sleep 1; done\nEOF",
+])
+def test_quoted_marker_bash_c_and_pipe_amp_still_denied(cmd, platform):
+    assert g.self_matching(cmd) is not None

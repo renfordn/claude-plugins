@@ -4,7 +4,7 @@
 ## [0.9.2] - 2026-11-22
 
 ### Fixed
-- `wait_loop_guard`: a heredoc counts as fed to a shell only when the shell is in the same list element as the `<<` (its pipeline, or the `{ }`/`( )` group it redirects), not after `;`, `&&`, `||` or `&`, so `git commit -F - <<'MSG' && bash run.sh` keeps its message as data. A shell behind wrapper option values (`sudo -u root bash`, `timeout -s KILL 60 bash`), after a keyword (`if true; then bash <<EOF`), inside a group (`{ bash; } <<EOF`) or after `2>&1 |` is now recognised, so a wait loop in its body is denied. Command-position parsing is shared by the loop scan and the heredoc check (`_walk`), so the two no longer drift.
+- `wait_loop_guard`: a heredoc counts as fed to a shell only when the shell is in the same list element as the `<<` (its pipeline, or the `{ }`/`( )` group it redirects), not after `;`, `&&`, `||` or `&`, so `git commit -F - <<'MSG' && bash run.sh` keeps its message as data. A shell behind wrapper option values (`sudo -u root bash`, `timeout -s KILL 60 bash`), after a keyword (`if true; then bash <<EOF`), inside a group (`{ bash; } <<EOF`) or after `2>&1 |` is now recognised, so a wait loop in its body is denied. Command-position parsing is shared by the loop scan and the heredoc check (`_walk`), so the two no longer drift. A heredoc inside `$(...)` also counts as fed to a shell when the enclosing command is one (`bash -c "$(cat <<EOF ...)"`), `|& sh` counts like `| sh`, and a `<<WORD` inside quoted text keeps its body scanned instead of crashing the check (which let the whole command through).
 
 ## [0.9.1] - 2026-11-22
 
