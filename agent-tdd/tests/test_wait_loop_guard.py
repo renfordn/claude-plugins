@@ -111,3 +111,39 @@ def test_registered_for_bash_pretooluse():
         pre = json.load(fh)["hooks"]["PreToolUse"]
     assert any(e.get("matcher") == "Bash" and any("wait_loop_guard.py" in h["command"]
                                                    for h in e["hooks"]) for e in pre)
+
+
+@pytest.mark.parametrize("cmd", [
+    "pkill -f vite; until curl -s localhost:5173; do sleep 1; done",   # pkill outside the loop
+    'pgrep -fl node; git commit -m "fix while loop"',                  # "while" only in a string
+    "while true; do sleep 1; done; pgrep -f node",                     # after the loop's done
+])
+def test_bsd_one_shot_outside_a_loop_allowed(cmd, monkeypatch):
+    monkeypatch.setattr(g, "BSD", True)
+    assert g.self_matching(cmd) is None
+
+
+@pytest.mark.parametrize("cmd", [
+    "while timeout 5 pgrep -f 'git commit'; do sleep 5; done",
+    "while FOO=1 pgrep -f x; do sleep 1; done",
+    "while sudo -n pkill -f x; do sleep 1; done",
+    "while sudo -u root pgrep -f x; do sleep 1; done",
+    "while env A=1 nice -n 5 pgrep -f x; do sleep 1; done",
+    'while [ $(pgrep -f "git( commit)?" | wc -l) -gt 0 ]; do sleep 1; done',
+    "until [ -z \"$(echo $(pgrep -f 'git commit'))\" ]; do sleep 1; done",
+])
+def test_prefixed_and_nested_loops_denied(cmd, platform):
+    assert g.self_matching(cmd) is not None
+
+
+HEREDOC_MSG = ("git commit -F - <<'MSG'\nfix: `pkill -f vite; until curl x; done`\n"
+               "while pgrep -f y; do :; done\nMSG\ngit log -1")
+
+
+def test_heredoc_body_is_data_not_commands(platform):
+    assert g.self_matching(HEREDOC_MSG) is None
+    assert g.self_matching("cat <<EOF > f.txt\npkill -f z\nEOF") is None
+
+
+def test_command_after_heredoc_still_scanned(platform):
+    assert g.self_matching(HEREDOC_MSG + "\nwhile pgrep -f vite; do sleep 1; done") is not None

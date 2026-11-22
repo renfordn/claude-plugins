@@ -22,11 +22,35 @@ VALUE_OPTS = set("uUgGPstFdrM")
 LONG_VALUE_OPTS = ("signal", "uid", "euid", "group", "parent", "session", "terminal", "pidfile",
                    "delimiter", "ns", "nslist", "pgroup", "older", "runstates", "cgroup", "env")
 SEPARATORS = {";", "&&", "||", "|", "&", "(", ")", "!", "{", "}"}
-# Words after which the next word is a command (shell keywords and simple prefixes).
-LEADERS = {"while", "until", "if", "then", "do", "else", "elif", "time", "sudo", "command",
-           "exec", "nohup", "timeout", "env", "xargs"}
-LOOP = re.compile(r"(^|[\s;&|(])(while|until)\s")
-SUBST = re.compile(r"\$\(([^()]*)\)|`([^`]*)`")
+# Words after which the next word is still in command position.
+KEYWORDS = {"if", "then", "do", "else", "elif", "while", "until"}
+# Command prefixes: their options (and these options' values) come before the real command.
+WRAPPERS = {"sudo": set("ugCDhpRrTU"), "timeout": set("sk"), "env": set("uSC"), "nice": set("n"),
+            "nohup": set(), "time": set(), "command": set(), "exec": set("a"), "stdbuf": set("ioe"),
+            "xargs": set("IinPsLEd"), "caffeinate": set("tw")}
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+DURATION = re.compile(r"^\d+(\.\d+)?[smhd]?$")
+
+
+def _substitutions(tok):
+    """Bodies of every $(...) (balanced, nested parens allowed) and `...` in one token."""
+    out, i = [], 0
+    while i < len(tok):
+        if tok.startswith("$(", i):
+            depth, j = 1, i + 2
+            while j < len(tok) and depth:
+                depth += {"(": 1, ")": -1}.get(tok[j], 0)
+                j += 1
+            out.append(tok[i + 2:j - 1] if depth == 0 else tok[i + 2:])
+            i = j
+        elif tok[i] == "`":
+            j = tok.find("`", i + 1)
+            j = len(tok) if j < 0 else j
+            out.append(tok[i + 1:j])
+            i = j + 1
+        else:
+            i += 1
+    return out
 
 
 def _tokens(command):
@@ -77,19 +101,51 @@ def _matches(pattern, command):
         return pattern in command
 
 
-def _scan(segment, command, loop):
+def _scan(segment, command, in_loop):
+    """First self-matching (tool, pattern) in `segment`. A pgrep/pkill counts only in command
+    position (after a separator, keyword, NAME=value or a wrapper's options); `in_loop` is true
+    between a `while`/`until` and its `done`."""
     try:
         toks = _tokens(segment)
     except ValueError:
         return None
+    depth, expect, wrapper, skip = 0, True, None, False
     for i, tok in enumerate(toks):
-        for m in SUBST.finditer(tok):  # "$(pgrep -f x)" / `pgrep -f x` inside one token
-            hit = _scan(m.group(1) or m.group(2) or "", command, loop)
+        loop = in_loop or depth > 0
+        for body in _substitutions(tok):
+            hit = _scan(body, command, loop)
             if hit:
                 return hit
-        prev = toks[i - 1] if i else None
-        if os.path.basename(tok) not in TOOLS or not (prev is None or prev in SEPARATORS
-                                                      or prev in LEADERS):
+        if tok in SEPARATORS:
+            expect, wrapper, skip = True, None, False
+            continue
+        if not expect:
+            continue
+        if skip:
+            skip = False
+            continue
+        if wrapper is not None:
+            if tok.startswith("-"):
+                skip = tok[-1:] in WRAPPERS[wrapper] and len(tok) == 2
+                continue
+            if ASSIGN.match(tok) or (wrapper == "timeout" and DURATION.match(tok)):
+                continue
+        if ASSIGN.match(tok):
+            continue
+        if tok in ("while", "until"):
+            depth += 1
+        if tok in KEYWORDS:
+            continue
+        if tok == "done":
+            depth = max(0, depth - 1)
+            expect = False
+            continue
+        name = os.path.basename(tok)
+        if name in WRAPPERS:
+            wrapper = name
+            continue
+        expect, wrapper = False, None
+        if name not in TOOLS:
             continue
         args = []
         for t in toks[i + 1:]:
@@ -98,16 +154,26 @@ def _scan(segment, command, loop):
             args.append(t)
         full, ancestors, pattern = _parse(args)
         if full and pattern and (ancestors or loop) and _matches(pattern, command):
-            return os.path.basename(tok), pattern
+            return name, pattern
     return None
+
+
+HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1([^\n]*)\n.*?\n[ \t]*\2[ \t]*(?=\n|$)",
+                     re.S)
+
+
+def _strip_heredocs(command):
+    """Drop heredoc bodies (data such as commit messages, not commands), keeping the line that
+    opened each one."""
+    return HEREDOC.sub(lambda m: "<<%s%s" % (m.group(2), m.group(3)), command)
 
 
 def self_matching(command):
     """(tool, pattern) of the first pgrep/pkill -f whose pattern matches its own shell on this
-    platform (or any self-matching wait loop), else None."""
+    platform (or any self-matching wait loop), else None. Heredoc bodies are not scanned."""
     if not isinstance(command, str) or not any(t in command for t in TOOLS):
         return None
-    return _scan(command, command, bool(LOOP.search(command)))
+    return _scan(_strip_heredocs(command), command, False)
 
 
 def reason_for(tool, pattern):

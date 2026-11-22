@@ -1,6 +1,9 @@
 <!-- TDD-SKIP -->
 ## [Unreleased]
 
+### Fixed
+- `wait_loop_guard`: a pgrep/pkill call counts as being in a wait loop only between its own `while`/`until` and `done`. On macOS, a one-shot call before or after a loop, or a `while` inside a quoted string, is no longer denied. Calls behind `NAME=value`, `timeout N`, `sudo -n` / `-u user`, `env`, `nice -n N` and similar wrappers, and inside nested `$(...)`, are now caught. Heredoc bodies (commit messages and other data) are no longer scanned as commands.
+
 ## [0.9.0] - 2026-11-22
 
 ### Added
